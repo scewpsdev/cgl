@@ -1,7 +1,7 @@
 #pragma once
 
 #include "input.h"
-#include "utils/Log.h"
+#include "cgl/utils/Log.h"
 
 
 enum TokenType : int
@@ -114,19 +114,20 @@ struct Token
 	int line, col;
 };
 
-struct SkContext;
+class CGLCompiler;
 
 struct Lexer
 {
 	Input input;
 	const char* filename;
 
-	SkContext* context;
+	CGLCompiler* context;
+
+
+	Lexer(CGLCompiler* context, const char* filename, const char* src);
+	~Lexer();
 };
 
-
-Lexer* CreateLexer(const char* src, const char* filename, SkContext* context);
-void DestroyLexer(Lexer* lexer);
 
 Token LexerNext(Lexer* lexer);
 Token LexerPeek(Lexer* lexer, int offset = 0);

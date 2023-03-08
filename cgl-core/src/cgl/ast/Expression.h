@@ -3,7 +3,7 @@
 #include "Element.h"
 #include "Type.h"
 
-#include "semantics/Type.h"
+#include "cgl/semantics/Type.h"
 
 
 struct Variable;

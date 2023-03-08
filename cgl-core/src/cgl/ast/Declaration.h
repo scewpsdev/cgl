@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Common.h"
+#include "cgl/Common.h"
 #include "Element.h"
 #include "Type.h"
 #include "Statement.h"
 #include "Expression.h"
 
-#include "utils/List.h"
-#include "semantics/Type.h"
+#include "cgl/utils/List.h"
+#include "cgl/semantics/Type.h"
 
 #include <stdint.h>
 
@@ -257,11 +257,11 @@ namespace AST
 
 	struct GlobalVariable : Declaration
 	{
-		Type* type;
+		Type* varType;
 		List<VariableDeclarator*> declarators;
 
 
-		GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* type, List<VariableDeclarator*>& declarators);
+		GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* varType, List<VariableDeclarator*>& declarators);
 		virtual ~GlobalVariable();
 
 		virtual Element* copy() override;

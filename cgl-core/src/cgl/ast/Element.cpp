@@ -1,10 +1,18 @@
+#include "pch.h"
 #include "Element.h"
 
-#include "parser/input.h"
+#include "cgl/parser/input.h"
 
 
 namespace AST
 {
+	const SourceLocation SourceLocation::None;
+
+
+	SourceLocation::SourceLocation()
+	{
+	}
+
 	SourceLocation::SourceLocation(const InputState& inputState)
 		: filename(inputState.filename), line(inputState.line), col(inputState.col)
 	{

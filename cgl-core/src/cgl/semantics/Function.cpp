@@ -1,9 +1,10 @@
+#include "pch.h"
 #include "Function.h"
 
 #include "Resolver.h"
-#include "ast/File.h"
-#include "ast/Declaration.h"
-#include "ast/Module.h"
+#include "cgl/ast/File.h"
+#include "cgl/ast/Declaration.h"
+#include "cgl/ast/Module.h"
 
 
 AST::Function* Resolver::findFunctionInFile(const char* name, AST::File* file)

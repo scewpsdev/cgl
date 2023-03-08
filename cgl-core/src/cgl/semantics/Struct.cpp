@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "Struct.h"
 
 #include "Resolver.h"
-#include "ast/Declaration.h"
+#include "cgl/ast/Declaration.h"
 
 
 AST::Struct* Resolver::findStructInFile(const char* name, AST::File* file)

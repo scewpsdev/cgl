@@ -3,7 +3,7 @@
 #include "Element.h"
 #include "Type.h"
 #include "Expression.h"
-#include "utils/List.h"
+#include "cgl/utils/List.h"
 
 #include <stdint.h>
 
@@ -85,9 +85,11 @@ namespace AST
 
 	struct VariableDeclaration : Statement
 	{
-		Type* varType;
+		Type* varTypeAST;
 		bool isConstant;
 		List<VariableDeclarator*> declarators;
+
+		TypeID varType = nullptr;
 
 
 		VariableDeclaration(File* file, const SourceLocation& location, Type* type, bool isConstant, List<VariableDeclarator*>& declarators);

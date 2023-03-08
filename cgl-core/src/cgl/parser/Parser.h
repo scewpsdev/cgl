@@ -12,19 +12,24 @@ namespace AST
 	struct File;
 }
 
+class CGLCompiler;
+
 class Parser
 {
 public:
-	Lexer* lexer;
+	CGLCompiler* context;
+	Lexer* lexer = nullptr;
 
-	// TODO rename to "file"
-	AST::File* module;
+	AST::File* module = nullptr;
 
-	bool failed;
+	bool failed = false;
 
 
-	Parser();
+	Parser(CGLCompiler* context);
 	~Parser();
 
 	AST::File* run(SourceFile& sourceFile);
+
+private:
+
 };

@@ -1,0 +1,4 @@
+module int;
+
+public const int min = -0x80000000;
+public const int max = 0x7fffffff;

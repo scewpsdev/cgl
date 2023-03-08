@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "Exprdef.h"
 
 #include "Resolver.h"
-#include "ast/Declaration.h"
+#include "cgl/ast/Declaration.h"
 
 
 AST::Exprdef* Resolver::findExprdefInFile(const char* name, AST::File* file)

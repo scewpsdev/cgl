@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Declaration.h"
 
 
@@ -448,15 +449,15 @@ namespace AST
 		return new Exprdef(file, location, flags, _strdup(name), (Expression*)alias->copy());
 	}
 
-	GlobalVariable::GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* type, List<VariableDeclarator*>& declarators)
-		: Declaration(file, location, DeclarationType::GlobalVariable, flags), type(type), declarators(declarators)
+	GlobalVariable::GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* varType, List<VariableDeclarator*>& declarators)
+		: Declaration(file, location, DeclarationType::GlobalVariable, flags), varType(varType), declarators(declarators)
 	{
 	}
 
 	GlobalVariable::~GlobalVariable()
 	{
-		if (type)
-			delete type;
+		if (varType)
+			delete varType;
 		for (int i = 0; i < declarators.size; i++)
 		{
 			if (declarators[i])
@@ -471,7 +472,7 @@ namespace AST
 		for (int i = 0; i < declarators.size; i++)
 			declaratorsCopy.add((VariableDeclarator*)declarators[i]->copy());
 
-		return new GlobalVariable(file, location, flags, (Type*)type->copy(), declaratorsCopy);
+		return new GlobalVariable(file, location, flags, (Type*)varType->copy(), declaratorsCopy);
 	}
 
 	ModuleDeclaration::ModuleDeclaration(File* file, const SourceLocation& location, DeclarationFlags flags, ModuleIdentifier identifier)

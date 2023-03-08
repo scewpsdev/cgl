@@ -80,6 +80,7 @@
 #define KEYWORD_FLOAT     "float"
 #define KEYWORD_DOUBLE    "double"
 #define KEYWORD_DECIMAL	  "decimal"
+#define KEYWORD_QUAD      "quad"
 
 #define KEYWORD_PTR       "Ptr"
 #define KEYWORD_ARRAY     "Array"

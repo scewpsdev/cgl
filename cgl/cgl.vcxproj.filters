@@ -21,5 +21,12 @@
     <ClCompile Include="src\cgl\backends\tcc\CodegenTCC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="test\test.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test\Main.cgl" />
+    <None Include="test\int.cgl" />
   </ItemGroup>
 </Project>

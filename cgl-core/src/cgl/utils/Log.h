@@ -84,4 +84,6 @@ enum MessageCode
 };
 
 
-MessageCallback_t GetMsgCallback(struct SkContext* context);
+class CGLCompiler;
+
+MessageCallback_t GetMsgCallback(CGLCompiler* context);

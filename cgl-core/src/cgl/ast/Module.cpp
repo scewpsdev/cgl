@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Module.h"
 
 
@@ -13,8 +14,8 @@ namespace AST
 		delete name;
 		for (Module* child : children)
 			delete child;
-		for (File* file : files)
-			delete file;
+		//for (File* file : files)
+		//	delete file;
 		DestroyList(children);
 		DestroyList(files);
 	}

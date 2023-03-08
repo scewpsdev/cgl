@@ -1,10 +1,12 @@
 #pragma once
 
+
 struct InputState;
 
 typedef void* ValueHandle;
 typedef void* ControlFlowHandle;
 typedef void* TypeHandle;
+
 
 namespace AST
 {
@@ -12,10 +14,14 @@ namespace AST
 
 	struct SourceLocation
 	{
+		static const SourceLocation None;
+
+
 		const char* filename = nullptr;
 		int line = 0, col = 0;
 
 
+		SourceLocation();
 		SourceLocation(const InputState& inputState);
 	};
 

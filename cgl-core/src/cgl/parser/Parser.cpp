@@ -1,29 +1,14 @@
+#include "pch.h"
 #include "Parser.h"
 
-#include "Snek.h"
 #include "Lexer.h"
-#include "ast/File.h"
-#include "utils/Log.h"
-#include "utils/Stringbuffer.h"
+#include "cgl/ast/File.h"
+#include "cgl/utils/Log.h"
+#include "cgl/utils/Stringbuffer.h"
 
 #include <string.h>
 #include <stdlib.h>
 
-
-Parser* CreateParser(SkContext* context)
-{
-	Parser* parser = new Parser();
-
-	parser->context = context;
-	parser->failed = false;
-
-	return parser;
-}
-
-void DestroyParser(Parser* parser)
-{
-	delete parser;
-}
 
 static InputState GetInputState(Parser* parser)
 {
@@ -150,10 +135,16 @@ static AST::Type* ParseElementType(Parser* parser)
 		case KEYWORD_TYPE_UINT64:
 			return new AST::IntegerType(parser->module, inputState, 64, false);
 
+		case KEYWORD_TYPE_FLOAT16:
+			return new AST::FloatingPointType(parser->module, inputState, 16);
 		case KEYWORD_TYPE_FLOAT32:
 			return new AST::FloatingPointType(parser->module, inputState, 32);
 		case KEYWORD_TYPE_FLOAT64:
 			return new AST::FloatingPointType(parser->module, inputState, 64);
+		case KEYWORD_TYPE_FLOAT80:
+			return new AST::FloatingPointType(parser->module, inputState, 80);
+		case KEYWORD_TYPE_FLOAT128:
+			return new AST::FloatingPointType(parser->module, inputState, 128);
 
 		case KEYWORD_TYPE_BOOL:
 			return new AST::BooleanType(parser->module, inputState);
@@ -1091,6 +1082,7 @@ static AST::Statement* ParseStatement(Parser* parser)
 		while (HasNext(parser) && !NextTokenIs(parser, '}'))
 		{
 			AST::Statement* statement = ParseStatement(parser);
+			SnekAssert(statement);
 			statements.add(statement);
 		}
 
@@ -1228,41 +1220,59 @@ static AST::Statement* ParseStatement(Parser* parser)
 
 		return new AST::Free(parser->module, inputState, values);
 	}
-	else if (AST::Type* type = ParseType(parser))
+	else
 	{
-		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+		bool isConstant = false;
+		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
 		{
-			List<AST::VariableDeclarator*> declarators;
+			NextToken(parser); // const
+			isConstant = true;
+		}
 
-			bool upcomingDeclarator = true;
-			while (HasNext(parser) && upcomingDeclarator)
+		AST::Type* type = ParseType(parser);
+		bool isAutoType = false;
+		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
+		{
+			NextToken(parser); // var
+			isAutoType = true;
+		}
+
+		if (type || isAutoType)
+		{
+			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
 			{
-				InputState inputState = GetInputState(parser);
+				List<AST::VariableDeclarator*> declarators;
 
-				char* name = GetTokenString(NextToken(parser));
-				AST::Expression* value = NULL;
-
-				if (NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS))
+				bool upcomingDeclarator = true;
+				while (HasNext(parser) && upcomingDeclarator)
 				{
-					NextToken(parser); // =
-					value = ParseExpression(parser);
+					InputState inputState = GetInputState(parser);
+
+					char* name = GetTokenString(NextToken(parser));
+					AST::Expression* value = NULL;
+
+					if (NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS))
+					{
+						NextToken(parser); // =
+						value = ParseExpression(parser);
+					}
+
+					upcomingDeclarator = NextTokenIs(parser, ',');
+					if (upcomingDeclarator)
+						SkipToken(parser, ',');
+
+					AST::VariableDeclarator* declarator = new AST::VariableDeclarator(parser->module, inputState, name, value);
+					declarators.add(declarator);
 				}
 
-				upcomingDeclarator = NextTokenIs(parser, ',');
-				if (upcomingDeclarator)
-					SkipToken(parser, ',');
+				SkipToken(parser, ';');
 
-				AST::VariableDeclarator* declarator = new AST::VariableDeclarator(parser->module, inputState, name, value);
-				declarators.add(declarator);
+				return new AST::VariableDeclaration(parser->module, inputState, type, isConstant, declarators);
 			}
-
-			SkipToken(parser, ';');
-
-			return new AST::VariableDeclaration(parser->module, inputState, type, false, declarators);
-		}
-		else
-		{
-			SetInputState(parser, inputState);
+			else
+			{
+				SetInputState(parser, inputState);
+			}
 		}
 	}
 	if (AST::Expression* expression = ParseExpression(parser))
@@ -2036,48 +2046,57 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 	return nullptr;
 }
 
-static AST::File* ParseModule(Parser* parser, SourceFile* file, char* moduleName, int moduleID)
+Parser::Parser(CGLCompiler* context)
+	: context(context)
 {
-	AST::File* ast = new AST::File(moduleName, moduleID, file);
+}
 
-	parser->module = ast;
-	parser->lexer = CreateLexer(file->src, file->filename, parser->context);
+Parser::~Parser()
+{
+}
 
-	while (HasNext(parser))
+AST::File* Parser::run(SourceFile& sourceFile)
+{
+	AST::File* file = new AST::File(sourceFile.name, 0, &sourceFile);
+
+	module = file;
+	lexer = new Lexer(context, sourceFile.filename, sourceFile.source);
+
+	while (HasNext(this))
 	{
-		if (AST::Declaration* decl = ParseDeclaration(parser))
+		if (AST::Declaration* decl = ParseDeclaration(this))
 		{
 			switch (decl->type)
 			{
 			case AST::DeclarationType::Function:
-				ast->functions.add((AST::Function*)decl);
+				file->functions.add((AST::Function*)decl);
 				break;
 			case AST::DeclarationType::Struct:
-				ast->structs.add((AST::Struct*)decl);
+				file->structs.add((AST::Struct*)decl);
 				break;
 			case AST::DeclarationType::Class:
-				ast->classes.add((AST::Class*)decl);
+				file->classes.add((AST::Class*)decl);
 				break;
 			case AST::DeclarationType::Typedef:
-				ast->typedefs.add((AST::Typedef*)decl);
+				file->typedefs.add((AST::Typedef*)decl);
 				break;
 			case AST::DeclarationType::Enumeration:
-				ast->enums.add((AST::Enum*)decl);
+				file->enums.add((AST::Enum*)decl);
 				break;
 			case AST::DeclarationType::Exprdef:
-				ast->exprdefs.add((AST::Exprdef*)decl);
+				file->exprdefs.add((AST::Exprdef*)decl);
 				break;
 			case AST::DeclarationType::GlobalVariable: {
 				AST::GlobalVariable* global = (AST::GlobalVariable*)decl;
-				ast->globals.add(global);
+				file->globals.add(global);
 
 				for (int i = 1; i < global->declarators.size; i++)
 				{
 					AST::VariableDeclarator* declarator = global->declarators[i];
 					List<AST::VariableDeclarator*> declaratorList;
 					declaratorList.add(declarator);
-					AST::GlobalVariable* next = new AST::GlobalVariable(declarator->file, declarator->location, global->flags, (AST::Type*)global->type->copy(), declaratorList);
-					ast->globals.add(next);
+					AST::GlobalVariable* next = new AST::GlobalVariable(declarator->file, declarator->location, global->flags, (AST::Type*)global->varType->copy(), declaratorList);
+					file->globals.add(next);
 				}
 
 				while (global->declarators.size > 1)
@@ -2086,13 +2105,13 @@ static AST::File* ParseModule(Parser* parser, SourceFile* file, char* moduleName
 				break;
 			}
 			case AST::DeclarationType::Module:
-				ast->moduleDecl = (AST::ModuleDeclaration*)decl;
+				file->moduleDecl = (AST::ModuleDeclaration*)decl;
 				break;
 			case AST::DeclarationType::Namespace:
-				ast->namespaceDecl = (AST::NamespaceDeclaration*)decl;
+				file->namespaceDecl = (AST::NamespaceDeclaration*)decl;
 				break;
 			case AST::DeclarationType::Import:
-				ast->imports.add((AST::Import*)decl);
+				file->imports.add((AST::Import*)decl);
 				break;
 			default:
 				SnekAssert(false);
@@ -2101,19 +2120,5 @@ static AST::File* ParseModule(Parser* parser, SourceFile* file, char* moduleName
 		}
 	}
 
-	return ast;
-}
-
-AST::File* Parser::run(SourceFile& sourceFile)
-{
-	// TODO multithreading
-	parser->failed = false;
-
-	for (int i = 0; i < parser->context->sourceFiles.size; i++)
-	{
-		SourceFile* file = &parser->context->sourceFiles[i];
-		parser->context->asts[i] = ParseModule(parser, file, file->moduleName, i);
-	}
-
-	return !parser->failed;
+	return file;
 }

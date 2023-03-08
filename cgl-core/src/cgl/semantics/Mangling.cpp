@@ -1,13 +1,14 @@
+#include "pch.h"
 #include "Mangling.h"
 
-#include "semantics/Resolver.h"
-#include "ast/Declaration.h"
-#include "ast/File.h"
-#include "ast/Module.h"
+#include "cgl/semantics/Resolver.h"
+#include "cgl/ast/Declaration.h"
+#include "cgl/ast/File.h"
+#include "cgl/ast/Module.h"
 
-#include "utils/Stringbuffer.h"
-#include "utils/Log.h"
-#include "utils/Hash.h"
+#include "cgl/utils/Stringbuffer.h"
+#include "cgl/utils/Log.h"
+#include "cgl/utils/Hash.h"
 
 #include <string.h>
 
@@ -125,6 +126,29 @@ char* MangleFunctionName(AST::Function* function)
 				MangleType(function->genericTypeArguments[i], result);
 			}
 		}
+
+		return result.buffer;
+	}
+}
+
+char* MangleGlobalName(AST::GlobalVariable* variable, AST::VariableDeclarator* declarator)
+{
+	bool isExtern = HasFlag(variable->flags, AST::DeclarationFlags::Extern);
+
+	if (isExtern)
+	{
+		return _strdup(declarator->name);
+	}
+	else
+	{
+		StringBuffer result = CreateStringBuffer(4);
+		AST::Module* module = variable->file->module;
+		if (module->parent)
+		{
+			AppendModuleName(module, result);
+			StringBufferAppend(result, "__");
+		}
+		StringBufferAppend(result, declarator->name);
 
 		return result.buffer;
 	}

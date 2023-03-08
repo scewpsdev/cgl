@@ -1,11 +1,11 @@
 #pragma once
 
-#include "ast/Element.h"
-#include "ast/Module.h"
-#include "ast/File.h"
-#include "ast/Declaration.h"
+#include "cgl/ast/Element.h"
+#include "cgl/ast/Module.h"
+#include "cgl/ast/File.h"
+#include "cgl/ast/Declaration.h"
 
-#include "semantics/Type.h"
+#include "cgl/semantics/Type.h"
 
 
 struct Variable
@@ -24,7 +24,7 @@ struct Variable
 	ValueHandle allocHandle = nullptr;
 
 
-	Variable(AST::File* file, char* name, TypeID type, AST::Expression* value, bool isConstant, AST::Visibility visibility);
+	Variable(AST::File* file, char* name, char* mangledName, TypeID type, AST::Expression* value, bool isConstant, AST::Visibility visibility);
 	~Variable();
 };
 

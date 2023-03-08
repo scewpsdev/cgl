@@ -11,5 +11,11 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <string>
+#include <sstream>
+#include <iostream>
+
+#include "cgl/utils/Log.h"
+#include "cgl/utils/List.h"
 
 #endif //PCH_H

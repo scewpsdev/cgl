@@ -1,8 +1,8 @@
+#include "pch.h"
 #include "Expression.h"
 
-#include "utils/Log.h"
-
-#include "semantics/Variable.h"
+#include "cgl/utils/Log.h"
+#include "cgl/semantics/Variable.h"
 
 #include <stdint.h>
 

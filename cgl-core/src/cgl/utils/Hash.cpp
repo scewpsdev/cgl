@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Hash.h"
 
 #include <string.h>

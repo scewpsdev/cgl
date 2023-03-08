@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "Enum.h"
 
 #include "Resolver.h"
-#include "ast/Declaration.h"
+#include "cgl/ast/Declaration.h"
 
 
 AST::Enum* Resolver::findEnumInFile(const char* name, AST::File* file)

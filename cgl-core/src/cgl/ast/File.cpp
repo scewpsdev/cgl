@@ -1,13 +1,14 @@
+#include "pch.h"
 #include "File.h"
 
-#include "utils/Log.h"
+#include "cgl/utils/Log.h"
 
 #include <stdlib.h>
 
 
 namespace AST
 {
-	File::File(char* name, int moduleID, SourceFile* sourceFile)
+	File::File(const char* name, int moduleID, SourceFile* sourceFile)
 		: name(name), moduleID(moduleID), sourceFile(sourceFile)
 	{
 		functions = CreateList<Function*>();

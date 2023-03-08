@@ -1,12 +1,14 @@
+#include "pch.h"
 #include "Type.h"
 
 #include "Resolver.h"
-#include "utils/Log.h"
-#include "utils/Stringbuffer.h"
 
-#include "ast/File.h"
-#include "ast/Declaration.h"
-#include "ast/Statement.h"
+#include "cgl/utils/Log.h"
+#include "cgl/utils/Stringbuffer.h"
+
+#include "cgl/ast/File.h"
+#include "cgl/ast/Declaration.h"
+#include "cgl/ast/Statement.h"
 
 #include <map>
 
@@ -712,7 +714,7 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 	else if (argType->typeKind == AST::TypeKind::Pointer && paramType->typeKind == AST::TypeKind::String)
 	{
 		//if (argIsConstant)
-		//return true;
+		return true;
 	}
 	else if (argType->typeKind == AST::TypeKind::String && paramType->typeKind == AST::TypeKind::Pointer && paramType->pointerType.elementType->typeKind == AST::TypeKind::Integer && paramType->pointerType.elementType->integerType.bitWidth == 8)
 	{

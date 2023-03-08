@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Type.h"
 
 #include "Declaration.h"

@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "Lexer.h"
 
 #include "Keywords.h"
-#include "utils/Log.h"
+#include "cgl/utils/Log.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -91,6 +92,7 @@ static const std::map<std::string, KeywordType> keywords =
 	{ KEYWORD_FLOAT, KEYWORD_TYPE_FLOAT32 },
 	{ KEYWORD_DOUBLE, KEYWORD_TYPE_FLOAT64 },
 	{ KEYWORD_DECIMAL, KEYWORD_TYPE_FLOAT80 },
+	{ KEYWORD_QUAD, KEYWORD_TYPE_FLOAT128 },
 
 	{ KEYWORD_STRING, KEYWORD_TYPE_STRING },
 	{ KEYWORD_PTR, KEYWORD_TYPE_PTR },
@@ -99,21 +101,15 @@ static const std::map<std::string, KeywordType> keywords =
 };
 
 
-Lexer* CreateLexer(const char* src, const char* filename, SkContext* context)
+Lexer::Lexer(CGLCompiler* context, const char* filename, const char* src)
+	: context(context), filename(filename)
 {
-	Lexer* lexer = new Lexer();
-
-	lexer->input = CreateInput(src, filename);
-	lexer->filename = filename;
-
-	lexer->context = context;
-
-	return lexer;
+	input = CreateInput(src, filename);
 }
 
-void DestroyLexer(Lexer* lexer)
+Lexer::~Lexer()
 {
-	DestroyInput(&lexer->input);
+	DestroyInput(&input);
 }
 
 static bool nextIsWhitespace(Lexer* lexer)

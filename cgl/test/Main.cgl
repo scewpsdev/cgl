@@ -1,0 +1,31 @@
+import int;
+
+
+externc func putchar(char c);
+
+func print(string s) {
+	for (i, 0..s.length) {
+		putchar(s[i]);
+	}
+}
+
+func println(string s) {
+	print(s);
+	putchar('\n');
+}
+
+public func main() {
+	const var maximumNumberOfLoginAttempts = 10;
+	int currentLoginAttempt = 0;
+
+	var x = 0.0, y = 0.0, z = 0.0;
+	float f;
+	double d;
+
+	string friendlyWelcome = "Hello!";
+	friendlyWelcome = "Bonjour!";
+
+	println(friendlyWelcome);
+
+	int i0 = int.min, i1 = int.max;
+}

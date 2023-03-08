@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "Typedef.h"
 
 #include "Resolver.h"
-#include "ast/Declaration.h"
+#include "cgl/ast/Declaration.h"
 
 
 AST::Typedef* Resolver::findTypedefInFile(const char* name, AST::File* file)

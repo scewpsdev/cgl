@@ -1,13 +1,13 @@
 #pragma once
 
 #include "Type.h"
-#include "ast/Declaration.h"
-#include "utils/List.h"
+
+#include "cgl/ast/Declaration.h"
+#include "cgl/utils/List.h"
 
 #include <map>
 
 
-struct SkContext;
 struct Variable;
 
 namespace AST
@@ -30,9 +30,12 @@ struct Scope
 	List<Variable*> localVariables;
 };
 
+class CGLCompiler;
+
 struct Resolver
 {
-	SkContext* context;
+	CGLCompiler* context;
+	List<AST::File*>& asts;
 
 	AST::Module* globalNamespace = nullptr;
 
@@ -45,7 +48,7 @@ struct Resolver
 
 	Scope* scope = nullptr;
 
-	Resolver(SkContext* context);
+	Resolver(CGLCompiler* context, List<AST::File*>& asts);
 	~Resolver();
 
 	bool run();

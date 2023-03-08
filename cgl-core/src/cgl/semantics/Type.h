@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/List.h"
+#include "cgl/utils/List.h"
 
 #include <stdint.h>
 
@@ -28,6 +28,7 @@ enum class FloatingPointPrecision
 	Half = 16,
 	Single = 32,
 	Double = 64,
+	Decimal = 80,
 	Quad = 128,
 };
 

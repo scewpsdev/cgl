@@ -2,21 +2,20 @@
 
 #include "Type.h"
 #include "Declaration.h"
-#include "utils/List.h"
+#include "cgl/utils/List.h"
 
 
-struct SourceFile;
+class SourceFile;
 
 namespace AST
 {
 	struct Module;
-	struct File;
 	struct Expression;
 
 
 	struct File
 	{
-		char* name;
+		const char* name;
 		int moduleID;
 		SourceFile* sourceFile;
 
@@ -38,6 +37,6 @@ namespace AST
 		List<Module*> dependencies;
 
 
-		File(char* name, int moduleID, SourceFile* sourceFile);
+		File(const char* name, int moduleID, SourceFile* sourceFile);
 	};
 }

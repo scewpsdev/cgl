@@ -1,14 +1,15 @@
+#include "pch.h"
 #include "Variable.h"
 
 #include "Resolver.h"
+#include "Mangling.h"
 
-#include "utils/Log.h"
+#include "cgl/utils/Log.h"
 
 
-Variable::Variable(AST::File* file, char* name, TypeID type, AST::Expression* value, bool isConstant, AST::Visibility visibility)
-	: file(file), name(name), type(type), value(value), isConstant(isConstant), visibility(visibility)
+Variable::Variable(AST::File* file, char* name, char* mangledName, TypeID type, AST::Expression* value, bool isConstant, AST::Visibility visibility)
+	: file(file), name(name), mangledName(mangledName), type(type), value(value), isConstant(isConstant), visibility(visibility)
 {
-	mangledName = _strdup(name); // TODO Mangle
 }
 
 Variable::~Variable()

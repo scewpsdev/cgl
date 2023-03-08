@@ -5,35 +5,45 @@
 #include "semantics/Resolver.h"
 
 
-void CGLCompiler::init()
+void CGLCompiler::init(MessageCallback_t msgCallback)
 {
+	this->msgCallback = msgCallback;
 }
 
 void CGLCompiler::terminate()
 {
+	for (AST::File* file : asts)
+		delete file;
+	DestroyList(asts);
 }
 
-void CGLCompiler::addFile(const char* src)
+void CGLCompiler::addFile(const char* filename, const char* name, const char* src)
 {
 	SourceFile sourceFile;
+	sourceFile.filename = filename;
+	sourceFile.name = name;
 	sourceFile.source = src;
-	sourceFiles.push_back(sourceFile);
+	sourceFiles.add(sourceFile);
 }
 
 bool CGLCompiler::compile()
 {
-	std::vector<AST::File*> asts;
-	asts.reserve(sourceFiles.size());
+	asts.reserve(sourceFiles.size);
 
-	Parser parser;
+	bool success = true;
+
+	Parser parser(this);
 	for (SourceFile& sourceFile : sourceFiles)
 	{
-		AST::File* ast = parser.run(sourceFile);
-		asts.push_back(ast);
+		// TODO multithreading
+		if (AST::File* ast = parser.run(sourceFile))
+			asts.add(ast);
+		else
+			success = false;
 	}
 
-	Resolver resolver;
-	resolver.run(asts);
+	Resolver resolver(this, asts);
+	success = resolver.run() && success;
 
-	return true;
+	return success;
 }

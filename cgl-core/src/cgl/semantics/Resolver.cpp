@@ -1,10 +1,12 @@
+#include "pch.h"
 #include "Resolver.h"
 
-#include "Snek.h"
 #include "Variable.h"
 #include "Type.h"
 #include "Mangling.h"
-#include "utils/Utils.h"
+
+#include "cgl/utils/Utils.h"
+#include "cgl/utils/Log.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -163,17 +165,26 @@ static bool ResolveFPType(Resolver* resolver, AST::FloatingPointType* type)
 	switch (type->bitWidth)
 	{
 	case 16:
-		type->typeID = GetFloatingPointType(FloatingPointPrecision::Half);
-		return true;
+		SnekError(resolver->context, type->location, ERROR_CODE_UNDEFINED_TYPE, "16 bit floating point not supported");
+		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Half);
+		type->typeID = GetFloatingPointType(FloatingPointPrecision::Single);
+		return false;
 	case 32:
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Single);
 		return true;
 	case 64:
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
 		return true;
+	case 80:
+		SnekError(resolver->context, type->location, ERROR_CODE_UNDEFINED_TYPE, "80 bit floating point not supported");
+		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Decimal);
+		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
+		return false;
 	case 128:
-		type->typeID = GetFloatingPointType(FloatingPointPrecision::Quad);
-		return true;
+		SnekError(resolver->context, type->location, ERROR_CODE_UNDEFINED_TYPE, "128 bit floating point not supported");
+		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Quad);
+		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
+		return false;
 	default:
 		SnekAssert(false);
 		return false;
@@ -423,38 +434,20 @@ static bool ResolveType(Resolver* resolver, AST::Type* type)
 
 static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 {
-	if (expr->value < 0)
+	if (expr->value > INT64_MAX)
 	{
-		if (expr->value >= INT8_MIN)
-			return GetIntegerType(8, true);
-		else if (expr->value >= INT16_MIN)
-			return GetIntegerType(16, true);
-		else if (expr->value >= INT32_MIN)
-			return GetIntegerType(32, true);
-		else if (expr->value >= INT64_MIN)
-			return GetIntegerType(64, true);
-		else
-		{
-			SnekAssert(false);
-			return nullptr;
-		}
-	}
-	else
-	{
-		if (expr->value <= UINT8_MAX)
-			return GetIntegerType(8, false);
-		else if (expr->value <= UINT16_MAX)
-			return GetIntegerType(16, false);
-		else if (expr->value <= UINT32_MAX)
-			return GetIntegerType(32, false);
-		else if (expr->value <= UINT64_MAX)
+		if (expr->value >= 0 && expr->value <= UINT64_MAX)
 			return GetIntegerType(64, false);
 		else
 		{
-			SnekAssert(false);
+			SnekError(resolver->context, expr->location, ERROR_CODE_INVALID_LITERAL, "Integer value too big to fit into a 64 bit integer type");
 			return nullptr;
 		}
 	}
+	else if (expr->value > INT32_MAX)
+		return GetIntegerType(64, true);
+	else
+		return GetIntegerType(32, true);
 }
 
 static bool ResolveIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
@@ -495,7 +488,7 @@ static bool ResolveNullLiteral(Resolver* resolver, AST::NullLiteral* expr)
 static bool ResolveStringLiteral(Resolver* resolver, AST::StringLiteral* expr)
 {
 	//expr->valueType = GetStringType(expr->length + 1);
-	expr->valueType = GetStringType();
+	expr->valueType = GetPointerType(GetIntegerType(8, true));
 	expr->lvalue = true;
 	return true;
 }
@@ -1047,9 +1040,9 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 /*
 static AstModule* GetModuleFromNamespace(Resolver* resolver, const char* nameSpace)
 {
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AstModule* module = resolver->context->asts[i];
+		AstModule* module = resolver->asts[i];
 		if (module->nameSpace && strcmp(module->nameSpace, nameSpace) == 0)
 			return module;
 	}
@@ -1628,15 +1621,23 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 		case AST::BinaryOperatorType::BitwiseXorEquals:
 			if (expr->left->lvalue)
 			{
-				if (CanConvertImplicit(expr->right->valueType, expr->left->valueType, expr->right->isConstant()))
+				if (!expr->left->isConstant())
 				{
-					expr->valueType = expr->left->valueType;
-					expr->lvalue = true;
-					return true;
+					if (CanConvertImplicit(expr->right->valueType, expr->left->valueType, expr->right->isConstant()))
+					{
+						expr->valueType = expr->left->valueType;
+						expr->lvalue = true;
+						return true;
+					}
+					else
+					{
+						SnekError(resolver->context, expr->left->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(expr->right->valueType), GetTypeString(expr->left->valueType));
+						return false;
+					}
 				}
 				else
 				{
-					SnekError(resolver->context, expr->left->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(expr->right->valueType), GetTypeString(expr->left->valueType));
+					SnekError(resolver->context, expr->left->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign to constant value");
 					return false;
 				}
 			}
@@ -1753,53 +1754,61 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 {
 	bool result = true;
 
-	if (ResolveType(resolver, statement->varType))
+	if (statement->varTypeAST)
 	{
-		for (int i = 0; i < statement->declarators.size; i++)
-		{
-			AST::VariableDeclarator* declarator = statement->declarators[i];
-
-			// Check if variable with that name already exists in the current function
-			if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
-			{
-				AST::Element* declaration = variableWithSameName->declaration;
-				SnekWarn(resolver->context, statement->location, ERROR_CODE_VARIABLE_SHADOWING, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
-			}
-
-			if (declarator->value)
-			{
-				if (ResolveExpression(resolver, declarator->value))
-				{
-					if (declarator->value->type == AST::ExpressionType::InitializerList && statement->varType->typeKind == AST::TypeKind::Array)
-					{
-						AST::InitializerList* initializerList = (AST::InitializerList*)declarator->value;
-						TypeID arrayType = statement->varType->typeID;
-						initializerList->initializerType = arrayType;
-						initializerList->valueType = arrayType;
-					}
-					else if (declarator->value->valueType && declarator->value->valueType->typeKind == AST::TypeKind::Pointer && CompareTypes(declarator->value->valueType->pointerType.elementType, statement->varType->typeID))
-						;
-					else if (!CanConvertImplicit(declarator->value->valueType, statement->varType->typeID, declarator->value->isConstant()))
-					{
-						SnekError(resolver->context, statement->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(declarator->value->valueType), GetTypeString(statement->varType->typeID));
-						result = false;
-						//SnekError(resolver->context, statement->location, ERROR_CODE_INVALID_CAST, "Can't assign ");
-					}
-				}
-				else
-				{
-					result = false;
-				}
-			}
-
-			Variable* variable = new Variable(declarator->file, declarator->name, statement->varType->typeID, declarator->value, statement->isConstant, AST::Visibility::Null);
-			declarator->variable = variable;
-			resolver->registerLocalVariable(variable, statement);
-		}
+		result = ResolveType(resolver, statement->varTypeAST) && result;
+		statement->varType = statement->varTypeAST->typeID;
 	}
-	else
+	for (int i = 0; i < statement->declarators.size; i++)
 	{
-		result = false;
+		AST::VariableDeclarator* declarator = statement->declarators[i];
+
+		// Check if variable with that name already exists in the current function
+		if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
+		{
+			AST::Element* declaration = variableWithSameName->declaration;
+			SnekWarn(resolver->context, statement->location, ERROR_CODE_VARIABLE_SHADOWING, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
+		}
+
+		if (declarator->value)
+		{
+			if (ResolveExpression(resolver, declarator->value))
+			{
+				if (!statement->varType)
+					statement->varType = declarator->value->valueType;
+
+				if (declarator->value->type == AST::ExpressionType::InitializerList && statement->varType->typeKind == AST::TypeKind::Array)
+				{
+					AST::InitializerList* initializerList = (AST::InitializerList*)declarator->value;
+					TypeID arrayType = statement->varType;
+					initializerList->initializerType = arrayType;
+					initializerList->valueType = arrayType;
+				}
+				else if (declarator->value->valueType && declarator->value->valueType->typeKind == AST::TypeKind::Pointer && CompareTypes(declarator->value->valueType->pointerType.elementType, statement->varType))
+					;
+				else if (!CanConvertImplicit(declarator->value->valueType, statement->varType, declarator->value->isConstant()))
+				{
+					SnekError(resolver->context, statement->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(declarator->value->valueType), GetTypeString(statement->varType));
+					result = false;
+					//SnekError(resolver->context, statement->location, ERROR_CODE_INVALID_CAST, "Can't assign ");
+				}
+			}
+			else
+			{
+				result = false;
+			}
+		}
+		else
+		{
+			if (!statement->varType)
+			{
+				SnekError(resolver->context, statement->location, ERROR_CODE_UNDEFINED_TYPE, "Variable '%s' with inferred type must have a default value", declarator->name);
+			}
+		}
+
+		Variable* variable = new Variable(declarator->file, _strdup(declarator->name), _strdup(declarator->name), statement->varType, declarator->value, statement->isConstant, AST::Visibility::Null);
+		declarator->variable = variable;
+		resolver->registerLocalVariable(variable, statement);
 	}
 
 	return result;
@@ -1864,7 +1873,7 @@ static bool ResolveForLoop(Resolver* resolver, AST::ForLoop* statement)
 	}
 
 	//statement->iterator = RegisterLocalVariable(resolver, GetIntegerType(32, true), statement->startValue, statement->iteratorName, false, resolver->file, statement->location);
-	Variable* iterator = new Variable(statement->file, statement->iteratorName->name, GetIntegerType(32, true), statement->startValue, false, AST::Visibility::Null);
+	Variable* iterator = new Variable(statement->file, _strdup(statement->iteratorName->name), _strdup(statement->iteratorName->name), GetIntegerType(32, true), statement->startValue, false, AST::Visibility::Null);
 	statement->iterator = iterator;
 	resolver->registerLocalVariable(iterator, statement->iteratorName);
 
@@ -2015,7 +2024,7 @@ static bool CheckEntrypointDecl(Resolver* resolver, AST::Function* function)
 	}
 	if (!(!function->returnType || function->returnType->typeKind == AST::TypeKind::Void || function->returnType->typeKind == AST::TypeKind::Integer && function->returnType->typeID->integerType.bitWidth == 32 && function->returnType->typeID->integerType.isSigned))
 	{
-		SnekError(resolver->context, function->location, ERROR_CODE_ENTRY_POINT_DECLARATION, "Entry point must return void");
+		SnekError(resolver->context, function->location, ERROR_CODE_ENTRY_POINT_DECLARATION, "Entry point must return void or int");
 		return false;
 	}
 	if (function->paramTypes.size > 0)
@@ -2131,7 +2140,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 			for (int i = 0; i < decl->paramTypes.size; i++)
 			{
-				Variable* variable = new Variable(decl->file, decl->paramNames[i], decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+				Variable* variable = new Variable(decl->file, decl->paramNames[i], decl->paramNames[i], decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
 				decl->paramVariables[i] = variable;
 				resolver->registerLocalVariable(variable, decl->paramTypes[i]);
 				//RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
@@ -2366,14 +2375,14 @@ static bool ResolveClassMethod(Resolver* resolver, AST::Function* decl)
 	decl->paramVariables.resize(decl->paramTypes.size);
 
 	//decl->instanceVariable = RegisterLocalVariable(resolver, decl->instanceType, NULL, "this", false, resolver->file, decl->location);
-	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), decl->returnType->typeID, nullptr, false, AST::Visibility::Null);
+	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), _strdup("this"), decl->returnType->typeID, nullptr, false, AST::Visibility::Null);
 	decl->instanceVariable = instanceVariable;
 	resolver->registerLocalVariable(instanceVariable, decl);
 
 	for (int i = 0; i < decl->paramTypes.size; i++)
 	{
 		//Variable* variable = RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
-		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
 		decl->paramVariables[i] = variable;
 		resolver->registerLocalVariable(variable, decl->paramTypes[i]);
 	}
@@ -2404,13 +2413,13 @@ static bool ResolveClassConstructor(Resolver* resolver, AST::Constructor* decl)
 	decl->paramVariables.resize(decl->paramTypes.size);
 
 	//decl->instanceVariable = RegisterLocalVariable(resolver, decl->instanceType, NULL, "this", false, resolver->file, decl->location);
-	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), decl->instanceType, nullptr, false, AST::Visibility::Null);
+	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), _strdup("this"), decl->instanceType, nullptr, false, AST::Visibility::Null);
 	decl->instanceVariable = instanceVariable;
 	resolver->registerLocalVariable(instanceVariable, decl);
 	for (int i = 0; i < decl->paramTypes.size; i++)
 	{
 		//Variable* variable = RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->location);
-		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
 		decl->paramVariables[i] = variable;
 		resolver->registerLocalVariable(variable, decl->paramTypes[i]);
 	}
@@ -2524,7 +2533,7 @@ static bool ResolveGlobalHeader(Resolver* resolver, AST::GlobalVariable* decl)
 
 	bool result = true;
 
-	result = ResolveType(resolver, decl->type) && result;
+	result = ResolveType(resolver, decl->varType) && result;
 
 	AST::Visibility visibility = GetVisibilityFromFlags(decl->flags);
 	decl->visibility = visibility;
@@ -2532,7 +2541,7 @@ static bool ResolveGlobalHeader(Resolver* resolver, AST::GlobalVariable* decl)
 	{
 		AST::VariableDeclarator* declarator = decl->declarators[i];
 		//decl->variable = RegisterGlobalVariable(resolver, decl->type->typeID, decl->value, decl->name, decl->flags & DECL_FLAG_CONSTANT, visibility, resolver->file, decl);
-		Variable* variable = new Variable(decl->file, _strdup(declarator->name), decl->type->typeID, declarator->value, HasFlag(decl->flags, AST::DeclarationFlags::Constant), visibility);
+		Variable* variable = new Variable(decl->file, _strdup(declarator->name), MangleGlobalName(decl, declarator), decl->varType->typeID, declarator->value, HasFlag(decl->flags, AST::DeclarationFlags::Constant), visibility);
 		resolver->registerGlobalVariable(variable, decl);
 		declarator->variable = variable;
 	}
@@ -2555,9 +2564,9 @@ static bool ResolveGlobal(Resolver* resolver, AST::GlobalVariable* decl)
 		{
 			if (ResolveExpression(resolver, declarator->value))
 			{
-				if (!CanConvertImplicit(declarator->value->valueType, decl->type->typeID, declarator->value->isConstant()))
+				if (!CanConvertImplicit(declarator->value->valueType, decl->varType->typeID, declarator->value->isConstant()))
 				{
-					SnekError(resolver->context, decl->location, ERROR_CODE_GLOBAL_TYPE_MISMATCH, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->type->typeID), GetTypeString(declarator->value->valueType));
+					SnekError(resolver->context, decl->location, ERROR_CODE_GLOBAL_TYPE_MISMATCH, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
 					result = false;
 				}
 				if (HasFlag(decl->flags, AST::DeclarationFlags::Extern))
@@ -2715,9 +2724,9 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 {
 	bool result = true;
 
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 
 		if (ast->moduleDecl)
@@ -2738,74 +2747,74 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 
 		ast->module->files.add(ast);
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->imports.size; j++)
 		{
 			result = ResolveImport(resolver, ast->imports[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->globals.size; j++)
 		{
-			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->type->typeKind);
+			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->varType->typeKind);
 			if (isPrimitiveConstant)
 				result = ResolveGlobalHeader(resolver, ast->globals[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->enums.size; j++)
 		{
 			result = ResolveEnumHeader(resolver, ast->enums[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->structs.size; j++)
 		{
 			result = ResolveStructHeader(resolver, ast->structs[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->classes.size; j++)
 		{
 			result = ResolveClassHeader(resolver, ast->classes[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->typedefs.size; j++)
 		{
 			result = ResolveTypedefHeader(resolver, ast->typedefs[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->exprdefs.size; j++)
 		{
 			result = ResolveExprdefHeader(resolver, ast->exprdefs[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->functions.size; j++)
 		{
@@ -2816,13 +2825,13 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 			result = ResolveClassProcedureHeaders(resolver, ast->classes[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->globals.size; j++)
 		{
-			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->type->typeKind);
+			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->varType->typeKind);
 			if (!isPrimitiveConstant)
 				result = ResolveGlobalHeader(resolver, ast->globals[j]) && result;
 		}
@@ -2835,48 +2844,48 @@ static bool ResolveModules(Resolver* resolver)
 {
 	bool result = true;
 
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->globals.size; j++)
 		{
-			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->type->typeKind);
+			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->varType->typeKind);
 			if (isPrimitiveConstant)
 				result = ResolveGlobal(resolver, ast->globals[j]) && result;
 		}
 	}
 
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->enums.size; j++)
 		{
 			result = ResolveEnum(resolver, ast->enums[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->structs.size; j++)
 		{
 			result = ResolveStruct(resolver, ast->structs[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->classes.size; j++)
 		{
 			result = ResolveClass(resolver, ast->classes[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->typedefs.size; j++)
 		{
@@ -2886,9 +2895,9 @@ static bool ResolveModules(Resolver* resolver)
 	if (!result) // Return early if types have not been resolved
 		return result;
 
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->functions.size; j++)
 		{
@@ -2899,13 +2908,13 @@ static bool ResolveModules(Resolver* resolver)
 			result = ResolveClassProcedures(resolver, ast->classes[j]) && result;
 		}
 	}
-	for (int i = 0; i < resolver->context->asts.size; i++)
+	for (int i = 0; i < resolver->asts.size; i++)
 	{
-		AST::File* ast = resolver->context->asts[i];
+		AST::File* ast = resolver->asts[i];
 		resolver->currentFile = ast;
 		for (int j = 0; j < ast->globals.size; j++)
 		{
-			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->type->typeKind);
+			bool isPrimitiveConstant = HasFlag(ast->globals[j]->flags, AST::DeclarationFlags::Constant) && IsPrimitiveType(ast->globals[j]->varType->typeKind);
 			if (!isPrimitiveConstant)
 				result = ResolveGlobal(resolver, ast->globals[j]) && result;
 		}
@@ -2914,8 +2923,8 @@ static bool ResolveModules(Resolver* resolver)
 	return result;
 }
 
-Resolver::Resolver(SkContext* context)
-	: context(context)
+Resolver::Resolver(CGLCompiler* context, List<AST::File*>& asts)
+	: context(context), asts(asts)
 {
 	globalNamespace = CreateModule(this, "", nullptr);
 }
@@ -2962,9 +2971,9 @@ void Resolver::popScope()
 
 AST::File* Resolver::findFileByName(const char* name)
 {
-	for (int i = 0; i < context->asts.size; i++)
+	for (int i = 0; i < asts.size; i++)
 	{
-		AST::File* file = context->asts[i];
+		AST::File* file = asts[i];
 		if (strcmp(file->name, name) == 0)
 			return file;
 	}

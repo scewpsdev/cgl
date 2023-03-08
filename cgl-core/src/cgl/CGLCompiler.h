@@ -4,16 +4,23 @@
 
 #include "SourceFile.h"
 
+#include "cgl/ast/File.h"
+#include "cgl/utils/Log.h"
+#include "cgl/utils/List.h"
+
 
 class CGLCompiler
 {
-	std::vector<SourceFile> sourceFiles;
-
 public:
-	void init();
+	List<SourceFile> sourceFiles;
+	List<AST::File*> asts;
+	MessageCallback_t msgCallback = nullptr;
+
+
+	void init(MessageCallback_t msgCallback);
 	void terminate();
 
-	void addFile(const char* src);
+	void addFile(const char* filename, const char* name, const char* src);
 	bool compile();
 	int run(int argc, char* argv[]);
 };
