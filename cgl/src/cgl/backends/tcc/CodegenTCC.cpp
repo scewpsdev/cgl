@@ -16,6 +16,9 @@ struct Scope
 class CodegenTCC
 {
 	CGLCompiler* context;
+	AST::File* file;
+
+	List<Variable*> importedGlobals;
 
 	std::stringstream builtinDefinitionStream;
 	std::stringstream constants;
@@ -225,10 +228,25 @@ class CodegenTCC
 		return globalName;
 	}
 
+	void importGlobal(Variable* variable)
+	{
+
+	}
+
 	std::string genExpressionIdentifier(AST::Identifier* expression)
 	{
 		if (expression->variable)
+		{
+			if (file != expression->variable->file)
+			{
+				if (!importedGlobals.contains(expression->variable))
+				{
+					importGlobal(expression->variable);
+					importedGlobals.add(expression->variable);
+				}
+			}
 			return expression->variable->mangledName;
+		}
 		else if (expression->functions.size > 0)
 		{
 			SnekAssert(expression->functions.size == 1);
@@ -645,8 +663,8 @@ class CodegenTCC
 	}
 
 public:
-	CodegenTCC(CGLCompiler* context)
-		: context(context)
+	CodegenTCC(CGLCompiler* context, AST::File* file)
+		: context(context), file(file)
 	{
 	}
 
@@ -694,7 +712,7 @@ int CGLCompiler::run(int argc, char* argv[])
 
 	for (AST::File* file : asts)
 	{
-		CodegenTCC codegen(this);
+		CodegenTCC codegen(this, file);
 		std::string cSrc = codegen.genFile(file);
 		printf("%s\n", cSrc.c_str());
 		if (tcc_compile_string(tcc, cSrc.c_str()) == -1)
