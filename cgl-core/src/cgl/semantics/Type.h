@@ -81,6 +81,10 @@ struct TypeData
 			AST::Function* declaration;
 		} functionType;
 		struct {
+			int numValues;
+			TypeID* valueTypes;
+		} tupleType;
+		struct {
 			TypeID elementType;
 			int length;
 			//AstExpression* length;
@@ -106,6 +110,7 @@ TypeID GetAliasType(const char* name, AST::Declaration* declaration);
 
 TypeID GetPointerType(TypeID elementType);
 TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, bool varArgs, bool isMethod, TypeID instanceType, AST::Function* declaration);
+TypeID GetTupleType(int numValues, TypeID* valueTypes);
 TypeID GetArrayType(TypeID elementType, int length);
 
 TypeID UnwrapType(TypeID type);

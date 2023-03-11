@@ -5,6 +5,7 @@
 #define KEYWORD_NAMESPACE "namespace"
 #define KEYWORD_IMPORT    "import"
 #define KEYWORD_VAR       "var"
+#define KEYWORD_LET       "let"
 #define KEYWORD_FUNC      "func"
 #define KEYWORD_STRUCT    "struct"
 #define KEYWORD_CLASS     "class"

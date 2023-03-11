@@ -46,14 +46,15 @@ namespace AST
 		return true;
 	}
 
-	FloatingPointLiteral::FloatingPointLiteral(File* file, const SourceLocation& location, double value)
+	FloatingPointLiteral::FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr)
 		: Expression(file, location, ExpressionType::FloatingPointLiteral), value(value)
 	{
+		strcpy(this->valueStr, valueStr);
 	}
 
 	Element* FloatingPointLiteral::copy()
 	{
-		return new FloatingPointLiteral(file, location, value);
+		return new FloatingPointLiteral(file, location, value, valueStr);
 	}
 
 	bool FloatingPointLiteral::isConstant()
@@ -245,6 +246,41 @@ namespace AST
 		return value->isConstant();
 	}
 
+	TupleExpression::TupleExpression(File* file, const SourceLocation& location, const List<Expression*>& values)
+		: Expression(file, location, ExpressionType::Tuple), values(values)
+	{
+	}
+
+	TupleExpression::~TupleExpression()
+	{
+		for (auto value : values)
+			delete value;
+		DestroyList(values);
+	}
+
+	Element* TupleExpression::copy()
+	{
+		List<Expression*> valuesCopy;
+		valuesCopy.reserve(values.size);
+
+		for (auto value : values)
+		{
+			valuesCopy.add((Expression*)value->copy());
+		}
+
+		return new TupleExpression(file, location, valuesCopy);
+	}
+
+	bool TupleExpression::isConstant()
+	{
+		for (auto value : values)
+		{
+			if (!value->isConstant())
+				return false;
+		}
+		return true;
+	}
+
 	FunctionCall::FunctionCall(File* file, const SourceLocation& location, Expression* callee, const List<Expression*>& arguments, bool hasGenericArgs, const List<Type*>& genericArgs)
 		: Expression(file, location, ExpressionType::FunctionCall), callee(callee), arguments(arguments), hasGenericArgs(hasGenericArgs), genericArgs(genericArgs)
 	{
@@ -316,6 +352,12 @@ namespace AST
 		return new SubscriptOperator(file, location, (Expression*)operand->copy(), argumentsCopy);
 	}
 
+	DotOperator::DotOperator(File* file, const SourceLocation& location, Expression* operand, int index)
+		: Expression(file, location, ExpressionType::DotOperator), operand(operand), fieldIndex(index)
+	{
+
+	}
+
 	DotOperator::DotOperator(File* file, const SourceLocation& location, Expression* operand, char* name)
 		: Expression(file, location, ExpressionType::DotOperator), operand(operand), name(name)
 	{
@@ -331,7 +373,9 @@ namespace AST
 
 	Element* DotOperator::copy()
 	{
-		return new DotOperator(file, location, (Expression*)operand->copy(), _strdup(name));
+		auto expr = new DotOperator(file, location, (Expression*)operand->copy(), name ? _strdup(name) : nullptr);
+		expr->fieldIndex = fieldIndex;
+		return expr;
 	}
 
 	Typecast::Typecast(File* file, const SourceLocation& location, Expression* value, Type* dstType)

@@ -7,12 +7,12 @@
 
 namespace AST
 {
-	AST::Type::Type(File* file, const SourceLocation& location, TypeKind typeKind)
+	Type::Type(File* file, const SourceLocation& location, TypeKind typeKind)
 		: Element(file, location), typeKind(typeKind)
 	{
 	}
 
-	AST::VoidType::VoidType(File* file, const SourceLocation& location)
+	VoidType::VoidType(File* file, const SourceLocation& location)
 		: Type(file, location, TypeKind::Void)
 	{
 	}
@@ -22,7 +22,7 @@ namespace AST
 		return new VoidType(file, location);
 	}
 
-	AST::IntegerType::IntegerType(File* file, const SourceLocation& location, int bitWidth, bool isSigned)
+	IntegerType::IntegerType(File* file, const SourceLocation& location, int bitWidth, bool isSigned)
 		: Type(file, location, TypeKind::Integer), bitWidth(bitWidth), isSigned(isSigned)
 	{
 	}
@@ -32,7 +32,7 @@ namespace AST
 		return new IntegerType(file, location, bitWidth, isSigned);
 	}
 
-	AST::FloatingPointType::FloatingPointType(File* file, const SourceLocation& location, int bitWidth)
+	FloatingPointType::FloatingPointType(File* file, const SourceLocation& location, int bitWidth)
 		: Type(file, location, TypeKind::FloatingPoint), bitWidth(bitWidth)
 	{
 	}
@@ -42,7 +42,7 @@ namespace AST
 		return new FloatingPointType(file, location, bitWidth);
 	}
 
-	AST::BooleanType::BooleanType(File* file, const SourceLocation& location)
+	BooleanType::BooleanType(File* file, const SourceLocation& location)
 		: Type(file, location, TypeKind::Boolean)
 	{
 	}
@@ -84,7 +84,7 @@ namespace AST
 		return new NamedType(file, location, _strdup(name), hasGenericArgs, genericArgsCopy);
 	}
 
-	AST::PointerType::PointerType(File* file, const SourceLocation& location, Type* elementType)
+	PointerType::PointerType(File* file, const SourceLocation& location, Type* elementType)
 		: Type(file, location, TypeKind::Pointer), elementType(elementType)
 	{
 	}
@@ -100,7 +100,7 @@ namespace AST
 		return new PointerType(file, location, (Type*)elementType->copy());
 	}
 
-	AST::FunctionType::FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs)
+	FunctionType::FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs)
 		: Type(file, location, TypeKind::Function), returnType(returnType), paramTypes(paramTypes), varArgs(varArgs)
 	{
 	}
@@ -126,7 +126,34 @@ namespace AST
 		return new FunctionType(file, location, (Type*)returnType->copy(), paramTypesCopy, varArgs);
 	}
 
-	AST::ArrayType::ArrayType(File* file, const SourceLocation& location, Type* elementType, Expression* length)
+	TupleType::TupleType(File* file, const SourceLocation& location, const List<Type*>& valueTypes)
+		: Type(file, location, TypeKind::Tuple), valueTypes(valueTypes)
+	{
+	}
+
+	TupleType::~TupleType()
+	{
+		for (Type* type : valueTypes)
+		{
+			delete type;
+		}
+		DestroyList(valueTypes);
+	}
+
+	Element* TupleType::copy()
+	{
+		List<Type*> valueTypesCopy;
+		valueTypesCopy.reserve(valueTypes.size);
+
+		for (Type* type : valueTypes)
+		{
+			valueTypesCopy.add((Type*)type->copy());
+		}
+
+		return new TupleType(file, location, valueTypesCopy);
+	}
+
+	ArrayType::ArrayType(File* file, const SourceLocation& location, Type* elementType, Expression* length)
 		: Type(file, location, TypeKind::Array), elementType(elementType), length(length)
 	{
 	}
@@ -144,7 +171,7 @@ namespace AST
 		return new ArrayType(file, location, (Type*)elementType->copy(), length ? (Expression*)length->copy() : nullptr);
 	}
 
-	AST::StringType::StringType(File* file, const SourceLocation& location, Expression* length)
+	StringType::StringType(File* file, const SourceLocation& location, Expression* length)
 		: Type(file, location, TypeKind::String), length(length)
 	{
 	}

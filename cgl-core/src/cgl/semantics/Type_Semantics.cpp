@@ -22,6 +22,7 @@ struct TypeDataStorage
 	List<TypeData*> aliasTypes;
 	List<TypeData*> pointerTypes;
 	List<TypeData*> functionTypes;
+	List<TypeData*> tupleTypes;
 	List<TypeData*> arrayTypes;
 	//std::map<int, TypeData*> stringTypes;
 
@@ -308,6 +309,19 @@ TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, boo
 	return data;
 }
 
+TypeID GetTupleType(int numValues, TypeID* valueTypes)
+{
+	TypeData* data = new TypeData;
+	data->typeKind = AST::TypeKind::Tuple;
+
+	data->tupleType.numValues = numValues;
+	data->tupleType.valueTypes = valueTypes;
+
+	types.tupleTypes.add(data);
+
+	return data;
+}
+
 TypeID GetArrayType(TypeID elementType, int length)
 {
 	TypeData* data = new TypeData;
@@ -410,6 +424,15 @@ bool CompareTypes(TypeID t1, TypeID t2)
 			return true;
 		}
 		return false;
+	case AST::TypeKind::Tuple:
+		if (t1->tupleType.numValues != t2->tupleType.numValues)
+			return false;
+		for (int i = 0; i < t1->tupleType.numValues; i++)
+		{
+			if (!CompareTypes(t1->tupleType.valueTypes[i], t2->tupleType.valueTypes[i]))
+				return false;
+		}
+		return true;
 	case AST::TypeKind::Array:
 		return CompareTypes(t1->arrayType.elementType, t2->arrayType.elementType) && t1->arrayType.length == t2->arrayType.length;
 	case AST::TypeKind::String:
@@ -538,6 +561,23 @@ static char* TypeToString(TypeID type)
 
 		return str;
 	}
+	case AST::TypeKind::Tuple:
+	{
+		StringBuffer result = CreateStringBuffer(8);
+		StringBufferAppend(result, "(");
+
+		for (int i = 0; i < type->tupleType.numValues; i++)
+		{
+			const char* valueString = GetTypeString(type->tupleType.valueTypes[i]);
+			StringBufferAppend(result, valueString);
+			if (i < type->tupleType.numValues - 1)
+				StringBufferAppend(result, ", ");
+		}
+
+		StringBufferAppend(result, ")");
+
+		return result.buffer;
+	}
 	case AST::TypeKind::Array:
 	{
 		const char* elementTypeStr = GetTypeString(type->arrayType.elementType);
@@ -661,9 +701,10 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 	{
 		if (argType->integerType.bitWidth == paramType->integerType.bitWidth)
 			return true;
-		else if (argType->integerType.bitWidth <= paramType->integerType.bitWidth)
-			//return argIsConstant;
+		else if (argType->integerType.bitWidth < paramType->integerType.bitWidth)
 			return true;
+		else if (argType->integerType.bitWidth > paramType->integerType.bitWidth)
+			return argIsConstant;
 	}
 	else if (argType->typeKind == AST::TypeKind::Integer && paramType->typeKind == AST::TypeKind::Boolean)
 	{

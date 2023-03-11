@@ -18,6 +18,7 @@ static const std::map<std::string, KeywordType> keywords =
 	{ KEYWORD_NAMESPACE, KEYWORD_TYPE_NAMESPACE },
 	{ KEYWORD_IMPORT, KEYWORD_TYPE_IMPORT },
 	{ KEYWORD_VAR, KEYWORD_TYPE_VARIABLE },
+	{ KEYWORD_LET, KEYWORD_TYPE_LET },
 	{ KEYWORD_FUNC, KEYWORD_TYPE_FUNCTION },
 	{ KEYWORD_STRUCT, KEYWORD_TYPE_STRUCT },
 	{ KEYWORD_CLASS, KEYWORD_TYPE_CLASS },
@@ -287,7 +288,7 @@ static Token readNumberLiteral(Lexer* lexer)
 	for (;
 		isdigit(c) ||
 		(!fp && c == '.' && (isalpha(c2) || isdigit(c2))) ||
-		c == 'x' ||
+		c == 'x' || c == 'b' || c == 'o' ||
 		(c >= 'a' && c <= 'f') ||
 		(c >= 'A' && c <= 'F') ||
 		c == '_';
@@ -356,7 +357,7 @@ static Token readOperator(Lexer* lexer)
 	return token;
 }
 
-static KeywordType getKeywordType(const char* str, int len)
+KeywordType getKeywordType(const char* str, int len)
 {
 	for (const auto& pair : keywords) {
 		if (pair.first.length() == len && strncmp(pair.first.c_str(), str, len) == 0)

@@ -28,6 +28,7 @@ namespace AST
 		Alias,
 		Pointer,
 		Function,
+		Tuple,
 		Array,
 		String,
 	};
@@ -115,6 +116,17 @@ namespace AST
 
 		FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs);
 		virtual ~FunctionType();
+
+		virtual Element* copy() override;
+	};
+
+	struct TupleType : Type
+	{
+		List<Type*> valueTypes;
+
+
+		TupleType(File* file, const SourceLocation& location, const List<Type*>& valueTypes);
+		virtual ~TupleType();
 
 		virtual Element* copy() override;
 	};

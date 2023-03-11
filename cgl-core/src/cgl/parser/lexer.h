@@ -39,6 +39,7 @@ enum KeywordType {
 	KEYWORD_TYPE_NAMESPACE,
 	KEYWORD_TYPE_IMPORT,
 	KEYWORD_TYPE_VARIABLE,
+	KEYWORD_TYPE_LET,
 	KEYWORD_TYPE_FUNCTION,
 	KEYWORD_TYPE_STRUCT,
 	KEYWORD_TYPE_CLASS,
@@ -128,6 +129,8 @@ struct Lexer
 	~Lexer();
 };
 
+
+KeywordType getKeywordType(const char* str, int len);
 
 Token LexerNext(Lexer* lexer);
 Token LexerPeek(Lexer* lexer, int offset = 0);

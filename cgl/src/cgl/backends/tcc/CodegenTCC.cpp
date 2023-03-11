@@ -21,6 +21,7 @@ class CodegenTCC
 	List<Variable*> importedGlobals;
 
 	std::stringstream builtinDefinitionStream;
+	std::stringstream types;
 	std::stringstream constants;
 	std::stringstream globals;
 	std::stringstream functions;
@@ -69,92 +70,115 @@ class CodegenTCC
 		delete lastScope;
 	}
 
-	void genTypeVoid()
+	std::string genTypeVoid()
 	{
-		*currentStream << "void";
+		return "void";
 	}
 
-	void genTypeInteger(TypeID type)
+	std::string genTypeInteger(TypeID type)
 	{
-		*currentStream << (type->integerType.isSigned ? "i" : "u") << type->integerType.bitWidth;
+		return (type->integerType.isSigned ? "i" : "u") + std::to_string(type->integerType.bitWidth);
 	}
 
-	void genTypeFloatingPoint(TypeID type)
+	std::string genTypeFloatingPoint(TypeID type)
 	{
 		switch (type->fpType.precision)
 		{
 		case FloatingPointPrecision::Half:
-			*currentStream << "float";
-			break;
+			return "f32";
 		case FloatingPointPrecision::Single:
-			*currentStream << "float";
-			break;
+			return "f32";
 		case FloatingPointPrecision::Double:
-			*currentStream << "double";
-			break;
+			return "f64";
 		case FloatingPointPrecision::Decimal:
-			*currentStream << "double";
-			break;
+			return "f64";
 		case FloatingPointPrecision::Quad:
-			*currentStream << "double";
-			break;
+			return "f64";
 		default:
 			SnekAssert(false);
-			break;
+			return "";
 		}
 	}
 
-	void genTypePointer(TypeID type)
+	std::string genTypeBoolean()
 	{
-		genType(type->pointerType.elementType);
-		*currentStream << "*";
+		return "bool";
 	}
 
-	void genTypeString()
+	std::string genTypePointer(TypeID type)
 	{
-		*currentStream << "string";
+		return genType(type->pointerType.elementType) + "*";
 	}
 
-	void genType(TypeID type)
+	std::string genTypeTuple(TypeID type)
+	{
+		std::stringstream result;
+		result << "struct{";
+		for (int i = 0; i < type->tupleType.numValues; i++)
+		{
+			result << genType(type->tupleType.valueTypes[i]) << " _" << i << ";";
+		}
+		result << "}";
+		return result.str();
+	}
+
+	std::string genTypeString()
+	{
+		return "string";
+	}
+
+	std::string genType(TypeID type)
 	{
 		switch (type->typeKind)
 		{
 		case AST::TypeKind::Void:
-			genTypeVoid();
-			break;
+			return genTypeVoid();
 		case AST::TypeKind::Integer:
-			genTypeInteger(type);
-			break;
+			return genTypeInteger(type);
 		case AST::TypeKind::FloatingPoint:
-			genTypeFloatingPoint(type);
-			break;
+			return genTypeFloatingPoint(type);
 		case AST::TypeKind::Boolean:
+			return genTypeBoolean();
 		case AST::TypeKind::NamedType:
 		case AST::TypeKind::Struct:
 		case AST::TypeKind::Class:
 		case AST::TypeKind::Alias:
 		case AST::TypeKind::Pointer:
-			genTypePointer(type);
-			break;
+			return genTypePointer(type);
 		case AST::TypeKind::Function:
+		case AST::TypeKind::Tuple:
+			return genTypeTuple(type);
 		case AST::TypeKind::Array:
 		case AST::TypeKind::String:
-			genTypeString();
-			break;
+			return genTypeString();
 		default:
 			SnekAssert(false);
-			break;
+			return "";
 		}
 	}
 
-	void genType(AST::Type* type)
+	std::string genType(AST::Type* type)
 	{
-		genType(type->typeID);
+		return genType(type->typeID);
 	}
 
 	std::string castValue(AST::Expression* expression, TypeID type)
 	{
-		if (expression->valueType->typeKind == AST::TypeKind::Pointer &&
+		if (CompareTypes(expression->valueType, type))
+			return genExpression(expression);
+		else if (expression->valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::Integer)
+		{
+			return "(" + genType(type) + ")" + genExpression(expression);
+		}
+		else if (expression->valueType->typeKind == AST::TypeKind::FloatingPoint && type->typeKind == AST::TypeKind::Integer)
+		{
+			return "(" + genType(type) + ")" + genExpression(expression);
+		}
+		else if (expression->valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::FloatingPoint)
+		{
+			return "(" + genType(type) + ")" + genExpression(expression);
+		}
+		else if (expression->valueType->typeKind == AST::TypeKind::Pointer &&
 			expression->valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
 			expression->valueType->pointerType.elementType->integerType.bitWidth == 8 &&
 			type->typeKind == AST::TypeKind::String)
@@ -164,10 +188,19 @@ class CodegenTCC
 			if (expression->type == AST::ExpressionType::StringLiteral)
 				return "(string){" + expr + "," + std::to_string(((AST::StringLiteral*)expression)->length) + "}";
 			else
-				return "(string){" + expr + ",__cstrlen(" + expr + ")}";
+				return "(string){" + expr + ",strlen(" + expr + ")}";
 		}
-		else if (CompareTypes(expression->valueType, type))
-			return genExpression(expression);
+		// Conversions
+		else if (expression->valueType->typeKind == AST::TypeKind::String &&
+			type->typeKind == AST::TypeKind::Integer)
+		{
+			return "__sto" + std::string(type->integerType.isSigned ? "i" : "u") + std::to_string(type->integerType.bitWidth) + "(" + genExpression(expression) + ")";
+		}
+		else if (expression->valueType->typeKind == AST::TypeKind::Integer &&
+			type->typeKind == AST::TypeKind::String)
+		{
+			return "__itos(" + genExpression(expression) + ")";
+		}
 		else
 		{
 			SnekAssert(false);
@@ -181,6 +214,11 @@ class CodegenTCC
 	}
 
 	std::string genExpressionFloatingPointLiteral(AST::FloatingPointLiteral* expression)
+	{
+		return expression->valueStr;
+	}
+
+	std::string genExpressionBooleanLiteral(AST::BooleanLiteral* expression)
 	{
 		return std::to_string(expression->value);
 	}
@@ -225,27 +263,37 @@ class CodegenTCC
 		}
 		constants << "\";\n";
 
-		return globalName;
+		return "(string){" + std::string(globalName) + "," + std::to_string(expression->length) + "}";
 	}
 
 	void importGlobal(Variable* variable)
 	{
+		std::stringstream* parentStream = currentStream;
+		currentStream = &globals;
 
+		*currentStream << "extern " << genType(variable->type) << " " << variable->mangledName << ";" << std::endl;
+
+		currentStream = parentStream;
+	}
+
+	std::string getVariableValue(Variable* variable)
+	{
+		if (file != variable->file)
+		{
+			if (!importedGlobals.contains(variable))
+			{
+				importGlobal(variable);
+				importedGlobals.add(variable);
+			}
+		}
+		return variable->mangledName;
 	}
 
 	std::string genExpressionIdentifier(AST::Identifier* expression)
 	{
 		if (expression->variable)
 		{
-			if (file != expression->variable->file)
-			{
-				if (!importedGlobals.contains(expression->variable))
-				{
-					importGlobal(expression->variable);
-					importedGlobals.add(expression->variable);
-				}
-			}
-			return expression->variable->mangledName;
+			return getVariableValue(expression->variable);
 		}
 		else if (expression->functions.size > 0)
 		{
@@ -259,37 +307,65 @@ class CodegenTCC
 		}
 	}
 
+	std::string genExpressionCompound(AST::CompoundExpression* expression)
+	{
+		return "(" + genExpression(expression->value) + ")";
+	}
+
+	std::string genExpressionTuple(AST::TupleExpression* expression)
+	{
+		std::stringstream result;
+		result << "{";
+		for (int i = 0; i < expression->values.size; i++)
+		{
+			AST::Expression* value = expression->values[i];
+			result << genExpression(value);
+			if (i < expression->values.size - 1)
+				result << ",";
+		}
+		result << "}";
+		return result.str();
+	}
+
 	std::string genExpressionFunctionCall(AST::FunctionCall* expression)
 	{
-		auto parentStream = currentStream;
-		std::stringstream callStream;
-		currentStream = &callStream;
-
-		std::string returnValue = "";
-
-		SnekAssert(expression->callee->valueType->typeKind == AST::TypeKind::Function);
-		if (expression->callee->valueType->functionType.returnType->typeKind != AST::TypeKind::Void)
+		if (expression->isCast)
 		{
-			returnValue = newLocalName();
-			*currentStream << returnValue << "=";
+			SnekAssert(expression->arguments.size == 1);
+			return castValue(expression->arguments[0], expression->castDstType);
 		}
-
-		std::string callee = genExpression(expression->callee);
-		*currentStream << callee << "(";
-		for (int i = 0; i < expression->arguments.size; i++)
+		else
 		{
-			std::string arg = genExpression(expression->arguments[i]);
-			*currentStream << arg;
-			if (i < expression->arguments.size - 1)
-				*currentStream << ",";
+			auto parentStream = currentStream;
+			std::stringstream callStream;
+			currentStream = &callStream;
+
+			std::string returnValue = "";
+
+			SnekAssert(expression->callee->valueType->typeKind == AST::TypeKind::Function);
+			if (expression->callee->valueType->functionType.returnType->typeKind != AST::TypeKind::Void)
+			{
+				returnValue = newLocalName();
+				*currentStream << returnValue << "=";
+			}
+
+			std::string callee = genExpression(expression->callee);
+			*currentStream << callee << "(";
+			for (int i = 0; i < expression->arguments.size; i++)
+			{
+				std::string arg = castValue(expression->arguments[i], expression->callee->valueType->functionType.paramTypes[i]);
+				*currentStream << arg;
+				if (i < expression->arguments.size - 1)
+					*currentStream << ",";
+			}
+			*currentStream << ")";
+
+			currentStream = parentStream;
+
+			*currentStream << callStream.str();
+
+			return returnValue;
 		}
-		*currentStream << ")";
-
-		currentStream = parentStream;
-
-		*currentStream << callStream.str();
-
-		return returnValue;
 	}
 
 	std::string genExpressionSubscriptOperator(AST::SubscriptOperator* expression)
@@ -328,9 +404,34 @@ class CodegenTCC
 			return "";
 		}
 		else if (expression->namespacedVariable)
-			return expression->namespacedVariable->mangledName;
+			return getVariableValue(expression->namespacedVariable);
 		else if (expression->namespacedFunctions.size > 0)
 			return expression->namespacedFunctions[0]->mangledName;
+		else if (expression->builtinTypeProperty != AST::BuiltinTypeProperty::Null)
+		{
+			switch (expression->builtinTypeProperty)
+			{
+			case AST::BuiltinTypeProperty::Int8Min: return "__INT8_MIN";
+			case AST::BuiltinTypeProperty::Int8Max: return "__INT8_MAX";
+			case AST::BuiltinTypeProperty::Int16Min: return "__INT16_MIN";
+			case AST::BuiltinTypeProperty::Int16Max: return "__INT16_MAX";
+			case AST::BuiltinTypeProperty::Int32Min: return "__INT32_MIN";
+			case AST::BuiltinTypeProperty::Int32Max: return "__INT32_MAX";
+			case AST::BuiltinTypeProperty::Int64Min: return "__INT64_MIN";
+			case AST::BuiltinTypeProperty::Int64Max: return "__INT64_MAX";
+			case AST::BuiltinTypeProperty::UInt8Min: return "__UINT8_MIN";
+			case AST::BuiltinTypeProperty::UInt8Max: return "__UINT8_MAX";
+			case AST::BuiltinTypeProperty::UInt16Min: return "__UINT16_MIN";
+			case AST::BuiltinTypeProperty::UInt16Max: return "__UINT16_MAX";
+			case AST::BuiltinTypeProperty::UInt32Min: return "__UINT32_MIN";
+			case AST::BuiltinTypeProperty::UInt32Max: return "__UINT32_MAX";
+			case AST::BuiltinTypeProperty::UInt64Min: return "__UINT64_MIN";
+			case AST::BuiltinTypeProperty::UInt64Max: return "__UINT64_MAX";
+			default:
+				SnekAssert(false);
+				return "";
+			}
+		}
 		else if (expression->structField)
 		{
 			if (expression->operand->valueType->typeKind == AST::TypeKind::Pointer && expression->operand->valueType->pointerType.elementType->typeKind == AST::TypeKind::Struct)
@@ -347,24 +448,36 @@ class CodegenTCC
 			return expression->classMethod->mangledName;
 		else if (expression->classField)
 			return genExpression(expression->operand) + "->" + expression->classField->name;
-		else if (expression->arrayField != -1)
+		else if (expression->fieldIndex != -1)
 		{
-			if (expression->arrayField == 0)
-				return genExpression(expression->operand) + ".length";
-			else if (expression->arrayField == 1)
-				return genExpression(expression->operand) + ".buffer";
-			else
+			if (expression->operand->valueType->typeKind == AST::TypeKind::Tuple)
 			{
-				SnekAssert(false);
-				return "";
+				return genExpression(expression->operand) + "._" + std::to_string(expression->fieldIndex);
 			}
-		}
-		else if (expression->stringField != -1)
-		{
-			if (expression->stringField == 0)
-				return genExpression(expression->operand) + ".length";
-			else if (expression->stringField == 1)
-				return genExpression(expression->operand) + ".ptr";
+			else if (expression->operand->valueType->typeKind == AST::TypeKind::Array)
+			{
+				if (expression->fieldIndex == 0)
+					return genExpression(expression->operand) + ".length";
+				else if (expression->fieldIndex == 1)
+					return genExpression(expression->operand) + ".buffer";
+				else
+				{
+					SnekAssert(false);
+					return "";
+				}
+			}
+			else if (expression->operand->valueType->typeKind == AST::TypeKind::String)
+			{
+				if (expression->fieldIndex == 0)
+					return genExpression(expression->operand) + ".length";
+				else if (expression->fieldIndex == 1)
+					return genExpression(expression->operand) + ".ptr";
+				else
+				{
+					SnekAssert(false);
+					return "";
+				}
+			}
 			else
 			{
 				SnekAssert(false);
@@ -376,6 +489,11 @@ class CodegenTCC
 			SnekAssert(false);
 			return "";
 		}
+	}
+
+	std::string genExpressionTypecast(AST::Typecast* expression)
+	{
+		return castValue(expression->value, expression->dstType->typeID);
 	}
 
 	std::string genExpressionBinaryOperator(AST::BinaryOperator* expression)
@@ -429,6 +547,7 @@ class CodegenTCC
 		case AST::ExpressionType::FloatingPointLiteral:
 			return genExpressionFloatingPointLiteral((AST::FloatingPointLiteral*)expression);
 		case AST::ExpressionType::BooleanLiteral:
+			return genExpressionBooleanLiteral((AST::BooleanLiteral*)expression);
 		case AST::ExpressionType::CharacterLiteral:
 			return genExpressionCharacterLiteral((AST::CharacterLiteral*)expression);
 		case AST::ExpressionType::NullLiteral:
@@ -438,6 +557,9 @@ class CodegenTCC
 		case AST::ExpressionType::Identifier:
 			return genExpressionIdentifier((AST::Identifier*)expression);
 		case AST::ExpressionType::Compound:
+			return genExpressionCompound((AST::CompoundExpression*)expression);
+		case AST::ExpressionType::Tuple:
+			return genExpressionTuple((AST::TupleExpression*)expression);
 		case AST::ExpressionType::FunctionCall:
 			return genExpressionFunctionCall((AST::FunctionCall*)expression);
 		case AST::ExpressionType::SubscriptOperator:
@@ -445,6 +567,7 @@ class CodegenTCC
 		case AST::ExpressionType::DotOperator:
 			return genExpressionDotOperator((AST::DotOperator*)expression);
 		case AST::ExpressionType::Typecast:
+			return genExpressionTypecast((AST::Typecast*)expression);
 		case AST::ExpressionType::Sizeof:
 		case AST::ExpressionType::Malloc:
 		case AST::ExpressionType::UnaryOperator:
@@ -487,10 +610,11 @@ class CodegenTCC
 		std::stringstream stream;
 		currentStream = &stream;
 
+		stream << genType(statement->varType) << " ";
+
 		if (statement->isConstant)
 			stream << "const ";
-		genType(statement->varType);
-		stream << " ";
+
 		for (int i = 0; i < statement->declarators.size; i++)
 		{
 			AST::VariableDeclarator* declarator = statement->declarators[i];
@@ -512,6 +636,26 @@ class CodegenTCC
 				stream << ",";
 		}
 		stream << ";";
+
+		currentStream = parentStream;
+		*currentStream << stream.str();
+		newLine();
+	}
+
+	void genStatementIf(AST::IfStatement* statement)
+	{
+		std::stringstream* parentStream = currentStream;
+		std::stringstream stream;
+		currentStream = &stream;
+
+		stream << "if(" << genExpression(statement->condition) << ")";
+		genStatement(statement->thenStatement);
+		if (statement->elseStatement)
+		{
+			//newLine();
+			stream << " else ";
+			genStatement(statement->elseStatement);
+		}
 
 		currentStream = parentStream;
 		*currentStream << stream.str();
@@ -562,6 +706,8 @@ class CodegenTCC
 			genStatementVariableDeclaration((AST::VariableDeclaration*)statement);
 			break;
 		case AST::StatementType::If:
+			genStatementIf((AST::IfStatement*)statement);
+			break;
 		case AST::StatementType::While:
 		case AST::StatementType::For:
 			genStatementFor((AST::ForLoop*)statement);
@@ -577,34 +723,6 @@ class CodegenTCC
 			SnekAssert(false);
 			break;
 		}
-	}
-
-	void genGlobal(AST::GlobalVariable* global)
-	{
-		std::stringstream* parentStream = currentStream;
-
-		std::stringstream functionStream;
-		currentStream = &functionStream;
-
-		if (HasFlag(global->flags, AST::DeclarationFlags::Extern))
-			*currentStream << "extern ";
-
-		genType(global->varType->typeID);
-
-		for (int i = 0; i < global->declarators.size; i++)
-		{
-			AST::VariableDeclarator* declarator = global->declarators[i];
-			*currentStream << " " << declarator->variable->mangledName;
-			if (declarator->value)
-				*currentStream << "=" << genExpression(declarator->value);
-			if (i < global->declarators.size - 1)
-				*currentStream << ",";
-		}
-		*currentStream << ";" << std::endl;
-
-		currentStream = parentStream;
-
-		functions << functionStream.str();
 	}
 
 	void genFunction(AST::Function* function)
@@ -624,7 +742,7 @@ class CodegenTCC
 		else
 		{
 			if (function->returnType)
-				genType(function->returnType);
+				*currentStream << genType(function->returnType);
 			else
 				*currentStream << "void";
 		}
@@ -632,8 +750,7 @@ class CodegenTCC
 		*currentStream << " " << function->mangledName << "(";
 		for (int i = 0; i < function->paramTypes.size; i++)
 		{
-			genType(function->paramTypes[i]);
-			*currentStream << " " << function->paramNames[i];
+			*currentStream << genType(function->paramTypes[i]) << " " << function->paramNames[i];
 			if (i < function->paramTypes.size - 1)
 				*currentStream << ",";
 		}
@@ -662,6 +779,48 @@ class CodegenTCC
 		functions << functionStream.str();
 	}
 
+	void genTypedef(AST::Typedef* td)
+	{
+		std::stringstream* parentStream = currentStream;
+
+		std::stringstream typedefStream;
+		currentStream = &typedefStream;
+
+		*currentStream << "typedef " << genType(td->alias) << " " << td->name << ";";
+
+		currentStream = parentStream;
+
+		types << typedefStream.str();
+	}
+
+	void genGlobal(AST::GlobalVariable* global)
+	{
+		std::stringstream* parentStream = currentStream;
+
+		std::stringstream globalStream;
+		currentStream = &globalStream;
+
+		if (HasFlag(global->flags, AST::DeclarationFlags::Extern))
+			*currentStream << "extern ";
+
+		*currentStream << genType(global->varType->typeID);
+
+		for (int i = 0; i < global->declarators.size; i++)
+		{
+			AST::VariableDeclarator* declarator = global->declarators[i];
+			*currentStream << " " << declarator->variable->mangledName;
+			if (declarator->value)
+				*currentStream << "=" << genExpression(declarator->value);
+			if (i < global->declarators.size - 1)
+				*currentStream << ",";
+		}
+		*currentStream << ";" << std::endl;
+
+		currentStream = parentStream;
+
+		globals << globalStream.str();
+	}
+
 public:
 	CodegenTCC(CGLCompiler* context, AST::File* file)
 		: context(context), file(file)
@@ -670,31 +829,72 @@ public:
 
 	std::string genFile(AST::File* file)
 	{
-		builtinDefinitionStream << "typedef unsigned char u8;\n";
-		builtinDefinitionStream << "typedef unsigned short u16;\n";
-		builtinDefinitionStream << "typedef unsigned int u32;\n";
-		builtinDefinitionStream << "typedef unsigned long long u64;\n";
+		builtinDefinitionStream << "// " << file->name << "\n";
+
 		builtinDefinitionStream << "typedef char i8;\n";
 		builtinDefinitionStream << "typedef short i16;\n";
 		builtinDefinitionStream << "typedef int i32;\n";
 		builtinDefinitionStream << "typedef long long i64;\n";
+		builtinDefinitionStream << "typedef unsigned char u8;\n";
+		builtinDefinitionStream << "typedef unsigned short u16;\n";
+		builtinDefinitionStream << "typedef unsigned int u32;\n";
+		builtinDefinitionStream << "typedef unsigned long long u64;\n";
+		builtinDefinitionStream << "typedef float f32;\n";
+		builtinDefinitionStream << "typedef double f64;\n";
+		builtinDefinitionStream << "typedef _Bool bool;\n";
 		builtinDefinitionStream << "typedef struct { char* ptr; long length; } string;\n";
 
-		for (AST::GlobalVariable* global : file->globals)
-		{
-			genGlobal(global);
-		}
+		builtinDefinitionStream << "#define __INT8_MIN -0x80\n";
+		builtinDefinitionStream << "#define __INT8_MAX 0x7f\n";
+		builtinDefinitionStream << "#define __INT16_MIN -0x8000\n";
+		builtinDefinitionStream << "#define __INT16_MAX 0x7fff\n";
+		builtinDefinitionStream << "#define __INT32_MIN -0x80000000\n";
+		builtinDefinitionStream << "#define __INT32_MAX 0x7fffffff\n";
+		builtinDefinitionStream << "#define __INT64_MIN -0x8000000000000000\n";
+		builtinDefinitionStream << "#define __INT64_MAX 0x7fffffffffffffff\n";
+		builtinDefinitionStream << "#define __UINT8_MIN 0\n";
+		builtinDefinitionStream << "#define __UINT8_MAX 0xff\n";
+		builtinDefinitionStream << "#define __UINT16_MIN 0\n";
+		builtinDefinitionStream << "#define __UINT16_MAX 0xffff\n";
+		builtinDefinitionStream << "#define __UINT32_MIN 0\n";
+		builtinDefinitionStream << "#define __UINT32_MAX 0xffffffff\n";
+		builtinDefinitionStream << "#define __UINT64_MIN 0\n";
+		builtinDefinitionStream << "#define __UINT64_MAX 0xffffffffffffffff\n";
+
+		builtinDefinitionStream << "i8 __stoi8(string s);\n";
+		builtinDefinitionStream << "i16 __stoi16(string s);\n";
+		builtinDefinitionStream << "i32 __stoi32(string s);\n";
+		builtinDefinitionStream << "i64 __stoi64(string s);\n";
+		builtinDefinitionStream << "u8 __stou8(string s);\n";
+		builtinDefinitionStream << "u16 __stou16(string s);\n";
+		builtinDefinitionStream << "u32 __stou32(string s);\n";
+		builtinDefinitionStream << "u64 __stou64(string s);\n";
+		builtinDefinitionStream << "string __itos(i64 i);\n";
 
 		for (AST::Function* function : file->functions)
 		{
 			genFunction(function);
 		}
+		for (AST::Typedef* td : file->typedefs)
+		{
+			genTypedef(td);
+		}
+		for (AST::GlobalVariable* global : file->globals)
+		{
+			genGlobal(global);
+		}
 
 		std::stringstream fileStream;
-		fileStream << builtinDefinitionStream.str() << std::endl << std::endl;
-		fileStream << constants.str() << std::endl << std::endl;
-		fileStream << globals.str() << std::endl << std::endl;
-		fileStream << functions.str();
+		if (builtinDefinitionStream.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << builtinDefinitionStream.str() << std::endl << std::endl;
+		if (types.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << types.str() << std::endl << std::endl;
+		if (constants.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << constants.str() << std::endl << std::endl;
+		if (globals.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << globals.str() << std::endl << std::endl;
+		if (functions.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << functions.str();
 
 		return fileStream.str();
 	}
@@ -709,6 +909,98 @@ int CGLCompiler::run(int argc, char* argv[])
 	tcc_add_library(tcc, "tcc1-64");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_MEMORY);
+
+	{
+		std::stringstream builtinFunctions;
+
+		builtinFunctions << "typedef char i8;\n";
+		builtinFunctions << "typedef short i16;\n";
+		builtinFunctions << "typedef int i32;\n";
+		builtinFunctions << "typedef long long i64;\n";
+		builtinFunctions << "typedef unsigned char u8;\n";
+		builtinFunctions << "typedef unsigned short u16;\n";
+		builtinFunctions << "typedef unsigned int u32;\n";
+		builtinFunctions << "typedef unsigned long long u64;\n";
+		builtinFunctions << "typedef float f32;\n";
+		builtinFunctions << "typedef double f64;\n";
+		builtinFunctions << "typedef _Bool bool;\n";
+		builtinFunctions << "typedef struct { char* ptr; long length; } string;\n";
+
+		builtinFunctions << "#define __INT8_MIN -0x80\n";
+		builtinFunctions << "#define __INT8_MAX 0x7f\n";
+		builtinFunctions << "#define __INT16_MIN -0x8000\n";
+		builtinFunctions << "#define __INT16_MAX 0x7fff\n";
+		builtinFunctions << "#define __INT32_MIN -0x80000000\n";
+		builtinFunctions << "#define __INT32_MAX 0x7fffffff\n";
+		builtinFunctions << "#define __INT64_MIN -0x8000000000000000\n";
+		builtinFunctions << "#define __INT64_MAX 0x7fffffffffffffff\n";
+		builtinFunctions << "#define __UINT8_MIN 0\n";
+		builtinFunctions << "#define __UINT8_MAX 0xff\n";
+		builtinFunctions << "#define __UINT16_MIN 0\n";
+		builtinFunctions << "#define __UINT16_MAX 0xffff\n";
+		builtinFunctions << "#define __UINT32_MIN 0\n";
+		builtinFunctions << "#define __UINT32_MAX 0xffffffff\n";
+		builtinFunctions << "#define __UINT64_MIN 0\n";
+		builtinFunctions << "#define __UINT64_MAX 0xffffffffffffffff\n";
+
+		builtinFunctions <<
+			"i64 __stoi64(string s){\
+	i64 value = 0;\
+	bool isNegative = 0;\
+	i32 base = 10;\
+	for (int i = 0; i < s.length; i++){\
+		if (s[i] == '-') isNegative = true;\
+		else if (s.ptr[i] == '_');\
+		else if (s.ptr[i] >= '0' && s.ptr[i] <= '9'))\
+			value = value * base + (s.ptr[i] - '0');\
+		else if (isalpha(str[i]) && str[i] >= 'a' && str[i] <= 'f' && base == 16)\
+		{\
+			value = value * base + (str[i] - 'a' + 10);\
+		}\
+		else if (base == 10 && str[i] == 'b')\
+		{\
+			SnekAssert(value == 0);\
+			SnekAssert(i == 1 || i == 2 && isNegative);\
+			base = 2;\
+		}\
+		else if (base == 10 && str[i] == 'o')\
+		{\
+			SnekAssert(value == 0);\
+			SnekAssert(i == 1 || i == 2 && isNegative);\
+			base = 8;\
+		}\
+		else if (base == 10 && str[i] == 'x')\
+		{\
+			SnekAssert(value == 0);\
+			SnekAssert(i == 1 || i == 2 && isNegative);\
+			base = 16;\
+		}\
+		else\
+		{\
+			SnekAssert(false);\
+		}\
+	}\
+	\
+	if (isNegative)\
+		value *= -1; \
+	return value;\
+}\n";
+		builtinFunctions << "i32 __stoi32(string s){return (i32)__stoi64(s);}\n";
+		builtinFunctions << "i16 __stoi16(string s){return (i16)__stoi64(s);}\n";
+		builtinFunctions << "i8 __stoi8(string s){return (i8)__stoi64(s);}\n";
+		builtinFunctions <<
+			"u64 __stou64(string s){\
+\
+}\n";
+		builtinFunctions << "u32 __stou32(string s){return (u32)__stou64(s);}\n";
+		builtinFunctions << "u16 __stou16(string s){return (u16)__stou64(s);}\n";
+		builtinFunctions << "u8 __stou8(string s){return (u16)__stou64(s);}\n";
+		builtinFunctions << "string __itos(i64 i);\n";
+
+		std::string builtinFunctionsStr = builtinFunctions.str();
+
+		tcc_compile_string(tcc, builtinFunctionsStr.c_str());
+	}
 
 	for (AST::File* file : asts)
 	{

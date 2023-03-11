@@ -195,6 +195,20 @@ static AST::Type* ParseElementType(Parser* parser)
 		}
 		}
 	}
+	else if (tok.type == '(')
+	{
+		List<AST::Type*> valueTypes;
+		while (!NextTokenIs(parser, ')'))
+		{
+			AST::Type* type = ParseType(parser);
+			valueTypes.add(type);
+			if (!NextTokenIs(parser, ')'))
+				SkipToken(parser, ',');
+		}
+		NextToken(parser); // )
+
+		return new AST::TupleType(parser->module, inputState, valueTypes);
+	}
 
 	SetInputState(parser, inputState);
 	return NULL;
@@ -323,26 +337,81 @@ static AST::Expression* ParseAtom(Parser* parser)
 		Token token = NextToken(parser);
 		char* str = GetTokenString(token);
 
-		char processedStr[64];
-		int len = 0;
+		int64_t value = 0;
+		bool isNegative = false;
+		int base = 10;
+
 		for (int i = 0; i < (int)strlen(str); i++)
 		{
-			if (str[i] != '_')
-				processedStr[len++] = str[i];
+			if (str[i] == '-')
+			{
+				SnekAssert(i == 0);
+				isNegative = true;
+			}
+			else if (str[i] == '_')
+			{
+				;
+			}
+			else if (isdigit(str[i]))
+			{
+				value = value * base + (str[i] - '0');
+			}
+			else if (isalpha(str[i]) && str[i] >= 'a' && str[i] <= 'f' && base == 16)
+			{
+				value = value * base + (str[i] - 'a' + 10);
+			}
+			else if (base == 10 && str[i] == 'b')
+			{
+				SnekAssert(value == 0);
+				SnekAssert(i == 1 || i == 2 && isNegative);
+				base = 2;
+			}
+			else if (base == 10 && str[i] == 'o')
+			{
+				SnekAssert(value == 0);
+				SnekAssert(i == 1 || i == 2 && isNegative);
+				base = 8;
+			}
+			else if (base == 10 && str[i] == 'x')
+			{
+				SnekAssert(value == 0);
+				SnekAssert(i == 1 || i == 2 && isNegative);
+				base = 16;
+			}
+			else
+			{
+				SnekAssert(false);
+			}
 		}
-		processedStr[len] = 0;
-		int64_t value = strtoll(processedStr, NULL, 0);
+
+		if (isNegative)
+			value *= -1;
+
 		delete str;
 
 		return new AST::IntegerLiteral(parser->module, inputState, value);
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_FLOAT_LITERAL))
 	{
-		char* str = GetTokenString(NextToken(parser));
-		double value = atof(str);
+		Token token = NextToken(parser);
+		char* str = GetTokenString(token);
+
+		char processed[32] = {};
+		int len = 0;
+
+		auto min = [](int a, int b) { return  a < b ? a : b; };
+
+		for (int i = 0; i < min((int)strlen(str), 31); i++)
+		{
+			if (str[i] != '_')
+				processed[len++] = str[i];
+		}
+		processed[len] = 0;
+
+		double value = atof(processed);
 		delete str;
 
-		return new AST::FloatingPointLiteral(parser->module, inputState, value);
+		return new AST::FloatingPointLiteral(parser->module, inputState, value, processed);
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_CHAR_LITERAL))
 	{
@@ -436,6 +505,22 @@ static AST::Expression* ParseAtom(Parser* parser)
 				NextToken(parser); // )
 
 				return new AST::CompoundExpression(parser->module, inputState, compoundValue);
+			}
+			else if (NextTokenIs(parser, ','))
+			{
+				List<AST::Expression*> values;
+				values.add(compoundValue);
+
+				while (NextTokenIs(parser, ','))
+				{
+					NextToken(parser); // ,
+					AST::Expression* value = ParseExpression(parser);
+					values.add(value);
+				}
+
+				SkipToken(parser, ')');
+
+				return new AST::TupleExpression(parser->module, inputState, values);
 			}
 			else
 			{
@@ -550,9 +635,21 @@ static AST::Expression* ParseArgumentOperator(Parser* parser, AST::Expression* e
 	{
 		NextToken(parser); // .
 
-		char* name = GetTokenString(NextToken(parser));
+		AST::Expression* expr = nullptr;
 
-		auto expr = new AST::DotOperator(parser->module, inputState, expression, name);
+		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+		{
+			char* name = GetTokenString(NextToken(parser));
+			expr = new AST::DotOperator(parser->module, inputState, expression, name);
+		}
+		else if (NextTokenIs(parser, TOKEN_TYPE_INT_LITERAL))
+		{
+			char* str = GetTokenString(NextToken(parser));
+			int index = atoi(str);
+			delete str;
+
+			expr = new AST::DotOperator(parser->module, inputState, expression, index);
+		}
 
 		return ParseArgumentOperator(parser, expr);
 	}
@@ -653,8 +750,9 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 {
 	InputState inputState = GetInputState(parser);
 
-	if (AST::Type* type = ParseElementType(parser))
+	//if (AST::Type* type = ParseElementType(parser))
 	{
+		/*
 		if (NextTokenIs(parser, '{'))
 		{
 			NextToken(parser); // {
@@ -680,6 +778,7 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 		{
 			SetInputState(parser, inputState);
 		}
+		*/
 	}
 	if (NextTokenIs(parser, '{'))
 	{
@@ -1094,9 +1193,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 	{
 		NextToken(parser); // if
 
-		SkipToken(parser, '(');
+		//SkipToken(parser, '(');
 		AST::Expression* condition = ParseExpression(parser);
-		SkipToken(parser, ')');
+		//SkipToken(parser, ')');
 
 		AST::Statement* thenStatement = ParseStatement(parser);
 		AST::Statement* elseStatement = NULL;
@@ -1113,9 +1212,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 	{
 		NextToken(parser); // while
 
-		SkipToken(parser, '(');
+		//SkipToken(parser, '(');
 		AST::Expression* condition = ParseExpression(parser);
-		SkipToken(parser, ')');
+		//SkipToken(parser, ')');
 
 		AST::Statement* body = ParseStatement(parser);
 
@@ -1125,9 +1224,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 	{
 		NextToken(parser); // for
 
-		if (NextTokenIs(parser, '('))
+		//if (NextTokenIs(parser, '('))
 		{
-			NextToken(parser); // (
+			//NextToken(parser); // (
 
 			bool includeEndValue = false;
 
@@ -1135,6 +1234,8 @@ static AST::Statement* ParseStatement(Parser* parser)
 			SkipToken(parser, ',');
 
 			AST::Expression* startValue = ParseExpression(parser);
+			SkipToken(parser, ',');
+			/*
 			SkipToken(parser, '.');
 			SkipToken(parser, '.');
 			if (NextTokenIs(parser, '.'))
@@ -1142,6 +1243,7 @@ static AST::Statement* ParseStatement(Parser* parser)
 				NextToken(parser); // .
 				includeEndValue = true;
 			}
+			*/
 
 			AST::Expression* endValue = ParseExpression(parser);
 			AST::Expression* deltaValue = nullptr;
@@ -1152,7 +1254,7 @@ static AST::Statement* ParseStatement(Parser* parser)
 				deltaValue = ParseExpression(parser);
 			}
 
-			SkipToken(parser, ')');
+			//SkipToken(parser, ')');
 
 
 			AST::Statement* body = ParseStatement(parser);
@@ -1167,11 +1269,13 @@ static AST::Statement* ParseStatement(Parser* parser)
 				parser->failed = true;
 			}
 		}
+		/*
 		else
 		{
 			SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FOR_LOOP_SYNTAX, "For loop arguments must be enclosed in parentheses");
 			parser->failed = true;
 		}
+		*/
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_BREAK))
 	{
@@ -1223,18 +1327,41 @@ static AST::Statement* ParseStatement(Parser* parser)
 	else
 	{
 		bool isConstant = false;
-		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
-		{
-			NextToken(parser); // const
-			isConstant = true;
-		}
-
-		AST::Type* type = ParseType(parser);
 		bool isAutoType = false;
-		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
+		AST::Type* type = nullptr;
+
+		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_LET))
 		{
-			NextToken(parser); // var
-			isAutoType = true;
+			NextToken(parser); // let
+			isConstant = true;
+
+			if (NextTokenIs(parser, ':'))
+			{
+				NextToken(parser); // :
+				type = ParseType(parser);
+			}
+			else
+			{
+				isAutoType = true;
+			}
+		}
+		else
+		{
+			if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
+			{
+				NextToken(parser); // const
+				isConstant = true;
+			}
+
+			if (NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
+			{
+				NextToken(parser); // var
+				isAutoType = true;
+			}
+			else
+			{
+				type = ParseType(parser);
+			}
 		}
 
 		if (type || isAutoType)

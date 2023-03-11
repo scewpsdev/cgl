@@ -40,6 +40,7 @@ bool CGLCompiler::compile()
 			asts.add(ast);
 		else
 			success = false;
+		success = success && !parser.failed;
 	}
 
 	Resolver resolver(this, asts);

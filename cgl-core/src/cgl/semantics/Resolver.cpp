@@ -5,6 +5,7 @@
 #include "Type.h"
 #include "Mangling.h"
 
+#include "cgl/parser/lexer.h"
 #include "cgl/utils/Utils.h"
 #include "cgl/utils/Log.h"
 
@@ -326,6 +327,23 @@ static bool ResolveFunctionType(Resolver* resolver, AST::FunctionType* type)
 	return result;
 }
 
+static bool ResolveTupleType(Resolver* resolver, AST::TupleType* type)
+{
+	bool success = true;
+
+	int numValues = type->valueTypes.size;
+	TypeID* valueTypes = new TypeID[numValues];
+	for (int i = 0; i < type->valueTypes.size; i++)
+	{
+		success = ResolveType(resolver, type->valueTypes[i]) && success;
+		valueTypes[i] = type->valueTypes[i]->typeID;
+	}
+
+	type->typeID = GetTupleType(numValues, valueTypes);
+
+	return success;
+}
+
 static bool ResolveArrayType(Resolver* resolver, AST::ArrayType* type)
 {
 	if (ResolveType(resolver, type->elementType))
@@ -421,6 +439,8 @@ static bool ResolveType(Resolver* resolver, AST::Type* type)
 	case AST::TypeKind::Function:
 		return ResolveFunctionType(resolver, (AST::FunctionType*)type);
 
+	case AST::TypeKind::Tuple:
+		return ResolveTupleType(resolver, (AST::TupleType*)type);
 	case AST::TypeKind::Array:
 		return ResolveArrayType(resolver, (AST::ArrayType*)type);
 	case AST::TypeKind::String:
@@ -459,7 +479,7 @@ static bool ResolveIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 
 static bool ResolveFPLiteral(Resolver* resolver, AST::FloatingPointLiteral* expr)
 {
-	expr->valueType = GetFloatingPointType(FloatingPointPrecision::Single);
+	expr->valueType = GetFloatingPointType(FloatingPointPrecision::Double);
 	expr->lvalue = false;
 	return true;
 }
@@ -487,8 +507,8 @@ static bool ResolveNullLiteral(Resolver* resolver, AST::NullLiteral* expr)
 
 static bool ResolveStringLiteral(Resolver* resolver, AST::StringLiteral* expr)
 {
-	//expr->valueType = GetStringType(expr->length + 1);
-	expr->valueType = GetPointerType(GetIntegerType(8, true));
+	expr->valueType = GetStringType();
+	//expr->valueType = GetPointerType(GetIntegerType(8, true));
 	expr->lvalue = true;
 	return true;
 }
@@ -590,8 +610,82 @@ static bool ResolveCompoundExpression(Resolver* resolver, AST::CompoundExpressio
 	return false;
 }
 
+static bool ResolveTupleExpression(Resolver* resolver, AST::TupleExpression* expr)
+{
+	TypeID* valueTypes = new TypeID[expr->values.size];
+
+	bool success = true;
+	for (int i = 0; i < expr->values.size; i++)
+	{
+		success = ResolveExpression(resolver, expr->values[i]) && success;
+		valueTypes[i] = expr->values[i]->valueType;
+	}
+
+	expr->valueType = GetTupleType(expr->values.size, valueTypes);
+	expr->lvalue = false;
+
+	return success;
+}
+
 static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 {
+	if (expr->callee->type == AST::ExpressionType::Identifier)
+	{
+		AST::Identifier* identifier = (AST::Identifier*)expr->callee;
+		KeywordType keywordType = getKeywordType(identifier->name, (int)strlen(identifier->name));
+		if (keywordType == KEYWORD_TYPE_INT8)
+			expr->castDstType = GetIntegerType(8, true);
+		else if (keywordType == KEYWORD_TYPE_INT16)
+			expr->castDstType = GetIntegerType(16, true);
+		else if (keywordType == KEYWORD_TYPE_INT32)
+			expr->castDstType = GetIntegerType(32, true);
+		else if (keywordType == KEYWORD_TYPE_INT64)
+			expr->castDstType = GetIntegerType(64, true);
+		else if (keywordType == KEYWORD_TYPE_UINT8)
+			expr->castDstType = GetIntegerType(8, false);
+		else if (keywordType == KEYWORD_TYPE_UINT16)
+			expr->castDstType = GetIntegerType(16, false);
+		else if (keywordType == KEYWORD_TYPE_UINT32)
+			expr->castDstType = GetIntegerType(32, false);
+		else if (keywordType == KEYWORD_TYPE_UINT64)
+			expr->castDstType = GetIntegerType(64, false);
+		else if (keywordType == KEYWORD_TYPE_FLOAT16)
+			expr->castDstType = GetFloatingPointType(FloatingPointPrecision::Half);
+		else if (keywordType == KEYWORD_TYPE_FLOAT32)
+			expr->castDstType = GetFloatingPointType(FloatingPointPrecision::Single);
+		else if (keywordType == KEYWORD_TYPE_FLOAT64)
+			expr->castDstType = GetFloatingPointType(FloatingPointPrecision::Double);
+		else if (keywordType == KEYWORD_TYPE_FLOAT80)
+			expr->castDstType = GetFloatingPointType(FloatingPointPrecision::Decimal);
+		else if (keywordType == KEYWORD_TYPE_FLOAT128)
+			expr->castDstType = GetFloatingPointType(FloatingPointPrecision::Quad);
+		else if (keywordType == KEYWORD_TYPE_BOOL)
+			expr->castDstType = GetBoolType();
+		else if (keywordType == KEYWORD_TYPE_STRING)
+			expr->castDstType = GetStringType();
+
+		if (expr->castDstType)
+		{
+			expr->isCast = true;
+
+			if (expr->arguments.size == 1)
+			{
+				ResolveExpression(resolver, expr->arguments[0]);
+
+				expr->valueType = expr->castDstType;
+				expr->lvalue = false;
+
+				return true;
+			}
+			else
+			{
+				SnekError(resolver->context, expr->location, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "bleh");
+				return false;
+			}
+		}
+	}
+
+
 	bool result = true;
 
 	TypeID functionType = NULL;
@@ -1089,6 +1183,91 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_IDENTIFIER, "No identifier '%s' in file '%s'", expr->name, nameSpace);
 			return false;
 		}
+
+		if (KeywordType keywordType = getKeywordType(nameSpace, (int)strlen(nameSpace)))
+		{
+			if (keywordType == KEYWORD_TYPE_INT8)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int8Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int8Max;
+				expr->valueType = GetIntegerType(8, true);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_INT16)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int16Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int16Max;
+				expr->valueType = GetIntegerType(16, true);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_INT32)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int32Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int32Max;
+				expr->valueType = GetIntegerType(32, true);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_INT64)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int64Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::Int64Max;
+				expr->valueType = GetIntegerType(64, true);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_UINT8)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt8Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt8Max;
+				expr->valueType = GetIntegerType(8, false);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_UINT16)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt16Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt16Max;
+				expr->valueType = GetIntegerType(16, false);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_UINT32)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt32Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt32Max;
+				expr->valueType = GetIntegerType(32, false);
+				expr->lvalue = false;
+				return true;
+			}
+			else if (keywordType == KEYWORD_TYPE_UINT64)
+			{
+				if (strcmp(expr->name, "min") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt64Min;
+				else if (strcmp(expr->name, "max") == 0)
+					expr->builtinTypeProperty = AST::BuiltinTypeProperty::UInt64Max;
+				expr->valueType = GetIntegerType(64, false);
+				expr->lvalue = false;
+				return true;
+			}
+		}
+
 		/*
 		else
 		{
@@ -1218,24 +1397,36 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_MEMBER, "Unresolved class member %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_MEMBER, "Unresolved class member %s.%s", GetTypeString(operandType), expr->name);
+			return false;
+		}
+		else if (operandType->typeKind == AST::TypeKind::Tuple)
+		{
+			if (expr->fieldIndex >= 0 && expr->fieldIndex < operandType->tupleType.numValues)
+			{
+				expr->valueType = operandType->tupleType.valueTypes[expr->fieldIndex];
+				expr->lvalue = true;
+				return true;
+			}
+
+			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_MEMBER, "Tuple index %d out of range for type %s", expr->fieldIndex, GetTypeString(operandType));
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Array)
 		{
-			expr->arrayField = -1;
+			//expr->fieldIndex = -1;
 			if (strcmp(expr->name, "size") == 0)
 			{
 				expr->valueType = GetIntegerType(32, false);
 				expr->lvalue = false;
-				expr->arrayField = 0;
+				expr->fieldIndex = 0;
 				return true;
 			}
 			else if (strcmp(expr->name, "ptr") == 0)
 			{
-				expr->valueType = GetPointerType(expr->operand->valueType->arrayType.elementType);
+				expr->valueType = GetPointerType(operandType->arrayType.elementType);
 				expr->lvalue = false;
-				expr->arrayField = 1;
+				expr->fieldIndex = 1;
 				return true;
 			}
 
@@ -1244,19 +1435,19 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		}
 		else if (operandType->typeKind == AST::TypeKind::String)
 		{
-			expr->stringField = -1;
+			expr->fieldIndex = -1;
 			if (strcmp(expr->name, "length") == 0)
 			{
 				expr->valueType = GetIntegerType(32, false);
 				expr->lvalue = false;
-				expr->stringField = 0;
+				expr->fieldIndex = 0;
 				return true;
 			}
 			else if (strcmp(expr->name, "ptr") == 0)
 			{
 				expr->valueType = GetPointerType(GetIntegerType(8, true));
 				expr->lvalue = false;
-				expr->stringField = 1;
+				expr->fieldIndex = 1;
 				return true;
 			}
 
@@ -1702,6 +1893,8 @@ static bool ResolveExpression(Resolver* resolver, AST::Expression* expression)
 		return ResolveIdentifier(resolver, (AST::Identifier*)expression);
 	case AST::ExpressionType::Compound:
 		return ResolveCompoundExpression(resolver, (AST::CompoundExpression*)expression);
+	case AST::ExpressionType::Tuple:
+		return ResolveTupleExpression(resolver, (AST::TupleExpression*)expression);
 
 	case AST::ExpressionType::FunctionCall:
 		return ResolveFunctionCall(resolver, (AST::FunctionCall*)expression);
@@ -1747,7 +1940,17 @@ static bool ResolveCompoundStatement(Resolver* resolver, AST::CompoundStatement*
 
 static bool ResolveExprStatement(Resolver* resolver, AST::ExpressionStatement* statement)
 {
-	return ResolveExpression(resolver, statement->expression);
+	bool result = ResolveExpression(resolver, statement->expression);
+	if (statement->expression->type == AST::ExpressionType::FunctionCall)
+	{
+		AST::FunctionCall* functionCall = (AST::FunctionCall*)statement->expression;
+		if (functionCall->function->returnType && functionCall->function->returnType->typeKind != AST::TypeKind::Void)
+		{
+			SnekError(resolver->context, statement->location, ERROR_CODE_EXPRESSION_EXPECTED, "Return value of function call must not be dropped");
+			return false;
+		}
+	}
+	return result;
 }
 
 static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration* statement)
@@ -1819,6 +2022,12 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 	bool result = true;
 
 	result = ResolveExpression(resolver, statement->condition) && result;
+	if (!(statement->condition->valueType->typeKind == AST::TypeKind::Boolean || statement->condition->valueType->typeKind == AST::TypeKind::Integer || statement->condition->valueType->typeKind == AST::TypeKind::Pointer))
+	{
+		SnekError(resolver->context, statement->condition->location, ERROR_CODE_EXPRESSION_EXPECTED, "If statement condition needs to be of boolean, integer or pointer type");
+		result = false;
+	}
+
 	result = ResolveStatement(resolver, statement->thenStatement) && result;
 	if (statement->elseStatement)
 	{

@@ -1,3 +1,4 @@
+#include <stdbool.h>
 
 typedef struct { const char* buffer; long length; } string;
 

@@ -27,6 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="test\Main.cgl" />
-    <None Include="test\int.cgl" />
+    <None Include="test\Test.cgl" />
   </ItemGroup>
 </Project>

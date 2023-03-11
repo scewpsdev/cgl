@@ -31,6 +31,7 @@ namespace AST
 		InitializerList,
 		Identifier,
 		Compound,
+		Tuple,
 
 		FunctionCall,
 		SubscriptOperator,
@@ -97,6 +98,29 @@ namespace AST
 		Ternary, // Technically not a binary operator, but it makes sense to have it here
 	};
 
+	enum class BuiltinTypeProperty : uint8_t
+	{
+		Null,
+
+		Int8Min,
+		Int8Max,
+		Int16Min,
+		Int16Max,
+		Int32Min,
+		Int32Max,
+		Int64Min,
+		Int64Max,
+
+		UInt8Min,
+		UInt8Max,
+		UInt16Min,
+		UInt16Max,
+		UInt32Min,
+		UInt32Max,
+		UInt64Min,
+		UInt64Max,
+	};
+
 	struct Expression : Element
 	{
 		ExpressionType type;
@@ -127,9 +151,10 @@ namespace AST
 	struct FloatingPointLiteral : Expression
 	{
 		double value = 0.0;
+		char valueStr[32] = {};
 
 
-		FloatingPointLiteral(File* file, const SourceLocation& location, double value);
+		FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr);
 
 		virtual Element* copy() override;
 		virtual bool isConstant() override;
@@ -229,6 +254,18 @@ namespace AST
 		virtual bool isConstant() override;
 	};
 
+	struct TupleExpression : Expression
+	{
+		List<Expression*> values;
+
+
+		TupleExpression(File* file, const SourceLocation& location, const List<Expression*>& values);
+		virtual ~TupleExpression();
+
+		virtual Element* copy() override;
+		virtual bool isConstant() override;
+	};
+
 	struct FunctionCall : Expression
 	{
 		Expression* callee;
@@ -240,6 +277,9 @@ namespace AST
 		Function* function = nullptr;
 		bool isMethodCall = false;
 		Expression* methodInstance = nullptr;
+
+		bool isCast = false;
+		TypeID castDstType = nullptr;
 
 
 		FunctionCall(File* file, const SourceLocation& location, Expression* callee, const List<Expression*>& arguments, bool hasGenericArgs, const List<Type*>& genericArgs);
@@ -263,12 +303,15 @@ namespace AST
 	struct DotOperator : Expression
 	{
 		Expression* operand;
-		char* name;
+		char* name = nullptr;
+		int fieldIndex = -1;
 
 		Module* module = nullptr;
 		Variable* namespacedVariable = nullptr;
 
 		List<Function*> namespacedFunctions;
+
+		BuiltinTypeProperty builtinTypeProperty = BuiltinTypeProperty::Null;
 
 		// structs
 		StructField* structField = nullptr;
@@ -278,13 +321,8 @@ namespace AST
 		// classes
 		ClassField* classField = nullptr;
 
-		// arrays
-		int arrayField = -1;
 
-		// strings
-		int stringField = -1;
-
-
+		DotOperator(File* file, const SourceLocation& location, Expression* operand, int index);
 		DotOperator(File* file, const SourceLocation& location, Expression* operand, char* name);
 		virtual ~DotOperator();
 
