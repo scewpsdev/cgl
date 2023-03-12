@@ -100,6 +100,22 @@ namespace AST
 		return new PointerType(file, location, (Type*)elementType->copy());
 	}
 
+	OptionalType::OptionalType(File* file, const SourceLocation& location, Type* elementType)
+		: Type(file, location, TypeKind::Optional), elementType(elementType)
+	{
+	}
+
+	OptionalType::~OptionalType()
+	{
+		if (elementType)
+			delete elementType;
+	}
+
+	Element* OptionalType::copy()
+	{
+		return new OptionalType(file, location, (Type*)elementType->copy());
+	}
+
 	FunctionType::FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs)
 		: Type(file, location, TypeKind::Function), returnType(returnType), paramTypes(paramTypes), varArgs(varArgs)
 	{

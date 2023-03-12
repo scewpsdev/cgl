@@ -71,6 +71,9 @@ struct TypeData
 			TypeID elementType;
 		} pointerType;
 		struct {
+			TypeID elementType;
+		} optionalType;
+		struct {
 			TypeID returnType;
 			int numParams;
 			TypeID* paramTypes;
@@ -109,6 +112,7 @@ TypeID GetClassType(const char* className, AST::Class* declaration);
 TypeID GetAliasType(const char* name, AST::Declaration* declaration);
 
 TypeID GetPointerType(TypeID elementType);
+TypeID GetOptionalType(TypeID elementType);
 TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, bool varArgs, bool isMethod, TypeID instanceType, AST::Function* declaration);
 TypeID GetTupleType(int numValues, TypeID* valueTypes);
 TypeID GetArrayType(TypeID elementType, int length);
@@ -121,3 +125,4 @@ const char* GetTypeString(TypeID type);
 
 bool CanConvert(TypeID argType, TypeID paramType);
 bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant);
+TypeID BinaryOperatorTypeMeet(TypeID leftType, TypeID rightType);

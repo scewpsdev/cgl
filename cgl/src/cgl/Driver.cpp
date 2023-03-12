@@ -208,8 +208,6 @@ int main(int argc, char* argv[])
 
 	bool result = true;
 
-	List<const char*> inputFiles;
-
 	for (int i = 1; i < argc; i++)
 	{
 		const char* arg = argv[i];
@@ -238,18 +236,17 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	for (const char* inputFile : inputFiles)
+	if (compiler.sourceFiles.size > 0)
 	{
-		if (const char* src = ReadText(inputFile))
+		if (compiler.compile())
 		{
-			compiler.addFile(inputFile, GetModuleNameFromPath(inputFile), src);
+			int result = compiler.run(0, nullptr);
+			printf("Program exited with code %i\n", result);
 		}
 	}
-
-	if (compiler.compile())
+	else
 	{
-		int result = compiler.run(0, nullptr);
-		printf("Program exited with code %i\n", result);
+		SnekFatal(&compiler, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "No input files");
 	}
 
 	compiler.terminate();

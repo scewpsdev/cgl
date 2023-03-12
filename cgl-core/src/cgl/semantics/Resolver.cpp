@@ -296,10 +296,17 @@ static bool ResolvePointerType(Resolver* resolver, AST::PointerType* type)
 		type->typeID = GetPointerType(type->elementType->typeID);
 		return true;
 	}
-	else
+	return false;
+}
+
+static bool ResolveOptionalType(Resolver* resolver, AST::OptionalType* type)
+{
+	if (ResolveType(resolver, type->elementType))
 	{
-		return false;
+		type->typeID = GetOptionalType(type->elementType->typeID);
+		return true;
 	}
+	return false;
 }
 
 static bool ResolveFunctionType(Resolver* resolver, AST::FunctionType* type)
@@ -436,6 +443,8 @@ static bool ResolveType(Resolver* resolver, AST::Type* type)
 		return ResolveNamedType(resolver, (AST::NamedType*)type);
 	case AST::TypeKind::Pointer:
 		return ResolvePointerType(resolver, (AST::PointerType*)type);
+	case AST::TypeKind::Optional:
+		return ResolveOptionalType(resolver, (AST::OptionalType*)type);
 	case AST::TypeKind::Function:
 		return ResolveFunctionType(resolver, (AST::FunctionType*)type);
 
@@ -1400,6 +1409,26 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_MEMBER, "Unresolved class member %s.%s", GetTypeString(operandType), expr->name);
 			return false;
 		}
+		else if (operandType->typeKind == AST::TypeKind::Optional)
+		{
+			if (strcmp(expr->name, "value") == 0)
+			{
+				expr->valueType = operandType->optionalType.elementType;
+				expr->lvalue = false;
+				expr->fieldIndex = 0;
+				return true;
+			}
+			else if (strcmp(expr->name, "hasValue") == 0)
+			{
+				expr->valueType = GetBoolType();
+				expr->lvalue = false;
+				expr->fieldIndex = 1;
+				return true;
+			}
+
+			SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_MEMBER, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
+			return false;
+		}
 		else if (operandType->typeKind == AST::TypeKind::Tuple)
 		{
 			if (expr->fieldIndex >= 0 && expr->fieldIndex < operandType->tupleType.numValues)
@@ -1691,56 +1720,6 @@ static bool ResolveUnaryOperator(Resolver* resolver, AST::UnaryOperator* expr)
 	return false;
 }
 
-static TypeID BinaryOperatorTypeMeet(Resolver* resolver, TypeID leftType, TypeID rightType)
-{
-	while (leftType->typeKind == AST::TypeKind::Alias)
-		leftType = leftType->aliasType.alias;
-	while (rightType->typeKind == AST::TypeKind::Alias)
-		rightType = rightType->aliasType.alias;
-
-	if (leftType->typeKind == AST::TypeKind::Integer && rightType->typeKind == AST::TypeKind::Integer)
-	{
-		int bitWidth = max(leftType->integerType.bitWidth, rightType->integerType.bitWidth);
-		bool isSigned = leftType->integerType.isSigned || rightType->integerType.isSigned;
-		return GetIntegerType(bitWidth, isSigned);
-	}
-	else if (leftType->typeKind == AST::TypeKind::FloatingPoint && rightType->typeKind == AST::TypeKind::FloatingPoint)
-	{
-		FloatingPointPrecision precision = (FloatingPointPrecision)max((int)leftType->fpType.precision, (int)rightType->fpType.precision);
-		return GetFloatingPointType(precision);
-	}
-	else if (leftType->typeKind == AST::TypeKind::Integer && rightType->typeKind == AST::TypeKind::FloatingPoint)
-	{
-		return rightType;
-	}
-	else if (leftType->typeKind == AST::TypeKind::FloatingPoint && rightType->typeKind == AST::TypeKind::Integer)
-	{
-		return leftType;
-	}
-	else if (leftType->typeKind == AST::TypeKind::Pointer && rightType->typeKind == AST::TypeKind::Integer)
-	{
-		return leftType;
-	}
-	else if (leftType->typeKind == AST::TypeKind::Pointer && rightType->typeKind == AST::TypeKind::Pointer)
-	{
-		if (leftType->pointerType.elementType->typeKind == AST::TypeKind::Void)
-			return rightType;
-		if (rightType->pointerType.elementType->typeKind == AST::TypeKind::Void)
-			return leftType;
-		SnekAssert(false);
-		return nullptr;
-	}
-	else if (leftType->typeKind == AST::TypeKind::String && rightType->typeKind == AST::TypeKind::String)
-	{
-		return leftType;
-	}
-	else
-	{
-		SnekAssert(false);
-		return nullptr;
-	}
-}
-
 static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 {
 	bool result = true;
@@ -1757,7 +1736,7 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 		case AST::BinaryOperatorType::Multiply:
 		case AST::BinaryOperatorType::Divide:
 		case AST::BinaryOperatorType::Modulo:
-			expr->valueType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+			expr->valueType = BinaryOperatorTypeMeet(expr->left->valueType, expr->right->valueType);
 			expr->lvalue = false;
 			return true;
 
@@ -1795,7 +1774,7 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 		case AST::BinaryOperatorType::BitwiseXor:
 		case AST::BinaryOperatorType::BitshiftLeft:
 		case AST::BinaryOperatorType::BitshiftRight:
-			expr->valueType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+			expr->valueType = BinaryOperatorTypeMeet(expr->left->valueType, expr->right->valueType);
 			expr->lvalue = false;
 			return true;
 
@@ -1850,7 +1829,7 @@ static bool ResolveTernaryOperator(Resolver* resolver, AST::TernaryOperator* exp
 {
 	if (ResolveExpression(resolver, expr->condition) && ResolveExpression(resolver, expr->thenValue) && ResolveExpression(resolver, expr->elseValue))
 	{
-		TypeID type = BinaryOperatorTypeMeet(resolver, expr->thenValue->valueType, expr->elseValue->valueType);
+		TypeID type = BinaryOperatorTypeMeet(expr->thenValue->valueType, expr->elseValue->valueType);
 		//if (CompareTypes(expr->thenValue->type, expr->elseValue->type))
 		if (type)
 		{
@@ -2022,7 +2001,12 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 	bool result = true;
 
 	result = ResolveExpression(resolver, statement->condition) && result;
-	if (!(statement->condition->valueType->typeKind == AST::TypeKind::Boolean || statement->condition->valueType->typeKind == AST::TypeKind::Integer || statement->condition->valueType->typeKind == AST::TypeKind::Pointer))
+	if (!(
+		statement->condition->valueType->typeKind == AST::TypeKind::Boolean ||
+		statement->condition->valueType->typeKind == AST::TypeKind::Integer ||
+		statement->condition->valueType->typeKind == AST::TypeKind::Pointer ||
+		statement->condition->valueType->typeKind == AST::TypeKind::Optional
+		))
 	{
 		SnekError(resolver->context, statement->condition->location, ERROR_CODE_EXPRESSION_EXPECTED, "If statement condition needs to be of boolean, integer or pointer type");
 		result = false;

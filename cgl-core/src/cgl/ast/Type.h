@@ -27,6 +27,7 @@ namespace AST
 		Class,
 		Alias,
 		Pointer,
+		Optional,
 		Function,
 		Tuple,
 		Array,
@@ -103,6 +104,17 @@ namespace AST
 
 		PointerType(File* file, const SourceLocation& location, Type* elementType);
 		virtual ~PointerType();
+
+		virtual Element* copy() override;
+	};
+
+	struct OptionalType : Type
+	{
+		Type* elementType;
+
+
+		OptionalType(File* file, const SourceLocation& location, Type* elementType);
+		virtual ~OptionalType();
 
 		virtual Element* copy() override;
 	};

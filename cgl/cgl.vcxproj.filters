@@ -24,6 +24,9 @@
     <ClCompile Include="test\test.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="cgl.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="test\Main.cgl" />

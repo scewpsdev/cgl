@@ -226,6 +226,14 @@ static AST::Type* ParseComplexType(Parser* parser, AST::Type* elementType)
 
 		return ParseComplexType(parser, pointerType);
 	}
+	else if (NextTokenIs(parser, TOKEN_TYPE_OP_QUESTION))
+	{
+		NextToken(parser); // ?
+
+		auto optionalType = new AST::OptionalType(parser->module, location, elementType);
+
+		return ParseComplexType(parser, optionalType);
+	}
 	else if (NextTokenIs(parser, '['))
 	{
 		NextToken(parser); // [
@@ -1330,9 +1338,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 		bool isAutoType = false;
 		AST::Type* type = nullptr;
 
-		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_LET))
+		if (NextTokenIsKeyword(parser, KEYWORD_TYPE_LET) || NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
 		{
-			NextToken(parser); // let
+			NextToken(parser); // let/const
 			isConstant = true;
 
 			if (NextTokenIs(parser, ':'))
@@ -1345,23 +1353,14 @@ static AST::Statement* ParseStatement(Parser* parser)
 				isAutoType = true;
 			}
 		}
+		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
+		{
+			NextToken(parser); // var
+			isAutoType = true;
+		}
 		else
 		{
-			if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
-			{
-				NextToken(parser); // const
-				isConstant = true;
-			}
-
-			if (NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
-			{
-				NextToken(parser); // var
-				isAutoType = true;
-			}
-			else
-			{
-				type = ParseType(parser);
-			}
+			type = ParseType(parser);
 		}
 
 		if (type || isAutoType)

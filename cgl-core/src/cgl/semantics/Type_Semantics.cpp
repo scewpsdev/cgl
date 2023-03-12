@@ -4,6 +4,7 @@
 #include "Resolver.h"
 
 #include "cgl/utils/Log.h"
+#include "cgl/utils/Utils.h"
 #include "cgl/utils/Stringbuffer.h"
 
 #include "cgl/ast/File.h"
@@ -21,6 +22,7 @@ struct TypeDataStorage
 	List<TypeData*> classTypes;
 	List<TypeData*> aliasTypes;
 	List<TypeData*> pointerTypes;
+	List<TypeData*> optionalTypes;
 	List<TypeData*> functionTypes;
 	List<TypeData*> tupleTypes;
 	List<TypeData*> arrayTypes;
@@ -283,11 +285,34 @@ TypeID GetAliasType(const char* name, AST::Declaration* declaration)
 
 TypeID GetPointerType(TypeID elementType)
 {
+	for (TypeID t : types.pointerTypes)
+	{
+		if (CompareTypes(t->pointerType.elementType, elementType))
+			return t;
+	}
+
 	TypeData* data = new TypeData;
 	data->typeKind = AST::TypeKind::Pointer;
 	data->pointerType.elementType = elementType;
 
 	types.pointerTypes.add(data);
+
+	return data;
+}
+
+TypeID GetOptionalType(TypeID elementType)
+{
+	for (TypeID t : types.optionalTypes)
+	{
+		if (CompareTypes(t->optionalType.elementType, elementType))
+			return t;
+	}
+
+	TypeData* data = new TypeData();
+	data->typeKind = AST::TypeKind::Optional;
+	data->optionalType.elementType = elementType;
+
+	types.optionalTypes.add(data);
 
 	return data;
 }
@@ -311,6 +336,23 @@ TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, boo
 
 TypeID GetTupleType(int numValues, TypeID* valueTypes)
 {
+	for (TypeID t : types.tupleTypes)
+	{
+		if (t->tupleType.numValues != numValues)
+			break;
+		bool found = true;
+		for (int i = 0; i < t->tupleType.numValues; i++)
+		{
+			if (!CompareTypes(t->tupleType.valueTypes[i], valueTypes[i]))
+			{
+				found = false;
+				break;
+			}
+		}
+		if (found)
+			return t;
+	}
+
 	TypeData* data = new TypeData;
 	data->typeKind = AST::TypeKind::Tuple;
 
@@ -522,6 +564,17 @@ static char* TypeToString(TypeID type)
 
 		return str;
 	}
+	case AST::TypeKind::Optional:
+	{
+		const char* elementTypeStr = GetTypeString(type->pointerType.elementType);
+		int len = (int)strlen(elementTypeStr) + 1;
+		char* str = new char[len + 1];
+		strcpy(str, elementTypeStr);
+		strcpy(str + strlen(str), "?");
+		str[len] = 0;
+
+		return str;
+	}
 	case AST::TypeKind::Function:
 	{
 		const char* returnTypeStr = GetTypeString(type->functionType.returnType);
@@ -725,6 +778,15 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 		if (/*argIsConstant || */argType->pointerType.elementType->typeKind == AST::TypeKind::Void || paramType->pointerType.elementType->typeKind == AST::TypeKind::Void)
 			return true;
 	}
+	else if (argType->typeKind == AST::TypeKind::Pointer && argType->pointerType.elementType->typeKind == AST::TypeKind::Void &&
+		paramType->typeKind == AST::TypeKind::Optional)
+	{
+		return true;
+	}
+	else if (argType->typeKind != AST::TypeKind::Optional && paramType->typeKind == AST::TypeKind::Optional && CompareTypes(paramType->optionalType.elementType, argType))
+	{
+		return true;
+	}
 	else if (argType->typeKind == AST::TypeKind::Array && paramType->typeKind == AST::TypeKind::Array)
 	{
 		if (CompareTypes(argType->arrayType.elementType, paramType->arrayType.elementType))
@@ -764,4 +826,54 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 	}
 
 	return false;
+}
+
+TypeID BinaryOperatorTypeMeet(TypeID leftType, TypeID rightType)
+{
+	while (leftType->typeKind == AST::TypeKind::Alias)
+		leftType = leftType->aliasType.alias;
+	while (rightType->typeKind == AST::TypeKind::Alias)
+		rightType = rightType->aliasType.alias;
+
+	if (leftType->typeKind == AST::TypeKind::Integer && rightType->typeKind == AST::TypeKind::Integer)
+	{
+		int bitWidth = max(leftType->integerType.bitWidth, rightType->integerType.bitWidth);
+		bool isSigned = leftType->integerType.isSigned || rightType->integerType.isSigned;
+		return GetIntegerType(bitWidth, isSigned);
+	}
+	else if (leftType->typeKind == AST::TypeKind::FloatingPoint && rightType->typeKind == AST::TypeKind::FloatingPoint)
+	{
+		FloatingPointPrecision precision = (FloatingPointPrecision)max((int)leftType->fpType.precision, (int)rightType->fpType.precision);
+		return GetFloatingPointType(precision);
+	}
+	else if (leftType->typeKind == AST::TypeKind::Integer && rightType->typeKind == AST::TypeKind::FloatingPoint)
+	{
+		return rightType;
+	}
+	else if (leftType->typeKind == AST::TypeKind::FloatingPoint && rightType->typeKind == AST::TypeKind::Integer)
+	{
+		return leftType;
+	}
+	else if (leftType->typeKind == AST::TypeKind::Pointer && rightType->typeKind == AST::TypeKind::Integer)
+	{
+		return leftType;
+	}
+	else if (leftType->typeKind == AST::TypeKind::Pointer && rightType->typeKind == AST::TypeKind::Pointer)
+	{
+		if (leftType->pointerType.elementType->typeKind == AST::TypeKind::Void)
+			return rightType;
+		if (rightType->pointerType.elementType->typeKind == AST::TypeKind::Void)
+			return leftType;
+		SnekAssert(false);
+		return nullptr;
+	}
+	else if (leftType->typeKind == AST::TypeKind::String && rightType->typeKind == AST::TypeKind::String)
+	{
+		return leftType;
+	}
+	else
+	{
+		SnekAssert(false);
+		return nullptr;
+	}
 }

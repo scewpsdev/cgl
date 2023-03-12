@@ -151,6 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cgl.c" />
     <ClCompile Include="src\cgl\backends\tcc\CodegenTCC.cpp" />
     <ClCompile Include="src\cgl\Driver.cpp" />
     <ClCompile Include="test\test.c" />

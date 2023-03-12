@@ -19,6 +19,8 @@ class CodegenTCC
 	AST::File* file;
 
 	List<Variable*> importedGlobals;
+	std::map<TypeID, std::string> optionalTypes;
+	std::map<TypeID, std::string> tupleTypes;
 
 	std::stringstream builtinDefinitionStream;
 	std::stringstream types;
@@ -70,6 +72,67 @@ class CodegenTCC
 		delete lastScope;
 	}
 
+	std::string fpPrecisionToString(FloatingPointPrecision precision)
+	{
+		switch (precision)
+		{
+		case FloatingPointPrecision::Half: return "16";
+		case FloatingPointPrecision::Single: return "32";
+		case FloatingPointPrecision::Double: return "64";
+		case FloatingPointPrecision::Decimal: return "80";
+		case FloatingPointPrecision::Quad: return "128";
+		default:
+			SnekAssert(false);
+			return "";
+		}
+	}
+
+	std::string mangleType(TypeID type)
+	{
+		switch (type->typeKind)
+		{
+		case AST::TypeKind::Void:
+			return "v";
+		case AST::TypeKind::Integer:
+			return std::string(type->integerType.isSigned ? "i" : "u") + std::to_string(type->integerType.bitWidth);
+		case AST::TypeKind::FloatingPoint:
+			return "f" + fpPrecisionToString(type->fpType.precision);
+		case AST::TypeKind::Boolean:
+			return "b";
+		case AST::TypeKind::Struct:
+			return "x" + std::string(type->structType.name);
+		case AST::TypeKind::Class:
+			return "X" + std::string(type->classType.name);
+		case AST::TypeKind::Alias:
+			return mangleType(type->aliasType.alias);
+		case AST::TypeKind::Pointer:
+			return "p" + mangleType(type->pointerType.elementType);
+		case AST::TypeKind::Optional:
+			return "o" + mangleType(type->optionalType.elementType);
+		case AST::TypeKind::Function:
+		{
+			std::string result = "F" + mangleType(type->functionType.returnType) + std::to_string(type->functionType.numParams);
+			for (int i = 0; i < type->functionType.numParams; i++)
+				result = result + mangleType(type->functionType.paramTypes[i]);
+			return result;
+		}
+		case AST::TypeKind::Tuple:
+		{
+			std::string result = "t" + std::to_string(type->tupleType.numValues);
+			for (int i = 0; i < type->tupleType.numValues; i++)
+				result = result + mangleType(type->tupleType.valueTypes[i]);
+			return result;
+		}
+		case AST::TypeKind::Array:
+			return "a" + mangleType(type->arrayType.elementType);
+		case AST::TypeKind::String:
+			return "s";
+		default:
+			SnekAssert(false);
+			return "";
+		}
+	}
+
 	std::string genTypeVoid()
 	{
 		return "void";
@@ -110,16 +173,37 @@ class CodegenTCC
 		return genType(type->pointerType.elementType) + "*";
 	}
 
+	std::string genTypeOptional(TypeID type)
+	{
+		auto it = optionalTypes.find(type);
+		if (it == optionalTypes.end())
+		{
+			std::string name = "__" + mangleType(type);
+			std::string str = "typedef struct{" + genType(type->optionalType.elementType) + " value;u8 hasValue;}" + name + ";";
+			types << str << std::endl;
+			optionalTypes.emplace(type, name);
+			return name;
+		}
+		return optionalTypes[type];
+	}
+
 	std::string genTypeTuple(TypeID type)
 	{
-		std::stringstream result;
-		result << "struct{";
-		for (int i = 0; i < type->tupleType.numValues; i++)
+		auto it = tupleTypes.find(type);
+		if (it == tupleTypes.end())
 		{
-			result << genType(type->tupleType.valueTypes[i]) << " _" << i << ";";
+			std::string name = "__" + mangleType(type);
+			std::string str = "typedef struct{";
+			for (int i = 0; i < type->tupleType.numValues; i++)
+			{
+				str += genType(type->tupleType.valueTypes[i]) + " _" + std::to_string(i) + ";";
+			}
+			str += "}" + name + ";";
+			types << str << std::endl;
+			tupleTypes.emplace(type, name);
+			return name;
 		}
-		result << "}";
-		return result.str();
+		return tupleTypes[type];
 	}
 
 	std::string genTypeString()
@@ -145,6 +229,8 @@ class CodegenTCC
 		case AST::TypeKind::Alias:
 		case AST::TypeKind::Pointer:
 			return genTypePointer(type);
+		case AST::TypeKind::Optional:
+			return genTypeOptional(type);
 		case AST::TypeKind::Function:
 		case AST::TypeKind::Tuple:
 			return genTypeTuple(type);
@@ -177,6 +263,29 @@ class CodegenTCC
 		else if (expression->valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::FloatingPoint)
 		{
 			return "(" + genType(type) + ")" + genExpression(expression);
+		}
+		else if (expression->valueType->typeKind == AST::TypeKind::Pointer && expression->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void &&
+			type->typeKind == AST::TypeKind::Optional)
+		{
+			return "(" + genType(type) + ")" + genExpression(expression);
+		}
+		else if (expression->valueType->typeKind != AST::TypeKind::Optional && type->typeKind == AST::TypeKind::Optional &&
+			CompareTypes(type->optionalType.elementType, expression->valueType))
+		{
+			return "(" + genType(type) + "){" + genExpression(expression) + ",1}";
+		}
+		// Boolean conversions
+		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Integer)
+		{
+			return genExpression(expression);
+		}
+		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Pointer)
+		{
+			return genExpression(expression);
+		}
+		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Optional)
+		{
+			return genExpression(expression) + ".hasValue";
 		}
 		else if (expression->valueType->typeKind == AST::TypeKind::Pointer &&
 			expression->valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
@@ -237,6 +346,11 @@ class CodegenTCC
 			return "'\\0'";
 		else
 			return std::to_string(expression->value);
+	}
+
+	std::string genExpressionNullLiteral(AST::NullLiteral* expression)
+	{
+		return "{0}";
 	}
 
 	std::string genExpressionStringLiteral(AST::StringLiteral* expression)
@@ -450,8 +564,21 @@ class CodegenTCC
 			return genExpression(expression->operand) + "->" + expression->classField->name;
 		else if (expression->fieldIndex != -1)
 		{
-			if (expression->operand->valueType->typeKind == AST::TypeKind::Tuple)
+			if (expression->operand->valueType->typeKind == AST::TypeKind::Optional)
 			{
+				if (expression->fieldIndex == 0)
+					return genExpression(expression->operand) + ".value";
+				else if (expression->fieldIndex == 1)
+					return genExpression(expression->operand) + ".hasValue";
+				else
+				{
+					SnekAssert(false);
+					return "";
+				}
+			}
+			else if (expression->operand->valueType->typeKind == AST::TypeKind::Tuple)
+			{
+				SnekAssert(expression->fieldIndex >= 0 && expression->fieldIndex < expression->operand->valueType->tupleType.numValues);
 				return genExpression(expression->operand) + "._" + std::to_string(expression->fieldIndex);
 			}
 			else if (expression->operand->valueType->typeKind == AST::TypeKind::Array)
@@ -496,18 +623,38 @@ class CodegenTCC
 		return castValue(expression->value, expression->dstType->typeID);
 	}
 
+	std::string compareValues(AST::Expression* left, AST::Expression* right)
+	{
+		if (left->valueType->typeKind == AST::TypeKind::Optional &&
+			right->valueType->typeKind == AST::TypeKind::Pointer && right->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void)
+		{
+			SnekAssert(dynamic_cast<AST::NullLiteral*>(right));
+			return "!(" + genExpression(left) + ".hasValue)";
+		}
+		else
+		{
+			return genExpression(left) + "==" + genExpression(right);
+		}
+	}
+
 	std::string genExpressionBinaryOperator(AST::BinaryOperator* expression)
 	{
 		switch (expression->operatorType)
 		{
 		case AST::BinaryOperatorType::Add:
-			return genExpression(expression->left) + "+" + genExpression(expression->right);
+			return castValue(expression->left, expression->valueType) + "+" + castValue(expression->right, expression->valueType);
 		case AST::BinaryOperatorType::Subtract:
+			return castValue(expression->left, expression->valueType) + "-" + castValue(expression->right, expression->valueType);
 		case AST::BinaryOperatorType::Multiply:
+			return castValue(expression->left, expression->valueType) + "*" + castValue(expression->right, expression->valueType);
 		case AST::BinaryOperatorType::Divide:
+			return castValue(expression->left, expression->valueType) + "/" + castValue(expression->right, expression->valueType);
 		case AST::BinaryOperatorType::Modulo:
+			return castValue(expression->left, expression->valueType) + "%" + castValue(expression->right, expression->valueType);
 		case AST::BinaryOperatorType::Equals:
+			return compareValues(expression->left, expression->right);
 		case AST::BinaryOperatorType::DoesNotEqual:
+			return "!(" + compareValues(expression->left, expression->right) + ")";
 		case AST::BinaryOperatorType::LessThan:
 		case AST::BinaryOperatorType::GreaterThan:
 		case AST::BinaryOperatorType::LessThanEquals:
@@ -551,6 +698,7 @@ class CodegenTCC
 		case AST::ExpressionType::CharacterLiteral:
 			return genExpressionCharacterLiteral((AST::CharacterLiteral*)expression);
 		case AST::ExpressionType::NullLiteral:
+			return genExpressionNullLiteral((AST::NullLiteral*)expression);
 		case AST::ExpressionType::StringLiteral:
 			return genExpressionStringLiteral((AST::StringLiteral*)expression);
 		case AST::ExpressionType::InitializerList:
@@ -632,6 +780,10 @@ class CodegenTCC
 			{
 				stream << "=" << castValue(declarator->value, statement->varType);
 			}
+			else
+			{
+				stream << "={0}";
+			}
 			if (i < statement->declarators.size - 1)
 				stream << ",";
 		}
@@ -648,7 +800,7 @@ class CodegenTCC
 		std::stringstream stream;
 		currentStream = &stream;
 
-		stream << "if(" << genExpression(statement->condition) << ")";
+		stream << "if(" << castValue(statement->condition, GetBoolType()) << ")";
 		genStatement(statement->thenStatement);
 		if (statement->elseStatement)
 		{
@@ -870,6 +1022,7 @@ public:
 		builtinDefinitionStream << "u32 __stou32(string s);\n";
 		builtinDefinitionStream << "u64 __stou64(string s);\n";
 		builtinDefinitionStream << "string __itos(i64 i);\n";
+		builtinDefinitionStream << "string __utos(u64 n);\n";
 
 		for (AST::Function* function : file->functions)
 		{
@@ -900,106 +1053,39 @@ public:
 	}
 };
 
+static char* ReadText(const char* path)
+{
+	if (FILE* file = fopen(path, "r"))
+	{
+		fseek(file, 0, SEEK_END);
+		long numBytes = ftell(file);
+		fseek(file, 0, SEEK_SET);
+
+		char* buffer = new char[numBytes + 1];
+		memset(buffer, 0, numBytes);
+		fread(buffer, 1, numBytes, file);
+		fclose(file);
+		buffer[numBytes] = 0;
+
+		return buffer;
+	}
+	return nullptr;
+}
+
 int CGLCompiler::run(int argc, char* argv[])
 {
 	TCCState* tcc = tcc_new();
 
-	tcc_add_include_path(tcc, "D:\\Repositories\\tcc\\include\\");
-	tcc_add_library_path(tcc, "D:\\Repositories\\tcc\\lib\\");
+	tcc_add_include_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\include\\");
+	tcc_add_library_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\lib\\");
 	tcc_add_library(tcc, "tcc1-64");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_MEMORY);
 
 	{
-		std::stringstream builtinFunctions;
-
-		builtinFunctions << "typedef char i8;\n";
-		builtinFunctions << "typedef short i16;\n";
-		builtinFunctions << "typedef int i32;\n";
-		builtinFunctions << "typedef long long i64;\n";
-		builtinFunctions << "typedef unsigned char u8;\n";
-		builtinFunctions << "typedef unsigned short u16;\n";
-		builtinFunctions << "typedef unsigned int u32;\n";
-		builtinFunctions << "typedef unsigned long long u64;\n";
-		builtinFunctions << "typedef float f32;\n";
-		builtinFunctions << "typedef double f64;\n";
-		builtinFunctions << "typedef _Bool bool;\n";
-		builtinFunctions << "typedef struct { char* ptr; long length; } string;\n";
-
-		builtinFunctions << "#define __INT8_MIN -0x80\n";
-		builtinFunctions << "#define __INT8_MAX 0x7f\n";
-		builtinFunctions << "#define __INT16_MIN -0x8000\n";
-		builtinFunctions << "#define __INT16_MAX 0x7fff\n";
-		builtinFunctions << "#define __INT32_MIN -0x80000000\n";
-		builtinFunctions << "#define __INT32_MAX 0x7fffffff\n";
-		builtinFunctions << "#define __INT64_MIN -0x8000000000000000\n";
-		builtinFunctions << "#define __INT64_MAX 0x7fffffffffffffff\n";
-		builtinFunctions << "#define __UINT8_MIN 0\n";
-		builtinFunctions << "#define __UINT8_MAX 0xff\n";
-		builtinFunctions << "#define __UINT16_MIN 0\n";
-		builtinFunctions << "#define __UINT16_MAX 0xffff\n";
-		builtinFunctions << "#define __UINT32_MIN 0\n";
-		builtinFunctions << "#define __UINT32_MAX 0xffffffff\n";
-		builtinFunctions << "#define __UINT64_MIN 0\n";
-		builtinFunctions << "#define __UINT64_MAX 0xffffffffffffffff\n";
-
-		builtinFunctions <<
-			"i64 __stoi64(string s){\
-	i64 value = 0;\
-	bool isNegative = 0;\
-	i32 base = 10;\
-	for (int i = 0; i < s.length; i++){\
-		if (s[i] == '-') isNegative = true;\
-		else if (s.ptr[i] == '_');\
-		else if (s.ptr[i] >= '0' && s.ptr[i] <= '9'))\
-			value = value * base + (s.ptr[i] - '0');\
-		else if (isalpha(str[i]) && str[i] >= 'a' && str[i] <= 'f' && base == 16)\
-		{\
-			value = value * base + (str[i] - 'a' + 10);\
-		}\
-		else if (base == 10 && str[i] == 'b')\
-		{\
-			SnekAssert(value == 0);\
-			SnekAssert(i == 1 || i == 2 && isNegative);\
-			base = 2;\
-		}\
-		else if (base == 10 && str[i] == 'o')\
-		{\
-			SnekAssert(value == 0);\
-			SnekAssert(i == 1 || i == 2 && isNegative);\
-			base = 8;\
-		}\
-		else if (base == 10 && str[i] == 'x')\
-		{\
-			SnekAssert(value == 0);\
-			SnekAssert(i == 1 || i == 2 && isNegative);\
-			base = 16;\
-		}\
-		else\
-		{\
-			SnekAssert(false);\
-		}\
-	}\
-	\
-	if (isNegative)\
-		value *= -1; \
-	return value;\
-}\n";
-		builtinFunctions << "i32 __stoi32(string s){return (i32)__stoi64(s);}\n";
-		builtinFunctions << "i16 __stoi16(string s){return (i16)__stoi64(s);}\n";
-		builtinFunctions << "i8 __stoi8(string s){return (i8)__stoi64(s);}\n";
-		builtinFunctions <<
-			"u64 __stou64(string s){\
-\
-}\n";
-		builtinFunctions << "u32 __stou32(string s){return (u32)__stou64(s);}\n";
-		builtinFunctions << "u16 __stou16(string s){return (u16)__stou64(s);}\n";
-		builtinFunctions << "u8 __stou8(string s){return (u16)__stou64(s);}\n";
-		builtinFunctions << "string __itos(i64 i);\n";
-
-		std::string builtinFunctionsStr = builtinFunctions.str();
-
-		tcc_compile_string(tcc, builtinFunctionsStr.c_str());
+		char* builtinSrc = ReadText("cgl.c");
+		tcc_compile_string(tcc, builtinSrc);
+		delete builtinSrc;
 	}
 
 	for (AST::File* file : asts)

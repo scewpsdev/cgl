@@ -14,7 +14,7 @@ func println(string s) {
 }
 
 public func main() {
-	const var maximumNumberOfLoginAttempts = 10;
+	const maximumNumberOfLoginAttempts = 10;
 	int currentLoginAttempt = 0;
 
 	var x = 0.0, y = 0.0, z = 0.0;
@@ -28,34 +28,34 @@ public func main() {
 
 	int i0 = int.min, i1 = int.max;
 
-	let meaningOfLife = 42;
-	let pi = 3.141592653589793238462643383279;
-	let anotherPi = 3 + 0.14159;
+	const meaningOfLife = 42;
+	const pi = 3.141592653589793238462643383279;
+	const anotherPi = 3 + 0.14159;
 
-	let decimalInteger = 17;
-	let binaryInteger = 0b10001;
-	let octalInteger = 0o21;
-	let hexadecimalInteger = 0x11;
+	const decimalInteger = 17;
+	const binaryInteger = 0b10001;
+	const octalInteger = 0o21;
+	const hexadecimalInteger = 0x11;
 
-	let paddedDouble = 000123.456;
-	let oneMillion = 1_000_000;
-	let justOverOneMillion = 1_000_000.000_000_1;
+	const paddedDouble = 000123.456;
+	const oneMillion = 1_000_000;
+	const justOverOneMillion = 1_000_000.000_000_1;
 
 	//uint8 cannotBeNegative = -1;
 	//int8 tooBig = int8.max + 1;
 
-	let:uint16 twoThousand = 2_000;
-	let:uint8 one = 1;
-	let twoThousandAndOne = twoThousand + one;
+	const twoThousand = uint16(2_000);
+	const one = uint8(1);
+	const twoThousandAndOne = twoThousand + one;
 
-	let three = 3;
-	let pointOneFourOneFiveNine = 0.14159;
-	let pi2 = three + pointOneFourOneFiveNine;
+	const three = 3;
+	const pointOneFourOneFiveNine = 0.14159;
+	const pi2 = three + pointOneFourOneFiveNine;
 
-	let integerPi = (int)pi2;
+	const integerPi = int(pi2);
 
-	let orangesAreOrange = true;
-	let turnipsAreDelicious = false;
+	const orangesAreOrange = true;
+	const turnipsAreDelicious = false;
 
 	if turnipsAreDelicious {
 		println("Mmm, tasty turnips!");
@@ -63,14 +63,26 @@ public func main() {
 		println("Eww, turnips are horrible.");
 	}
 
-	let i = 1;
+	const i = 1;
 	if i {
 		
 	}
 
-	let:(int, string) http404Error = (404, "Not Found");
+	const:(int, string) http404Error = (404, "Not Found");
 	println(http404Error.1);
 
-	let possibleNumber = "123";
-	let convertedNumber = int(possibleNumber);
+	const possibleNumber = "-123";
+	const convertedNumber = int(possibleNumber);
+	const convertedNumberStr = string(convertedNumber);
+	println(convertedNumberStr);
+
+	int? serverResponseCode = 404;
+	serverResponseCode = null;
+
+	string? surveyAnswer;
+	surveyAnswer = "slakfjklsdjf";
+
+	if surveyAnswer {
+		println(surveyAnswer.value);
+	}
 }
