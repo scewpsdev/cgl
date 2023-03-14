@@ -31,6 +31,7 @@
 #define KEYWORD_BREAK	  "break"
 #define KEYWORD_CONTINUE  "continue"
 #define KEYWORD_DEFER	  "defer"
+#define KEYWORD_ASSERT    "assert"
 
 #define KEYWORD_AS        "as"
 #define KEYWORD_SIZEOF	  "sizeof"

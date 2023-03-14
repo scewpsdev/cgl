@@ -1795,8 +1795,10 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 				{
 					if (CanConvertImplicit(expr->right->valueType, expr->left->valueType, expr->right->isConstant()))
 					{
-						expr->valueType = expr->left->valueType;
-						expr->lvalue = true;
+						//expr->valueType = expr->left->valueType;
+						//expr->lvalue = true;
+						expr->valueType = GetVoidType();
+						expr->lvalue = false;
 						return true;
 					}
 					else
@@ -1814,6 +1816,27 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 			else
 			{
 				SnekError(resolver->context, expr->left->location, ERROR_CODE_BIN_OP_INVALID_TYPE, "Can't assign to a non lvalue");
+				return false;
+			}
+
+		case AST::BinaryOperatorType::NullCoalescing:
+			if (expr->left->valueType->typeKind == AST::TypeKind::Optional)
+			{
+				if (CanConvertImplicit(expr->right->valueType, expr->left->valueType->optionalType.elementType, expr->right->isConstant()))
+				{
+					expr->valueType = expr->left->valueType->optionalType.elementType;
+					expr->lvalue = false;
+					return true;
+				}
+				else
+				{
+					SnekError(resolver->context, expr->left->location, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "Right operand of null coalescing operator must be compatible with optional type '%s'", GetTypeString(expr->left->valueType));
+					return false;
+				}
+			}
+			else
+			{
+				SnekError(resolver->context, expr->left->location, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "Left operand of null coalescing operator must be an optional, is '%s'", GetTypeString(expr->left->valueType));
 				return false;
 			}
 
@@ -1923,7 +1946,7 @@ static bool ResolveExprStatement(Resolver* resolver, AST::ExpressionStatement* s
 	if (statement->expression->type == AST::ExpressionType::FunctionCall)
 	{
 		AST::FunctionCall* functionCall = (AST::FunctionCall*)statement->expression;
-		if (functionCall->function->returnType && functionCall->function->returnType->typeKind != AST::TypeKind::Void)
+		if (functionCall->function && functionCall->function->returnType && functionCall->function->returnType->typeKind != AST::TypeKind::Void)
 		{
 			SnekError(resolver->context, statement->location, ERROR_CODE_EXPRESSION_EXPECTED, "Return value of function call must not be dropped");
 			return false;
@@ -1949,7 +1972,8 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
 		{
 			AST::Element* declaration = variableWithSameName->declaration;
-			SnekWarn(resolver->context, statement->location, ERROR_CODE_VARIABLE_SHADOWING, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
+			SnekError(resolver->context, statement->location, ERROR_CODE_VARIABLE_SHADOWING, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
+			result = false;
 		}
 
 		if (declarator->value)
@@ -2008,7 +2032,7 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 		statement->condition->valueType->typeKind == AST::TypeKind::Optional
 		))
 	{
-		SnekError(resolver->context, statement->condition->location, ERROR_CODE_EXPRESSION_EXPECTED, "If statement condition needs to be of boolean, integer or pointer type");
+		SnekError(resolver->context, statement->condition->location, ERROR_CODE_EXPRESSION_EXPECTED, "If statement condition needs to be of boolean, integer or pointer type, is '%s'", GetTypeString(statement->condition->valueType));
 		result = false;
 	}
 
@@ -2043,7 +2067,14 @@ static bool ResolveForLoop(Resolver* resolver, AST::ForLoop* statement)
 	resolver->pushScope("");
 	resolver->scope->branchDst = statement;
 
-	result = ResolveExpression(resolver, statement->startValue) && ResolveExpression(resolver, statement->endValue) && result;
+	if (statement->initStatement)
+		result = ResolveStatement(resolver, statement->initStatement) && result;
+	if (statement->conditionExpr)
+		result = ResolveExpression(resolver, statement->conditionExpr) && result;
+	if (statement->iterateExpr)
+		result = ResolveExpression(resolver, statement->iterateExpr) && result;
+
+	/*
 	if (statement->deltaValue)
 	{
 		result = ResolveExpression(resolver, statement->deltaValue) && result;
@@ -2064,11 +2095,12 @@ static bool ResolveForLoop(Resolver* resolver, AST::ForLoop* statement)
 	{
 		statement->delta = 1;
 	}
+	*/
 
 	//statement->iterator = RegisterLocalVariable(resolver, GetIntegerType(32, true), statement->startValue, statement->iteratorName, false, resolver->file, statement->location);
-	Variable* iterator = new Variable(statement->file, _strdup(statement->iteratorName->name), _strdup(statement->iteratorName->name), GetIntegerType(32, true), statement->startValue, false, AST::Visibility::Null);
-	statement->iterator = iterator;
-	resolver->registerLocalVariable(iterator, statement->iteratorName);
+	//Variable* iterator = new Variable(statement->file, _strdup(statement->iteratorName->name), _strdup(statement->iteratorName->name), GetIntegerType(32, true), statement->startValue, false, AST::Visibility::Null);
+	//statement->iterator = iterator;
+	//resolver->registerLocalVariable(iterator, statement->iteratorName);
 
 	result = ResolveStatement(resolver, statement->body) && result;
 
@@ -2149,6 +2181,38 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 	return true;
 }
 
+static bool ResolveAssert(Resolver* resolver, AST::Assert* statement)
+{
+	if (ResolveExpression(resolver, statement->condition))
+	{
+		if (!(
+			statement->condition->valueType->typeKind == AST::TypeKind::Boolean ||
+			statement->condition->valueType->typeKind == AST::TypeKind::Integer ||
+			statement->condition->valueType->typeKind == AST::TypeKind::Pointer ||
+			statement->condition->valueType->typeKind == AST::TypeKind::Optional
+			))
+		{
+			SnekError(resolver->context, statement->condition->location, ERROR_CODE_EXPRESSION_EXPECTED, "If statement condition needs to be of boolean, integer or pointer type");
+			return false;
+		}
+
+		if (statement->message)
+		{
+			if (ResolveExpression(resolver, statement->message))
+			{
+				if (statement->message->valueType->typeKind != AST::TypeKind::String)
+				{
+					SnekError(resolver->context, statement->message->location, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "Second argument to assertion (message) must be of type string");
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+	return false;
+}
+
 static bool ResolveFree(Resolver* resolver, AST::Free* statement)
 {
 	bool result = true;
@@ -2189,6 +2253,8 @@ static bool ResolveStatement(Resolver* resolver, AST::Statement* statement)
 		return ResolveContinue(resolver, (AST::Continue*)statement);
 	case AST::StatementType::Return:
 		return ResolveReturn(resolver, (AST::Return*)statement);
+	case AST::StatementType::Assert:
+		return ResolveAssert(resolver, (AST::Assert*)statement);
 	case AST::StatementType::Free:
 		return ResolveFree(resolver, (AST::Free*)statement);
 

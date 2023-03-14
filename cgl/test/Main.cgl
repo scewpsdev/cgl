@@ -3,7 +3,7 @@ externc func putchar(char c);
 typedef AudioSample : uint16;
 
 func print(string s) {
-	for i, 0, s.length {
+	for (int i = 0; i < s.length; i++) {
 		putchar(s[i]);
 	}
 }
@@ -85,4 +85,26 @@ public func main() {
 	if surveyAnswer {
 		println(surveyAnswer.value);
 	}
+
+	const age = -3;
+	//assert(age >= 0);
+
+	int a = 5;
+	int b;
+
+	//if a = b { // Error
+	//}
+
+	for (int j = 0; j < 5; j++) {
+	}
+
+	//for (const a : list) {
+	//}
+
+	// Tuple decomposition
+	//const (x, y) = (1, 2);
+
+	// Null-coalescing operator
+	int? g = 5;
+	int h = g ?? 6;
 }

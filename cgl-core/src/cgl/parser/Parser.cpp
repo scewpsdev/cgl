@@ -1064,7 +1064,13 @@ static AST::BinaryOperatorType ParseBinaryTernaryOperatorType(Parser* parser)
 	}
 	else if (tok.type == TOKEN_TYPE_OP_QUESTION)
 	{
-		return AST::BinaryOperatorType::Ternary;
+		if (tok2.type == TOKEN_TYPE_OP_QUESTION)
+		{
+			NextToken(parser); // ?
+			return AST::BinaryOperatorType::NullCoalescing;
+		}
+		else
+			return AST::BinaryOperatorType::Ternary;
 	}
 
 	SetInputState(parser, inputState);
@@ -1098,6 +1104,7 @@ static int GetBinaryOperatorPrecedence(AST::BinaryOperatorType operatorType)
 	case AST::BinaryOperatorType::LogicalAnd: return 11;
 	case AST::BinaryOperatorType::LogicalOr: return 12;
 
+	case AST::BinaryOperatorType::NullCoalescing: return 13;
 	case AST::BinaryOperatorType::Ternary: return 13;
 
 	case AST::BinaryOperatorType::Assignment: return 14;
@@ -1113,7 +1120,9 @@ static int GetBinaryOperatorPrecedence(AST::BinaryOperatorType operatorType)
 	case AST::BinaryOperatorType::BitwiseXorEquals: return 14;
 	case AST::BinaryOperatorType::ReferenceAssignment: return 14;
 
-	default: return INT32_MAX;
+	default:
+		SnekAssert(false);
+		return INT32_MAX;
 	}
 }
 
@@ -1189,8 +1198,8 @@ static AST::Statement* ParseStatement(Parser* parser)
 		while (HasNext(parser) && !NextTokenIs(parser, '}'))
 		{
 			AST::Statement* statement = ParseStatement(parser);
-			SnekAssert(statement);
-			statements.add(statement);
+			if (statement)
+				statements.add(statement);
 		}
 
 		NextToken(parser); // }
@@ -1236,13 +1245,31 @@ static AST::Statement* ParseStatement(Parser* parser)
 		{
 			//NextToken(parser); // (
 
-			bool includeEndValue = false;
+			//bool includeEndValue = false;
 
-			AST::Expression* iteratorName = ParseExpression(parser);
-			SkipToken(parser, ',');
+			SkipToken(parser, '(');
 
-			AST::Expression* startValue = ParseExpression(parser);
-			SkipToken(parser, ',');
+			AST::Statement* initStatement = nullptr;
+			AST::Expression* conditionExpr = nullptr;
+			AST::Expression* iterateExpr = nullptr;
+
+			if (!NextTokenIs(parser, ';'))
+				initStatement = ParseStatement(parser);
+			//SkipToken(parser, ';');
+
+			if (!NextTokenIs(parser, ';'))
+				conditionExpr = ParseExpression(parser);
+			SkipToken(parser, ';');
+
+			if (!NextTokenIs(parser, ')'))
+				iterateExpr = ParseExpression(parser);
+
+			SkipToken(parser, ')');
+
+			//SkipToken(parser, ',');
+
+			//ParseExpression(parser);
+			//SkipToken(parser, ',');
 			/*
 			SkipToken(parser, '.');
 			SkipToken(parser, '.');
@@ -1253,6 +1280,7 @@ static AST::Statement* ParseStatement(Parser* parser)
 			}
 			*/
 
+			/*
 			AST::Expression* endValue = ParseExpression(parser);
 			AST::Expression* deltaValue = nullptr;
 
@@ -1261,12 +1289,14 @@ static AST::Statement* ParseStatement(Parser* parser)
 				NextToken(parser); // ,
 				deltaValue = ParseExpression(parser);
 			}
+			*/
 
 			//SkipToken(parser, ')');
 
 
 			AST::Statement* body = ParseStatement(parser);
 
+			/*
 			if (iteratorName->type == AST::ExpressionType::Identifier)
 			{
 				return new AST::ForLoop(parser->module, inputState, (AST::Identifier*)iteratorName, startValue, endValue, deltaValue, includeEndValue, body);
@@ -1276,6 +1306,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 				SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FOR_LOOP_SYNTAX, "Last value in for loop header needs to be the iterator name");
 				parser->failed = true;
 			}
+			*/
+
+			return new AST::ForLoop(parser->module, inputState, initStatement, conditionExpr, iterateExpr, body);
 		}
 		/*
 		else
@@ -1310,6 +1343,25 @@ static AST::Statement* ParseStatement(Parser* parser)
 		SkipToken(parser, ';');
 
 		return new AST::Return(parser->module, inputState, value);
+	}
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_ASSERT))
+	{
+		NextToken(parser); // assert
+		SkipToken(parser, '(');
+
+		AST::Expression* condition = ParseExpression(parser);
+		AST::Expression* message = nullptr;
+
+		if (!NextTokenIs(parser, ')'))
+		{
+			SkipToken(parser, ',');
+			message = ParseExpression(parser);
+		}
+
+		SkipToken(parser, ')');
+		SkipToken(parser, ';');
+
+		return new AST::Assert(parser->module, inputState, condition, message);
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_FREE))
 	{

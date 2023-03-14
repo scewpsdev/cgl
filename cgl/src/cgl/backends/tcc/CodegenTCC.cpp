@@ -353,29 +353,43 @@ class CodegenTCC
 		return "{0}";
 	}
 
+	void writeStringLiteral(const char* str, int length, std::stringstream& stream)
+	{
+		stream << "\"";
+		for (int i = 0; i < length; i++)
+		{
+			char c = str[i];
+			if (c == '\n')
+				stream << "\\n";
+			else if (c == '\r')
+				stream << "\\r";
+			else if (c == '\t')
+				stream << "\\t";
+			else if (c == '\\')
+				stream << "\\\\";
+			else if (c == '\0')
+				stream << "\\0";
+			else if (c == '"')
+				stream << "\\\"";
+			else
+				stream << c;
+		}
+		stream << "\"";
+	}
+
+	void writeStringLiteral(const char* str, std::stringstream& stream)
+	{
+		writeStringLiteral(str, (int)strlen(str), stream);
+	}
+
 	std::string genExpressionStringLiteral(AST::StringLiteral* expression)
 	{
 		char globalName[8];
 		newGlobalName(globalName);
 
-		constants << "static char " << globalName << "[] = \"";
-		for (int i = 0; i < expression->length; i++)
-		{
-			char c = expression->value[i];
-			if (c == '\n')
-				constants << "\n";
-			else if (c == '\r')
-				constants << "\r";
-			else if (c == '\t')
-				constants << "\t";
-			else if (c == '\\')
-				constants << "\\";
-			else if (c == '\0')
-				constants << "\0";
-			else
-				constants << c;
-		}
-		constants << "\";\n";
+		constants << "static char " << globalName << "[]=";
+		writeStringLiteral(expression->value, expression->length, constants);
+		constants << ";\n";
 
 		return "(string){" + std::string(globalName) + "," + std::to_string(expression->length) + "}";
 	}
@@ -637,6 +651,39 @@ class CodegenTCC
 		}
 	}
 
+	std::string genExpressionUnaryOperator(AST::UnaryOperator* expression)
+	{
+		switch (expression->operatorType)
+		{
+		case AST::UnaryOperatorType::Not:
+			SnekAssert(!expression->position);
+			return "!" + genExpression(expression->operand);
+		case AST::UnaryOperatorType::Negate:
+			SnekAssert(!expression->position);
+			return "-" + genExpression(expression->operand);
+		case AST::UnaryOperatorType::Reference:
+			SnekAssert(!expression->position);
+			return "&" + genExpression(expression->operand);
+		case AST::UnaryOperatorType::Dereference:
+			SnekAssert(!expression->position);
+			return "*" + genExpression(expression->operand);
+		case AST::UnaryOperatorType::Increment:
+			if (!expression->position)
+				return "++" + genExpression(expression->operand);
+			else
+				return genExpression(expression->operand) + "++";
+		case AST::UnaryOperatorType::Decrement:
+			if (!expression->position)
+				return "--" + genExpression(expression->operand);
+			else
+				return genExpression(expression->operand) + "--";
+		default:
+			SnekAssert(false);
+			return "";
+		}
+		return "";
+	}
+
 	std::string genExpressionBinaryOperator(AST::BinaryOperator* expression)
 	{
 		switch (expression->operatorType)
@@ -656,11 +703,17 @@ class CodegenTCC
 		case AST::BinaryOperatorType::DoesNotEqual:
 			return "!(" + compareValues(expression->left, expression->right) + ")";
 		case AST::BinaryOperatorType::LessThan:
+			return genExpression(expression->left) + "<" + genExpression(expression->right);
 		case AST::BinaryOperatorType::GreaterThan:
+			return genExpression(expression->left) + ">" + genExpression(expression->right);
 		case AST::BinaryOperatorType::LessThanEquals:
+			return genExpression(expression->left) + "<=" + genExpression(expression->right);
 		case AST::BinaryOperatorType::GreaterThanEquals:
+			return genExpression(expression->left) + ">=" + genExpression(expression->right);
 		case AST::BinaryOperatorType::LogicalAnd:
+			return genExpression(expression->left) + "&&" + genExpression(expression->right);
 		case AST::BinaryOperatorType::LogicalOr:
+			return genExpression(expression->left) + "||" + genExpression(expression->right);
 		case AST::BinaryOperatorType::BitwiseAnd:
 		case AST::BinaryOperatorType::BitwiseOr:
 		case AST::BinaryOperatorType::BitwiseXor:
@@ -679,6 +732,11 @@ class CodegenTCC
 		case AST::BinaryOperatorType::BitshiftLeftEquals:
 		case AST::BinaryOperatorType::BitshiftRightEquals:
 		case AST::BinaryOperatorType::ReferenceAssignment:
+		case AST::BinaryOperatorType::NullCoalescing:
+		{
+			std::string left = genExpression(expression->left);
+			return left + ".hasValue?" + left + ".value:" + castValue(expression->right, expression->left->valueType->optionalType.elementType);
+		}
 		default:
 			SnekAssert(false);
 			return "";
@@ -719,6 +777,7 @@ class CodegenTCC
 		case AST::ExpressionType::Sizeof:
 		case AST::ExpressionType::Malloc:
 		case AST::ExpressionType::UnaryOperator:
+			return genExpressionUnaryOperator((AST::UnaryOperator*)expression);
 		case AST::ExpressionType::BinaryOperator:
 			return genExpressionBinaryOperator((AST::BinaryOperator*)expression);
 		case AST::ExpressionType::TernaryOperator:
@@ -741,8 +800,9 @@ class CodegenTCC
 		}
 		popScope();
 
+		currentStream->seekp(-1, currentStream->cur);
 		indentation--;
-		newLine();
+		//newLine();
 		*currentStream << "}";
 	}
 
@@ -820,10 +880,27 @@ class CodegenTCC
 		std::stringstream stream;
 		currentStream = &stream;
 
+		/*
 		*currentStream
 			<< "for(int " << statement->iteratorName->name << "=" << genExpression(statement->startValue) << ";"
 			<< statement->iteratorName->name << "<" << genExpression(statement->endValue) << ";"
 			<< statement->iteratorName->name << "++)";
+			*/
+
+		*currentStream << "for(";
+		if (statement->initStatement)
+		{
+			genStatement(statement->initStatement);
+			currentStream->seekp(-2, currentStream->cur);
+		}
+		//*currentStream << ";";
+		if (statement->conditionExpr)
+			*currentStream << genExpression(statement->conditionExpr);
+		*currentStream << ";";
+		if (statement->iterateExpr)
+			*currentStream << genExpression(statement->iterateExpr);
+		*currentStream << ")";
+
 		genStatement(statement->body);
 
 		currentStream = parentStream;
@@ -840,6 +917,40 @@ class CodegenTCC
 			genExpression(statement->value);
 		}
 		*currentStream << ";";
+	}
+
+	void genStatementAssert(AST::Assert* statement)
+	{
+		*currentStream << "if(!(" << castValue(statement->condition, GetBoolType()) << ")){";
+		indentation++;
+		newLine();
+
+		if (statement->message)
+		{
+			char message[128] = {};
+			sprintf(message, "Assertion failed at %s:%d:%d: \"%%s\"\n", statement->file->name, statement->location.line, statement->location.col);
+
+			*currentStream << "printf(";
+			writeStringLiteral(message, *currentStream);
+			*currentStream << ", " << genExpression(statement->message) << ".ptr);";
+		}
+		else
+		{
+			char message[128] = {};
+			sprintf(message, "Assertion failed at %s:%d:%d\n", statement->file->name, statement->location.line, statement->location.col);
+
+			*currentStream << "printf(";
+			writeStringLiteral(message, *currentStream);
+			*currentStream << ");";
+		}
+		newLine();
+
+		*currentStream << "__asm__ volatile(\"int $0x03\");";
+		indentation--;
+		newLine();
+
+		*currentStream << "}";
+		newLine();
 	}
 
 	void genStatement(AST::Statement* statement)
@@ -870,6 +981,9 @@ class CodegenTCC
 			genStatementReturn((AST::Return*)statement);
 			break;
 		case AST::StatementType::Defer:
+		case AST::StatementType::Assert:
+			genStatementAssert((AST::Assert*)statement);
+			break;
 		case AST::StatementType::Free:
 		default:
 			SnekAssert(false);
@@ -1013,6 +1127,8 @@ public:
 		builtinDefinitionStream << "#define __UINT64_MIN 0\n";
 		builtinDefinitionStream << "#define __UINT64_MAX 0xffffffffffffffff\n";
 
+		builtinDefinitionStream << "int printf(char* fmt, ...);\n";
+
 		builtinDefinitionStream << "i8 __stoi8(string s);\n";
 		builtinDefinitionStream << "i16 __stoi16(string s);\n";
 		builtinDefinitionStream << "i32 __stoi32(string s);\n";
@@ -1076,8 +1192,10 @@ int CGLCompiler::run(int argc, char* argv[])
 {
 	TCCState* tcc = tcc_new();
 
-	tcc_add_include_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\include\\");
-	tcc_add_library_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\lib\\");
+	tcc_add_include_path(tcc, "D:\\Repositories\\tcc\\include\\");
+	tcc_add_library_path(tcc, "D:\\Repositories\\tcc\\lib\\");
+	//tcc_add_include_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\include\\");
+	//tcc_add_library_path(tcc, "C:\\Users\\faris\\Documents\\Dev\\tcc\\lib\\");
 	tcc_add_library(tcc, "tcc1-64");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_MEMORY);

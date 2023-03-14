@@ -49,7 +49,8 @@ Variable* Resolver::findLocalVariableInScope(const char* name, Scope* scope, boo
 {
 	if (!scope)
 		return nullptr;
-	for (int i = 0; i < scope->localVariables.size; i++)
+	// iterate backwards to improve error messages when shadowing variable names
+	for (int i = scope->localVariables.size - 1; i >= 0; i--)
 	{
 		Variable* variable = scope->localVariables[i];
 		if (strcmp(variable->name, name) == 0)

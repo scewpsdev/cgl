@@ -26,6 +26,7 @@ namespace AST
 		Break,
 		Continue,
 		Return,
+		Assert,
 		Defer,
 		Free,
 	};
@@ -127,19 +128,21 @@ namespace AST
 
 	struct ForLoop : Statement
 	{
-		Identifier* iteratorName;
-		Expression* startValue, * endValue, * deltaValue;
-		bool includeEndValue;
+		Statement* initStatement;
+		Expression* conditionExpr, * iterateExpr;
+		//Identifier* iteratorName;
+		//Expression* startValue, * endValue, * deltaValue;
+		//bool includeEndValue;
 		Statement* body;
 
-		Variable* iterator = nullptr;
-		int delta = 0;
+		//Variable* iterator = nullptr;
+		//int delta = 0;
 
 		ControlFlowHandle breakHandle = nullptr;
 		ControlFlowHandle continueHandle = nullptr;
 
 
-		ForLoop(File* file, const SourceLocation& location, Identifier* iteratorName, Expression* startValue, Expression* endValue, Expression* deltaValue, bool includeEndValue, Statement* body);
+		ForLoop(File* file, const SourceLocation& location, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body);
 		virtual ~ForLoop();
 
 		virtual Element* copy() override;
@@ -183,6 +186,18 @@ namespace AST
 
 		Defer(File* file, const SourceLocation& location, Statement* statement);
 		virtual ~Defer();
+
+		virtual Element* copy() override;
+	};
+
+	struct Assert : Statement
+	{
+		Expression* condition;
+		Expression* message;
+
+
+		Assert(File* file, const SourceLocation& location, Expression* condition, Expression* message);
+		virtual ~Assert();
 
 		virtual Element* copy() override;
 	};

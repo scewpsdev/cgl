@@ -95,6 +95,7 @@ namespace AST
 		BitshiftRightEquals,
 		ReferenceAssignment,
 
+		NullCoalescing,
 		Ternary, // Technically not a binary operator, but it makes sense to have it here
 	};
 

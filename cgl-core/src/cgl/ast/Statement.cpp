@@ -142,28 +142,26 @@ namespace AST
 		return new WhileLoop(file, location, (Expression*)condition->copy(), (Statement*)body->copy());
 	}
 
-	ForLoop::ForLoop(File* file, const SourceLocation& location, Identifier* iteratorName, Expression* startValue, Expression* endValue, Expression* deltaValue, bool includeEndValue, Statement* body)
-		: Statement(file, location, StatementType::For), iteratorName(iteratorName), startValue(startValue), endValue(endValue), deltaValue(deltaValue), includeEndValue(includeEndValue), body(body)
+	ForLoop::ForLoop(File* file, const SourceLocation& location, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body)
+		: Statement(file, location, StatementType::For), initStatement(initStatement), conditionExpr(conditionExpr), iterateExpr(iterateExpr), body(body)
 	{
 	}
 
 	ForLoop::~ForLoop()
 	{
-		if (iteratorName)
-			delete iteratorName;
-		if (startValue)
-			delete startValue;
-		if (endValue)
-			delete endValue;
-		if (deltaValue)
-			delete deltaValue;
+		if (initStatement)
+			delete initStatement;
+		if (conditionExpr)
+			delete conditionExpr;
+		if (iterateExpr)
+			delete iterateExpr;
 		if (body)
 			delete body;
 	}
 
 	Element* ForLoop::copy()
 	{
-		return new ForLoop(file, location, (Identifier*)iteratorName->copy(), (Expression*)startValue->copy(), (Expression*)endValue->copy(), deltaValue ? (Expression*)deltaValue->copy() : nullptr, includeEndValue, (Statement*)body->copy());
+		return new ForLoop(file, location, initStatement ? (Statement*)initStatement->copy() : nullptr, conditionExpr ? (Expression*)conditionExpr->copy() : nullptr, iterateExpr ? (Expression*)iterateExpr->copy() : nullptr, (Statement*)body->copy());
 	}
 
 	Break::Break(File* file, const SourceLocation& location)
@@ -216,6 +214,24 @@ namespace AST
 	Element* Defer::copy()
 	{
 		return new Defer(file, location, (Statement*)statement->copy());
+	}
+
+	Assert::Assert(File* file, const SourceLocation& location, Expression* condition, Expression* message)
+		: Statement(file, location, StatementType::Assert), condition(condition), message(message)
+	{
+	}
+
+	Assert::~Assert()
+	{
+		if (condition)
+			delete condition;
+		if (message)
+			delete message;
+	}
+
+	Element* Assert::copy()
+	{
+		return new Assert(file, location, (Expression*)condition->copy(), message ? (Expression*)message->copy() : nullptr);
 	}
 
 	Free::Free(File* file, const SourceLocation& location, const List<Expression*>& values)
