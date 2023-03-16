@@ -5,17 +5,17 @@
 #include "cgl/ast/Declaration.h"
 
 
-AST::Exprdef* Resolver::findExprdefInFile(const char* name, AST::File* file)
+AST::Macro* Resolver::findExprdefInFile(const char* name, AST::File* file)
 {
 	return nullptr;
 }
 
-AST::Exprdef* Resolver::findExprdefInModule(const char* name, AST::Module* module)
+AST::Macro* Resolver::findExprdefInModule(const char* name, AST::Module* module)
 {
 	return nullptr;
 }
 
-AST::Exprdef* Resolver::findExprdef(const char* name)
+AST::Macro* Resolver::findExprdef(const char* name)
 {
 	return nullptr;
 }

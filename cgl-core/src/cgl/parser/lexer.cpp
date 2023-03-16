@@ -23,7 +23,7 @@ static const std::map<std::string, KeywordType> keywords =
 	{ KEYWORD_STRUCT, KEYWORD_TYPE_STRUCT },
 	{ KEYWORD_CLASS, KEYWORD_TYPE_CLASS },
 	{ KEYWORD_TYPEDEF, KEYWORD_TYPE_TYPEDEF },
-	{ KEYWORD_EXPRDEF, KEYWORD_TYPE_EXPRDEF },
+	{ KEYWORD_MACRO, KEYWORD_TYPE_MACRO },
 	{ KEYWORD_METHOD, KEYWORD_TYPE_METHOD },
 	{ KEYWORD_ENUM, KEYWORD_TYPE_ENUM },
 
@@ -219,26 +219,89 @@ static void skipWhitespace(Lexer* lexer)
 static Token readStringLiteral(Lexer* lexer)
 {
 	Token token;
-	token.type = TOKEN_TYPE_STRING_LITERAL;
 	token.line = lexer->input.state.line;
 	token.col = lexer->input.state.col;
 
-	InputNext(&lexer->input);
-	token.str = &lexer->input.state.buffer[lexer->input.state.index];
-	token.len = 0;
+	InputState inputState = lexer->input.state;
 
-	char c;
-	while ((c = InputNext(&lexer->input)) != '"')
+	bool multiline = false;
+	if (InputPeek(&lexer->input, 1) == '"' && InputPeek(&lexer->input, 2) == '"')
+		multiline = true;
+
+	if (multiline)
 	{
-		token.len++;
-		if (c == '\\')
-		{
-			InputNext(&lexer->input);
-			token.len++;
-		}
-	}
+		token.type = TOKEN_TYPE_STRING_LITERAL_MULTILINE;
 
-	return token;
+		InputNext(&lexer->input); // "
+		InputNext(&lexer->input); // "
+		InputNext(&lexer->input); // "
+
+		char c;
+		do
+		{
+			c = InputNext(&lexer->input);
+		} while (c != '\n');
+
+		token.str = &lexer->input.state.buffer[lexer->input.state.index];
+		token.len = 0;
+
+		InputState lastLineState = lexer->input.state;
+		int lastLineTokenLen = 0;
+
+		while (InputHasNext(&lexer->input))
+		{
+			if (InputPeek(&lexer->input, 0) == '\n' || InputPeek(&lexer->input, 0) == '\r')
+			{
+				lastLineState = lexer->input.state;
+				lastLineTokenLen = token.len;
+			}
+
+			char c = InputNext(&lexer->input);
+
+			if (c == '"' && InputPeek(&lexer->input, 0) == '"' && InputPeek(&lexer->input, 1) == '"')
+			{
+				InputNext(&lexer->input); // "
+				InputNext(&lexer->input); // "
+
+				token.len = lastLineTokenLen;
+				return token;
+			}
+			else
+			{
+				token.len++;
+			}
+		}
+
+
+		SnekError(lexer->context, inputState, "Unterminated multiline string literal");
+		return {};
+	}
+	else
+	{
+		token.type = TOKEN_TYPE_STRING_LITERAL;
+
+		InputNext(&lexer->input);
+		token.str = &lexer->input.state.buffer[lexer->input.state.index];
+		token.len = 0;
+
+		char c;
+		while ((c = InputNext(&lexer->input)) != '"')
+		{
+			if (!InputHasNext(&lexer->input))
+			{
+				SnekError(lexer->context, inputState, "Unterminated string literal");
+				return {};
+			}
+			token.len++;
+			if (c == '\\')
+			{
+				InputNext(&lexer->input);
+				token.len++;
+			}
+		}
+
+		return token;
+	}
 }
 
 static Token readCharLiteral(Lexer* lexer)
@@ -409,7 +472,7 @@ Token LexerNext(Lexer* lexer)
 		if (nextIsIdentifier(lexer))
 			return readIdentifier(lexer);
 
-		SnekError(lexer->context, lexer->input.state, ERROR_CODE_UNDEFINED_CHARACTER, "Undefined character '%c' (%d)", InputNext(&lexer->input));
+		SnekError(lexer->context, lexer->input.state, "Undefined character '%c' (%d)", InputNext(&lexer->input));
 	}
 
 	return NULL_TOKEN;

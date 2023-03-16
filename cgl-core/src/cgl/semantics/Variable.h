@@ -39,4 +39,4 @@ AST::Typedef* FindTypedef(Resolver* resolver, const char* name);
 
 AST::Enum* FindEnum(Resolver* resolver, const char* name);
 
-AST::Exprdef* FindExprdef(Resolver* resolver, const char* name);
+AST::Macro* FindMacro(Resolver* resolver, const char* name);

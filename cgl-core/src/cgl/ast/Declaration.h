@@ -27,7 +27,7 @@ namespace AST
 		ClassConstructor,
 		Typedef,
 		Enumeration,
-		Exprdef,
+		Macro,
 		GlobalVariable,
 		Module,
 		Namespace,
@@ -243,14 +243,14 @@ namespace AST
 		virtual Element* copy() override;
 	};
 
-	struct Exprdef : Declaration
+	struct Macro : Declaration
 	{
 		char* name;
 		Expression* alias;
 
 
-		Exprdef(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Expression* alias);
-		virtual ~Exprdef();
+		Macro(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Expression* alias);
+		virtual ~Macro();
 
 		virtual Element* copy() override;
 	};

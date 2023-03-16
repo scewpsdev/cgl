@@ -19,6 +19,7 @@ class CodegenTCC
 	AST::File* file;
 
 	List<Variable*> importedGlobals;
+	List<AST::Function*> importedFunctions;
 	std::map<TypeID, std::string> optionalTypes;
 	std::map<TypeID, std::string> tupleTypes;
 
@@ -26,6 +27,7 @@ class CodegenTCC
 	std::stringstream types;
 	std::stringstream constants;
 	std::stringstream globals;
+	std::stringstream functionDeclarations;
 	std::stringstream functions;
 
 	std::stringstream* currentStream = nullptr;
@@ -206,6 +208,18 @@ class CodegenTCC
 		return tupleTypes[type];
 	}
 
+	std::string genTypeArray(TypeID type)
+	{
+		if (type->arrayType.length != -1)
+		{
+			return "struct{" + genType(type->arrayType.elementType) + " buffer[" + std::to_string(type->arrayType.length) + "];}";
+		}
+		else
+		{
+			return "struct{" + genType(type->arrayType.elementType) + "* ptr;long length;}";
+		}
+	}
+
 	std::string genTypeString()
 	{
 		return "string";
@@ -235,6 +249,7 @@ class CodegenTCC
 		case AST::TypeKind::Tuple:
 			return genTypeTuple(type);
 		case AST::TypeKind::Array:
+			return genTypeArray(type);
 		case AST::TypeKind::String:
 			return genTypeString();
 		default:
@@ -417,6 +432,78 @@ class CodegenTCC
 		return variable->mangledName;
 	}
 
+	void importFunction(AST::Function* function)
+	{
+		std::stringstream* parentStream = currentStream;
+		currentStream = &functionDeclarations;
+
+		*currentStream << "extern " << genType(function->functionType->functionType.returnType) << " " << function->mangledName << "(";
+
+		for (int i = 0; i < function->functionType->functionType.numParams; i++)
+		{
+			*currentStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
+			if (i < function->paramTypes.size - 1)
+				*currentStream << ",";
+		}
+
+		*currentStream << ");" << std::endl;
+
+		currentStream = parentStream;
+	}
+
+	std::string getFunctionValue(AST::Function* function)
+	{
+		if (file != function->file)
+		{
+			if (!importedFunctions.contains(function))
+			{
+				importFunction(function);
+				importedFunctions.add(function);
+			}
+		}
+		return function->mangledName;
+	}
+
+	std::string genExpressionInitializerList(AST::InitializerList* expression)
+	{
+		SnekAssert(expression->initializerType);
+		if (expression->initializerType->typeKind == AST::TypeKind::Array)
+		{
+			if (expression->initializerType->arrayType.length != -1)
+			{
+				std::stringstream result;
+				result << "{";
+				for (int i = 0; i < expression->values.size; i++)
+				{
+					result << castValue(expression->values[i], expression->initializerType->arrayType.elementType);
+					if (i < expression->values.size - 1)
+						result << ",";
+				}
+				result << "}";
+				return result.str();
+			}
+			else
+			{
+				char globalName[8];
+				newGlobalName(globalName);
+				constants << "static " << genType(expression->initializerType->arrayType.elementType) << " " << globalName << "[]={";
+				for (int i = 0; i < expression->values.size; i++)
+				{
+					constants << castValue(expression->values[i], expression->initializerType->arrayType.elementType);
+					if (i < expression->values.size - 1)
+						constants << ",";
+				}
+				constants << "};" << std::endl;
+
+				return "{" + std::string(globalName) + "," + std::to_string(expression->values.size) + "}";
+			}
+		}
+		else
+		{
+			return "";
+		}
+	}
+
 	std::string genExpressionIdentifier(AST::Identifier* expression)
 	{
 		if (expression->variable)
@@ -426,7 +513,7 @@ class CodegenTCC
 		else if (expression->functions.size > 0)
 		{
 			SnekAssert(expression->functions.size == 1);
-			return expression->functions[0]->mangledName;
+			return getFunctionValue(expression->functions[0]);
 		}
 		else
 		{
@@ -508,7 +595,10 @@ class CodegenTCC
 		{
 			SnekAssert(expression->arguments.size == 1);
 			// Runtime check?
-			return operand + ".ptr[" + genExpression(expression->arguments[0]) + "]";
+			if (expression->operand->valueType->arrayType.length != -1)
+				return operand + ".buffer[" + genExpression(expression->arguments[0]) + "]";
+			else
+				return operand + ".ptr[" + genExpression(expression->arguments[0]) + "]";
 		}
 		else if (expression->operand->valueType->typeKind == AST::TypeKind::String)
 		{
@@ -760,6 +850,7 @@ class CodegenTCC
 		case AST::ExpressionType::StringLiteral:
 			return genExpressionStringLiteral((AST::StringLiteral*)expression);
 		case AST::ExpressionType::InitializerList:
+			return genExpressionInitializerList((AST::InitializerList*)expression);
 		case AST::ExpressionType::Identifier:
 			return genExpressionIdentifier((AST::Identifier*)expression);
 		case AST::ExpressionType::Compound:
@@ -888,20 +979,63 @@ class CodegenTCC
 			*/
 
 		*currentStream << "for(";
-		if (statement->initStatement)
+
+		if (!statement->iteratorName)
 		{
-			genStatement(statement->initStatement);
-			currentStream->seekp(-2, currentStream->cur);
+			if (statement->initStatement)
+			{
+				genStatement(statement->initStatement);
+				currentStream->seekp(-2, currentStream->cur);
+			}
+			else
+			{
+				*currentStream << ";";
+			}
+			//*currentStream << ";";
+			if (statement->conditionExpr)
+				*currentStream << genExpression(statement->conditionExpr);
+			*currentStream << ";";
+			if (statement->iterateExpr)
+				*currentStream << genExpression(statement->iterateExpr);
+			*currentStream << "){";
 		}
-		//*currentStream << ";";
-		if (statement->conditionExpr)
-			*currentStream << genExpression(statement->conditionExpr);
-		*currentStream << ";";
-		if (statement->iterateExpr)
-			*currentStream << genExpression(statement->iterateExpr);
-		*currentStream << ")";
+		else
+		{
+			std::string container = genExpression(statement->container);
+
+			*currentStream << "int __it=0;__it<";
+			if (statement->container->valueType->typeKind == AST::TypeKind::Array)
+			{
+				if (statement->container->valueType->arrayType.length != -1)
+					*currentStream << statement->container->valueType->arrayType.length;
+				else
+					*currentStream << container << ".length";
+			}
+			else
+			{
+				SnekAssert(false);
+			}
+
+			*currentStream << ";__it++){";
+			*currentStream << genType(statement->container->valueType->arrayType.elementType) << " const " << statement->iteratorName << "=";
+
+			if (statement->container->valueType->typeKind == AST::TypeKind::Array)
+			{
+				if (statement->container->valueType->arrayType.length != -1)
+					*currentStream << container << ".buffer[__it]";
+				else
+					*currentStream << container << ".ptr[__it]";
+			}
+			else
+			{
+				SnekAssert(false);
+			}
+
+			*currentStream << ";";
+		}
 
 		genStatement(statement->body);
+		*currentStream << "}";
 
 		currentStream = parentStream;
 		*currentStream << stream.str();
@@ -1162,6 +1296,8 @@ public:
 			fileStream << constants.str() << std::endl << std::endl;
 		if (globals.seekg(0, std::ios::end).tellg() > 0)
 			fileStream << globals.str() << std::endl << std::endl;
+		if (functionDeclarations.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << functionDeclarations.str() << std::endl << std::endl;
 		if (functions.seekg(0, std::ios::end).tellg() > 0)
 			fileStream << functions.str();
 

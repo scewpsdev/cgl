@@ -431,12 +431,12 @@ namespace AST
 		return new Enum(file, location, flags, _strdup(name), (Type*)alias->copy(), valuesCopy);
 	}
 
-	Exprdef::Exprdef(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Expression* alias)
-		: Declaration(file, location, DeclarationType::Exprdef, flags), name(name), alias(alias)
+	Macro::Macro(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Expression* alias)
+		: Declaration(file, location, DeclarationType::Macro, flags), name(name), alias(alias)
 	{
 	}
 
-	Exprdef::~Exprdef()
+	Macro::~Macro()
 	{
 		if (name)
 			delete name;
@@ -444,9 +444,9 @@ namespace AST
 			delete alias;
 	}
 
-	Element* Exprdef::copy()
+	Element* Macro::copy()
 	{
-		return new Exprdef(file, location, flags, _strdup(name), (Expression*)alias->copy());
+		return new Macro(file, location, flags, _strdup(name), (Expression*)alias->copy());
 	}
 
 	GlobalVariable::GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* varType, List<VariableDeclarator*>& declarators)

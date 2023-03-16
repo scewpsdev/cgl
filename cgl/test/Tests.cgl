@@ -1,0 +1,13 @@
+module Tests;
+
+import Console;
+import Test.Types;
+import Test.Strings;
+import Test.Functions;
+
+
+public func RunTests() {
+	TestTypes();
+	TestStrings();
+	TestFunctions();
+}

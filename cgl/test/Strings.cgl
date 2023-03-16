@@ -1,0 +1,35 @@
+module Test.Strings;
+
+import Console;
+
+
+public func TestStrings() {
+	const quotation = """
+The White Rabbit put on his spectacles.  "Where shall I begin,
+please your Majesty?" he asked.
+
+"Begin at the beginning," the King said gravely, "and go on
+till you come to the end; then stop."
+	""";
+
+	println(quotation);
+
+	int[] array = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+	for const i : array {
+		println(string(i));
+	}
+
+	const names = {"Anna", "Alex", "Brian", "Jack"};
+	for const name : names {
+		print("Hello, ");
+		print(name);
+		println("!");
+	}
+
+	/*
+	for i : 0..names.length {
+		
+	}
+	*/
+}

@@ -10,7 +10,7 @@
 #define KEYWORD_STRUCT    "struct"
 #define KEYWORD_CLASS     "class"
 #define KEYWORD_TYPEDEF   "typedef"
-#define KEYWORD_EXPRDEF   "exprdef"
+#define KEYWORD_MACRO     "macro"
 #define KEYWORD_METHOD    "method"
 #define KEYWORD_ENUM      "enum"
 

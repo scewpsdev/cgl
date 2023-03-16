@@ -1,0 +1,10 @@
+module Test.Functions;
+
+import Console;
+
+
+//func getGreeting() => "Hello";
+
+public func TestFunctions() {
+	
+}

@@ -161,8 +161,12 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="test\Console.cgl" />
+    <None Include="test\Functions.cgl" />
     <None Include="test\Main.cgl" />
-    <None Include="test\Test.cgl" />
+    <None Include="test\Strings.cgl" />
+    <None Include="test\Tests.cgl" />
+    <None Include="test\Types.cgl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

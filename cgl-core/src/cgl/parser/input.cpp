@@ -43,6 +43,11 @@ char InputNext(Input* input) {
 }
 
 char InputPeek(Input* input, int offset) {
+	for (int i = input->state.index; i < input->state.index + offset; i++)
+	{
+		if (!input->state.buffer[i])
+			return 0;
+	}
 	return input->state.buffer[input->state.index + offset];
 }
 

@@ -147,6 +147,11 @@ namespace AST
 	{
 	}
 
+	ForLoop::ForLoop(File* file, const SourceLocation& location, char* iteratorName, Expression* container, Statement* body)
+		: Statement(file, location, StatementType::For), iteratorName(iteratorName), container(container), body(body)
+	{
+	}
+
 	ForLoop::~ForLoop()
 	{
 		if (initStatement)
@@ -155,6 +160,14 @@ namespace AST
 			delete conditionExpr;
 		if (iterateExpr)
 			delete iterateExpr;
+
+		if (iteratorName)
+			delete iteratorName;
+		if (container)
+			delete container;
+		if (body)
+			delete body;
+
 		if (body)
 			delete body;
 	}

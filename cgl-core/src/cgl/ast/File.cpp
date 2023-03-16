@@ -16,7 +16,7 @@ namespace AST
 		classes = CreateList<Class*>();
 		typedefs = CreateList<Typedef*>();
 		enums = CreateList<Enum*>();
-		exprdefs = CreateList<Exprdef*>();
+		macros = CreateList<Macro*>();
 		globals = CreateList<GlobalVariable*>();
 		imports = CreateList<Import*>();
 

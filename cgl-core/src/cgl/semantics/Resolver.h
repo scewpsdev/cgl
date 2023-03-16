@@ -94,9 +94,9 @@ struct Resolver
 	AST::Typedef* findTypedefInModule(const char* name, AST::Module* module);
 	AST::Typedef* findTypedef(const char* name);
 
-	AST::Exprdef* findExprdefInFile(const char* name, AST::File* file);
-	AST::Exprdef* findExprdefInModule(const char* name, AST::Module* module);
-	AST::Exprdef* findExprdef(const char* name);
+	AST::Macro* findExprdefInFile(const char* name, AST::File* file);
+	AST::Macro* findExprdefInModule(const char* name, AST::Module* module);
+	AST::Macro* findExprdef(const char* name);
 
 	bool isFunctionVisible(const AST::Function* function, AST::Module* currentModule);
 };

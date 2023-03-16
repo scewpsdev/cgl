@@ -128,12 +128,13 @@ namespace AST
 
 	struct ForLoop : Statement
 	{
-		Statement* initStatement;
-		Expression* conditionExpr, * iterateExpr;
-		//Identifier* iteratorName;
-		//Expression* startValue, * endValue, * deltaValue;
-		//bool includeEndValue;
-		Statement* body;
+		Statement* initStatement = nullptr;
+		Expression* conditionExpr = nullptr, * iterateExpr = nullptr;
+
+		char* iteratorName = nullptr;
+		Expression* container = nullptr;
+
+		Statement* body = nullptr;
 
 		//Variable* iterator = nullptr;
 		//int delta = 0;
@@ -143,6 +144,7 @@ namespace AST
 
 
 		ForLoop(File* file, const SourceLocation& location, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body);
+		ForLoop(File* file, const SourceLocation& location, char* iteratorName, Expression* container, Statement* body);
 		virtual ~ForLoop();
 
 		virtual Element* copy() override;

@@ -1,0 +1,16 @@
+module Console;
+
+
+externc func putchar(char c);
+
+
+public func print(string s) {
+	for (int i = 0; i < s.length; i++) {
+		putchar(s[i]);
+	}
+}
+
+public func println(string s) {
+	print(s);
+	putchar('\n');
+}

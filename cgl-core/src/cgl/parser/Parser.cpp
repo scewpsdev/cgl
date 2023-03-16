@@ -78,7 +78,7 @@ static bool SkipToken(Parser* parser, int tokenType)
 	else
 	{
 		Token tok = NextToken(parser);
-		SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Expected token '%c'(%d), got '%.*s'", tokenType, tokenType, tok.len, tok.str);
+		SnekError(parser->context, parser->lexer->input.state, "Expected token '%c'(%d), got '%.*s'", tokenType, tokenType, tok.len, tok.str);
 		parser->failed = true;
 		return false;
 	}
@@ -276,7 +276,7 @@ static AST::Type* ParseFunctionType(Parser* parser, AST::Type* elementType)
 				}
 				else
 				{
-					SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Variadic arguments need to be declared as '...'");
+					SnekError(parser->context, parser->lexer->input.state, "Variadic arguments need to be declared as '...'");
 					parser->failed = true;
 				}
 			}
@@ -439,14 +439,14 @@ static AST::Expression* ParseAtom(Parser* parser)
 				case '\'': c = '\''; break;
 				case '"': c = '"'; break;
 				default:
-					SnekWarn(parser->context, parser->lexer->input.state, ERROR_CODE_INVALID_LITERAL, "Undefined escape character '\\%c'", tok.str[i]);
+					SnekWarn(parser->context, parser->lexer->input.state, "Undefined escape character '\\%c'", tok.str[i]);
 					break;
 				}
 			}
 			value = c;
 
 			if (i < tok.len - 1) {
-				SnekWarn(parser->context, parser->lexer->input.state, ERROR_CODE_INVALID_LITERAL, "Invalid character literal length: %d", tok.len - i);
+				SnekWarn(parser->context, parser->lexer->input.state, "Invalid character literal length: %d", tok.len - i);
 			}
 			break;
 		}
@@ -471,31 +471,41 @@ static AST::Expression* ParseAtom(Parser* parser)
 
 		return new AST::NullLiteral(parser->module, inputState);
 	}
-	else if (NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL))
+	else if (NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL) || NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL_MULTILINE))
 	{
-		Token token = NextToken(parser);
-		StringBuffer buffer = CreateStringBuffer(8);
-		for (int i = 0; i < token.len; i++)
-		{
-			char c = token.str[i];
-			if (c == '\\')
-			{
-				switch (token.str[++i])
-				{
-				case 'n': c = '\n'; break;
-				case 'r': c = '\r'; break;
-				case 't': c = '\t'; break;
-				case '\\': c = '\\'; break;
-				case '0': c = '\0'; break;
-				default:
-					SnekWarn(parser->context, parser->lexer->input.state, ERROR_CODE_INVALID_LITERAL, "Undefined escape character '\\%c'", token.str[i]);
-					break;
-				}
-			}
-			buffer << c;
-		}
+		bool raw = NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL);
 
-		return new AST::StringLiteral(parser->module, inputState, buffer.buffer, buffer.length);
+		Token token = NextToken(parser);
+
+		if (raw)
+		{
+			return new AST::StringLiteral(parser->module, inputState, GetTokenString(token), token.len);
+		}
+		else
+		{
+			StringBuffer buffer = CreateStringBuffer(8);
+			for (int i = 0; i < token.len; i++)
+			{
+				char c = token.str[i];
+				if (c == '\\')
+				{
+					switch (token.str[++i])
+					{
+					case 'n': c = '\n'; break;
+					case 'r': c = '\r'; break;
+					case 't': c = '\t'; break;
+					case '\\': c = '\\'; break;
+					case '0': c = '\0'; break;
+					default:
+						SnekWarn(parser->context, parser->lexer->input.state, "Undefined escape character '\\%c'", token.str[i]);
+						break;
+					}
+				}
+				buffer << c;
+			}
+
+			return new AST::StringLiteral(parser->module, inputState, buffer.buffer, buffer.length);
+		}
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
 	{
@@ -533,7 +543,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 			else
 			{
 				Token tok = NextToken(parser);
-				SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Expected ')': %.*s", tok.len, tok.str);
+				SnekError(parser->context, parser->lexer->input.state, "Expected ')': %.*s", tok.len, tok.str);
 				parser->failed = true;
 				return nullptr;
 			}
@@ -541,7 +551,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 		else
 		{
 			Token tok = NextToken(parser);
-			SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_EXPRESSION_EXPECTED, "Expected an expression: %.*s", tok.len, tok.str);
+			SnekError(parser->context, parser->lexer->input.state, "Expected an expression: %.*s", tok.len, tok.str);
 			parser->failed = true;
 			return nullptr;
 		}
@@ -628,7 +638,7 @@ static AST::Expression* ParseArgumentOperator(Parser* parser, AST::Expression* e
 			else
 			{
 				Token tok = NextToken(parser);
-				SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_EXPRESSION_EXPECTED, "Expected an expression: %.*s", tok.len, tok.str);
+				SnekError(parser->context, parser->lexer->input.state, "Expected an expression: %.*s", tok.len, tok.str);
 				parser->failed = true;
 			}
 		}
@@ -869,7 +879,7 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 				else
 				{
 					Token tok = NextToken(parser);
-					SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_EXPRESSION_EXPECTED, "Expected an expression: %.*s", tok.len, tok.str);
+					SnekError(parser->context, parser->lexer->input.state, "Expected an expression: %.*s", tok.len, tok.str);
 					parser->failed = true;
 				}
 			}
@@ -1172,7 +1182,7 @@ static AST::Expression* ParseExpression(Parser* parser, int prec)
 	}
 
 	Token tok = NextToken(parser);
-	SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_EXPRESSION_EXPECTED, "Expected an expression: %.*s", tok.len, tok.str);
+	SnekError(parser->context, parser->lexer->input.state, "Expected an expression: %.*s", tok.len, tok.str);
 	SkipPastStatement(parser);
 	parser->failed = true;
 	return NULL;
@@ -1247,68 +1257,99 @@ static AST::Statement* ParseStatement(Parser* parser)
 
 			//bool includeEndValue = false;
 
-			SkipToken(parser, '(');
-
-			AST::Statement* initStatement = nullptr;
-			AST::Expression* conditionExpr = nullptr;
-			AST::Expression* iterateExpr = nullptr;
-
-			if (!NextTokenIs(parser, ';'))
-				initStatement = ParseStatement(parser);
-			//SkipToken(parser, ';');
-
-			if (!NextTokenIs(parser, ';'))
-				conditionExpr = ParseExpression(parser);
-			SkipToken(parser, ';');
-
-			if (!NextTokenIs(parser, ')'))
-				iterateExpr = ParseExpression(parser);
-
-			SkipToken(parser, ')');
-
-			//SkipToken(parser, ',');
-
-			//ParseExpression(parser);
-			//SkipToken(parser, ',');
-			/*
-			SkipToken(parser, '.');
-			SkipToken(parser, '.');
-			if (NextTokenIs(parser, '.'))
+			if (NextTokenIs(parser, '('))
 			{
-				NextToken(parser); // .
-				includeEndValue = true;
+				SkipToken(parser, '(');
+
+				AST::Statement* initStatement = nullptr;
+				AST::Expression* conditionExpr = nullptr;
+				AST::Expression* iterateExpr = nullptr;
+
+				if (!NextTokenIs(parser, ';'))
+					initStatement = ParseStatement(parser);
+				//SkipToken(parser, ';');
+
+				if (!NextTokenIs(parser, ';'))
+					conditionExpr = ParseExpression(parser);
+				SkipToken(parser, ';');
+
+				if (!NextTokenIs(parser, ')'))
+					iterateExpr = ParseExpression(parser);
+
+				SkipToken(parser, ')');
+
+				//SkipToken(parser, ',');
+
+				//ParseExpression(parser);
+				//SkipToken(parser, ',');
+				/*
+				SkipToken(parser, '.');
+				SkipToken(parser, '.');
+				if (NextTokenIs(parser, '.'))
+				{
+					NextToken(parser); // .
+					includeEndValue = true;
+				}
+				*/
+
+				/*
+				AST::Expression* endValue = ParseExpression(parser);
+				AST::Expression* deltaValue = nullptr;
+
+				if (NextTokenIs(parser, ','))
+				{
+					NextToken(parser); // ,
+					deltaValue = ParseExpression(parser);
+				}
+				*/
+
+				//SkipToken(parser, ')');
+
+
+				AST::Statement* body = ParseStatement(parser);
+
+				/*
+				if (iteratorName->type == AST::ExpressionType::Identifier)
+				{
+					return new AST::ForLoop(parser->module, inputState, (AST::Identifier*)iteratorName, startValue, endValue, deltaValue, includeEndValue, body);
+				}
+				else
+				{
+					SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FOR_LOOP_SYNTAX, "Last value in for loop header needs to be the iterator name");
+					parser->failed = true;
+				}
+				*/
+
+				return new AST::ForLoop(parser->module, inputState, initStatement, conditionExpr, iterateExpr, body);
 			}
-			*/
-
-			/*
-			AST::Expression* endValue = ParseExpression(parser);
-			AST::Expression* deltaValue = nullptr;
-
-			if (NextTokenIs(parser, ','))
+			else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT) || NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
 			{
-				NextToken(parser); // ,
-				deltaValue = ParseExpression(parser);
-			}
-			*/
+				bool isConstant = NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT);
+				NextToken(parser); // const/var
 
-			//SkipToken(parser, ')');
+				if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+				{
+					char* iteratorName = GetTokenString(NextToken(parser));
 
+					SkipToken(parser, ':');
 
-			AST::Statement* body = ParseStatement(parser);
+					AST::Expression* container = ParseExpression(parser);
 
-			/*
-			if (iteratorName->type == AST::ExpressionType::Identifier)
-			{
-				return new AST::ForLoop(parser->module, inputState, (AST::Identifier*)iteratorName, startValue, endValue, deltaValue, includeEndValue, body);
+					AST::Statement* body = ParseStatement(parser);
+
+					return new AST::ForLoop(parser->module, inputState, iteratorName, container, body);
+				}
+				else
+				{
+					SnekError(parser->context, inputState, "Expected identifier");
+					return nullptr;
+				}
 			}
 			else
 			{
-				SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FOR_LOOP_SYNTAX, "Last value in for loop header needs to be the iterator name");
-				parser->failed = true;
+				SnekError(parser->context, inputState, "Expected iterator or initializer statement");
+				return nullptr;
 			}
-			*/
-
-			return new AST::ForLoop(parser->module, inputState, initStatement, conditionExpr, iterateExpr, body);
 		}
 		/*
 		else
@@ -1569,7 +1610,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				}
 				else
 				{
-					SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Variadic arguments need to be declared as '...'");
+					SnekError(parser->context, parser->lexer->input.state, "Variadic arguments need to be declared as '...'");
 					parser->failed = true;
 				}
 			}
@@ -1596,14 +1637,14 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				}
 				else
 				{
-					SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Function parameter declaration needs a name");
+					SnekError(parser->context, parser->lexer->input.state, "Function parameter declaration needs a name");
 					parser->failed = true;
 				}
 			}
 			else
 			{
 				Token tok = NextToken(parser);
-				SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Unexpected token: '%.*s'", tok.len, tok.str);
+				SnekError(parser->context, parser->lexer->input.state, "Unexpected token: '%.*s'", tok.len, tok.str);
 				parser->failed = true;
 			}
 		}
@@ -1700,7 +1741,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 							else
 							{
 								Token tok = NextToken(parser);
-								SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_STRUCT_SYNTAX, "Expected a field name: %.*s", tok.len, tok.str);
+								SnekError(parser->context, parser->lexer->input.state, "Expected a field name: %.*s", tok.len, tok.str);
 								SkipPastToken(parser, ';');
 								parser->failed = true;
 								break;
@@ -1717,7 +1758,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 					else
 					{
 						Token tok = NextToken(parser);
-						SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_STRUCT_SYNTAX, "Expected a type: %.*s", tok.len, tok.str);
+						SnekError(parser->context, parser->lexer->input.state, "Expected a type: %.*s", tok.len, tok.str);
 						SkipPastToken(parser, ';');
 						parser->failed = true;
 					}
@@ -1782,7 +1823,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 										}
 										else
 										{
-											SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Variadic arguments need to be declared as '...'");
+											SnekError(parser->context, parser->lexer->input.state, "Variadic arguments need to be declared as '...'");
 											parser->failed = true;
 										}
 									}
@@ -1809,14 +1850,14 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 										}
 										else
 										{
-											SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Function parameter declaration needs a name");
+											SnekError(parser->context, parser->lexer->input.state, "Function parameter declaration needs a name");
 											parser->failed = true;
 										}
 									}
 									else
 									{
 										Token tok = NextToken(parser);
-										SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Unexpected token: %.*s", tok.len, tok.str);
+										SnekError(parser->context, parser->lexer->input.state, "Unexpected token: %.*s", tok.len, tok.str);
 										parser->failed = true;
 									}
 								}
@@ -1888,7 +1929,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 										}
 										else
 										{
-											SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Variadic arguments need to be declared as '...'");
+											SnekError(parser->context, parser->lexer->input.state, "Variadic arguments need to be declared as '...'");
 											parser->failed = true;
 										}
 									}
@@ -1915,14 +1956,14 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 										}
 										else
 										{
-											SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_FUNCTION_SYNTAX, "Function parameter declaration needs a name");
+											SnekError(parser->context, parser->lexer->input.state, "Function parameter declaration needs a name");
 											parser->failed = true;
 										}
 									}
 									else
 									{
 										Token tok = NextToken(parser);
-										SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Unexpected token: %.*s", tok.len, tok.str);
+										SnekError(parser->context, parser->lexer->input.state, "Unexpected token: %.*s", tok.len, tok.str);
 										parser->failed = true;
 									}
 								}
@@ -1949,7 +1990,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 							else
 							{
 								Token tok = NextToken(parser);
-								SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_CLASS_SYNTAX, "Expected a field name: %.*s", tok.len, tok.str);
+								SnekError(parser->context, parser->lexer->input.state, "Expected a field name: %.*s", tok.len, tok.str);
 								SkipPastToken(parser, ';');
 								parser->failed = true;
 							}
@@ -1958,7 +1999,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 					else
 					{
 						Token tok = NextToken(parser);
-						SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_CLASS_SYNTAX, "Expected a type: %.*s", tok.len, tok.str);
+						SnekError(parser->context, parser->lexer->input.state, "Expected a type: %.*s", tok.len, tok.str);
 						SkipPastToken(parser, ';');
 						parser->failed = true;
 					}
@@ -2041,7 +2082,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 		return new AST::Enum(parser->module, inputState, flags, name, alias, values);
 	}
-	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_EXPRDEF))
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_MACRO))
 	{
 		NextToken(parser); // exprdef
 
@@ -2052,7 +2093,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 			SkipToken(parser, ';');
 
-			return new AST::Exprdef(parser->module, inputState, flags, name, expr);
+			return new AST::Macro(parser->module, inputState, flags, name, expr);
 		}
 		else
 		{
@@ -2084,7 +2125,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		else
 		{
 			Token tok = NextToken(parser);
-			SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_MODULE_SYNTAX, "Expected a module name: %.*s", tok.len, tok.str);
+			SnekError(parser->context, parser->lexer->input.state, "Expected a module name: %.*s", tok.len, tok.str);
 			parser->failed = true;
 			return NULL;
 		}
@@ -2139,7 +2180,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		else
 		{
 			Token tok = NextToken(parser);
-			SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_IMPORT_SYNTAX, "Expected a module name: %.*s", tok.len, tok.str);
+			SnekError(parser->context, parser->lexer->input.state, "Expected a module name: %.*s", tok.len, tok.str);
 			parser->failed = true;
 			return NULL;
 		}
@@ -2216,7 +2257,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 	}
 
 	Token token = NextToken(parser);
-	SnekError(parser->context, parser->lexer->input.state, ERROR_CODE_UNEXPECTED_TOKEN, "Unexpected token '%.*s'", token.len, token.str);
+	SnekError(parser->context, parser->lexer->input.state, "Unexpected token '%.*s'", token.len, token.str);
 	parser->failed = true;
 
 	SkipPastToken(parser, ';');
@@ -2261,8 +2302,8 @@ AST::File* Parser::run(SourceFile& sourceFile)
 			case AST::DeclarationType::Enumeration:
 				file->enums.add((AST::Enum*)decl);
 				break;
-			case AST::DeclarationType::Exprdef:
-				file->exprdefs.add((AST::Exprdef*)decl);
+			case AST::DeclarationType::Macro:
+				file->macros.add((AST::Macro*)decl);
 				break;
 			case AST::DeclarationType::GlobalVariable: {
 				AST::GlobalVariable* global = (AST::GlobalVariable*)decl;

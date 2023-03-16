@@ -6,7 +6,7 @@
 #include <filesystem>
 
 
-static void OnCompilerMessage(MessageType msgType, const char* filename, int line, int col, int errCode, const char* msg, ...)
+static void OnCompilerMessage(MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
 {
 	static const char* const MSG_TYPE_NAMES[MESSAGE_TYPE_MAX] = {
 		"<null>",
@@ -167,7 +167,7 @@ static bool AddFile(CGLCompiler& compiler, const char* path)
 		}
 		else
 		{
-			SnekFatal(&compiler, ERROR_CODE_FILE_NOT_FOUND, "Unknown file '%s'", path);
+			SnekFatal(&compiler, "Unknown file '%s'", path);
 			return false;
 		}
 	}
@@ -176,7 +176,7 @@ static bool AddFile(CGLCompiler& compiler, const char* path)
 static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const char* extension, bool recursive)
 {
 	if (!std::filesystem::exists(folder)) {
-		SnekFatal(&compiler, ERROR_CODE_FOLDER_NOT_FOUND, "Unknown folder '%s'", folder);
+		SnekFatal(&compiler, "Unknown folder '%s'", folder);
 		return false;
 	}
 
@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		SnekFatal(&compiler, ERROR_CODE_ARRAY_LENGTH_WRONG_TYPE, "No input files");
+		SnekFatal(&compiler, "No input files");
 	}
 
 	compiler.terminate();

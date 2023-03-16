@@ -30,7 +30,7 @@ namespace AST
 		List<Class*> classes;
 		List<Typedef*> typedefs;
 		List<Enum*> enums;
-		List<Exprdef*> exprdefs;
+		List<Macro*> macros;
 		List<GlobalVariable*> globals;
 		List<Import*> imports;
 
