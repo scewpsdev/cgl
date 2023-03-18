@@ -3,8 +3,38 @@ module Test.Functions;
 import Console;
 
 
-//func getGreeting() => "Hello";
+func sayHelloWorld() => "Hello World";
+
+func minMax(int[] array) -> (int, int)? {
+	if array.length == 0
+		return null;
+
+	var currentMin = array[0];
+	var currentMax = array[0];
+
+	for const value : array {
+		if value < currentMin
+			currentMin = value;
+		else if value > currentMax
+			currentMax = value;
+	}
+
+	return (currentMin, currentMax);
+}
+
+func test(int a) {
+	a = 5;
+}
 
 public func TestFunctions() {
-	
+	println(sayHelloWorld());
+
+	int[] array = {1, 23, -6, 1246, 9};
+	const mm = minMax(array);
+	if mm {
+		println(string(mm.value.0));
+		println(string(mm.value.1));
+	}
+
+	test(5);
 }

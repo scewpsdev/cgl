@@ -556,8 +556,11 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 		}
 		else
 		{
-			SnekAssert(expr->values.size > 0);
-			expr->initializerType = GetArrayType(expr->values[0]->valueType, expr->values.size);
+			//SnekAssert(expr->values.size > 0);
+			if (expr->values.size > 0)
+				expr->initializerType = GetArrayType(expr->values[0]->valueType, expr->values.size);
+			else
+				expr->initializerType = GetArrayType(GetIntegerType(32, true), expr->values.size);
 		}
 
 		expr->valueType = expr->initializerType;
@@ -1411,23 +1414,35 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		}
 		else if (operandType->typeKind == AST::TypeKind::Optional)
 		{
-			if (strcmp(expr->name, "value") == 0)
+			if (expr->name)
 			{
-				expr->valueType = operandType->optionalType.elementType;
-				expr->lvalue = false;
-				expr->fieldIndex = 0;
-				return true;
-			}
-			else if (strcmp(expr->name, "hasValue") == 0)
-			{
-				expr->valueType = GetBoolType();
-				expr->lvalue = false;
-				expr->fieldIndex = 1;
-				return true;
-			}
+				if (strcmp(expr->name, "value") == 0)
+				{
+					expr->valueType = operandType->optionalType.elementType;
+					expr->lvalue = false;
+					expr->fieldIndex = 0;
+					return true;
+				}
+				else if (strcmp(expr->name, "hasValue") == 0)
+				{
+					expr->valueType = GetBoolType();
+					expr->lvalue = false;
+					expr->fieldIndex = 1;
+					return true;
+				}
 
-			SnekError(resolver->context, expr->location, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
-			return false;
+				SnekError(resolver->context, expr->location, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
+				return false;
+			}
+			else if (expr->fieldIndex != -1)
+			{
+				SnekError(resolver->context, expr->location, "Unresolved optional property %s.%d", GetTypeString(operandType), expr->fieldIndex);
+				return false;
+			}
+			else
+			{
+				SnekAssert(false);
+			}
 		}
 		else if (operandType->typeKind == AST::TypeKind::Tuple)
 		{
@@ -1444,7 +1459,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		else if (operandType->typeKind == AST::TypeKind::Array)
 		{
 			//expr->fieldIndex = -1;
-			if (strcmp(expr->name, "size") == 0)
+			if (strcmp(expr->name, "length") == 0)
 			{
 				expr->valueType = GetIntegerType(32, false);
 				expr->lvalue = false;
@@ -2025,7 +2040,7 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 	bool result = true;
 
 	result = ResolveExpression(resolver, statement->condition) && result;
-	if (!(
+	if (statement->condition->valueType && !(
 		statement->condition->valueType->typeKind == AST::TypeKind::Boolean ||
 		statement->condition->valueType->typeKind == AST::TypeKind::Integer ||
 		statement->condition->valueType->typeKind == AST::TypeKind::Pointer ||
@@ -2368,13 +2383,27 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			}
 		}
 
+		TypeID returnType = nullptr;
 		int numParams = decl->paramTypes.size;
 		TypeID* paramTypes = new TypeID[numParams];
 		for (int i = 0; i < numParams; i++)
 		{
 			paramTypes[i] = decl->paramTypes[i]->typeID;
 		}
-		decl->functionType = GetFunctionType(decl->returnType ? decl->returnType->typeID : GetVoidType(), numParams, paramTypes, decl->varArgs, false, nullptr, decl);
+
+		if (decl->returnType)
+			returnType = decl->returnType->typeID;
+		else if (decl->bodyExpression)
+		{
+			result = ResolveExpression(resolver, decl->bodyExpression) && result;
+			returnType = decl->bodyExpression->valueType;
+		}
+		else
+		{
+			returnType = GetVoidType();
+		}
+
+		decl->functionType = GetFunctionType(returnType, numParams, paramTypes, decl->varArgs, false, nullptr, decl);
 
 		if (decl->isEntryPoint)
 		{
@@ -2411,7 +2440,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 	}
 	else
 	{
-		if (decl->body)
+		if (decl->body || decl->bodyExpression)
 		{
 			AST::Function* lastFunction = resolver->currentFunction;
 			resolver->currentFunction = decl;
@@ -2423,13 +2452,14 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 			for (int i = 0; i < decl->paramTypes.size; i++)
 			{
-				Variable* variable = new Variable(decl->file, decl->paramNames[i], decl->paramNames[i], decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+				Variable* variable = new Variable(decl->file, decl->paramNames[i], decl->paramNames[i], decl->paramTypes[i]->typeID, nullptr, true, AST::Visibility::Null);
 				decl->paramVariables[i] = variable;
 				resolver->registerLocalVariable(variable, decl->paramTypes[i]);
 				//RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
 			}
 
-			result = ResolveStatement(resolver, decl->body) && result;
+			if (decl->body)
+				result = ResolveStatement(resolver, decl->body) && result;
 
 			resolver->popScope();
 

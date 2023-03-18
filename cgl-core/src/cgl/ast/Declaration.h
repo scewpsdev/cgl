@@ -65,13 +65,15 @@ namespace AST
 
 	struct Function : Declaration
 	{
-		char* name;
-		Type* returnType;
+		char* name = nullptr;
+		Type* returnType = nullptr;
 		List<Type*> paramTypes;
 		List<char*> paramNames;
 		List<Expression*> paramValues;
-		bool varArgs;
-		Statement* body;
+		bool varArgs = false;
+
+		Statement* body = nullptr;
+		Expression* bodyExpression = nullptr;
 
 		bool isGeneric = false;
 		bool isGenericInstance = false;
@@ -93,6 +95,7 @@ namespace AST
 
 
 		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams);
+		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Function();
 
 		virtual Element* copy() override;

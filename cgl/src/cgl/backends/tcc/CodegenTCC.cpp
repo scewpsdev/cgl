@@ -9,8 +9,6 @@
 struct Scope
 {
 	Scope* parent = nullptr;
-
-	int unnamedLocalId = 0;
 };
 
 class CodegenTCC
@@ -22,6 +20,7 @@ class CodegenTCC
 	List<AST::Function*> importedFunctions;
 	std::map<TypeID, std::string> optionalTypes;
 	std::map<TypeID, std::string> tupleTypes;
+	std::map<TypeID, std::string> arrayTypes;
 
 	std::stringstream builtinDefinitionStream;
 	std::stringstream types;
@@ -30,39 +29,83 @@ class CodegenTCC
 	std::stringstream functionDeclarations;
 	std::stringstream functions;
 
-	std::stringstream* currentStream = nullptr;
+	std::stringstream* instructionStream = nullptr;
 
+	AST::Function* currentFunction = nullptr;
 	Scope* scope = nullptr;
 
+	int unnamedLocalId = 0;
 	int unnamedGlobalId = 0;
 
 	int indentation = 0;
 
 
+	void newLine(std::stringstream& stream)
+	{
+		stream << "\n";
+		for (int i = 0; i < indentation; i++)
+			stream << "\t";
+	}
+
 	void newLine()
 	{
-		*currentStream << "\n";
-		for (int i = 0; i < indentation; i++)
-			*currentStream << "\t";
+		newLine(*instructionStream);
+	}
+
+	bool isWhitespace(char c)
+	{
+		return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+	}
+
+	void stepBackWhitespace()
+	{
+		instructionStream->seekg(-1, std::ios::end);
+		char c = instructionStream->get();
+		if (isWhitespace(c))
+		{
+			instructionStream->seekp(-1, std::ios::end);
+		}
+		instructionStream->seekg(0, std::ios::end);
+	}
+
+	void stepBackPastWhitespace()
+	{
+		int i = 1;
+		while (true)
+		{
+			instructionStream->seekg(-i, std::ios::end);
+			//instructionStream->seekp(instructionStream->cur-1);
+			char c;
+			instructionStream->read(&c, 1);
+			//char c = instructionStream->get();
+			if (isWhitespace(c))
+				i++;
+			else
+			{
+				instructionStream->seekp(-i + 1, std::ios::end);
+				instructionStream->seekg(0, std::ios::end);
+				return;
+			}
+		}
 	}
 
 	void newGlobalName(char name[8])
 	{
 		name[0] = '_';
-		name[1] = 'G';
-		sprintf(&name[2], "%d", unnamedGlobalId++);
+		name[1] = '_';
+		name[2] = 'G';
+		sprintf(&name[3], "%d", unnamedGlobalId++);
 	}
 
 	std::string newLocalName()
 	{
-		return '_' + std::to_string(scope->unnamedLocalId++);
+		return "__" + std::to_string(unnamedLocalId++);
 	}
 
 	Scope* pushScope()
 	{
 		Scope* newScope = new Scope();
 		newScope->parent = scope;
-		newScope->unnamedLocalId = scope ? scope->unnamedLocalId : 0;
 		scope = newScope;
 		return newScope;
 	}
@@ -210,14 +253,28 @@ class CodegenTCC
 
 	std::string genTypeArray(TypeID type)
 	{
-		if (type->arrayType.length != -1)
+		auto it = arrayTypes.find(type);
+		if (it == arrayTypes.end())
 		{
-			return "struct{" + genType(type->arrayType.elementType) + " buffer[" + std::to_string(type->arrayType.length) + "];}";
+			std::string name = "__" + mangleType(type);
+
+			if (type->arrayType.length != -1)
+			{
+				std::string str = "typedef struct{" + genType(type->arrayType.elementType) + " buffer[" + std::to_string(type->arrayType.length) + "];}" + name + ";";
+				types << str << std::endl;
+				//return "struct{" + genType(type->arrayType.elementType) + " buffer[" + std::to_string(type->arrayType.length) + "];}";
+			}
+			else
+			{
+				std::string str = "typedef struct{" + genType(type->arrayType.elementType) + "* ptr;long length;}" + name + ";";
+				types << str << std::endl;
+				//return "struct{" + genType(type->arrayType.elementType) + "* ptr;long length;}";
+			}
+
+			arrayTypes.emplace(type, name);
+			return name;
 		}
-		else
-		{
-			return "struct{" + genType(type->arrayType.elementType) + "* ptr;long length;}";
-		}
+		return arrayTypes[type];
 	}
 
 	std::string genTypeString()
@@ -263,73 +320,76 @@ class CodegenTCC
 		return genType(type->typeID);
 	}
 
-	std::string castValue(AST::Expression* expression, TypeID type)
+	std::string castValue(std::string expression, TypeID valueType, TypeID type, AST::Expression* ast = nullptr)
 	{
-		if (CompareTypes(expression->valueType, type))
-			return genExpression(expression);
-		else if (expression->valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::Integer)
+		if (CompareTypes(valueType, type))
+			return expression;
+		else if (valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::Integer)
 		{
-			return "(" + genType(type) + ")" + genExpression(expression);
+			return "(" + genType(type) + ")" + expression;
 		}
-		else if (expression->valueType->typeKind == AST::TypeKind::FloatingPoint && type->typeKind == AST::TypeKind::Integer)
+		else if (valueType->typeKind == AST::TypeKind::FloatingPoint && type->typeKind == AST::TypeKind::Integer)
 		{
-			return "(" + genType(type) + ")" + genExpression(expression);
+			return "(" + genType(type) + ")" + expression;
 		}
-		else if (expression->valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::FloatingPoint)
+		else if (valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::FloatingPoint)
 		{
-			return "(" + genType(type) + ")" + genExpression(expression);
+			return "(" + genType(type) + ")" + expression;
 		}
-		else if (expression->valueType->typeKind == AST::TypeKind::Pointer && expression->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void &&
+		else if (valueType->typeKind == AST::TypeKind::Pointer && valueType->pointerType.elementType->typeKind == AST::TypeKind::Void &&
 			type->typeKind == AST::TypeKind::Optional)
 		{
-			return "(" + genType(type) + ")" + genExpression(expression);
+			return "(" + genType(type) + ")" + expression;
 		}
-		else if (expression->valueType->typeKind != AST::TypeKind::Optional && type->typeKind == AST::TypeKind::Optional &&
-			CompareTypes(type->optionalType.elementType, expression->valueType))
+		else if (valueType->typeKind != AST::TypeKind::Optional && type->typeKind == AST::TypeKind::Optional &&
+			CompareTypes(type->optionalType.elementType, valueType))
 		{
-			return "(" + genType(type) + "){" + genExpression(expression) + ",1}";
+			return "(" + genType(type) + "){" + expression + ",1}";
 		}
 		// Boolean conversions
-		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Integer)
+		else if (type->typeKind == AST::TypeKind::Boolean && valueType->typeKind == AST::TypeKind::Integer)
 		{
-			return genExpression(expression);
+			return expression;
 		}
-		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Pointer)
+		else if (type->typeKind == AST::TypeKind::Boolean && valueType->typeKind == AST::TypeKind::Pointer)
 		{
-			return genExpression(expression);
+			return expression;
 		}
-		else if (type->typeKind == AST::TypeKind::Boolean && expression->valueType->typeKind == AST::TypeKind::Optional)
+		else if (type->typeKind == AST::TypeKind::Boolean && valueType->typeKind == AST::TypeKind::Optional)
 		{
-			return genExpression(expression) + ".hasValue";
+			return expression + ".hasValue";
 		}
-		else if (expression->valueType->typeKind == AST::TypeKind::Pointer &&
-			expression->valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
-			expression->valueType->pointerType.elementType->integerType.bitWidth == 8 &&
+		else if (valueType->typeKind == AST::TypeKind::Pointer &&
+			valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
+			valueType->pointerType.elementType->integerType.bitWidth == 8 &&
 			type->typeKind == AST::TypeKind::String)
 		{
-			std::string expr = genExpression(expression);
-
-			if (expression->type == AST::ExpressionType::StringLiteral)
-				return "(string){" + expr + "," + std::to_string(((AST::StringLiteral*)expression)->length) + "}";
+			if (ast && ast->type == AST::ExpressionType::StringLiteral)
+				return "(string){" + expression + "," + std::to_string(((AST::StringLiteral*)ast)->length) + "}";
 			else
-				return "(string){" + expr + ",strlen(" + expr + ")}";
+				return "(string){" + expression + ",strlen(" + expression + ")}";
 		}
 		// Conversions
-		else if (expression->valueType->typeKind == AST::TypeKind::String &&
+		else if (valueType->typeKind == AST::TypeKind::String &&
 			type->typeKind == AST::TypeKind::Integer)
 		{
-			return "__sto" + std::string(type->integerType.isSigned ? "i" : "u") + std::to_string(type->integerType.bitWidth) + "(" + genExpression(expression) + ")";
+			return "__sto" + std::string(type->integerType.isSigned ? "i" : "u") + std::to_string(type->integerType.bitWidth) + "(" + expression + ")";
 		}
-		else if (expression->valueType->typeKind == AST::TypeKind::Integer &&
+		else if (valueType->typeKind == AST::TypeKind::Integer &&
 			type->typeKind == AST::TypeKind::String)
 		{
-			return "__itos(" + genExpression(expression) + ")";
+			return "__itos(" + expression + ")";
 		}
 		else
 		{
 			SnekAssert(false);
 			return "";
 		}
+	}
+
+	std::string castValue(AST::Expression* expression, TypeID type)
+	{
+		return castValue(genExpression(expression), expression->valueType, type, expression);
 	}
 
 	std::string genExpressionIntegerLiteral(AST::IntegerLiteral* expression)
@@ -411,12 +471,12 @@ class CodegenTCC
 
 	void importGlobal(Variable* variable)
 	{
-		std::stringstream* parentStream = currentStream;
-		currentStream = &globals;
+		std::stringstream* parentStream = instructionStream;
+		instructionStream = &globals;
 
-		*currentStream << "extern " << genType(variable->type) << " " << variable->mangledName << ";" << std::endl;
+		*instructionStream << "extern " << genType(variable->type) << " " << variable->mangledName << ";" << std::endl;
 
-		currentStream = parentStream;
+		instructionStream = parentStream;
 	}
 
 	std::string getVariableValue(Variable* variable)
@@ -434,21 +494,21 @@ class CodegenTCC
 
 	void importFunction(AST::Function* function)
 	{
-		std::stringstream* parentStream = currentStream;
-		currentStream = &functionDeclarations;
+		std::stringstream* parentStream = instructionStream;
+		instructionStream = &functionDeclarations;
 
-		*currentStream << "extern " << genType(function->functionType->functionType.returnType) << " " << function->mangledName << "(";
+		*instructionStream << "extern " << genType(function->functionType->functionType.returnType) << " " << function->mangledName << "(";
 
 		for (int i = 0; i < function->functionType->functionType.numParams; i++)
 		{
-			*currentStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
+			*instructionStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
 			if (i < function->paramTypes.size - 1)
-				*currentStream << ",";
+				*instructionStream << ",";
 		}
 
-		*currentStream << ");" << std::endl;
+		*instructionStream << ");" << std::endl;
 
-		currentStream = parentStream;
+		instructionStream = parentStream;
 	}
 
 	std::string getFunctionValue(AST::Function* function)
@@ -530,7 +590,7 @@ class CodegenTCC
 	std::string genExpressionTuple(AST::TupleExpression* expression)
 	{
 		std::stringstream result;
-		result << "{";
+		result << "(" << genType(expression->valueType) << "){";
 		for (int i = 0; i < expression->values.size; i++)
 		{
 			AST::Expression* value = expression->values[i];
@@ -551,9 +611,9 @@ class CodegenTCC
 		}
 		else
 		{
-			auto parentStream = currentStream;
+			//auto parentStream = currentStream;
 			std::stringstream callStream;
-			currentStream = &callStream;
+			//currentStream = &callStream;
 
 			std::string returnValue = "";
 
@@ -561,23 +621,24 @@ class CodegenTCC
 			if (expression->callee->valueType->functionType.returnType->typeKind != AST::TypeKind::Void)
 			{
 				returnValue = newLocalName();
-				*currentStream << returnValue << "=";
+				callStream << genType(expression->callee->valueType->functionType.returnType) << " " << returnValue << "=";
 			}
 
 			std::string callee = genExpression(expression->callee);
-			*currentStream << callee << "(";
+			callStream << callee << "(";
 			for (int i = 0; i < expression->arguments.size; i++)
 			{
 				std::string arg = castValue(expression->arguments[i], expression->callee->valueType->functionType.paramTypes[i]);
-				*currentStream << arg;
+				callStream << arg;
 				if (i < expression->arguments.size - 1)
-					*currentStream << ",";
+					callStream << ",";
 			}
-			*currentStream << ")";
+			callStream << ");";
+			newLine(callStream);
 
-			currentStream = parentStream;
+			//currentStream = parentStream;
 
-			*currentStream << callStream.str();
+			*instructionStream << callStream.str();
 
 			return returnValue;
 		}
@@ -727,20 +788,6 @@ class CodegenTCC
 		return castValue(expression->value, expression->dstType->typeID);
 	}
 
-	std::string compareValues(AST::Expression* left, AST::Expression* right)
-	{
-		if (left->valueType->typeKind == AST::TypeKind::Optional &&
-			right->valueType->typeKind == AST::TypeKind::Pointer && right->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void)
-		{
-			SnekAssert(dynamic_cast<AST::NullLiteral*>(right));
-			return "!(" + genExpression(left) + ".hasValue)";
-		}
-		else
-		{
-			return genExpression(left) + "==" + genExpression(right);
-		}
-	}
-
 	std::string genExpressionUnaryOperator(AST::UnaryOperator* expression)
 	{
 		switch (expression->operatorType)
@@ -776,41 +823,68 @@ class CodegenTCC
 
 	std::string genExpressionBinaryOperator(AST::BinaryOperator* expression)
 	{
+		auto left = genExpression(expression->left);
+		auto right = genExpression(expression->right);
+
 		switch (expression->operatorType)
 		{
 		case AST::BinaryOperatorType::Add:
-			return castValue(expression->left, expression->valueType) + "+" + castValue(expression->right, expression->valueType);
+			return castValue(left, expression->left->valueType, expression->valueType) + "+" + castValue(right, expression->right->valueType, expression->valueType);
 		case AST::BinaryOperatorType::Subtract:
-			return castValue(expression->left, expression->valueType) + "-" + castValue(expression->right, expression->valueType);
+			return castValue(left, expression->left->valueType, expression->valueType) + "-" + castValue(right, expression->right->valueType, expression->valueType);
 		case AST::BinaryOperatorType::Multiply:
-			return castValue(expression->left, expression->valueType) + "*" + castValue(expression->right, expression->valueType);
+			return castValue(left, expression->left->valueType, expression->valueType) + "*" + castValue(right, expression->right->valueType, expression->valueType);
 		case AST::BinaryOperatorType::Divide:
-			return castValue(expression->left, expression->valueType) + "/" + castValue(expression->right, expression->valueType);
+			return castValue(left, expression->left->valueType, expression->valueType) + "/" + castValue(right, expression->right->valueType, expression->valueType);
 		case AST::BinaryOperatorType::Modulo:
-			return castValue(expression->left, expression->valueType) + "%" + castValue(expression->right, expression->valueType);
+			return castValue(left, expression->left->valueType, expression->valueType) + "%" + castValue(right, expression->right->valueType, expression->valueType);
 		case AST::BinaryOperatorType::Equals:
-			return compareValues(expression->left, expression->right);
+		{
+			if (expression->left->valueType->typeKind == AST::TypeKind::Optional &&
+				expression->right->valueType->typeKind == AST::TypeKind::Pointer && expression->right->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void)
+			{
+				SnekAssert(dynamic_cast<AST::NullLiteral*>(expression->right));
+				return "!" + left + ".hasValue";
+			}
+			else
+			{
+				return left + "==" + right;
+			}
+		}
 		case AST::BinaryOperatorType::DoesNotEqual:
-			return "!(" + compareValues(expression->left, expression->right) + ")";
+			if (expression->left->valueType->typeKind == AST::TypeKind::Optional &&
+				expression->right->valueType->typeKind == AST::TypeKind::Pointer && expression->right->valueType->pointerType.elementType->typeKind == AST::TypeKind::Void)
+			{
+				SnekAssert(dynamic_cast<AST::NullLiteral*>(expression->right));
+				return left + ".hasValue";
+			}
+			else
+			{
+				return left + "!=" + right;
+			}
 		case AST::BinaryOperatorType::LessThan:
-			return genExpression(expression->left) + "<" + genExpression(expression->right);
+			return left + "<" + right;
 		case AST::BinaryOperatorType::GreaterThan:
-			return genExpression(expression->left) + ">" + genExpression(expression->right);
+			return left + ">" + right;
 		case AST::BinaryOperatorType::LessThanEquals:
-			return genExpression(expression->left) + "<=" + genExpression(expression->right);
+			return left + "<=" + right;
 		case AST::BinaryOperatorType::GreaterThanEquals:
-			return genExpression(expression->left) + ">=" + genExpression(expression->right);
+			return left + ">=" + right;
 		case AST::BinaryOperatorType::LogicalAnd:
-			return genExpression(expression->left) + "&&" + genExpression(expression->right);
+			return left + "&&" + right;
 		case AST::BinaryOperatorType::LogicalOr:
-			return genExpression(expression->left) + "||" + genExpression(expression->right);
+			return left + "||" + right;
 		case AST::BinaryOperatorType::BitwiseAnd:
 		case AST::BinaryOperatorType::BitwiseOr:
 		case AST::BinaryOperatorType::BitwiseXor:
 		case AST::BinaryOperatorType::BitshiftLeft:
 		case AST::BinaryOperatorType::BitshiftRight:
 		case AST::BinaryOperatorType::Assignment:
-			return genExpression(expression->left) + "=" + castValue(expression->right, expression->left->valueType);
+		{
+			*instructionStream << left << "=" << castValue(right, expression->right->valueType, expression->left->valueType) << ";";
+			newLine();
+			return left;
+		}
 		case AST::BinaryOperatorType::PlusEquals:
 		case AST::BinaryOperatorType::MinusEquals:
 		case AST::BinaryOperatorType::TimesEquals:
@@ -824,8 +898,7 @@ class CodegenTCC
 		case AST::BinaryOperatorType::ReferenceAssignment:
 		case AST::BinaryOperatorType::NullCoalescing:
 		{
-			std::string left = genExpression(expression->left);
-			return left + ".hasValue?" + left + ".value:" + castValue(expression->right, expression->left->valueType->optionalType.elementType);
+			return left + ".hasValue?" + left + ".value:" + castValue(right, expression->right->valueType, expression->left->valueType->optionalType.elementType);
 		}
 		default:
 			SnekAssert(false);
@@ -880,34 +953,59 @@ class CodegenTCC
 
 	void genStatementCompound(AST::CompoundStatement* statement)
 	{
-		*currentStream << "{";
-		indentation++;
-		newLine();
+		//*instructionStream << "{";
+		//indentation++;
+		//newLine();
 
-		pushScope();
+		//pushScope();
 		for (int i = 0; i < statement->statements.size; i++)
 		{
 			genStatement(statement->statements[i]);
 		}
-		popScope();
+		//popScope();
 
-		currentStream->seekp(-1, currentStream->cur);
-		indentation--;
+		//instructionStream->seekp(-1, instructionStream->cur);
+		//indentation--;
 		//newLine();
-		*currentStream << "}";
+		//*instructionStream << "}";
+	}
+
+	char getLastNonWhitespaceChar(std::stringstream& stream)
+	{
+		int i = 1;
+		while (true)
+		{
+			instructionStream->seekg(-i++, std::ios::end);
+			char c = instructionStream->get();
+			if (!isWhitespace(c))
+			{
+				instructionStream->seekg(0, std::ios::beg);
+				return c;
+			}
+		}
+		SnekAssert(false);
+		return 0;
 	}
 
 	void genStatementExpression(AST::ExpressionStatement* statement)
 	{
-		*currentStream << genExpression(statement->expression) << ";";
-		newLine();
+		genExpression(statement->expression);
+		/*
+		*instructionStream << genExpression(statement->expression);
+		auto c = getLastNonWhitespaceChar(*instructionStream);
+		if (c != ';')
+		{
+			*instructionStream << ";";
+			newLine();
+		}
+		*/
 	}
 
 	void genStatementVariableDeclaration(AST::VariableDeclaration* statement)
 	{
-		std::stringstream* parentStream = currentStream;
+		//std::stringstream* parentStream = instructionStream;
 		std::stringstream stream;
-		currentStream = &stream;
+		//instructionStream = &stream;
 
 		stream << genType(statement->varType) << " ";
 
@@ -940,36 +1038,74 @@ class CodegenTCC
 		}
 		stream << ";";
 
-		currentStream = parentStream;
-		*currentStream << stream.str();
+		//instructionStream = parentStream;
+		*instructionStream << stream.str();
 		newLine();
 	}
 
 	void genStatementIf(AST::IfStatement* statement)
 	{
-		std::stringstream* parentStream = currentStream;
+		std::stringstream* parentStream = instructionStream;
 		std::stringstream stream;
-		currentStream = &stream;
+		instructionStream = &stream;
 
-		stream << "if(" << castValue(statement->condition, GetBoolType()) << ")";
+		auto condition = genExpression(statement->condition);
+
+		stream << "if(" << castValue(condition, statement->condition->valueType, GetBoolType()) << "){";
+
+		indentation++;
+		newLine();
+
 		genStatement(statement->thenStatement);
 		if (statement->elseStatement)
 		{
+			if (statement->elseStatement->type == AST::StatementType::If)
+			{
+				stepBackWhitespace();
+				indentation--;
+
+				stream << "}else ";
+				genStatement(statement->elseStatement);
+			}
+			else
+			{
+				stepBackWhitespace();
+				indentation--;
+				//newLine();
+
+				stream << "}else{";
+
+				indentation++;
+				newLine();
+
+				genStatement(statement->elseStatement);
+
+				stepBackWhitespace();
+				indentation--;
+				//newLine();
+
+				stream << "}";
+			}
+		}
+		else
+		{
+			stepBackWhitespace();
+			indentation--;
 			//newLine();
-			stream << " else ";
-			genStatement(statement->elseStatement);
+
+			stream << "}";
 		}
 
-		currentStream = parentStream;
-		*currentStream << stream.str();
+		instructionStream = parentStream;
+		*instructionStream << stream.str();
 		newLine();
 	}
 
 	void genStatementFor(AST::ForLoop* statement)
 	{
-		std::stringstream* parentStream = currentStream;
+		std::stringstream* parentStream = instructionStream;
 		std::stringstream stream;
-		currentStream = &stream;
+		instructionStream = &stream;
 
 		/*
 		*currentStream
@@ -978,84 +1114,103 @@ class CodegenTCC
 			<< statement->iteratorName->name << "++)";
 			*/
 
-		*currentStream << "for(";
+		*instructionStream << "for(";
 
 		if (!statement->iteratorName)
 		{
 			if (statement->initStatement)
 			{
 				genStatement(statement->initStatement);
-				currentStream->seekp(-2, currentStream->cur);
+				stepBackPastWhitespace();
+				//instructionStream->seekp(-2, instructionStream->cur);
 			}
 			else
 			{
-				*currentStream << ";";
+				*instructionStream << ";";
 			}
 			//*currentStream << ";";
 			if (statement->conditionExpr)
-				*currentStream << genExpression(statement->conditionExpr);
-			*currentStream << ";";
+				*instructionStream << genExpression(statement->conditionExpr);
+			*instructionStream << ";";
 			if (statement->iterateExpr)
-				*currentStream << genExpression(statement->iterateExpr);
-			*currentStream << "){";
+				*instructionStream << genExpression(statement->iterateExpr);
+			*instructionStream << "){";
+
+			indentation++;
+			newLine();
 		}
 		else
 		{
 			std::string container = genExpression(statement->container);
 
-			*currentStream << "int __it=0;__it<";
+			*instructionStream << "int __it=0;__it<";
 			if (statement->container->valueType->typeKind == AST::TypeKind::Array)
 			{
 				if (statement->container->valueType->arrayType.length != -1)
-					*currentStream << statement->container->valueType->arrayType.length;
+					*instructionStream << statement->container->valueType->arrayType.length;
 				else
-					*currentStream << container << ".length";
+					*instructionStream << container << ".length";
 			}
 			else
 			{
 				SnekAssert(false);
 			}
 
-			*currentStream << ";__it++){";
-			*currentStream << genType(statement->container->valueType->arrayType.elementType) << " const " << statement->iteratorName << "=";
+			*instructionStream << ";__it++){";
+
+			indentation++;
+			newLine();
+
+			*instructionStream << genType(statement->container->valueType->arrayType.elementType) << " const " << statement->iteratorName << "=";
 
 			if (statement->container->valueType->typeKind == AST::TypeKind::Array)
 			{
 				if (statement->container->valueType->arrayType.length != -1)
-					*currentStream << container << ".buffer[__it]";
+					*instructionStream << container << ".buffer[__it]";
 				else
-					*currentStream << container << ".ptr[__it]";
+					*instructionStream << container << ".ptr[__it]";
 			}
 			else
 			{
 				SnekAssert(false);
 			}
 
-			*currentStream << ";";
+			*instructionStream << ";";
+			newLine();
 		}
 
 		genStatement(statement->body);
-		*currentStream << "}";
 
-		currentStream = parentStream;
-		*currentStream << stream.str();
+		stepBackWhitespace();
+		indentation--;
+		//newLine();
+
+		*instructionStream << "}";
+
+		instructionStream = parentStream;
+		*instructionStream << stream.str();
 		newLine();
 	}
 
 	void genStatementReturn(AST::Return* statement)
 	{
-		*currentStream << "return";
 		if (statement->value)
 		{
-			*currentStream << " ";
-			genExpression(statement->value);
+			SnekAssert(currentFunction->functionType->functionType.returnType->typeKind != AST::TypeKind::Void);
+			std::string value = castValue(statement->value, currentFunction->functionType->functionType.returnType);
+			*instructionStream << "return " << value << ";";
+			newLine();
 		}
-		*currentStream << ";";
+		else
+		{
+			*instructionStream << "return;";
+			newLine();
+		}
 	}
 
 	void genStatementAssert(AST::Assert* statement)
 	{
-		*currentStream << "if(!(" << castValue(statement->condition, GetBoolType()) << ")){";
+		*instructionStream << "if(!(" << castValue(statement->condition, GetBoolType()) << ")){";
 		indentation++;
 		newLine();
 
@@ -1064,26 +1219,26 @@ class CodegenTCC
 			char message[128] = {};
 			sprintf(message, "Assertion failed at %s:%d:%d: \"%%s\"\n", statement->file->name, statement->location.line, statement->location.col);
 
-			*currentStream << "printf(";
-			writeStringLiteral(message, *currentStream);
-			*currentStream << ", " << genExpression(statement->message) << ".ptr);";
+			*instructionStream << "printf(";
+			writeStringLiteral(message, *instructionStream);
+			*instructionStream << ", " << genExpression(statement->message) << ".ptr);";
 		}
 		else
 		{
 			char message[128] = {};
 			sprintf(message, "Assertion failed at %s:%d:%d\n", statement->file->name, statement->location.line, statement->location.col);
 
-			*currentStream << "printf(";
-			writeStringLiteral(message, *currentStream);
-			*currentStream << ");";
+			*instructionStream << "printf(";
+			writeStringLiteral(message, *instructionStream);
+			*instructionStream << ");";
 		}
 		newLine();
 
-		*currentStream << "__asm__ volatile(\"int $0x03\");";
+		*instructionStream << "__asm__ volatile(\"int $0x03\");";
 		indentation--;
 		newLine();
 
-		*currentStream << "}";
+		*instructionStream << "}";
 		newLine();
 	}
 
@@ -1127,96 +1282,115 @@ class CodegenTCC
 
 	void genFunction(AST::Function* function)
 	{
-		std::stringstream* parentStream = currentStream;
+		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream functionStream;
-		currentStream = &functionStream;
+		instructionStream = &functionStream;
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::Extern))
-			*currentStream << "extern ";
+			*instructionStream << "extern ";
 
 		if (function->isEntryPoint)
 		{
-			*currentStream << "int";
+			*instructionStream << "int";
 		}
 		else
 		{
-			if (function->returnType)
-				*currentStream << genType(function->returnType);
-			else
-				*currentStream << "void";
+			*instructionStream << genType(function->functionType->functionType.returnType);
 		}
 
-		*currentStream << " " << function->mangledName << "(";
-		for (int i = 0; i < function->paramTypes.size; i++)
+		*instructionStream << " " << function->mangledName << "(";
+		for (int i = 0; i < function->functionType->functionType.numParams; i++)
 		{
-			*currentStream << genType(function->paramTypes[i]) << " " << function->paramNames[i];
-			if (i < function->paramTypes.size - 1)
-				*currentStream << ",";
+			*instructionStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
+			if (i < function->functionType->functionType.numParams - 1)
+				*instructionStream << ",";
 		}
-		*currentStream << ")";
+		*instructionStream << ")";
+
+		unnamedLocalId = 0;
 
 		if (function->body)
 		{
-			*currentStream << "{";
+			*instructionStream << "{";
+			indentation++;
+			newLine();
 			pushScope();
+
+			currentFunction = function;
 
 			genStatement(function->body);
 			if (function->isEntryPoint)
-				*currentStream << " return 0; ";
+				*instructionStream << " return 0; ";
+
+			currentFunction = nullptr;
 
 			popScope();
-			*currentStream << "}";
+			stepBackWhitespace();
+			//instructionStream->seekp(-1, instructionStream->cur);
+			indentation--;
+			//newLine();
+			*instructionStream << "}";
+		}
+		else if (function->bodyExpression)
+		{
+			*instructionStream << "{";
+			pushScope();
+
+			*instructionStream << "return " << genExpression(function->bodyExpression) << ";";
+
+			popScope();
+			*instructionStream << "}";
 		}
 		else
 		{
-			*currentStream << ";";
+			*instructionStream << ";";
 		}
-		*currentStream << "\n\n";
+		*instructionStream << "\n\n";
 
-		currentStream = parentStream;
+		instructionStream = parentStream;
 
 		functions << functionStream.str();
 	}
 
 	void genTypedef(AST::Typedef* td)
 	{
-		std::stringstream* parentStream = currentStream;
+		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream typedefStream;
-		currentStream = &typedefStream;
+		instructionStream = &typedefStream;
 
-		*currentStream << "typedef " << genType(td->alias) << " " << td->name << ";";
+		*instructionStream << "typedef " << genType(td->alias) << " " << td->name << ";";
 
-		currentStream = parentStream;
+		instructionStream = parentStream;
 
 		types << typedefStream.str();
 	}
 
 	void genGlobal(AST::GlobalVariable* global)
 	{
-		std::stringstream* parentStream = currentStream;
+		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream globalStream;
-		currentStream = &globalStream;
+		instructionStream = &globalStream;
 
 		if (HasFlag(global->flags, AST::DeclarationFlags::Extern))
-			*currentStream << "extern ";
+			*instructionStream << "extern ";
 
-		*currentStream << genType(global->varType->typeID);
+		*instructionStream << genType(global->varType->typeID);
 
 		for (int i = 0; i < global->declarators.size; i++)
 		{
 			AST::VariableDeclarator* declarator = global->declarators[i];
-			*currentStream << " " << declarator->variable->mangledName;
+			*instructionStream << " " << declarator->variable->mangledName;
 			if (declarator->value)
-				*currentStream << "=" << genExpression(declarator->value);
+				*instructionStream << "=" << genExpression(declarator->value);
 			if (i < global->declarators.size - 1)
-				*currentStream << ",";
+				*instructionStream << ",";
 		}
-		*currentStream << ";" << std::endl;
+		*instructionStream << ";" << std::endl;
 
-		currentStream = parentStream;
+		instructionStream = parentStream;
 
 		globals << globalStream.str();
 	}

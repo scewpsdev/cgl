@@ -1652,29 +1652,45 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		SkipToken(parser, ')');
 
 
-		AST::Type* returnType = nullptr;
-		if (PeekToken(parser).type == TokenType::TOKEN_TYPE_OP_MINUS && PeekToken(parser, 1).type == TokenType::TOKEN_TYPE_OP_GREATER_THAN)
+		if (NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS) && NextTokenIs(parser, TOKEN_TYPE_OP_GREATER_THAN, 1))
 		{
-			NextToken(parser); NextToken(parser); // ->
+			NextToken(parser); // =
+			NextToken(parser); // >
 
-			returnType = ParseType(parser);
-		}
+			AST::Expression* bodyExpression = ParseExpression(parser);
 
+			SkipToken(parser, ';');
 
-		AST::Statement* body = nullptr;
+			InputState endInputState = GetInputState(parser);
 
-		if (NextTokenIs(parser, ';'))
-		{
-			NextToken(parser); // ;
+			return new AST::Function(parser->module, inputState, flags, endInputState, name, paramTypes, paramNames, paramValues, varArgs, bodyExpression, isGeneric, genericParams);
 		}
 		else
 		{
-			body = ParseStatement(parser);
+			AST::Type* returnType = nullptr;
+			AST::Statement* body = nullptr;
+
+			if (NextTokenIs(parser, TOKEN_TYPE_OP_MINUS) && NextTokenIs(parser, TOKEN_TYPE_OP_GREATER_THAN, 1))
+			{
+				NextToken(parser); // -
+				NextToken(parser); // >
+
+				returnType = ParseType(parser);
+			}
+
+			if (NextTokenIs(parser, ';'))
+			{
+				NextToken(parser); // ;
+			}
+			else
+			{
+				body = ParseStatement(parser);
+			}
+
+			InputState endInputState = GetInputState(parser);
+
+			return new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, body, isGeneric, genericParams);
 		}
-
-		InputState endInputState = GetInputState(parser);
-
-		return new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, body, isGeneric, genericParams);
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_STRUCT))
 	{

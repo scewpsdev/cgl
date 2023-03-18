@@ -366,6 +366,12 @@ TypeID GetTupleType(int numValues, TypeID* valueTypes)
 
 TypeID GetArrayType(TypeID elementType, int length)
 {
+	for (TypeID t : types.arrayTypes)
+	{
+		if (CompareTypes(t->arrayType.elementType, elementType) && t->arrayType.length == length)
+			return t;
+	}
+
 	TypeData* data = new TypeData;
 	data->typeKind = AST::TypeKind::Array;
 	data->arrayType.elementType = elementType;
@@ -455,6 +461,8 @@ bool CompareTypes(TypeID t1, TypeID t2)
 		return false;
 	case AST::TypeKind::Pointer:
 		return CompareTypes(t1->pointerType.elementType, t2->pointerType.elementType);
+	case AST::TypeKind::Optional:
+		return CompareTypes(t1->optionalType.elementType, t2->optionalType.elementType);
 	case AST::TypeKind::Function:
 		if (CompareTypes(t1->functionType.returnType, t2->functionType.returnType) && t1->functionType.numParams == t2->functionType.numParams)
 		{

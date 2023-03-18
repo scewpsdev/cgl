@@ -24,6 +24,11 @@ namespace AST
 	{
 	}
 
+	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
+		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
+	{
+	}
+
 	Function::~Function()
 	{
 		if (name)
