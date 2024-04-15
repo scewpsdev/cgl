@@ -151,9 +151,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="cgl.c" />
     <ClCompile Include="src\cgl\backends\tcc\CodegenTCC.cpp" />
     <ClCompile Include="src\cgl\Driver.cpp" />
+    <ClCompile Include="src\cgl\File.cpp" />
+    <ClCompile Include="src\cgl\Platform.cpp" />
+    <ClCompile Include="test\test.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cgl-core\cgl-core.vcxproj">
@@ -167,6 +169,13 @@
     <None Include="test\Strings.cgl" />
     <None Include="test\Tests.cgl" />
     <None Include="test\Types.cgl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\cgl\File.h" />
+    <ClInclude Include="src\cgl\Platform.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="todo.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

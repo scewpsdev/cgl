@@ -64,6 +64,13 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl);
 static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl);
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl);
 
+static const char* SourceLocationToString(AST::SourceLocation location)
+{
+	static char str[512];
+	sprintf(str, "%s:%d:%d", location.filename, location.line, location.col);
+	return str;
+}
+
 static bool IsPrimitiveType(AST::TypeKind typeKind)
 {
 	return typeKind == AST::TypeKind::Integer
@@ -82,7 +89,7 @@ static int64_t ConstantFoldInt(Resolver* resolver, AST::Expression* expr, bool& 
 		Variable* variable = ((AST::Identifier*)expr)->variable;
 		if (!variable)
 		{
-			SnekError(resolver->context, expr->location, "Variable '%s' must be defined before using it to initialize a constant", ((AST::Identifier*)expr)->name);
+			SnekErrorLoc(resolver->context, expr->location, "Variable '%s' must be defined before using it to initialize a constant", ((AST::Identifier*)expr)->name);
 			success = false;
 			return 0;
 		}
@@ -166,7 +173,7 @@ static bool ResolveFPType(Resolver* resolver, AST::FloatingPointType* type)
 	switch (type->bitWidth)
 	{
 	case 16:
-		SnekError(resolver->context, type->location, "16 bit floating point not supported");
+		SnekErrorLoc(resolver->context, type->location, "16 bit floating point not supported");
 		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Half);
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Single);
 		return false;
@@ -177,12 +184,12 @@ static bool ResolveFPType(Resolver* resolver, AST::FloatingPointType* type)
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
 		return true;
 	case 80:
-		SnekError(resolver->context, type->location, "80 bit floating point not supported");
+		SnekErrorLoc(resolver->context, type->location, "80 bit floating point not supported");
 		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Decimal);
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
 		return false;
 	case 128:
-		SnekError(resolver->context, type->location, "128 bit floating point not supported");
+		SnekErrorLoc(resolver->context, type->location, "128 bit floating point not supported");
 		//type->typeID = GetFloatingPointType(FloatingPointPrecision::Quad);
 		type->typeID = GetFloatingPointType(FloatingPointPrecision::Double);
 		return false;
@@ -199,6 +206,13 @@ static bool ResolveBoolType(Resolver* resolver, AST::BooleanType* type)
 	return false;
 }
 
+static bool ResolveAnyType(Resolver* resolver, AST::AnyType* type)
+{
+	if (type->typeID = GetAnyType())
+		return true;
+	return false;
+}
+
 static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 {
 	if (AST::Struct* structDecl = FindStruct(resolver, type->name))
@@ -207,7 +221,7 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 		{
 			if (!type->hasGenericArgs)
 			{
-				SnekError(resolver->context, type->location, "Using generic struct type '%s' without type arguments", structDecl->name);
+				SnekErrorLoc(resolver->context, type->location, "Using generic struct type '%s' without type arguments", structDecl->name);
 				return false;
 			}
 
@@ -247,7 +261,7 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 		{
 			if (type->hasGenericArgs)
 			{
-				SnekError(resolver->context, type->location, "Can't use type arguments on non-generic struct type '%s'", structDecl->name);
+				SnekErrorLoc(resolver->context, type->location, "Can't use type arguments on non-generic struct type '%s'", structDecl->name);
 				return false;
 			}
 
@@ -285,7 +299,7 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 		return true;
 	}
 
-	SnekError(resolver->context, type->location, "Undefined type '%s'", type->name);
+	SnekErrorLoc(resolver->context, type->location, "Undefined type '%s'", type->name);
 	return false;
 }
 
@@ -329,7 +343,10 @@ static bool ResolveFunctionType(Resolver* resolver, AST::FunctionType* type)
 		paramTypes[i] = type->paramTypes[i]->typeID;
 	}
 
-	type->typeID = GetFunctionType(type->returnType->typeID, numParams, paramTypes, varArgs, false, nullptr, nullptr);
+	if (type->varArgsType)
+		result = ResolveType(resolver, type->varArgsType) && result;
+
+	type->typeID = GetFunctionType(type->returnType->typeID, numParams, paramTypes, varArgs, type->varArgsType->typeID, false, nullptr, nullptr);
 
 	return result;
 }
@@ -439,6 +456,8 @@ static bool ResolveType(Resolver* resolver, AST::Type* type)
 		return ResolveFPType(resolver, (AST::FloatingPointType*)type);
 	case AST::TypeKind::Boolean:
 		return ResolveBoolType(resolver, (AST::BooleanType*)type);
+	case AST::TypeKind::Any:
+		return ResolveAnyType(resolver, (AST::AnyType*)type);
 	case AST::TypeKind::NamedType:
 		return ResolveNamedType(resolver, (AST::NamedType*)type);
 	case AST::TypeKind::Pointer:
@@ -469,11 +488,11 @@ static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLi
 			return GetIntegerType(64, false);
 		else
 		{
-			SnekError(resolver->context, expr->location, "Integer value too big to fit into a 64 bit integer type");
+			SnekErrorLoc(resolver->context, expr->location, "Integer value too big to fit into a 64 bit integer type");
 			return nullptr;
 		}
 	}
-	else if (expr->value > INT32_MAX)
+	else if (expr->value > INT32_MAX || expr->value < INT32_MIN)
 		return GetIntegerType(64, true);
 	else
 		return GetIntegerType(32, true);
@@ -488,7 +507,7 @@ static bool ResolveIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 
 static bool ResolveFPLiteral(Resolver* resolver, AST::FloatingPointLiteral* expr)
 {
-	expr->valueType = GetFloatingPointType(FloatingPointPrecision::Double);
+	expr->valueType = GetFloatingPointType(expr->isDouble ? FloatingPointPrecision::Double : FloatingPointPrecision::Single);
 	expr->lvalue = false;
 	return true;
 }
@@ -607,7 +626,7 @@ static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 		}
 	}
 
-	SnekError(resolver->context, expr->location, "Unresolved identifier '%s'", expr->name);
+	SnekErrorLoc(resolver->context, expr->location, "Unresolved identifier '%s'", expr->name);
 	return false;
 }
 
@@ -691,7 +710,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			}
 			else
 			{
-				SnekError(resolver->context, expr->location, "bleh");
+				SnekErrorLoc(resolver->context, expr->location, "bleh");
 				return false;
 			}
 		}
@@ -766,7 +785,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 							strcat(functionList, ", ");
 					}
 
-					SnekError(resolver->context, expr->callee->location, "Ambiguous function call %s(%s): %i possible overloads: %s", functionName, argumentTypesString, functionOverloads->size, functionList);
+					SnekErrorLoc(resolver->context, expr->callee->location, "Ambiguous function call %s(%s): %i possible overloads: %s", functionName, argumentTypesString, functionOverloads->size, functionList);
 					result = false;
 				}
 			}
@@ -780,7 +799,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 						strcat(argumentTypesString, ",");
 				}
 
-				SnekError(resolver->context, expr->callee->location, "No overload for function call %s(%s)", functionName, argumentTypesString);
+				SnekErrorLoc(resolver->context, expr->callee->location, "No overload for function call %s(%s)", functionName, argumentTypesString);
 				result = false;
 			}
 		}
@@ -819,21 +838,6 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 				functionType = function->functionType;
 
 				calleeIdentifier->functions[0]->genericInstances.add(function);
-
-				/*
-				// Create function type for generic arguments
-
-				TypeID returnType = function->returnType->typeID;
-				int numParams = function->paramTypes.size;
-				TypeID* paramTypes = new TypeID[numParams];
-
-				for (int i = 0; i < numParams; i++)
-				{
-					paramTypes[i] = function->paramTypes[i]->typeID;
-				}
-
-				functionType = GetFunctionType(returnType, numParams, paramTypes, function->varArgs, false, function);
-				*/
 			}
 		}
 		else
@@ -843,7 +847,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 				AST::Identifier* calleeIdentifier = (AST::Identifier*)expr->callee;
 				if (calleeIdentifier->functions.size > 0 && calleeIdentifier->functions[0]->isGeneric)
 				{
-					SnekError(resolver->context, expr->callee->location, "Calling generic function '%s' without type arguments", calleeIdentifier->functions[0]->name);
+					SnekErrorLoc(resolver->context, expr->callee->location, "Calling generic function '%s' without type arguments", calleeIdentifier->functions[0]->name);
 					return false;
 				}
 			}
@@ -855,12 +859,12 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 					// HACK
 					if (calleeDotOperator->operand->type == AST::ExpressionType::Identifier)
 					{
-						SnekError(resolver->context, expr->callee->location, "Calling generic function '%s'.'%s' without type arguments", ((AST::Identifier*)calleeDotOperator->operand)->name, calleeDotOperator->namespacedFunctions[0]->name);
+						SnekErrorLoc(resolver->context, expr->callee->location, "Calling generic function '%s'.'%s' without type arguments", ((AST::Identifier*)calleeDotOperator->operand)->name, calleeDotOperator->namespacedFunctions[0]->name);
 						return false;
 					}
 					else
 					{
-						SnekError(resolver->context, expr->callee->location, "Calling generic function '%s' without type arguments", calleeDotOperator->namespacedFunctions[0]->name);
+						SnekErrorLoc(resolver->context, expr->callee->location, "Calling generic function '%s' without type arguments", calleeDotOperator->namespacedFunctions[0]->name);
 						return false;
 					}
 				}
@@ -870,7 +874,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 			if (functionType->typeKind != AST::TypeKind::Function)
 			{
-				SnekError(resolver->context, expr->callee->location, "Can't invoke expression of type %s", GetTypeString(expr->callee->valueType));
+				SnekErrorLoc(resolver->context, expr->callee->location, "Can't invoke expression of type %s", GetTypeString(expr->callee->valueType));
 				return false;
 			}
 
@@ -891,40 +895,19 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 				if (!expr->methodInstance->lvalue && expr->methodInstance->valueType->typeKind != AST::TypeKind::Pointer)
 				{
-					SnekError(resolver->context, expr->location, "Instance for method call must be an lvalue or a reference");
+					SnekErrorLoc(resolver->context, expr->location, "Instance for method call must be an lvalue or a reference");
 					result = false;
 				}
-
-				/*
-				if (expr->arguments.size < functionType->functionType.numParams - 1 || expr->arguments.size > functionType->functionType.numParams - 1 && !functionType->functionType.varArgs)
-				{
-					if (function)
-						SnekError(resolver->context, expr->location, ERROR_CODE_FUNCTION_CALL_ARGUMENT_MISMATCH, "Wrong number of arguments when calling function %s: should be %d instead of %d", function->name, functionType->functionType.numParams - 1, expr->arguments.size);
-					else
-						SnekError(resolver->context, expr->location, ERROR_CODE_FUNCTION_CALL_ARGUMENT_MISMATCH, "Wrong number of arguments in function call: should be %d instead of %d", functionType->functionType.numParams - 1, expr->arguments.size);
-					result = false;
-				}
-				*/
 			}
-			//else if (dotOperator->namespacedFunction)
-			//{
-				//expr->function = dotOperator->namespacedFunction;
-				//expr->valueType = dotOperator->namespacedFunction->returnType->typeID;
-				//expr->lvalue = false;
-				//expr->isMethodCall = false;
-
-				//functionType = dotOperator->namespacedFunction->type;
-				//functionAst = dotOperator->namespacedFunction;
-			//}
 		}
 
 		if (expr->arguments.size < (function ? function->getNumRequiredParams() : functionType->functionType.numParams) ||
 			expr->arguments.size > functionType->functionType.numParams && !functionType->functionType.varArgs)
 		{
 			if (function)
-				SnekError(resolver->context, expr->location, "Wrong number of arguments when calling function '%s': should be %d instead of %d", function->name, functionType->functionType.numParams, expr->arguments.size);
+				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments when calling function '%s': should be %d instead of %d", function->name, functionType->functionType.numParams, expr->arguments.size);
 			else
-				SnekError(resolver->context, expr->location, "Wrong number of arguments in function call: should be %d instead of %d", functionType->functionType.numParams, expr->arguments.size);
+				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments in function call: should be %d instead of %d", functionType->functionType.numParams, expr->arguments.size);
 			result = false;
 		}
 	}
@@ -933,89 +916,6 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		result = false;
 	}
 
-	/*
-	if (expr->calleeExpr->exprKind == AST::ExpressionType::IDENTIFIER)
-	{
-		if (AstFunction* function = FindFunction(resolver, ((AstIdentifier*)expr->calleeExpr)->name))
-		{
-			if (expr->arguments.size < function->paramTypes.size || expr->arguments.size > function->paramTypes.size && !function->varArgs)
-			{
-				SnekError(resolver->context, expr->location, ERROR_CODE_FUNCTION_CALL_ARGUMENT_MISMATCH, "Wrong number of arguments in function call: should be %d instead of %d", function->paramTypes.size, expr->arguments.size);
-				result = false;
-			}
-
-			expr->function = function;
-			expr->valueType = function->returnType->typeID;
-			expr->lvalue = false;
-
-			functionType = function->type;
-			functionAst = function;
-		}
-	}
-	else if (expr->calleeExpr->exprKind == AST::ExpressionType::DOT_OPERATOR)
-	{
-		if (ResolveExpression(resolver, expr->calleeExpr))
-		{
-			AstDotOperator* dotOperator = (AstDotOperator*)expr->calleeExpr;
-			if (dotOperator->classMethod)
-			{
-				AstFunction* method = dotOperator->classMethod;
-				if (expr->arguments.size < method->paramTypes.size || expr->arguments.size > method->paramTypes.size && !method->varArgs)
-				{
-					SnekError(resolver->context, expr->location, ERROR_CODE_FUNCTION_CALL_ARGUMENT_MISMATCH, "Wrong number of arguments in method call: should be %d instead of %d", method->paramTypes.size, expr->arguments.size);
-					result = false;
-				}
-
-				expr->function = dotOperator->classMethod;
-				expr->valueType = dotOperator->classMethod->returnType->typeID;
-				expr->lvalue = false;
-				expr->isMethodCall = true;
-				expr->methodInstance = dotOperator->operand;
-
-				functionType = dotOperator->classMethod->type;
-				functionAst = dotOperator->classMethod;
-			}
-			else if (dotOperator->nameSpace)
-			{
-				expr->function = dotOperator->namespacedFunction;
-				expr->valueType = dotOperator->namespacedFunction->returnType->typeID;
-				expr->lvalue = false;
-				expr->isMethodCall = false;
-
-				functionType = dotOperator->namespacedFunction->type;
-				functionAst = dotOperator->namespacedFunction;
-			}
-		}
-		else
-		{
-			result = false;
-		}
-	}
-
-	if (!functionType)
-	{
-		if (ResolveExpression(resolver, expr->calleeExpr))
-		{
-			if (expr->calleeexpr->valueType->typeKind == TYPE_KIND_FUNCTION)
-			{
-				expr->valueType = expr->calleeexpr->valueType->functionType.returnType;
-				expr->lvalue = false;
-
-				functionType = expr->valueType;
-				functionAst = NULL;
-			}
-			else
-			{
-				SnekError(resolver->context, expr->calleeExpr->location, ERROR_CODE_NON_INVOKABLE_EXPRESSION, "Can't invoke expression %.16s", expr->calleeExpr->location.ptr);
-				result = false;
-			}
-		}
-		else
-		{
-			result = false;
-		}
-	}
-	*/
 
 	if (result)
 	{
@@ -1036,14 +936,15 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		{
 			for (int i = 0; i < expr->arguments.size; i++)
 			{
+				TypeID argType = expr->arguments[i]->valueType;
+				bool argIsConstant = expr->arguments[i]->isConstant();
+
 				int paramOffset = expr->isMethodCall ? 1 : 0;
 				int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
 
 				if (i < paramCount)
 				{
-					TypeID argType = expr->arguments[i]->valueType;
 					TypeID paramType = functionType->functionType.paramTypes[paramOffset + i];
-					bool argIsConstant = expr->arguments[i]->isConstant();
 
 					if (!CanConvertImplicit(argType, paramType, argIsConstant))
 					{
@@ -1054,14 +955,29 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 						if (function)
 						{
-							SnekError(resolver->context, expr->location, "Wrong type of argument #%d '%s': should be %s instead of %s", i, function->paramNames[paramOffset + i], paramTypeStr, argTypeStr);
+							SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[paramOffset + i]);
 							result = false;
 						}
 						else
 						{
-							SnekError(resolver->context, expr->location, "Wrong type of argument #%d: should be %s instead of %s", i, paramTypeStr, argTypeStr);
+							SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i);
 							result = false;
 						}
+					}
+				}
+				else
+				{
+					SnekAssert(functionType->functionType.varArgs);
+
+					if (!CanConvertImplicit(argType, functionType->functionType.varArgsType, argIsConstant))
+					{
+						result = false;
+
+						const char* argTypeStr = GetTypeString(argType);
+						const char* varArgsTypeStr = GetTypeString(functionType->functionType.varArgsType);
+
+						SnekErrorLoc(resolver->context, expr->location, "Can't implicitly cast variadic argument #%d to type %s, should be %s", i - functionType->functionType.numParams, varArgsTypeStr, argTypeStr);
+						result = false;
 					}
 				}
 			}
@@ -1192,7 +1108,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekError(resolver->context, expr->location, "No identifier '%s' in file '%s'", expr->name, nameSpace);
+			SnekErrorLoc(resolver->context, expr->location, "No identifier '%s' in file '%s'", expr->name, nameSpace);
 			return false;
 		}
 
@@ -1341,7 +1257,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 					return true;
 				}
 
-				SnekError(resolver->context, expr->location, "Unresolved identifier '%s' in namespace %s", expr->name, module->name);
+				SnekErrorLoc(resolver->context, expr->location, "Unresolved identifier '%s' in namespace %s", expr->name, module->name);
 				return false;
 			}
 		}
@@ -1380,7 +1296,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekError(resolver->context, expr->location, "Unresolved struct member %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved struct member %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Class)
@@ -1409,7 +1325,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekError(resolver->context, expr->location, "Unresolved class member %s.%s", GetTypeString(operandType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved class member %s.%s", GetTypeString(operandType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Optional)
@@ -1431,12 +1347,12 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 					return true;
 				}
 
-				SnekError(resolver->context, expr->location, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
+				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
 				return false;
 			}
 			else if (expr->fieldIndex != -1)
 			{
-				SnekError(resolver->context, expr->location, "Unresolved optional property %s.%d", GetTypeString(operandType), expr->fieldIndex);
+				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional property %s.%d", GetTypeString(operandType), expr->fieldIndex);
 				return false;
 			}
 			else
@@ -1453,7 +1369,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekError(resolver->context, expr->location, "Tuple index %d out of range for type %s", expr->fieldIndex, GetTypeString(operandType));
+			SnekErrorLoc(resolver->context, expr->location, "Tuple index %d out of range for type %s", expr->fieldIndex, GetTypeString(operandType));
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Array)
@@ -1474,7 +1390,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekError(resolver->context, expr->location, "Unresolved array property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved array property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::String)
@@ -1495,12 +1411,32 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekError(resolver->context, expr->location, "Unresolved string property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved string property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			return false;
+		}
+		else if (operandType->typeKind == AST::TypeKind::Any)
+		{
+			if (strcmp(expr->name, "type") == 0)
+			{
+				expr->valueType = GetIntegerType(64, false);
+				expr->lvalue = false;
+				expr->fieldIndex = 0;
+				return true;
+			}
+			else if (strcmp(expr->name, "value") == 0)
+			{
+				expr->valueType = GetPointerType(GetVoidType());
+				expr->lvalue = false;
+				expr->fieldIndex = 1;
+				return true;
+			}
+
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved any type property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else
 		{
-			SnekError(resolver->context, expr->location, "Unresolved property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 	}
@@ -1527,7 +1463,7 @@ static bool ResolveCast(Resolver* resolver, AST::Typecast* expr)
 			}
 			else
 			{
-				SnekError(resolver->context, expr->location, "Invalid cast: %s to %s", GetTypeString(expr->value->valueType), GetTypeString(expr->dstType->typeID));
+				SnekErrorLoc(resolver->context, expr->location, "Invalid cast: %s to %s", GetTypeString(expr->value->valueType), GetTypeString(expr->dstType->typeID));
 			}
 		}
 	}
@@ -1557,18 +1493,18 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 
 			if (!expr->malloc && !arrayType->length->isConstant())
 			{
-				SnekError(resolver->context, arrayType->location, "Dynamically sized arrays need to be allocated on the heap using 'new'");
+				SnekErrorLoc(resolver->context, arrayType->location, "Dynamically sized arrays need to be allocated on the heap using 'new'");
 				result = false;
 			}
 			if (!arrayType->length)
 			{
-				SnekError(resolver->context, expr->location, "Allocating string needs a length");
+				SnekErrorLoc(resolver->context, expr->location, "Allocating string needs a length");
 				result = false;
 			}
 
 			if (expr->count)
 			{
-				SnekError(resolver->context, expr->location, "Can't allocate multiple strings at once");
+				SnekErrorLoc(resolver->context, expr->location, "Can't allocate multiple strings at once");
 				result = false;
 			}
 
@@ -1581,18 +1517,18 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 
 			if (!expr->malloc && !stringType->length->isConstant())
 			{
-				SnekError(resolver->context, stringType->location, "Stack allocated strings need to have a constant length");
+				SnekErrorLoc(resolver->context, stringType->location, "Stack allocated strings need to have a constant length");
 				result = false;
 			}
 			if (!stringType->length)
 			{
-				SnekError(resolver->context, expr->location, "Allocating string needs a length");
+				SnekErrorLoc(resolver->context, expr->location, "Allocating string needs a length");
 				result = false;
 			}
 
 			if (expr->count)
 			{
-				SnekError(resolver->context, expr->location, "Can't allocate multiple strings at once");
+				SnekErrorLoc(resolver->context, expr->location, "Can't allocate multiple strings at once");
 				result = false;
 			}
 
@@ -1605,7 +1541,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 			{
 				if (expr->arguments.size < constructor->paramTypes.size || expr->arguments.size > constructor->paramTypes.size && !constructor->varArgs)
 				{
-					SnekError(resolver->context, expr->location, "Wrong number of arguments in constructor: should be %d instead of %d", constructor->paramTypes.size, expr->arguments.size);
+					SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments in constructor: should be %d instead of %d", constructor->paramTypes.size, expr->arguments.size);
 					result = false;
 				}
 				for (int i = 0; i < expr->arguments.size; i++)
@@ -1620,7 +1556,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 							const char* paramTypeStr = GetTypeString(constructor->paramTypes[i]->typeID);
 							if (!CanConvertImplicit(argType, paramType, expr->arguments[i]->isConstant()))
 							{
-								SnekError(resolver->context, expr->arguments[i]->location, "Wrong type of argument '%s': should be %s instead of %s", constructor->paramNames[i], paramTypeStr, argTypeStr);
+								SnekErrorLoc(resolver->context, expr->arguments[i]->location, "Wrong type of argument '%s': should be %s instead of %s", constructor->paramNames[i], paramTypeStr, argTypeStr);
 								result = false;
 							}
 						}
@@ -1639,7 +1575,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 		{
 			if (expr->hasArguments)
 			{
-				SnekError(resolver->context, expr->dstType->location, "Can't call constructor of non-class type");
+				SnekErrorLoc(resolver->context, expr->dstType->location, "Can't call constructor of non-class type");
 				result = false;
 			}
 			else
@@ -1654,7 +1590,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 				result = false;
 			if (!expr->count->isConstant() && !expr->malloc)
 			{
-				SnekError(resolver->context, expr->count->location, "Stack allocation instance count must be a constant integer");
+				SnekErrorLoc(resolver->context, expr->count->location, "Stack allocation instance count must be a constant integer");
 				result = false;
 			}
 		}
@@ -1695,7 +1631,7 @@ static bool ResolveUnaryOperator(Resolver* resolver, AST::UnaryOperator* expr)
 				}
 				else
 				{
-					SnekError(resolver->context, expr->operand->location, "Can't dereference non-pointer type value");
+					SnekErrorLoc(resolver->context, expr->operand->location, "Can't dereference non-pointer type value");
 					return false;
 				}
 
@@ -1744,119 +1680,148 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 
 	if (result)
 	{
-		switch (expr->operatorType)
+		if (expr->left->valueType && expr->right->valueType)
 		{
-		case AST::BinaryOperatorType::Add:
-		case AST::BinaryOperatorType::Subtract:
-		case AST::BinaryOperatorType::Multiply:
-		case AST::BinaryOperatorType::Divide:
-		case AST::BinaryOperatorType::Modulo:
-			expr->valueType = BinaryOperatorTypeMeet(expr->left->valueType, expr->right->valueType);
-			expr->lvalue = false;
-			return true;
-
-		case AST::BinaryOperatorType::Equals:
-		case AST::BinaryOperatorType::DoesNotEqual:
-		case AST::BinaryOperatorType::LessThan:
-		case AST::BinaryOperatorType::GreaterThan:
-		case AST::BinaryOperatorType::LessThanEquals:
-		case AST::BinaryOperatorType::GreaterThanEquals:
-			expr->valueType = GetBoolType();
-			expr->lvalue = false;
-			return true;
-
-		case AST::BinaryOperatorType::LogicalAnd:
-		case AST::BinaryOperatorType::LogicalOr:
-			if (CanConvertImplicit(expr->left->valueType, GetBoolType(), false) && CanConvertImplicit(expr->right->valueType, GetBoolType(), false))
+			switch (expr->operatorType)
 			{
+			case AST::BinaryOperatorType::Add:
+			case AST::BinaryOperatorType::Subtract:
+			case AST::BinaryOperatorType::Multiply:
+			case AST::BinaryOperatorType::Divide:
+			case AST::BinaryOperatorType::Modulo:
+				expr->valueType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+				expr->lvalue = false;
+				return expr->valueType != nullptr;
+
+			case AST::BinaryOperatorType::Equals:
+			case AST::BinaryOperatorType::DoesNotEqual:
+			case AST::BinaryOperatorType::LessThan:
+			case AST::BinaryOperatorType::GreaterThan:
+			case AST::BinaryOperatorType::LessThanEquals:
+			case AST::BinaryOperatorType::GreaterThanEquals:
 				expr->valueType = GetBoolType();
 				expr->lvalue = false;
 				return true;
-			}
-			else
-			{
-				if (expr->operatorType == AST::BinaryOperatorType::LogicalAnd)
-					SnekError(resolver->context, expr->left->location, "Operands of && must be of bool type");
-				else if (expr->operatorType == AST::BinaryOperatorType::LogicalOr)
-					SnekError(resolver->context, expr->left->location, "Operands of || must be of bool type");
-				else
-					SnekAssert(false);
-				return false;
-			}
 
-		case AST::BinaryOperatorType::BitwiseAnd:
-		case AST::BinaryOperatorType::BitwiseOr:
-		case AST::BinaryOperatorType::BitwiseXor:
-		case AST::BinaryOperatorType::BitshiftLeft:
-		case AST::BinaryOperatorType::BitshiftRight:
-			expr->valueType = BinaryOperatorTypeMeet(expr->left->valueType, expr->right->valueType);
-			expr->lvalue = false;
-			return true;
-
-		case AST::BinaryOperatorType::Assignment:
-		case AST::BinaryOperatorType::PlusEquals:
-		case AST::BinaryOperatorType::MinusEquals:
-		case AST::BinaryOperatorType::TimesEquals:
-		case AST::BinaryOperatorType::DividedByEquals:
-		case AST::BinaryOperatorType::ModuloEquals:
-		case AST::BinaryOperatorType::BitshiftLeftEquals:
-		case AST::BinaryOperatorType::BitshiftRightEquals:
-		case AST::BinaryOperatorType::BitwiseAndEquals:
-		case AST::BinaryOperatorType::BitwiseOrEquals:
-		case AST::BinaryOperatorType::BitwiseXorEquals:
-			if (expr->left->lvalue)
-			{
-				if (!expr->left->isConstant())
+			case AST::BinaryOperatorType::LogicalAnd:
+			case AST::BinaryOperatorType::LogicalOr:
+				if (CanConvertImplicit(expr->left->valueType, GetBoolType(), false) && CanConvertImplicit(expr->right->valueType, GetBoolType(), false))
 				{
-					if (CanConvertImplicit(expr->right->valueType, expr->left->valueType, expr->right->isConstant()))
-					{
-						//expr->valueType = expr->left->valueType;
-						//expr->lvalue = true;
-						expr->valueType = GetVoidType();
-						expr->lvalue = false;
-						return true;
-					}
-					else
-					{
-						SnekError(resolver->context, expr->left->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(expr->right->valueType), GetTypeString(expr->left->valueType));
-						return false;
-					}
-				}
-				else
-				{
-					SnekError(resolver->context, expr->left->location, "Can't assign to constant value");
-					return false;
-				}
-			}
-			else
-			{
-				SnekError(resolver->context, expr->left->location, "Can't assign to a non lvalue");
-				return false;
-			}
-
-		case AST::BinaryOperatorType::NullCoalescing:
-			if (expr->left->valueType->typeKind == AST::TypeKind::Optional)
-			{
-				if (CanConvertImplicit(expr->right->valueType, expr->left->valueType->optionalType.elementType, expr->right->isConstant()))
-				{
-					expr->valueType = expr->left->valueType->optionalType.elementType;
+					expr->valueType = GetBoolType();
 					expr->lvalue = false;
 					return true;
 				}
 				else
 				{
-					SnekError(resolver->context, expr->left->location, "Right operand of null coalescing operator must be compatible with optional type '%s'", GetTypeString(expr->left->valueType));
+					if (expr->operatorType == AST::BinaryOperatorType::LogicalAnd)
+						SnekErrorLoc(resolver->context, expr->left->location, "Operands of && must be of bool type");
+					else if (expr->operatorType == AST::BinaryOperatorType::LogicalOr)
+						SnekErrorLoc(resolver->context, expr->left->location, "Operands of || must be of bool type");
+					else
+						SnekAssert(false);
 					return false;
 				}
-			}
-			else
-			{
-				SnekError(resolver->context, expr->left->location, "Left operand of null coalescing operator must be an optional, is '%s'", GetTypeString(expr->left->valueType));
+
+			case AST::BinaryOperatorType::BitwiseAnd:
+			case AST::BinaryOperatorType::BitwiseOr:
+			case AST::BinaryOperatorType::BitwiseXor:
+			case AST::BinaryOperatorType::BitshiftLeft:
+			case AST::BinaryOperatorType::BitshiftRight:
+				expr->valueType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+				expr->lvalue = false;
+				return true;
+
+			case AST::BinaryOperatorType::Assignment:
+			case AST::BinaryOperatorType::PlusEquals:
+			case AST::BinaryOperatorType::MinusEquals:
+			case AST::BinaryOperatorType::TimesEquals:
+			case AST::BinaryOperatorType::DividedByEquals:
+			case AST::BinaryOperatorType::ModuloEquals:
+			case AST::BinaryOperatorType::BitshiftLeftEquals:
+			case AST::BinaryOperatorType::BitshiftRightEquals:
+			case AST::BinaryOperatorType::BitwiseAndEquals:
+			case AST::BinaryOperatorType::BitwiseOrEquals:
+			case AST::BinaryOperatorType::BitwiseXorEquals:
+				if (expr->left->lvalue)
+				{
+					if (!expr->left->isConstant())
+					{
+						if (expr->operatorType == AST::BinaryOperatorType::Assignment)
+						{
+							if (CanConvertImplicit(expr->right->valueType, expr->left->valueType, expr->right->isConstant()))
+							{
+								//expr->valueType = expr->left->valueType;
+								//expr->lvalue = true;
+								expr->valueType = GetVoidType();
+								expr->lvalue = false;
+								return true;
+							}
+							else
+							{
+								SnekErrorLoc(resolver->context, expr->left->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(expr->right->valueType), GetTypeString(expr->left->valueType));
+								return false;
+							}
+						}
+						else
+						{
+							TypeID resultingType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+							expr->opAssignResultingType = resultingType;
+							if (CanConvertImplicit(resultingType, expr->left->valueType, expr->right->isConstant()))
+							{
+								//expr->valueType = expr->left->valueType;
+								//expr->lvalue = true;
+								expr->valueType = GetVoidType();
+								expr->lvalue = false;
+								return true;
+							}
+							else
+							{
+								SnekErrorLoc(resolver->context, expr->left->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(resultingType), GetTypeString(expr->left->valueType));
+								return false;
+							}
+						}
+					}
+					else
+					{
+						SnekErrorLoc(resolver->context, expr->left->location, "Can't assign to constant value");
+						return false;
+					}
+				}
+				else
+				{
+					SnekErrorLoc(resolver->context, expr->left->location, "Can't assign to a non lvalue");
+					return false;
+				}
+
+			case AST::BinaryOperatorType::NullCoalescing:
+				if (expr->left->valueType->typeKind == AST::TypeKind::Optional)
+				{
+					if (CanConvertImplicit(expr->right->valueType, expr->left->valueType->optionalType.elementType, expr->right->isConstant()))
+					{
+						expr->valueType = expr->left->valueType->optionalType.elementType;
+						expr->lvalue = false;
+						return true;
+					}
+					else
+					{
+						SnekErrorLoc(resolver->context, expr->left->location, "Right operand of null coalescing operator must be compatible with optional type '%s'", GetTypeString(expr->left->valueType));
+						return false;
+					}
+				}
+				else
+				{
+					SnekErrorLoc(resolver->context, expr->left->location, "Left operand of null coalescing operator must be an optional, is '%s'", GetTypeString(expr->left->valueType));
+					return false;
+				}
+
+			default:
+				SnekAssert(false);
 				return false;
 			}
-
-		default:
-			SnekAssert(false);
+		}
+		else
+		{
+			SnekErrorLoc(resolver->context, resolver->currentElement->location, "Incompatible operands: '%s' and '%s'", GetTypeString(expr->left->valueType), GetTypeString(expr->right->valueType));
 			return false;
 		}
 	}
@@ -1867,7 +1832,7 @@ static bool ResolveTernaryOperator(Resolver* resolver, AST::TernaryOperator* exp
 {
 	if (ResolveExpression(resolver, expr->condition) && ResolveExpression(resolver, expr->thenValue) && ResolveExpression(resolver, expr->elseValue))
 	{
-		TypeID type = BinaryOperatorTypeMeet(expr->thenValue->valueType, expr->elseValue->valueType);
+		TypeID type = BinaryOperatorTypeMeet(resolver, expr->thenValue->valueType, expr->elseValue->valueType);
 		//if (CompareTypes(expr->thenValue->type, expr->elseValue->type))
 		if (type)
 		{
@@ -1877,7 +1842,7 @@ static bool ResolveTernaryOperator(Resolver* resolver, AST::TernaryOperator* exp
 		}
 		else
 		{
-			SnekError(resolver->context, expr->location, "Values of ternary operator must be of the same type: %s and %s", GetTypeString(expr->thenValue->valueType), GetTypeString(expr->elseValue->valueType));
+			SnekErrorLoc(resolver->context, expr->location, "Values of ternary operator must be of the same type: %s and %s", GetTypeString(expr->thenValue->valueType), GetTypeString(expr->elseValue->valueType));
 			return false;
 		}
 	}
@@ -1961,11 +1926,13 @@ static bool ResolveExprStatement(Resolver* resolver, AST::ExpressionStatement* s
 	if (statement->expression->type == AST::ExpressionType::FunctionCall)
 	{
 		AST::FunctionCall* functionCall = (AST::FunctionCall*)statement->expression;
+		/*
 		if (functionCall->function && functionCall->function->returnType && functionCall->function->returnType->typeKind != AST::TypeKind::Void)
 		{
 			SnekError(resolver->context, statement->location, "Return value of function call must not be dropped");
 			return false;
 		}
+		*/
 	}
 	return result;
 }
@@ -1987,7 +1954,7 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
 		{
 			AST::Element* declaration = variableWithSameName->declaration;
-			SnekError(resolver->context, statement->location, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
+			SnekErrorLoc(resolver->context, statement->location, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
 			result = false;
 		}
 
@@ -2009,7 +1976,7 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 					;
 				else if (!CanConvertImplicit(declarator->value->valueType, statement->varType, declarator->value->isConstant()))
 				{
-					SnekError(resolver->context, statement->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(declarator->value->valueType), GetTypeString(statement->varType));
+					SnekErrorLoc(resolver->context, statement->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(declarator->value->valueType), GetTypeString(statement->varType));
 					result = false;
 					//SnekError(resolver->context, statement->location, ERROR_CODE_INVALID_CAST, "Can't assign ");
 				}
@@ -2023,7 +1990,7 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		{
 			if (!statement->varType)
 			{
-				SnekError(resolver->context, statement->location, "Variable '%s' with inferred type must have a default value", declarator->name);
+				SnekErrorLoc(resolver->context, statement->location, "Variable '%s' with inferred type must have a default value", declarator->name);
 			}
 		}
 
@@ -2047,7 +2014,7 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 		statement->condition->valueType->typeKind == AST::TypeKind::Optional
 		))
 	{
-		SnekError(resolver->context, statement->condition->location, "If statement condition needs to be of boolean, integer or pointer type, is '%s'", GetTypeString(statement->condition->valueType));
+		SnekErrorLoc(resolver->context, statement->condition->location, "If statement condition needs to be of boolean, integer or pointer type, is '%s'", GetTypeString(statement->condition->valueType));
 		result = false;
 	}
 
@@ -2165,7 +2132,7 @@ static bool ResolveBreak(Resolver* resolver, AST::Break* statement)
 	}
 	else
 	{
-		SnekError(resolver->context, statement->location, "No loop structure to break out of");
+		SnekErrorLoc(resolver->context, statement->location, "No loop structure to break out of");
 		return false;
 	}
 }
@@ -2187,7 +2154,7 @@ static bool ResolveContinue(Resolver* resolver, AST::Continue* statement)
 	}
 	else
 	{
-		SnekError(resolver->context, statement->location, "No loop structure to continue");
+		SnekErrorLoc(resolver->context, statement->location, "No loop structure to continue");
 		return false;
 	}
 }
@@ -2207,7 +2174,7 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 			}
 			else
 			{
-				SnekError(resolver->context, statement->location, "Can't return value of type %s from function with return type %s", GetTypeString(statement->value->valueType), GetTypeString(returnType));
+				SnekErrorLoc(resolver->context, statement->location, "Can't return value of type %s from function with return type %s", GetTypeString(statement->value->valueType), GetTypeString(returnType));
 				return false;
 			}
 		}
@@ -2231,7 +2198,7 @@ static bool ResolveAssert(Resolver* resolver, AST::Assert* statement)
 			statement->condition->valueType->typeKind == AST::TypeKind::Optional
 			))
 		{
-			SnekError(resolver->context, statement->condition->location, "If statement condition needs to be of boolean, integer or pointer type");
+			SnekErrorLoc(resolver->context, statement->condition->location, "If statement condition needs to be of boolean, integer or pointer type");
 			return false;
 		}
 
@@ -2241,7 +2208,7 @@ static bool ResolveAssert(Resolver* resolver, AST::Assert* statement)
 			{
 				if (statement->message->valueType->typeKind != AST::TypeKind::String)
 				{
-					SnekError(resolver->context, statement->message->location, "Second argument to assertion (message) must be of type string");
+					SnekErrorLoc(resolver->context, statement->message->location, "Second argument to assertion (message) must be of type string");
 					return false;
 				}
 			}
@@ -2317,17 +2284,17 @@ static bool CheckEntrypointDecl(Resolver* resolver, AST::Function* function)
 {
 	if (function->visibility != AST::Visibility::Public)
 	{
-		SnekError(resolver->context, function->location, "Entry point must be public");
+		SnekErrorLoc(resolver->context, function->location, "Entry point must be public");
 		return false;
 	}
 	if (!(!function->returnType || function->returnType->typeKind == AST::TypeKind::Void || function->returnType->typeKind == AST::TypeKind::Integer && function->returnType->typeID->integerType.bitWidth == 32 && function->returnType->typeID->integerType.isSigned))
 	{
-		SnekError(resolver->context, function->location, "Entry point must return void or int");
+		SnekErrorLoc(resolver->context, function->location, "Entry point must return void or int");
 		return false;
 	}
 	if (function->paramTypes.size > 0)
 	{
-		SnekError(resolver->context, function->location, "Entry point must not have parameters");
+		SnekErrorLoc(resolver->context, function->location, "Entry point must not have parameters");
 		return false;
 	}
 	return true;
@@ -2346,7 +2313,11 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 
 	decl->visibility = GetVisibilityFromFlags(decl->flags);
 
-	decl->isEntryPoint = strcmp(decl->name, ENTRY_POINT_NAME) == 0;
+	if (strcmp(decl->name, ENTRY_POINT_NAME) == 0)
+	{
+		decl->isEntryPoint = true;
+		resolver->entryPoint = decl;
+	}
 
 	if (decl->isGeneric)
 	{
@@ -2369,7 +2340,7 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 
 				if (!paramValue->isConstant())
 				{
-					SnekError(resolver->context, paramValue->location, "Default value for parameter '%s' must be a constant", decl->paramNames[i]);
+					SnekErrorLoc(resolver->context, paramValue->location, "Default value for parameter '%s' must be a constant", decl->paramNames[i]);
 					result = false;
 				}
 			}
@@ -2377,10 +2348,16 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			{
 				if (defaultArgumentExists)
 				{
-					SnekError(resolver->context, decl->paramTypes[i]->location, "Parameter '%s' is following a parameter with a default argument and therefore must also have a default argument");
+					SnekErrorLoc(resolver->context, decl->paramTypes[i]->location, "Parameter '%s' is following a parameter with a default argument and therefore must also have a default argument");
 					result = false;
 				}
 			}
+		}
+
+		if (decl->varArgs)
+		{
+			result = ResolveType(resolver, decl->varArgsTypeAST) && result;
+			decl->varArgsType = decl->varArgsTypeAST->typeID;
 		}
 
 		TypeID returnType = nullptr;
@@ -2403,14 +2380,26 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			returnType = GetVoidType();
 		}
 
-		decl->functionType = GetFunctionType(returnType, numParams, paramTypes, decl->varArgs, false, nullptr, decl);
+		decl->functionType = GetFunctionType(returnType, numParams, paramTypes, decl->varArgs, decl->varArgsType, false, nullptr, decl);
 
 		if (decl->isEntryPoint)
 		{
 			result = CheckEntrypointDecl(resolver, decl) && result;
 		}
 
-		decl->mangledName = MangleFunctionName(decl);
+		char* mangledName = MangleFunctionName(decl);
+		List<AST::Function*> overloadsWithSameName;
+		resolver->findFunctionsInModule(decl->name, decl->file->module, overloadsWithSameName);
+		for (int i = 0; i < overloadsWithSameName.size; i++)
+		{
+			if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0)
+			{
+				SnekErrorLoc(resolver->context, decl->location, "Function '%s' of type %s already defined at %s", decl->name, GetTypeString(decl->functionType), SourceLocationToString(overloadsWithSameName[i]->location));
+				result = false;
+				break;
+			}
+		}
+		decl->mangledName = mangledName;
 	}
 
 	resolver->currentFunction = lastFunction;
@@ -2430,7 +2419,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 	{
 		if (decl->body)
 		{
-			SnekError(resolver->context, decl->location, "Extern function '%s' cannot have a body", decl->name);
+			SnekErrorLoc(resolver->context, decl->location, "Extern function '%s' cannot have a body", decl->name);
 			return false;
 		}
 	}
@@ -2447,15 +2436,21 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 			resolver->pushScope(decl->name);
 
-			decl->paramVariables;
-			decl->paramVariables.resize(decl->paramTypes.size);
+			//decl->paramVariables.resize(decl->paramTypes.size);
 
 			for (int i = 0; i < decl->paramTypes.size; i++)
 			{
-				Variable* variable = new Variable(decl->file, decl->paramNames[i], decl->paramNames[i], decl->paramTypes[i]->typeID, nullptr, true, AST::Visibility::Null);
-				decl->paramVariables[i] = variable;
+				Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+				//decl->paramVariables[i] = variable;
 				resolver->registerLocalVariable(variable, decl->paramTypes[i]);
 				//RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
+			}
+
+			if (decl->varArgs)
+			{
+				TypeID varArgsArrayType = GetArrayType(decl->varArgsType, -1);
+				Variable* varArgsVariable = new Variable(decl->file, _strdup(decl->varArgsName), _strdup(decl->varArgsName), varArgsArrayType, nullptr, false, AST::Visibility::Null);
+				resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
 			}
 
 			if (decl->body)
@@ -2580,8 +2575,14 @@ static bool ResolveClassMethodHeader(Resolver* resolver, AST::Method* method, AS
 		paramTypes[i] = method->paramTypes[i]->typeID;
 	}
 
+	if (method->varArgsTypeAST)
+	{
+		result = ResolveType(resolver, method->varArgsTypeAST) && result;
+		method->varArgsType = method->varArgsTypeAST->typeID;
+	}
+
 	method->instanceType = decl->type;
-	method->functionType = GetFunctionType(returnType, numParams, paramTypes, method->varArgs, true, decl->type, method);
+	method->functionType = GetFunctionType(returnType, numParams, paramTypes, method->varArgs, method->varArgsType, true, decl->type, method);
 
 	return result;
 }
@@ -2611,8 +2612,14 @@ static bool ResolveClassConstructorHeader(Resolver* resolver, AST::Constructor* 
 		paramTypes[i] = constructor->paramTypes[i]->typeID;
 	}
 
+	if (constructor->varArgsTypeAST)
+	{
+		result = ResolveType(resolver, constructor->varArgsTypeAST) && result;
+		constructor->varArgsType = constructor->varArgsTypeAST->typeID;
+	}
+
 	constructor->instanceType = decl->type;
-	constructor->functionType = GetFunctionType(returnType, numParams, paramTypes, constructor->varArgs, true, decl->type, constructor);
+	constructor->functionType = GetFunctionType(returnType, numParams, paramTypes, constructor->varArgs, constructor->varArgsType, true, decl->type, constructor);
 
 	return result;
 }
@@ -2684,8 +2691,7 @@ static bool ResolveClassMethod(Resolver* resolver, AST::Function* decl)
 
 	resolver->pushScope(decl->name);
 
-	decl->paramVariables;
-	decl->paramVariables.resize(decl->paramTypes.size);
+	//decl->paramVariables.resize(decl->paramTypes.size);
 
 	//decl->instanceVariable = RegisterLocalVariable(resolver, decl->instanceType, NULL, "this", false, resolver->file, decl->location);
 	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), _strdup("this"), decl->returnType->typeID, nullptr, false, AST::Visibility::Null);
@@ -2696,8 +2702,15 @@ static bool ResolveClassMethod(Resolver* resolver, AST::Function* decl)
 	{
 		//Variable* variable = RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
 		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
-		decl->paramVariables[i] = variable;
+		//decl->paramVariables[i] = variable;
 		resolver->registerLocalVariable(variable, decl->paramTypes[i]);
+	}
+
+	if (decl->varArgs)
+	{
+		TypeID varArgsArrayType = GetArrayType(decl->varArgsType, -1);
+		Variable* varArgsVariable = new Variable(decl->file, _strdup(decl->varArgsName), _strdup(decl->varArgsName), varArgsArrayType, nullptr, false, AST::Visibility::Null);
+		resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
 	}
 
 	result = ResolveStatement(resolver, decl->body) && result;
@@ -2722,8 +2735,7 @@ static bool ResolveClassConstructor(Resolver* resolver, AST::Constructor* decl)
 
 	resolver->pushScope(decl->name);
 
-	decl->paramVariables;
-	decl->paramVariables.resize(decl->paramTypes.size);
+	//decl->paramVariables.resize(decl->paramTypes.size);
 
 	//decl->instanceVariable = RegisterLocalVariable(resolver, decl->instanceType, NULL, "this", false, resolver->file, decl->location);
 	Variable* instanceVariable = new Variable(decl->file, _strdup("this"), _strdup("this"), decl->instanceType, nullptr, false, AST::Visibility::Null);
@@ -2733,8 +2745,15 @@ static bool ResolveClassConstructor(Resolver* resolver, AST::Constructor* decl)
 	{
 		//Variable* variable = RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->location);
 		Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
-		decl->paramVariables[i] = variable;
+		//decl->paramVariables[i] = variable;
 		resolver->registerLocalVariable(variable, decl->paramTypes[i]);
+	}
+
+	if (decl->varArgs)
+	{
+		TypeID varArgsArrayType = GetArrayType(decl->varArgsType, -1);
+		Variable* varArgsVariable = new Variable(decl->file, _strdup(decl->varArgsName), _strdup(decl->varArgsName), varArgsArrayType, nullptr, false, AST::Visibility::Null);
+		resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
 	}
 
 	result = ResolveStatement(resolver, decl->body) && result;
@@ -2879,18 +2898,24 @@ static bool ResolveGlobal(Resolver* resolver, AST::GlobalVariable* decl)
 			{
 				if (!CanConvertImplicit(declarator->value->valueType, decl->varType->typeID, declarator->value->isConstant()))
 				{
-					SnekError(resolver->context, decl->location, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
+					SnekErrorLoc(resolver->context, decl->location, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
 					result = false;
 				}
 				if (HasFlag(decl->flags, AST::DeclarationFlags::Extern))
 				{
-					SnekError(resolver->context, decl->location, "Extern global variable '%s' cannot have an initializer", declarator->name);
+					SnekErrorLoc(resolver->context, decl->location, "Extern global variable '%s' cannot have an initializer", declarator->name);
 					result = false;
 				}
 				else if (!declarator->value->isConstant())
 				{
-					SnekError(resolver->context, decl->location, "Initializer of global variable '%s' must be a constant value", declarator->name);
+					SnekErrorLoc(resolver->context, decl->location, "Initializer of global variable '%s' must be a constant value", declarator->name);
 					result = false;
+				}
+				if (declarator->value->type == AST::ExpressionType::InitializerList)
+				{
+					AST::InitializerList* initializerList = (AST::InitializerList*)declarator->value;
+					initializerList->initializerType = decl->varType->typeID;
+					initializerList->valueType = decl->varType->typeID;
 				}
 			}
 			else
@@ -2909,7 +2934,7 @@ static bool ResolveModuleDecl(Resolver* resolver, AST::ModuleDeclaration* decl)
 	resolver->currentElement = decl;
 	defer _(nullptr, [=](...) { resolver->currentElement = lastElement; });
 
-	AST::Module* parent = resolver->globalNamespace;
+	AST::Module* parent = resolver->globalModule;
 	for (int i = 0; i < decl->identifier.namespaces.size; i++)
 	{
 		const char* name = decl->identifier.namespaces[i];
@@ -2950,7 +2975,7 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 	for (int i = 0; i < decl->imports.size; i++)
 	{
 		AST::ModuleIdentifier& identifier = decl->imports[i];
-		AST::Module* parent = resolver->globalNamespace;
+		AST::Module* parent = resolver->globalModule;
 		for (int j = 0; j < identifier.namespaces.size; j++)
 		{
 			const char* name = identifier.namespaces[j];
@@ -2966,7 +2991,7 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 				}
 				else
 				{
-					SnekError(resolver->context, decl->location, "For bulk imports, * must be at the end of the import declaration");
+					SnekErrorLoc(resolver->context, decl->location, "For bulk imports, * must be at the end of the import declaration");
 					result = false;
 					break;
 				}
@@ -2980,7 +3005,7 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 				}
 				else
 				{
-					SnekError(resolver->context, decl->location, "For recursive bulk imports, ** must be at the end of the import declaration");
+					SnekErrorLoc(resolver->context, decl->location, "For recursive bulk imports, ** must be at the end of the import declaration");
 					result = false;
 					break;
 				}
@@ -2989,9 +3014,9 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 			{
 				AST::Module* module = nullptr;
 
-				if (!module && parent == resolver->globalNamespace)
+				if (!module && parent == resolver->globalModule)
 				{
-					module = FindModule(resolver, name, resolver->globalNamespace);
+					module = FindModule(resolver, name, resolver->globalModule);
 				}
 				if (!module)
 				{
@@ -3021,7 +3046,7 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 							strcat(module_name, ".");
 					}
 
-					SnekError(resolver->context, decl->location, "Unknown module '%s'", module_name);
+					SnekErrorLoc(resolver->context, decl->location, "Unknown module '%s'", module_name);
 					result = false;
 					parent = NULL;
 					break;
@@ -3049,8 +3074,8 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 		}
 		else
 		{
-			//ast->module = CreateModule(resolver, ast->name, resolver->globalNamespace);
-			ast->module = resolver->globalNamespace;
+			//ast->module = CreateModule(resolver, ast->name, resolver->globalModule);
+			ast->module = resolver->globalModule;
 		}
 		if (ast->namespaceDecl)
 		{
@@ -3239,12 +3264,12 @@ static bool ResolveModules(Resolver* resolver)
 Resolver::Resolver(CGLCompiler* context, List<AST::File*>& asts)
 	: context(context), asts(asts)
 {
-	globalNamespace = CreateModule(this, "", nullptr);
+	globalModule = CreateModule(this, "", nullptr);
 }
 
 Resolver::~Resolver()
 {
-	delete globalNamespace;
+	delete globalModule;
 }
 
 bool Resolver::run()
@@ -3261,7 +3286,14 @@ bool Resolver::run()
 	scope = nullptr;
 
 	result = ResolveModuleHeaders(this) && result;
-	if (result) result = ResolveModules(this) && result;
+	if (result)
+		result = ResolveModules(this);
+
+	if (!entryPoint)
+	{
+		SnekError(context, "No entry point 'main'");
+		result = false;
+	}
 
 	return result;
 }

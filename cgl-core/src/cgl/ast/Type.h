@@ -22,6 +22,7 @@ namespace AST
 		Integer,
 		FloatingPoint,
 		Boolean,
+		Any,
 		NamedType,
 		Struct,
 		Class,
@@ -81,6 +82,13 @@ namespace AST
 		virtual Element* copy() override;
 	};
 
+	struct AnyType : Type
+	{
+		AnyType(File* file, const SourceLocation& location);
+
+		virtual Element* copy() override;
+	};
+
 	struct NamedType : Type
 	{
 		char* name;
@@ -124,9 +132,10 @@ namespace AST
 		Type* returnType;
 		List<Type*> paramTypes;
 		bool varArgs;
+		Type* varArgsType;
 
 
-		FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs);
+		FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs, Type* varArgsType);
 		virtual ~FunctionType();
 
 		virtual Element* copy() override;

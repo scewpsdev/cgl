@@ -37,7 +37,9 @@ struct Resolver
 	CGLCompiler* context;
 	List<AST::File*>& asts;
 
-	AST::Module* globalNamespace = nullptr;
+	AST::Function* entryPoint = nullptr;
+
+	AST::Module* globalModule = nullptr;
 
 	AST::File* currentFile = nullptr;
 	AST::Element* currentElement = nullptr;
@@ -47,6 +49,7 @@ struct Resolver
 	//AstExpression* currentExpression;
 
 	Scope* scope = nullptr;
+
 
 	Resolver(CGLCompiler* context, List<AST::File*>& asts);
 	~Resolver();

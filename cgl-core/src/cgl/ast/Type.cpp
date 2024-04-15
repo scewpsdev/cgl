@@ -52,6 +52,16 @@ namespace AST
 		return new BooleanType(file, location);
 	}
 
+	AnyType::AnyType(File* file, const SourceLocation& location)
+		: Type(file, location, TypeKind::Any)
+	{
+	}
+
+	Element* AnyType::copy()
+	{
+		return new AnyType(file, location);
+	}
+
 	NamedType::NamedType(File* file, const SourceLocation& location, char* name, bool hasGenericArgs, const List<Type*>& genericArgs)
 		: Type(file, location, TypeKind::NamedType), name(name), hasGenericArgs(hasGenericArgs), genericArgs(genericArgs)
 	{
@@ -116,8 +126,8 @@ namespace AST
 		return new OptionalType(file, location, (Type*)elementType->copy());
 	}
 
-	FunctionType::FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs)
-		: Type(file, location, TypeKind::Function), returnType(returnType), paramTypes(paramTypes), varArgs(varArgs)
+	FunctionType::FunctionType(File* file, const SourceLocation& location, Type* returnType, const List<Type*>& paramTypes, bool varArgs, Type* varArgsType)
+		: Type(file, location, TypeKind::Function), returnType(returnType), paramTypes(paramTypes), varArgs(varArgs), varArgsType(varArgsType)
 	{
 	}
 
@@ -139,7 +149,7 @@ namespace AST
 		for (int i = 0; i < paramTypes.size; i++)
 			paramTypesCopy.add((Type*)paramTypes[i]->copy());
 
-		return new FunctionType(file, location, (Type*)returnType->copy(), paramTypesCopy, varArgs);
+		return new FunctionType(file, location, returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, varArgs, varArgsType ? (Type*)varArgsType->copy() : nullptr);
 	}
 
 	TupleType::TupleType(File* file, const SourceLocation& location, const List<Type*>& valueTypes)

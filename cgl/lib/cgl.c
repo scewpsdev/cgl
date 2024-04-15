@@ -1,35 +1,44 @@
-typedef char i8;
-typedef short i16;
-typedef int i32;
-typedef long long i64;
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long long u64;
-typedef float f32;
-typedef double f64;
-typedef _Bool bool;
-typedef struct { char* ptr; long length; } string;
+#include "cgl.h"
 
-#define __INT8_MIN -0x80
-#define __INT8_MAX 0x7f
-#define __INT16_MIN -0x8000
-#define __INT16_MAX 0x7fff
-#define __INT32_MIN -0x80000000
-#define __INT32_MAX 0x7fffffff
-#define __INT64_MIN -0x8000000000000000
-#define __INT64_MAX 0x7fffffffffffffff
-#define __UINT8_MIN 0
-#define __UINT8_MAX 0xff
-#define __UINT16_MIN 0
-#define __UINT16_MAX 0xffff
-#define __UINT32_MIN 0
-#define __UINT32_MAX 0xffffffff
-#define __UINT64_MIN 0
-#define __UINT64_MAX 0xffffffffffffffff
 
+struct _iobuf {
+	char* _ptr;
+	int _cnt;
+	char* _base;
+	int _flag;
+	int _file;
+	int _charbuf;
+	int _bufsiz;
+	char* _tmpfname;
+};
+typedef struct _iobuf FILE;
+extern FILE(*_imp___iob)[];
+#define __iob_func()    (*_imp___iob)
+#define stderr (&__iob_func()[2])
+
+#define	SIGTRAP	5
 
 extern void* malloc(u64 size);
+extern int fputs(const char*, FILE*);
+int raise(int _SigNum);
+void exit(int status);
+
+
+void __debugbreak()
+{
+	raise(SIGTRAP);
+}
+
+void __assertmsg(int x, const char* msg)
+{
+	if (!x)
+	{
+		fputs(msg, stderr);
+		__debugbreak();
+		exit(-1);
+	}
+}
+
 
 i64 __stoi64(string s)
 {

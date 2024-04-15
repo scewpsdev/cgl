@@ -25,7 +25,6 @@ AST::Function* Resolver::findFunctionInFile(const char* name, AST::File* file)
 
 AST::Function* Resolver::findFunctionInModule(const char* name, AST::Module* module)
 {
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		return findFunctionInFile(name, file);
@@ -40,11 +39,12 @@ AST::Function* Resolver::findFunction(const char* name)
 		return function;
 	}
 
-	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalNamespace;
+	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
 	if (AST::Function* function = findFunctionInModule(name, module))
 	{
 		return function;
 	}
+
 	for (int i = 0; i < currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = currentFile->dependencies[i];
@@ -53,6 +53,7 @@ AST::Function* Resolver::findFunction(const char* name)
 			return function;
 		}
 	}
+
 	return nullptr;
 }
 
@@ -90,7 +91,7 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 {
 	bool found = false;
 
-	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalNamespace;
+	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
 	if (findFunctionsInModule(name, module, functions))
 		return true;
 

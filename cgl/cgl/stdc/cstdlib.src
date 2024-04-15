@@ -1,0 +1,8 @@
+package cstdlib;
+
+
+public const int RAND_MAX = 0x7fff;
+
+
+public externc int rand();
+public externc void srand(uint seed);

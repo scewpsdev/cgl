@@ -1,5 +1,7 @@
 #include "cgl/CGLCompiler.h"
 
+#include "cgl/File.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -40,31 +42,8 @@ static void OnCompilerMessage(MessageType msgType, const char* filename, int lin
 		vsprintf(message + strlen(message), msg, args);
 		va_end(args);
 
-#if _DEBUG
 		fprintf(stderr, "%s\n", message);
-#else
-		compilerMessages << message << std::endl;
-#endif
 	}
-}
-
-static char* ReadText(const char* path)
-{
-	if (FILE* file = fopen(path, "r"))
-	{
-		fseek(file, 0, SEEK_END);
-		long numBytes = ftell(file);
-		fseek(file, 0, SEEK_SET);
-
-		char* buffer = new char[numBytes + 1];
-		memset(buffer, 0, numBytes);
-		fread(buffer, 1, numBytes, file);
-		fclose(file);
-		buffer[numBytes] = 0;
-
-		return buffer;
-	}
-	return nullptr;
 }
 
 static uint64_t max(uint64_t a, uint64_t b)
@@ -118,11 +97,20 @@ static char* GetFolderFromPath(const char* path)
 
 	int length = (int)(slash - path);
 
-	char* folder = new char[length + 1];
-	strncpy(folder, path, length);
-	folder[length] = 0;
-
-	return folder;
+	if (length == 0)
+	{
+		char* folder = new char[2];
+		strcpy(folder, ".");
+		folder[1] = 0;
+		return folder;
+	}
+	else
+	{
+		char* folder = new char[length + 1];
+		strncpy(folder, path, length);
+		folder[length] = 0;
+		return folder;
+	}
 }
 
 static const char* GetExtensionFromPath(const char* path)
@@ -167,7 +155,7 @@ static bool AddFile(CGLCompiler& compiler, const char* path)
 		}
 		else
 		{
-			SnekFatal(&compiler, "Unknown file '%s'", path);
+			SnekError(&compiler, "Unknown file '%s'", path);
 			return false;
 		}
 	}
@@ -176,7 +164,7 @@ static bool AddFile(CGLCompiler& compiler, const char* path)
 static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const char* extension, bool recursive)
 {
 	if (!std::filesystem::exists(folder)) {
-		SnekFatal(&compiler, "Unknown folder '%s'", folder);
+		SnekError(&compiler, "Unknown folder '%s'", folder);
 		return false;
 	}
 
@@ -203,15 +191,44 @@ static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const cha
 
 int main(int argc, char* argv[])
 {
+	bool run = false;
+	bool printIR = false;
+	const char* outPath = "a.exe";
+
 	CGLCompiler compiler;
 	compiler.init(OnCompilerMessage);
 
 	bool result = true;
 
+	result = AddSourceFolder(compiler, LocalFilePath(""), "src", true) && result;
+
 	for (int i = 1; i < argc; i++)
 	{
 		const char* arg = argv[i];
-		if (strcmp(arg, "-o") == 0);
+		if (strlen(arg) > 0 && arg[0] == '-')
+		{
+			if (strcmp(arg, "-o") == 0)
+			{
+				if (i < argc - 1)
+				{
+					outPath = argv[++i];
+				}
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a path", arg);
+					result = false;
+				}
+			}
+			else if (strcmp(arg, "-r") == 0 || strcmp(arg, "--run") == 0)
+				run = true;
+			else if (strcmp(arg, "--print-ir") == 0)
+				printIR = true;
+			else
+			{
+				SnekError(&compiler, "Unknown argument %s", arg);
+				result = false;
+			}
+		}
 		else
 		{
 			char* path = _strdup(argv[i]);
@@ -236,18 +253,35 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (compiler.sourceFiles.size > 0)
+	if (result)
 	{
-		if (compiler.compile())
+		if (compiler.sourceFiles.size > 0)
 		{
-			int result = compiler.run(0, nullptr);
-			printf("Program exited with code %i\n", result);
+			if (compiler.compile())
+			{
+				if (run)
+				{
+					int result = compiler.run(0, nullptr, printIR);
+					printf("Program exited with code %i\n", result);
+				}
+				else
+				{
+					compiler.output(outPath, printIR);
+				}
+			}
+			else
+			{
+				result = false;
+			}
 		}
-	}
-	else
-	{
-		SnekFatal(&compiler, "No input files");
+		else
+		{
+			SnekError(&compiler, "No input files");
+			result = false;
+		}
 	}
 
 	compiler.terminate();
+
+	return result ? 0 : 1;
 }

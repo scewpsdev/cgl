@@ -1,0 +1,15 @@
+package snek.any;
+
+
+public const int TYPE_KIND_INTEGER = 2;
+public const int TYPE_KIND_FLOATING_POINT = 3;
+public const int TYPE_KIND_BOOLEAN = 4;
+public const int TYPE_KIND_STRUCT = 7;
+public const int TYPE_KIND_CLASS = 8;
+public const int TYPE_KIND_ALIAS = 9;
+public const int TYPE_KIND_POINTER = 10;
+public const int TYPE_KIND_OPTIONAL = 11;
+public const int TYPE_KIND_FUNCTION = 12;
+public const int TYPE_KIND_TUPLE = 13;
+public const int TYPE_KIND_ARRAY = 14;
+public const int TYPE_KIND_STRING = 15;

@@ -1,0 +1,117 @@
+package snek.console;
+
+import snek.any;
+import cstdio;
+
+
+public void write(string str)
+{
+	for (int i = 0; i < str.length; i++)
+		putchar(str[i]);
+}
+
+public void write(float f)
+{
+	//printf("%f".ptr, f);
+	putchar('f');
+}
+
+public void writeln(string str)
+{
+	for (int i = 0; i < str.length; i++)
+		putchar(str[i]);
+	putchar('\n');
+}
+
+public void writeln(float f)
+{
+	//printf("%f\n".ptr, f);
+}
+
+void writeInt(int value)
+{
+	if value == 0
+	{
+		putchar('0');
+		return;
+	}
+	
+	char[50] buffer;
+	int len = 0;
+	
+	bool isNegative = value < 0;
+	if isNegative value = -value;
+	
+	while value != 0
+	{
+		buffer[len++] = char(value % 10 + '0');
+		value = value / 10;
+	}
+	
+	if isNegative buffer[len++] = '-';
+	
+	for (int i = len - 1; i >= 0; i--)
+	{
+		putchar(buffer[i]);
+	}
+}
+
+void writeFloat(float value)
+{
+	int ipart = int(value);
+	float fpart = value - ipart;
+	
+	writeInt(ipart);
+	putchar('.');
+	
+	fpart = fpart * 1000000;
+	writeInt(int(fpart));
+}
+
+void writeBoolean(bool b)
+{
+	if b write("true");
+	else write("false");
+}
+
+void writePointer(void* ptr)
+{
+	
+}
+
+public void writeAny(any value)
+{
+	if (value.type == TYPE_KIND_INTEGER)
+		writeInt(int(value));
+	else if (value.type == TYPE_KIND_FLOATING_POINT)
+		writeFloat(float(value));
+	else if (value.type == TYPE_KIND_BOOLEAN)
+		writeBoolean(bool(value));
+	else if (value.type == TYPE_KIND_POINTER)
+		writePointer((void*)(value));
+	else if (value.type == TYPE_KIND_STRING)
+		write(string(value));
+	else
+		putchar('?');
+}
+
+public void print(string format, any... args)
+{
+	int varArgIdx = 0;
+	for (int i = 0; i < format.length; i++)
+	{
+		char c = format[i];
+		if (c == '%' && varArgIdx < args.length)
+		{
+			writeAny(args[i]);
+			varArgIdx++;
+		}
+		else putchar(c);
+	}
+}
+
+public void println(string format, any... args)
+{
+	print(format, args);
+	putchar('\n');
+}

@@ -153,9 +153,10 @@ namespace AST
 	{
 		double value = 0.0;
 		char valueStr[32] = {};
+		bool isDouble = false;
 
 
-		FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr);
+		FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr, bool isDouble);
 
 		virtual Element* copy() override;
 		virtual bool isConstant() override;
@@ -387,6 +388,8 @@ namespace AST
 	{
 		Expression* left, * right;
 		BinaryOperatorType operatorType;
+
+		TypeID opAssignResultingType;
 
 
 		BinaryOperator(File* file, const SourceLocation& location, Expression* left, Expression* right, BinaryOperatorType operatorType);

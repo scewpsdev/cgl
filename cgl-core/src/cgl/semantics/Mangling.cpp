@@ -39,6 +39,12 @@ static void MangleType(TypeID type, StringBuffer& buffer)
 		case AST::TypeKind::Boolean:
 			StringBufferAppend(buffer, 'b');
 			break;
+		case AST::TypeKind::String:
+			StringBufferAppend(buffer, 's');
+			break;
+		case AST::TypeKind::Any:
+			StringBufferAppend(buffer, 'y');
+			break;
 		case AST::TypeKind::Struct:
 			StringBufferAppend(buffer, 'x');
 			StringBufferAppend(buffer, (unsigned long)hash(type->structType.name));
@@ -64,9 +70,6 @@ static void MangleType(TypeID type, StringBuffer& buffer)
 		case AST::TypeKind::Array:
 			StringBufferAppend(buffer, 'a');
 			MangleType(type->arrayType.elementType, buffer);
-			break;
-		case AST::TypeKind::String:
-			StringBufferAppend(buffer, 's');
 			break;
 		default:
 			SnekAssert(false);
@@ -116,6 +119,12 @@ char* MangleFunctionName(AST::Function* function)
 			{
 				MangleType(function->paramTypes[i]->typeID, result);
 			}
+		}
+
+		if (function->varArgs)
+		{
+			StringBufferAppend(result, "_v");
+			MangleType(function->varArgsType, result);
 		}
 
 		if (function->isGenericInstance)

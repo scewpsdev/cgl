@@ -1,0 +1,5 @@
+package cstdio;
+
+
+public externc void putchar(int c);
+//public externc int printf(char* format, ...);

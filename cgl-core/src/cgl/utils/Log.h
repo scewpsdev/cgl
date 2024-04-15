@@ -12,8 +12,9 @@
 #endif
 
 #define SnekTrace(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_INFO, NULL, 0, 0, msg, ##__VA_ARGS__)
-#define SnekWarn(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
-#define SnekError(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekWarnLoc(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekErrorLoc(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekError(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
 #define SnekFatal(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_FATAL_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
 
 

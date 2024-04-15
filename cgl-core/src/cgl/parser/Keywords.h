@@ -1,7 +1,7 @@
 #pragma once
 
 
-#define KEYWORD_MODULE    "module"
+#define KEYWORD_MODULE    "package"
 #define KEYWORD_NAMESPACE "namespace"
 #define KEYWORD_IMPORT    "import"
 #define KEYWORD_VAR       "var"
@@ -83,6 +83,8 @@
 #define KEYWORD_DOUBLE    "double"
 #define KEYWORD_DECIMAL	  "decimal"
 #define KEYWORD_QUAD      "quad"
+
+#define KEYWORD_ANY       "any"
 
 #define KEYWORD_PTR       "Ptr"
 #define KEYWORD_ARRAY     "Array"

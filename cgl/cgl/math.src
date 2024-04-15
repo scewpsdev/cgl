@@ -1,0 +1,19 @@
+package snek.math;
+
+import cmath;
+
+
+public float exp(float f)
+{
+	return cmath.expf(f);
+}
+
+public double exp(double d)
+{
+	return cmath.exp(d);
+}
+
+public float sigmoid(float x)
+{
+	return 1.0f / (1.0f + cmath.expf(-x));
+}

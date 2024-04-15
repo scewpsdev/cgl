@@ -96,6 +96,8 @@ static const std::map<std::string, KeywordType> keywords =
 	{ KEYWORD_DECIMAL, KEYWORD_TYPE_FLOAT80 },
 	{ KEYWORD_QUAD, KEYWORD_TYPE_FLOAT128 },
 
+	{ KEYWORD_ANY, KEYWORD_TYPE_ANY },
+
 	{ KEYWORD_STRING, KEYWORD_TYPE_STRING },
 	{ KEYWORD_PTR, KEYWORD_TYPE_PTR },
 	{ KEYWORD_ARRAY, KEYWORD_TYPE_ARRAY },
@@ -273,7 +275,7 @@ static Token readStringLiteral(Lexer* lexer)
 		}
 
 
-		SnekError(lexer->context, inputState, "Unterminated multiline string literal");
+		SnekErrorLoc(lexer->context, inputState, "Unterminated multiline string literal");
 		return {};
 	}
 	else
@@ -289,7 +291,7 @@ static Token readStringLiteral(Lexer* lexer)
 		{
 			if (!InputHasNext(&lexer->input))
 			{
-				SnekError(lexer->context, inputState, "Unterminated string literal");
+				SnekErrorLoc(lexer->context, inputState, "Unterminated string literal");
 				return {};
 			}
 			token.len++;
@@ -340,6 +342,7 @@ static Token readNumberLiteral(Lexer* lexer)
 	token.len = 0;
 
 	bool fp = false;
+	bool isDouble = true;
 
 	if (InputPeek(&lexer->input, 0) == '-')
 	{
@@ -361,13 +364,15 @@ static Token readNumberLiteral(Lexer* lexer)
 		InputNext(&lexer->input);
 		if (c == '.')
 			fp = true;
+		if (c == 'f' && fp)
+			isDouble = false;
 		token.len++;
 
 		c = InputPeek(&lexer->input, 0);
 		c2 = InputPeek(&lexer->input, 1);
 	}
 
-	token.type = fp ? TOKEN_TYPE_FLOAT_LITERAL : TOKEN_TYPE_INT_LITERAL;
+	token.type = fp ? isDouble ? TOKEN_TYPE_DOUBLE_LITERAL : TOKEN_TYPE_FLOAT_LITERAL : TOKEN_TYPE_INT_LITERAL;
 
 	return token;
 }
@@ -472,7 +477,7 @@ Token LexerNext(Lexer* lexer)
 		if (nextIsIdentifier(lexer))
 			return readIdentifier(lexer);
 
-		SnekError(lexer->context, lexer->input.state, "Undefined character '%c' (%d)", InputNext(&lexer->input));
+		SnekErrorLoc(lexer->context, lexer->input.state, "Undefined character '%c' (%d)", InputNext(&lexer->input));
 	}
 
 	return NULL_TOKEN;

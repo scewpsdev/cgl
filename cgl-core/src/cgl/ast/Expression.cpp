@@ -46,15 +46,15 @@ namespace AST
 		return true;
 	}
 
-	FloatingPointLiteral::FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr)
-		: Expression(file, location, ExpressionType::FloatingPointLiteral), value(value)
+	FloatingPointLiteral::FloatingPointLiteral(File* file, const SourceLocation& location, double value, const char* valueStr, bool isDouble)
+		: Expression(file, location, ExpressionType::FloatingPointLiteral), value(value), isDouble(isDouble)
 	{
 		strcpy(this->valueStr, valueStr);
 	}
 
 	Element* FloatingPointLiteral::copy()
 	{
-		return new FloatingPointLiteral(file, location, value, valueStr);
+		return new FloatingPointLiteral(file, location, value, valueStr, isDouble);
 	}
 
 	bool FloatingPointLiteral::isConstant()

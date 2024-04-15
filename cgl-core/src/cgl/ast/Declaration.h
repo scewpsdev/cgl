@@ -71,6 +71,9 @@ namespace AST
 		List<char*> paramNames;
 		List<Expression*> paramValues;
 		bool varArgs = false;
+		Type* varArgsTypeAST = nullptr;
+		TypeID varArgsType = nullptr;
+		char* varArgsName = nullptr;
 
 		Statement* body = nullptr;
 		Expression* bodyExpression = nullptr;
@@ -88,14 +91,14 @@ namespace AST
 		char* mangledName = nullptr;
 		TypeID functionType = nullptr;
 
-		List<Variable*> paramVariables = {};
+		//List<Variable*> paramVariables = {};
 		Variable* instanceVariable = nullptr;
 
 		ValueHandle valueHandle = nullptr;
 
 
-		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams);
-		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
+		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
+		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Function();
 
 		virtual Element* copy() override;
@@ -112,7 +115,7 @@ namespace AST
 		TypeID instanceType = nullptr; // For class methods/constructors
 
 
-		Method(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams);
+		Method(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Method();
 
 		virtual Element* copy() override;
@@ -120,7 +123,7 @@ namespace AST
 
 	struct Constructor : Method
 	{
-		Constructor(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams);
+		Constructor(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Constructor();
 
 		virtual Element* copy() override;

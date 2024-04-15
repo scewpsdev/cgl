@@ -1,0 +1,5 @@
+package cmath;
+
+
+public externc float expf(float arg);
+public externc double exp(double arg);

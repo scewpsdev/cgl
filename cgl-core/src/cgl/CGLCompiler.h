@@ -22,5 +22,6 @@ public:
 
 	void addFile(const char* filename, const char* name, const char* src);
 	bool compile();
-	int run(int argc, char* argv[]);
+	int run(int argc, char* argv[], bool printIR);
+	int output(const char* path, bool printIR);
 };

@@ -35,8 +35,11 @@ void Resolver::registerGlobalVariable(Variable* variable, AST::GlobalVariable* g
 
 TypeID Resolver::getGenericTypeArgument(const char* name)
 {
-	if (TypeID type = currentFunction->getGenericTypeArgument(name))
-		return type;
+	if (currentFunction)
+	{
+		if (TypeID type = currentFunction->getGenericTypeArgument(name))
+			return type;
+	}
 	if (currentStruct)
 	{
 		if (TypeID type = currentStruct->getGenericTypeArgument(name))
@@ -93,7 +96,7 @@ Variable* Resolver::findGlobalVariableInModule(const char* name, AST::Module* mo
 				return variable;
 			else
 			{
-				SnekError(context, currentElement->location, "Variable '%s' is not visible", variable->name);
+				SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
 				return nullptr;
 			}
 		}
@@ -109,7 +112,7 @@ Variable* Resolver::findVariable(const char* name)
 	if (Variable* variable = findGlobalVariableInFile(name, currentFile))
 		return variable;
 
-	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalNamespace;
+	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -121,7 +124,7 @@ Variable* Resolver::findVariable(const char* name)
 					return variable;
 				else
 				{
-					SnekError(context, currentElement->location, "Variable '%s' is not visible", variable->name);
+					SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
 					return nullptr;
 				}
 			}
@@ -139,7 +142,7 @@ Variable* Resolver::findVariable(const char* name)
 					return variable;
 				else
 				{
-					SnekError(context, currentElement->location, "Variable '%s' is not visible", variable->name);
+					SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
 					return nullptr;
 				}
 			}
@@ -175,7 +178,7 @@ AST::EnumValue* FindEnumValueInNamespace(Resolver* resolver, AST::Module* module
 				return enumValue;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Enum '%s' containing value '%s' is not visible", enumValue->declaration->name, enumValue->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Enum '%s' containing value '%s' is not visible", enumValue->declaration->name, enumValue->name);
 				return nullptr;
 			}
 		}
@@ -190,7 +193,7 @@ AST::EnumValue* FindEnumValue(Resolver* resolver, const char* name)
 		return enumValue;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, module, name, module))
 	{
 		return enumValue;
@@ -226,7 +229,7 @@ AST::Struct* FindStruct(Resolver* resolver, const char* name)
 		return str;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -236,7 +239,7 @@ AST::Struct* FindStruct(Resolver* resolver, const char* name)
 				return str;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Struct '%s' is not visible", str->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Struct '%s' is not visible", str->name);
 				return nullptr;
 			}
 		}
@@ -253,7 +256,7 @@ AST::Struct* FindStruct(Resolver* resolver, const char* name)
 					return str;
 				else
 				{
-					SnekError(resolver->context, resolver->currentElement->location, "Struct '%s' is not visible", str->name);
+					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Struct '%s' is not visible", str->name);
 					return nullptr;
 				}
 			}
@@ -282,7 +285,7 @@ AST::Class* FindClass(Resolver* resolver, const char* name)
 		return clss;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -292,7 +295,7 @@ AST::Class* FindClass(Resolver* resolver, const char* name)
 				return clss;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Class '%s' is not visible", clss->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Class '%s' is not visible", clss->name);
 				return nullptr;
 			}
 		}
@@ -309,7 +312,7 @@ AST::Class* FindClass(Resolver* resolver, const char* name)
 					return clss;
 				else
 				{
-					SnekError(resolver->context, resolver->currentElement->location, "Class '%s' is not visible", clss->name);
+					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Class '%s' is not visible", clss->name);
 					return nullptr;
 				}
 			}
@@ -338,7 +341,7 @@ AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
 		return td;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -348,7 +351,7 @@ AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
 				return td;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Typedef '%s' is not visible", td->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Typedef '%s' is not visible", td->name);
 				return nullptr;
 			}
 		}
@@ -365,7 +368,7 @@ AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
 					return td;
 				else
 				{
-					SnekError(resolver->context, resolver->currentElement->location, "Typedef '%s' is not visible", td->name);
+					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Typedef '%s' is not visible", td->name);
 					return nullptr;
 				}
 			}
@@ -394,7 +397,7 @@ AST::Enum* FindEnum(Resolver* resolver, const char* name)
 		return en;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -404,7 +407,7 @@ AST::Enum* FindEnum(Resolver* resolver, const char* name)
 				return en;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Enum '%s' is not visible", en->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Enum '%s' is not visible", en->name);
 				return nullptr;
 			}
 		}
@@ -421,7 +424,7 @@ AST::Enum* FindEnum(Resolver* resolver, const char* name)
 					return en;
 				else
 				{
-					SnekError(resolver->context, resolver->currentElement->location, "Enum '%s' is not visible", en->name);
+					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Enum '%s' is not visible", en->name);
 					return nullptr;
 				}
 			}
@@ -450,7 +453,7 @@ AST::Macro* FindMacro(Resolver* resolver, const char* name)
 		return ed;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalNamespace;
+	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
@@ -460,7 +463,7 @@ AST::Macro* FindMacro(Resolver* resolver, const char* name)
 				return ed;
 			else
 			{
-				SnekError(resolver->context, resolver->currentElement->location, "Macro '%s' is not visible", ed->name);
+				SnekErrorLoc(resolver->context, resolver->currentElement->location, "Macro '%s' is not visible", ed->name);
 				return nullptr;
 			}
 		}
@@ -477,7 +480,7 @@ AST::Macro* FindMacro(Resolver* resolver, const char* name)
 					return ed;
 				else
 				{
-					SnekError(resolver->context, resolver->currentElement->location, "Macro '%s' is not visible", ed->name);
+					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Macro '%s' is not visible", ed->name);
 					return nullptr;
 				}
 			}

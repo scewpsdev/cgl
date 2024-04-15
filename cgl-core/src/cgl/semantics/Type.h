@@ -78,6 +78,7 @@ struct TypeData
 			int numParams;
 			TypeID* paramTypes;
 			bool varArgs;
+			TypeID varArgsType;
 			bool isMethod;
 			TypeID instanceType;
 
@@ -106,6 +107,7 @@ TypeID GetIntegerType(int bitWidth, bool isSigned);
 TypeID GetFloatingPointType(FloatingPointPrecision precision);
 TypeID GetBoolType();
 TypeID GetStringType();
+TypeID GetAnyType();
 TypeID GetStructType(const char* structName, AST::Struct* declaration);
 TypeID GetStructType(int numValues, TypeID* valueTypes);
 TypeID GetClassType(const char* className, AST::Class* declaration);
@@ -113,7 +115,7 @@ TypeID GetAliasType(const char* name, AST::Declaration* declaration);
 
 TypeID GetPointerType(TypeID elementType);
 TypeID GetOptionalType(TypeID elementType);
-TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, bool varArgs, bool isMethod, TypeID instanceType, AST::Function* declaration);
+TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, bool varArgs, TypeID varArgsType, bool isMethod, TypeID instanceType, AST::Function* declaration);
 TypeID GetTupleType(int numValues, TypeID* valueTypes);
 TypeID GetArrayType(TypeID elementType, int length);
 
@@ -125,4 +127,4 @@ const char* GetTypeString(TypeID type);
 
 bool CanConvert(TypeID argType, TypeID paramType);
 bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant);
-TypeID BinaryOperatorTypeMeet(TypeID leftType, TypeID rightType);
+TypeID BinaryOperatorTypeMeet(Resolver* resolver, TypeID leftType, TypeID rightType);

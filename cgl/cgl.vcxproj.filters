@@ -21,7 +21,13 @@
     <ClCompile Include="src\cgl\backends\tcc\CodegenTCC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cgl.c">
+    <ClCompile Include="test\test.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cgl\Platform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cgl\File.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -32,5 +38,16 @@
     <None Include="test\Types.cgl" />
     <None Include="test\Strings.cgl" />
     <None Include="test\Functions.cgl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\cgl\Platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cgl\File.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="todo.txt" />
   </ItemGroup>
 </Project>

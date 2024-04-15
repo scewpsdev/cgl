@@ -19,13 +19,13 @@ namespace AST
 	{
 	}
 
-	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams)
-		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), body(body), isGeneric(isGeneric), genericParams(genericParams)
+	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams)
+		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), body(body), isGeneric(isGeneric), genericParams(genericParams)
 	{
 	}
 
-	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
-		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
+	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
+		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
 	{
 	}
 
@@ -83,7 +83,7 @@ namespace AST
 				genericParamsCopy.add(_strdup(genericParams[i]));
 		}
 
-		return new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, (Statement*)body->copy(), isGeneric, genericParamsCopy);
+		return new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, (Statement*)body->copy(), isGeneric, genericParamsCopy);
 	}
 
 	int Function::getNumRequiredParams()
@@ -150,8 +150,8 @@ namespace AST
 		return nullptr;
 	}
 
-	Method::Method(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams)
-		: Function(file, location, flags, endLocation, name, returnType, paramTypes, paramNames, paramValues, varArgs, body, isGeneric, genericParams)
+	Method::Method(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams)
+		: Function(file, location, flags, endLocation, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsTypeAST, varArgsName, body, isGeneric, genericParams)
 	{
 		type = DeclarationType::ClassMethod;
 	}
@@ -182,11 +182,11 @@ namespace AST
 				genericParamsCopy.add(_strdup(genericParams[i]));
 		}
 
-		return new Method(file, location, flags, endLocation, _strdup(name), (Type*)returnType->copy(), paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, (Statement*)body->copy(), isGeneric, genericParamsCopy);
+		return new Method(file, location, flags, endLocation, _strdup(name), (Type*)returnType->copy(), paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, (Statement*)body->copy(), isGeneric, genericParamsCopy);
 	}
 
-	Constructor::Constructor(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Statement* body, bool isGeneric, const List<char*>& genericParams)
-		: Method(file, location, flags, endLocation, name, returnType, paramTypes, paramNames, paramValues, varArgs, body, isGeneric, genericParams)
+	Constructor::Constructor(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams)
+		: Method(file, location, flags, endLocation, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsTypeAST, varArgsName, body, isGeneric, genericParams)
 	{
 		type = DeclarationType::ClassConstructor;
 	}
@@ -217,7 +217,7 @@ namespace AST
 				genericParamsCopy.add(_strdup(genericParams[i]));
 		}
 
-		return new Constructor(file, location, flags, endLocation, _strdup(name), (Type*)returnType->copy(), paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, (Statement*)body->copy(), isGeneric, genericParamsCopy);
+		return new Constructor(file, location, flags, endLocation, _strdup(name), (Type*)returnType->copy(), paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, (Statement*)body->copy(), isGeneric, genericParamsCopy);
 	}
 
 	StructField::StructField(File* file, const SourceLocation& location, Type* type, char* name, int index)

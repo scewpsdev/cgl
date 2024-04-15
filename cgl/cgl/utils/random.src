@@ -1,0 +1,14 @@
+package snek.random;
+
+import cstdlib;
+
+
+public void seed(int seed)
+{
+	srand(uint(seed));
+}
+
+public float nextFloat()
+{
+	return rand() / (float)RAND_MAX;
+}
