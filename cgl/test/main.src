@@ -1,0 +1,17 @@
+import glfw;
+
+
+public void main()
+{
+	glfwInit();
+	GLFWwindow* window = glfwCreateWindow(1280, 720, "".ptr, null, null);
+	
+	while glfwWindowShouldClose(window) == GLFW_FALSE
+	{
+		glfwPollEvents();
+		glfwSwapBuffers(window);
+	}
+	
+	glfwDestroyWindow(window);
+	glfwTerminate();
+}
