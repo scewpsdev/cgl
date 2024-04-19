@@ -103,8 +103,7 @@ public void print(string format, any... args)
 		char c = format[i];
 		if (c == '%' && varArgIdx < args.length)
 		{
-			writeAny(args[i]);
-			varArgIdx++;
+			writeAny(args[varArgIdx++]);
 		}
 		else putchar(c);
 	}

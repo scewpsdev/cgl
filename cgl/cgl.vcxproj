@@ -155,7 +155,6 @@
     <ClCompile Include="src\cgl\Driver.cpp" />
     <ClCompile Include="src\cgl\File.cpp" />
     <ClCompile Include="src\cgl\Platform.cpp" />
-    <ClCompile Include="test\test.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cgl-core\cgl-core.vcxproj">

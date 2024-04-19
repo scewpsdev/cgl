@@ -1,0 +1,20 @@
+package glfw;
+
+
+public const int GLFW_FALSE = 0;
+public const int GLFW_TRUE = 1;
+
+
+public struct GLFWwindow;
+public struct GLFWmonitor;
+
+
+public externc int glfwInit();
+public externc void glfwTerminate();
+
+public externc void glfwPollEvents();
+
+public externc GLFWwindow* glfwCreateWindow(int width, int height, char* title, GLFWmonitor* monitor, GLFWwindow* share);
+public externc void glfwDestroyWindow(GLFWwindow* window);
+public externc int glfwWindowShouldClose(GLFWwindow* window);
+public externc void glfwSwapBuffers(GLFWwindow* window);

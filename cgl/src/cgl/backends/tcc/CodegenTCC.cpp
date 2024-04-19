@@ -20,11 +20,13 @@ class CodegenTCC
 
 	List<Variable*> importedGlobals;
 	List<AST::Function*> importedFunctions;
+	List<AST::Struct*> importedStructs;
 	std::map<TypeID, std::string> optionalTypes;
 	std::map<TypeID, std::string> tupleTypes;
 	std::map<TypeID, std::string> arrayTypes;
 
 	std::stringstream builtinDefinitionStream;
+	std::stringstream typeHeaders;
 	std::stringstream types;
 	std::stringstream constants;
 	std::stringstream globals;
@@ -227,6 +229,49 @@ class CodegenTCC
 		return "any";
 	}
 
+	void importStruct(AST::Struct* strct)
+	{
+		genStruct(strct);
+		return;
+
+		std::stringstream* parentStream = instructionStream;
+		instructionStream = &types;
+
+		*instructionStream << "struct " << strct->mangledName;
+
+		if (strct->hasBody)
+		{
+			*instructionStream << "{";
+			indentation++;
+			newLine();
+
+			genStruct(strct);
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "}";
+		}
+		else
+		{
+			*instructionStream << ";";
+		}
+
+		instructionStream = parentStream;
+	}
+
+	std::string genTypeStruct(TypeID type)
+	{
+		if (type->structType.declaration && type->structType.declaration->file != file)
+		{
+			if (!importedStructs.contains(type->structType.declaration))
+			{
+				importStruct(type->structType.declaration);
+				importedStructs.add(type->structType.declaration);
+			}
+		}
+		return "struct " + std::string(type->structType.name);
+	}
+
 	std::string genTypePointer(TypeID type)
 	{
 		return genType(type->pointerType.elementType) + "*";
@@ -312,6 +357,7 @@ class CodegenTCC
 			return genTypeAny();
 		case AST::TypeKind::NamedType:
 		case AST::TypeKind::Struct:
+			return genTypeStruct(type);
 		case AST::TypeKind::Class:
 		case AST::TypeKind::Alias:
 		case AST::TypeKind::Pointer:
@@ -453,9 +499,7 @@ class CodegenTCC
 
 			std::string value = expression;
 
-			if (ast && ast->lvalue)
-				;
-			else
+			if (!(ast && ast->lvalue))
 			{
 				char valueVariableName[8];
 				newLocalName(valueVariableName);
@@ -463,33 +507,35 @@ class CodegenTCC
 				*instructionStream << genType(valueTypeExtended) << ' ' << valueVariableName << '=' << value << ';';
 				newLine(*instructionStream);
 
-				switch (valueType->typeKind)
-				{
-				case AST::TypeKind::Any:
-				case AST::TypeKind::Struct:
-				case AST::TypeKind::Class:
-				case AST::TypeKind::Optional:
-				case AST::TypeKind::Function:
-				case AST::TypeKind::Tuple:
-				case AST::TypeKind::Array:
-				case AST::TypeKind::String:
-				{
-					char valuePointerName[8];
-					newLocalName(valuePointerName);
-
-					*instructionStream << genType(GetPointerType(valueTypeExtended)) << ' ' << valuePointerName << "=&" << valueVariableName << ';';
-					newLine(*instructionStream);
-
-					value = std::string(valuePointerName);
-					break;
-				}
-				default:
-					value = valueVariableName;
-					break;
-				}
+				value = valueVariableName;
 			}
 
-			return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",*(void**)&" + value + "}";
+			switch (valueType->typeKind)
+			{
+			case AST::TypeKind::Any:
+			case AST::TypeKind::Struct:
+			case AST::TypeKind::Class:
+			case AST::TypeKind::Optional:
+			case AST::TypeKind::Function:
+			case AST::TypeKind::Tuple:
+			case AST::TypeKind::Array:
+			case AST::TypeKind::String:
+			{
+				/*
+				char valuePointerName[8];
+				newLocalName(valuePointerName);
+
+				*instructionStream << genType(GetPointerType(valueTypeExtended)) << ' ' << valuePointerName << "=&" << value << ';';
+				newLine(*instructionStream);
+
+				value = std::string(valuePointerName);
+				*/
+
+				return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",(void*)&" + value + "}";
+			}
+			default:
+				return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",*(void**)&" + value + "}";
+			}
 		}
 		else if (valueType->typeKind == AST::TypeKind::Any)
 		{
@@ -586,7 +632,7 @@ class CodegenTCC
 
 	std::string genExpressionNullLiteral(AST::NullLiteral* expression)
 	{
-		return "{0}";
+		return "0";
 	}
 
 	void writeStringLiteral(const char* str, int length, std::stringstream& stream)
@@ -623,11 +669,11 @@ class CodegenTCC
 		char globalName[8];
 		newGlobalName(globalName);
 
-		constants << "static char " << globalName << "[]=";
+		constants << "static string " << globalName << "={";
 		writeStringLiteral(expression->value, expression->length, constants);
-		constants << ";\n";
+		constants << "," << std::to_string(expression->length) << "};\n";
 
-		return "(string){" + std::string(globalName) + "," + std::to_string(expression->length) + "}";
+		return std::string(globalName);
 	}
 
 	void importGlobal(Variable* variable)
@@ -636,7 +682,7 @@ class CodegenTCC
 		instructionStream = &globals;
 
 		if (variable->isConstant)
-			*instructionStream << "const " << genType(variable->type) << " " << variable->mangledName << ";" << std::endl;
+			*instructionStream << "static const " << genType(variable->type) << " " << variable->mangledName << "=" << genExpression(variable->value) << ";" << std::endl;
 		else
 			*instructionStream << "extern " << genType(variable->type) << " " << variable->mangledName << ";" << std::endl;
 
@@ -890,7 +936,7 @@ class CodegenTCC
 			if (expression->operand->valueType->arrayType.length != -1)
 				return operand + ".buffer[" + index + "]";
 			else
-				return operand + ".ptr[" + genExpression(expression->arguments[0]) + "]";
+				return operand + ".ptr[" + index + "]";
 		}
 		else if (expression->operand->valueType->typeKind == AST::TypeKind::String)
 		{
@@ -1297,23 +1343,25 @@ class CodegenTCC
 		std::stringstream stream;
 		//instructionStream = &stream;
 
-		stream << genType(statement->varType) << " ";
-
 		if (statement->isConstant)
 			stream << "const ";
+
+		TypeID varType = statement->varType;
+		int pointerDepth = 0;
+		while (varType->typeKind == AST::TypeKind::Pointer)
+		{
+			pointerDepth++;
+			varType = varType->pointerType.elementType;
+		}
+
+		stream << genType(varType) << " ";
 
 		for (int i = 0; i < statement->declarators.size; i++)
 		{
 			AST::VariableDeclarator* declarator = statement->declarators[i];
-			if (statement->varTypeAST)
-			{
-				AST::Type* type = statement->varTypeAST;
-				while (type->typeKind == AST::TypeKind::Pointer)
-				{
-					stream << "*";
-					type = ((AST::PointerType*)type)->elementType;
-				}
-			}
+			
+			for (int j = 0; j < pointerDepth; j++)
+				stream << '*';
 			stream << declarator->name;
 			if (declarator->value)
 			{
@@ -1605,6 +1653,41 @@ class CodegenTCC
 		}
 	}
 
+	void genStruct(AST::Struct* strct)
+	{
+		std::stringstream* parentStream = instructionStream;
+
+		std::stringstream structStream;
+		instructionStream = &structStream;
+
+		*instructionStream << "struct " << strct->mangledName;
+		if (strct->hasBody)
+		{
+			*instructionStream << "{";
+			indentation++;
+			newLine();
+
+			for (int i = 0; i < strct->fields.size; i++)
+			{
+				*instructionStream << genType(strct->fields[i]->type) << " " << strct->fields[i]->name << ";";
+				newLine();
+			}
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "}";
+		}
+		else
+		{
+			*instructionStream << ";";
+		}
+		*instructionStream << "\n\n";
+
+		instructionStream = parentStream;
+
+		types << structStream.str();
+	}
+
 	void genFunction(AST::Function* function)
 	{
 		std::stringstream* parentStream = instructionStream;
@@ -1710,7 +1793,7 @@ class CodegenTCC
 		if (HasFlag(global->flags, AST::DeclarationFlags::Extern) && !HasFlag(global->flags, AST::DeclarationFlags::Constant))
 			*instructionStream << "extern ";
 		else if (HasFlag(global->flags, AST::DeclarationFlags::Constant))
-			*instructionStream << "const ";
+			*instructionStream << "static const ";
 
 		*instructionStream << genType(global->varType->typeID);
 
@@ -1742,6 +1825,10 @@ public:
 		builtinDefinitionStream << "#include <cgl.h>\n";
 
 
+		for (AST::Struct* strct : file->structs)
+		{
+			genStruct(strct);
+		}
 		for (AST::Function* function : file->functions)
 		{
 			genFunction(function);
@@ -1758,6 +1845,8 @@ public:
 		std::stringstream fileStream;
 		if (builtinDefinitionStream.seekg(0, std::ios::end).tellg() > 0)
 			fileStream << builtinDefinitionStream.str() << std::endl << std::endl;
+		if (typeHeaders.seekg(0, std::ios::end).tellg() > 0)
+			fileStream << typeHeaders.str() << std::endl << std::endl;
 		if (types.seekg(0, std::ios::end).tellg() > 0)
 			fileStream << types.str() << std::endl << std::endl;
 		if (constants.seekg(0, std::ios::end).tellg() > 0)
