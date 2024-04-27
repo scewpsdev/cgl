@@ -22,6 +22,7 @@ class CodegenTCC
 	List<AST::Function*> importedFunctions;
 	List<AST::Struct*> importedStructs;
 	std::map<TypeID, std::string> optionalTypes;
+	std::map<TypeID, std::string> functionTypes;
 	std::map<TypeID, std::string> tupleTypes;
 	std::map<TypeID, std::string> arrayTypes;
 
@@ -272,6 +273,11 @@ class CodegenTCC
 		return "struct " + std::string(type->structType.name);
 	}
 
+	std::string genTypeAlias(TypeID type)
+	{
+		return genType(type->aliasType.alias);
+	}
+
 	std::string genTypePointer(TypeID type)
 	{
 		return genType(type->pointerType.elementType) + "*";
@@ -289,6 +295,29 @@ class CodegenTCC
 			return name;
 		}
 		return optionalTypes[type];
+	}
+
+	std::string genTypeFunction(TypeID type)
+	{
+		auto it = functionTypes.find(type);
+		if (it == functionTypes.end())
+		{
+			std::string name = "__" + mangleType(type);
+			std::string str = "typedef " + genType(type->functionType.returnType) + "(*" + name + ")(";
+			for (int i = 0; i < type->functionType.numParams; i++)
+			{
+				str += genType(type->functionType.paramTypes[i]);
+				if (type->functionType.declaration)
+					str += " " + std::string(type->functionType.declaration->paramNames[i]);
+				if (i < type->functionType.numParams - 1)
+					str += ",";
+			}
+			str += ");";
+			types << str << std::endl;
+			functionTypes.emplace(type, name);
+			return name;
+		}
+		return functionTypes[type];
 	}
 
 	std::string genTypeTuple(TypeID type)
@@ -356,15 +385,21 @@ class CodegenTCC
 		case AST::TypeKind::Any:
 			return genTypeAny();
 		case AST::TypeKind::NamedType:
+			SnekAssert(false);
+			return "";
 		case AST::TypeKind::Struct:
 			return genTypeStruct(type);
 		case AST::TypeKind::Class:
+			SnekAssert(false);
+			return "";
 		case AST::TypeKind::Alias:
+			return genTypeAlias(type);
 		case AST::TypeKind::Pointer:
 			return genTypePointer(type);
 		case AST::TypeKind::Optional:
 			return genTypeOptional(type);
 		case AST::TypeKind::Function:
+			return genTypeFunction(type);
 		case AST::TypeKind::Tuple:
 			return genTypeTuple(type);
 		case AST::TypeKind::Array:
@@ -1359,7 +1394,7 @@ class CodegenTCC
 		for (int i = 0; i < statement->declarators.size; i++)
 		{
 			AST::VariableDeclarator* declarator = statement->declarators[i];
-			
+
 			for (int j = 0; j < pointerDepth; j++)
 				stream << '*';
 			stream << declarator->name;
@@ -1445,10 +1480,13 @@ class CodegenTCC
 		std::stringstream stream;
 		instructionStream = &stream;
 
-		auto condition = genExpression(statement->condition);
+		stream << "while(1){";
 
-		stream << "while(" << castValue(condition, statement->condition->valueType, GetBoolType()) << "){";
+		std::string cond = genExpression(statement->condition);
+		cond = castValue(cond, statement->condition->valueType, GetBoolType());
 
+		stream << "if(!(" << cond << "))break;";
+		
 		indentation++;
 		newLine();
 
@@ -1675,7 +1713,7 @@ class CodegenTCC
 
 			stepBackWhitespace();
 			indentation--;
-			*instructionStream << "}";
+			*instructionStream << "};";
 		}
 		else
 		{
@@ -1694,6 +1732,10 @@ class CodegenTCC
 
 		std::stringstream functionStream;
 		instructionStream = &functionStream;
+
+		// Apparently not needed for functions?
+		//if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
+		//	*instructionStream << "__declspec(dllimport) ";
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::Extern))
 			*instructionStream << "extern ";
@@ -1777,6 +1819,7 @@ class CodegenTCC
 		instructionStream = &typedefStream;
 
 		*instructionStream << "typedef " << genType(td->alias) << " " << td->name << ";";
+		newLine();
 
 		instructionStream = parentStream;
 
@@ -1790,23 +1833,38 @@ class CodegenTCC
 		std::stringstream globalStream;
 		instructionStream = &globalStream;
 
-		if (HasFlag(global->flags, AST::DeclarationFlags::Extern) && !HasFlag(global->flags, AST::DeclarationFlags::Constant))
-			*instructionStream << "extern ";
-		else if (HasFlag(global->flags, AST::DeclarationFlags::Constant))
-			*instructionStream << "static const ";
-
-		*instructionStream << genType(global->varType->typeID);
-
-		for (int i = 0; i < global->declarators.size; i++)
+		if (HasFlag(global->flags, AST::DeclarationFlags::Constant) &&
+			(global->varType->typeKind == AST::TypeKind::Integer || global->varType->typeKind == AST::TypeKind::FloatingPoint || global->varType->typeKind == AST::TypeKind::Boolean))
 		{
-			AST::VariableDeclarator* declarator = global->declarators[i];
-			*instructionStream << " " << declarator->variable->mangledName;
-			if (declarator->value)
-				*instructionStream << "=" << castValue(declarator->value, global->varType->typeID);
-			if (i < global->declarators.size - 1)
-				*instructionStream << ",";
+			for (int i = 0; i < global->declarators.size; i++)
+			{
+				AST::VariableDeclarator* declarator = global->declarators[i];
+				*instructionStream << "#define " << declarator->variable->mangledName;
+				SnekAssert(declarator->value);
+				*instructionStream << " (" << castValue(declarator->value, global->varType->typeID) << ")";
+				newLine();
+			}
 		}
-		*instructionStream << ";" << std::endl;
+		else
+		{
+			if (HasFlag(global->flags, AST::DeclarationFlags::Extern) && !HasFlag(global->flags, AST::DeclarationFlags::Constant))
+				*instructionStream << "extern ";
+			else if (HasFlag(global->flags, AST::DeclarationFlags::Constant))
+				*instructionStream << "static const ";
+
+			*instructionStream << genType(global->varType->typeID);
+
+			for (int i = 0; i < global->declarators.size; i++)
+			{
+				AST::VariableDeclarator* declarator = global->declarators[i];
+				*instructionStream << " " << declarator->variable->mangledName;
+				if (declarator->value)
+					*instructionStream << "=" << castValue(declarator->value, global->varType->typeID);
+				if (i < global->declarators.size - 1)
+					*instructionStream << ",";
+			}
+			*instructionStream << ";" << std::endl;
+		}
 
 		instructionStream = parentStream;
 
@@ -1911,6 +1969,22 @@ int CGLCompiler::run(int argc, char* argv[], bool printIR)
 		}
 	}
 
+	for (const LinkerFile& linkerFile : linkerFiles)
+	{
+		if (tcc_add_file(tcc, linkerFile.filename))
+		{
+			SnekError(this, "Failed to add file %s", linkerFile.filename);
+		}
+	}
+
+	for (const char* linkerPath : linkerPaths)
+	{
+		if (tcc_add_library_path(tcc, linkerPath))
+		{
+			SnekError(this, "Failed to add linker path %s", linkerPath);
+		}
+	}
+
 	int result = tcc_run(tcc, argc, argv);
 
 	tcc_delete(tcc);
@@ -1953,6 +2027,22 @@ int CGLCompiler::output(const char* path, bool printIR)
 		if (tcc_compile_string(tcc, cSrc.c_str()) == -1)
 		{
 			SnekAssert(false);
+		}
+	}
+
+	for (const LinkerFile& linkerFile : linkerFiles)
+	{
+		if (tcc_add_file(tcc, linkerFile.filename))
+		{
+			SnekError(this, "Failed to add file %s", linkerFile.filename);
+		}
+	}
+
+	for (const char* linkerPath : linkerPaths)
+	{
+		if (tcc_add_library_path(tcc, linkerPath))
+		{
+			SnekError(this, "Failed to add linker path %s", linkerPath);
 		}
 	}
 

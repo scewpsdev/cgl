@@ -4,7 +4,7 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>src/**.src -o bin/a.exe --print-ir</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>src/**.src -o bin/a.exe --print-ir D:/Dev/2023/CGL/cgl/cgl/raylib/raylib.def</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>D:/Dev/2023/SnekSandbox/</LocalDebuggerWorkingDirectory>
   </PropertyGroup>

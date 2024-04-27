@@ -31,6 +31,11 @@ __a4af32 trainingData2 = { {{(__a3f32) { {0.0f,0.0f,0.0f} }.buffer,3},{(__a3f32)
 
 
 
+int bar()
+{
+	return 5;
+}
+
 void testFunc(int a, ...)
 {
 	va_list args;

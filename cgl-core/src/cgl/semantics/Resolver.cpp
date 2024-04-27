@@ -346,7 +346,7 @@ static bool ResolveFunctionType(Resolver* resolver, AST::FunctionType* type)
 	if (type->varArgsType)
 		result = ResolveType(resolver, type->varArgsType) && result;
 
-	type->typeID = GetFunctionType(type->returnType->typeID, numParams, paramTypes, varArgs, type->varArgsType->typeID, false, nullptr, nullptr);
+	type->typeID = GetFunctionType(type->returnType->typeID, numParams, paramTypes, varArgs, type->varArgsType ? type->varArgsType->typeID : nullptr, false, nullptr, nullptr);
 
 	return result;
 }
@@ -2354,7 +2354,7 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			}
 		}
 
-		if (decl->varArgs)
+		if (decl->varArgs && decl->varArgsTypeAST)
 		{
 			result = ResolveType(resolver, decl->varArgsTypeAST) && result;
 			decl->varArgsType = decl->varArgsTypeAST->typeID;
@@ -2797,6 +2797,11 @@ static bool ResolveTypedefHeader(Resolver* resolver, AST::Typedef* decl)
 	decl->visibility = GetVisibilityFromFlags(decl->flags);
 	decl->type = GetAliasType(decl->name, decl);
 
+	bool result = true;
+
+	result = ResolveType(resolver, decl->alias) && result;
+	decl->type->aliasType.alias = decl->alias->typeID;
+
 	return true;
 }
 
@@ -2806,12 +2811,15 @@ static bool ResolveTypedef(Resolver* resolver, AST::Typedef* decl)
 	resolver->currentElement = decl;
 	defer _(nullptr, [=](...) { resolver->currentElement = lastElement; });
 
+	/*
 	bool result = true;
 
 	result = ResolveType(resolver, decl->alias) && result;
 	decl->type->aliasType.alias = decl->alias->typeID;
 
 	return result;
+	*/
+	return true;
 }
 
 static bool ResolveEnumHeader(Resolver* resolver, AST::Enum* decl)

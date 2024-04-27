@@ -132,13 +132,14 @@ static void AddSourceFile(CGLCompiler& compiler, char* src, char* path, char* mo
 
 static void AddLinkerFile(CGLCompiler& compiler, const char* path)
 {
+	compiler.addLinkerFile(path);
 	//SnekAddLinkerFile(context, path);
 }
 
 static bool AddFile(CGLCompiler& compiler, const char* path)
 {
 	const char* fileExtension = GetExtensionFromPath(path);
-	if (strcmp(fileExtension, "obj") == 0 || strcmp(fileExtension, "o") == 0 || strcmp(fileExtension, "lib") == 0 || strcmp(fileExtension, "a") == 0)
+	if (strcmp(fileExtension, "obj") == 0 || strcmp(fileExtension, "o") == 0 || strcmp(fileExtension, "lib") == 0 || strcmp(fileExtension, "a") == 0 || strcmp(fileExtension, "def") == 0)
 	{
 		AddLinkerFile(compiler, path);
 		return true;
@@ -213,6 +214,16 @@ int main(int argc, char* argv[])
 				{
 					outPath = argv[++i];
 				}
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a path", arg);
+					result = false;
+				}
+			}
+			else if (strcmp(arg, "-L") == 0)
+			{
+				if (i < argc - 1)
+					compiler.addLinkerPath(argv[++i]);
 				else
 				{
 					SnekError(&compiler, "%s must be followed by a path", arg);

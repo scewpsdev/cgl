@@ -1,10 +1,14 @@
 #pragma once
 
 
-class SourceFile
+struct SourceFile
 {
-public:
 	const char* filename = nullptr;
 	const char* name = nullptr;
 	const char* source = nullptr;
+};
+
+struct LinkerFile
+{
+	const char* filename = nullptr;
 };

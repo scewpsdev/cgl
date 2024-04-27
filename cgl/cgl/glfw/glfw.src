@@ -1,3 +1,4 @@
+/*
 package glfw;
 
 
@@ -18,3 +19,4 @@ public externc GLFWwindow* glfwCreateWindow(int width, int height, char* title, 
 public externc void glfwDestroyWindow(GLFWwindow* window);
 public externc int glfwWindowShouldClose(GLFWwindow* window);
 public externc void glfwSwapBuffers(GLFWwindow* window);
+*/

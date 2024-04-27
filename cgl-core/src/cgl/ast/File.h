@@ -5,7 +5,7 @@
 #include "cgl/utils/List.h"
 
 
-class SourceFile;
+struct SourceFile;
 
 namespace AST
 {

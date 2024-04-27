@@ -1,0 +1,1432 @@
+package raylib;
+
+
+public const float PI = 3.1415926538979323846f;
+public const float DEG2RAD = PI / 180.0f;
+public const float RAD2DEG = 180.0f / PI;
+
+
+public struct Vector2
+{
+	float x;
+	float y;
+}
+
+public struct Vector3
+{
+	float x;
+	float y;
+	float z;
+}
+
+public struct Vector4
+{
+	float x;
+	float y;
+	float z;
+	float w;
+}
+
+public typedef Quaternion : Vector4;
+
+public struct Matrix
+{
+	float m0, m4, m8, m12;
+    float m1, m5, m9, m13;
+    float m2, m6, m10, m14;
+    float m3, m7, m11, m15;
+}
+
+public struct Color
+{
+	byte r;
+	byte g;
+	byte b;
+	byte a;
+}
+
+public struct Rectangle
+{
+	float x;
+	float y;
+	float width;
+	float height;
+}
+
+public struct Image
+{
+	byte* data;
+	int width;
+	int height;
+	int mipmaps;
+	int format;
+}
+
+public struct Texture
+{
+	uint id;
+	int width;
+	int height;
+	int mipmaps;int format;
+}
+
+public typedef Texture2D : Texture;
+
+public typedef TextureCubemap : Texture;
+
+public struct RenderTexture
+{
+	uint id;
+	Texture texture;
+	Texture depth;
+}
+
+public typedef RenderTexture2D : RenderTexture;
+
+public struct NPatchInfo
+{
+	Rectangle source;
+	int left;
+	int top;
+	int right;
+	int bottom;
+	int layout;
+}
+
+public struct GlyphInfo
+{
+	int value;
+	int offsetX;
+	int offsetY;
+	int advanceX;
+	Image image;
+}
+
+public struct Font
+{
+	int baseSize;
+	int glyphCount;
+	int glyphPadding;
+	Texture2D texture;
+	Rectangle* rects;
+	GlyphInfo* glyphs;
+}
+
+public struct Camera3D
+{
+	Vector3 position;
+	Vector3 target;
+	Vector3 up;
+	float fovy;
+	int projection;
+}
+
+public typedef Camera : Camera3D;
+
+public struct Camera2D
+{
+	Vector2 offset;
+	Vector2 target;
+	float rotation;
+	float zoom;
+}
+
+public struct Mesh
+{
+	int vertexCount;        // Number of vertices stored in arrays
+    int triangleCount;      // Number of triangles stored (indexed or not)
+
+    // Vertex attributes data
+    float* vertices;        // Vertex position (XYZ - 3 components per vertex) (shader-location = 0)
+    float* texcoords;       // Vertex texture coordinates (UV - 2 components per vertex) (shader-location = 1)
+    float* texcoords2;      // Vertex texture second coordinates (UV - 2 components per vertex) (shader-location = 5)
+    float* normals;         // Vertex normals (XYZ - 3 components per vertex) (shader-location = 2)
+    float* tangents;        // Vertex tangents (XYZW - 4 components per vertex) (shader-location = 4)
+    byte* colors;      // Vertex colors (RGBA - 4 components per vertex) (shader-location = 3)
+    ushort* indices;    // Vertex indices (in case vertex data comes indexed)
+
+    // Animation vertex data
+    float* animVertices;    // Animated vertex positions (after bones transformations)
+    float* animNormals;     // Animated normals (after bones transformations)
+    byte* boneIds; // Vertex bone ids, max 255 bone ids, up to 4 bones influence by vertex (skinning)
+    float* boneWeights;     // Vertex bone weight, up to 4 bones influence by vertex (skinning)
+
+    // OpenGL identifiers
+    uint vaoId;     // OpenGL Vertex Array Object id
+    uint* vboId;    // OpenGL Vertex Buffer Objects id (default vertex data)
+}
+
+public struct Shader
+{
+	uint id;
+	int* locs;
+}
+
+public struct MaterialMap
+{
+	Texture2D texture;
+	Color color;
+	float value;
+}
+
+public struct Material
+{
+	Shader shader;
+	MaterialMap* maps;
+	float[4] params;
+}
+
+public struct Transform
+{
+	Vector3 translation;
+	Quaternion rotation;
+	Vector3 scale;
+}
+
+public struct BoneInfo
+{
+	char[32] name;
+	int parent;
+}
+
+public struct Model
+{
+	Matrix transform;       // Local transform matrix
+
+    int meshCount;          // Number of meshes
+    int materialCount;      // Number of materials
+    Mesh* meshes;           // Meshes array
+    Material* materials;    // Materials array
+    int* meshMaterial;      // Mesh material number
+
+    // Animation data
+    int boneCount;          // Number of bones
+    BoneInfo* bones;        // Bones information (skeleton)
+    Transform* bindPose;    // Bones base transformation (pose)
+}
+
+public struct ModelAnimation
+{
+	int boneCount;
+	int frameCount;
+	BoneInfo* bones;
+	Transform** framePoses;
+	char[32] name;
+}
+
+public struct Ray
+{
+	Vector3 position;
+	Vector3 direction;
+}
+
+public struct RayCollision
+{
+	bool hit;
+	float distance;
+	Vector3 point;
+	Vector3 normal;
+}
+
+public struct BoundingBox
+{
+	Vector3 min;
+	Vector3 max;
+}
+
+public struct Wave
+{
+	uint frameCount;
+	uint sampleRate;
+	uint sampleSize;
+	uint channels;
+	byte* data;
+}
+
+public typedef rAudioBuffer : void;
+public typedef rAudioProcessor : void;
+
+public struct AudioStream
+{
+	rAudioBuffer* buffer;
+	rAudioProcessor* processor;
+	
+	uint sampleRate;
+	uint sampleSize;
+	uint channels;
+}
+
+public struct Sound
+{
+	AudioStream stream;
+	uint frameCount;
+}
+
+public struct Music
+{
+	AudioStream stream;
+	uint frameCount;
+	bool looping;
+	
+	int ctxType;
+	byte* ctxData;
+}
+
+public struct VrDeviceInfo
+{
+	int hResolution;                // Horizontal resolution in pixels
+    int vResolution;                // Vertical resolution in pixels
+    float hScreenSize;              // Horizontal size in meters
+    float vScreenSize;              // Vertical size in meters
+    float vScreenCenter;            // Screen center in meters
+    float eyeToScreenDistance;      // Distance between eye and display in meters
+    float lensSeparationDistance;   // Lens separation distance in meters
+    float interpupillaryDistance;   // IPD (distance between pupils) in meters
+    float[4] lensDistortionValues;  // Lens distortion constant parameters
+    float[4] chromaAbCorrection;    // Chromatic aberration correction parameters
+}
+
+// VrStereoConfig, VR stereo rendering configuration for simulator
+public struct VrStereoConfig
+{
+    Matrix[2] projection;           // VR projection matrices (per eye)
+    Matrix[2] viewOffset;           // VR view offset matrices (per eye)
+    float[2] leftLensCenter;        // VR left lens center
+    float[2] rightLensCenter;       // VR right lens center
+    float[2] leftScreenCenter;      // VR left screen center
+    float[2] rightScreenCenter;     // VR right screen center
+    float[2] scale;                 // VR distortion scale
+    float[2] scaleIn;               // VR distortion scale in
+}
+
+// File path list
+public struct FilePathList
+{
+    uint capacity;          // Filepaths max entries
+    uint count;             // Filepaths entries count
+    byte** paths;                   // Filepaths entries
+}
+
+// Automation event
+public struct AutomationEvent
+{
+    uint frame;             // Event frame
+    uint type;              // Event type (AutomationEventType)
+    int[4] params;                  // Event parameters (if required)
+}
+
+// Automation event list
+public struct AutomationEventList
+{
+    uint capacity;          // Events max entries (MAX_AUTOMATION_EVENTS)
+    uint count;             // Events entries count
+    AutomationEvent* events;        // Events entries
+}
+
+public enum ConfigFlags
+{
+	FLAG_VSYNC_HINT         = 0x00000040,   // Set to try enabling V-Sync on GPU
+	FLAG_FULLSCREEN_MODE    = 0x00000002,   // Set to run program in fullscreen
+	FLAG_WINDOW_RESIZABLE   = 0x00000004,   // Set to allow resizable window
+	FLAG_WINDOW_UNDECORATED = 0x00000008,   // Set to disable window decoration (frame and buttons)
+	FLAG_WINDOW_HIDDEN      = 0x00000080,   // Set to hide window
+	FLAG_WINDOW_MINIMIZED   = 0x00000200,   // Set to minimize window (iconify)
+	FLAG_WINDOW_MAXIMIZED   = 0x00000400,   // Set to maximize window (expanded to monitor)
+	FLAG_WINDOW_UNFOCUSED   = 0x00000800,   // Set to window non focused
+	FLAG_WINDOW_TOPMOST     = 0x00001000,   // Set to window always on top
+	FLAG_WINDOW_ALWAYS_RUN  = 0x00000100,   // Set to allow windows running while minimized
+	FLAG_WINDOW_TRANSPARENT = 0x00000010,   // Set to allow transparent framebuffer
+	FLAG_WINDOW_HIGHDPI     = 0x00002000,   // Set to support HighDPI
+	FLAG_WINDOW_MOUSE_PASSTHROUGH = 0x00004000, // Set to support mouse passthrough, only supported when FLAG_WINDOW_UNDECORATED
+	FLAG_BORDERLESS_WINDOWED_MODE = 0x00008000, // Set to run program in borderless windowed mode
+	FLAG_MSAA_4X_HINT       = 0x00000020,   // Set to try enabling MSAA 4X
+	FLAG_INTERLACED_HINT    = 0x00010000    // Set to try enabling interlaced video format (for V3D)
+}
+
+public enum TraceLogLevel
+{
+	LOG_ALL = 0,        // Display all logs
+	LOG_TRACE,          // Trace logging, intended for internal use only
+	LOG_DEBUG,          // Debug logging, used for internal debugging, it should be disabled on release builds
+	LOG_INFO,           // Info logging, used for program execution info
+	LOG_WARNING,        // Warning logging, used on recoverable failures
+	LOG_ERROR,          // Error logging, used on unrecoverable failures
+	LOG_FATAL,          // Fatal logging, used to abort program: exit(EXIT_FAILURE)
+	LOG_NONE            // Disable logging
+}
+
+public enum KeyboardKey
+{
+	KEY_NULL            = 0,        // Key: NULL, used for no key pressed
+    // Alphanumeric keys
+    KEY_APOSTROPHE      = 39,       // Key: '
+    KEY_COMMA           = 44,       // Key: ,
+    KEY_MINUS           = 45,       // Key: -
+    KEY_PERIOD          = 46,       // Key: .
+    KEY_SLASH           = 47,       // Key: /
+    KEY_ZERO            = 48,       // Key: 0
+    KEY_ONE             = 49,       // Key: 1
+    KEY_TWO             = 50,       // Key: 2
+    KEY_THREE           = 51,       // Key: 3
+    KEY_FOUR            = 52,       // Key: 4
+    KEY_FIVE            = 53,       // Key: 5
+    KEY_SIX             = 54,       // Key: 6
+    KEY_SEVEN           = 55,       // Key: 7
+    KEY_EIGHT           = 56,       // Key: 8
+    KEY_NINE            = 57,       // Key: 9
+    KEY_SEMICOLON       = 59,       // Key: ;
+    KEY_EQUAL           = 61,       // Key: =
+    KEY_A               = 65,       // Key: A | a
+    KEY_B               = 66,       // Key: B | b
+    KEY_C               = 67,       // Key: C | c
+    KEY_D               = 68,       // Key: D | d
+    KEY_E               = 69,       // Key: E | e
+    KEY_F               = 70,       // Key: F | f
+    KEY_G               = 71,       // Key: G | g
+    KEY_H               = 72,       // Key: H | h
+    KEY_I               = 73,       // Key: I | i
+    KEY_J               = 74,       // Key: J | j
+    KEY_K               = 75,       // Key: K | k
+    KEY_L               = 76,       // Key: L | l
+    KEY_M               = 77,       // Key: M | m
+    KEY_N               = 78,       // Key: N | n
+    KEY_O               = 79,       // Key: O | o
+    KEY_P               = 80,       // Key: P | p
+    KEY_Q               = 81,       // Key: Q | q
+    KEY_R               = 82,       // Key: R | r
+    KEY_S               = 83,       // Key: S | s
+    KEY_T               = 84,       // Key: T | t
+    KEY_U               = 85,       // Key: U | u
+    KEY_V               = 86,       // Key: V | v
+    KEY_W               = 87,       // Key: W | w
+    KEY_X               = 88,       // Key: X | x
+    KEY_Y               = 89,       // Key: Y | y
+    KEY_Z               = 90,       // Key: Z | z
+    KEY_LEFT_BRACKET    = 91,       // Key: [
+    KEY_BACKSLASH       = 92,       // Key: '\'
+    KEY_RIGHT_BRACKET   = 93,       // Key: ]
+    KEY_GRAVE           = 96,       // Key: `
+    // Function keys
+    KEY_SPACE           = 32,       // Key: Space
+    KEY_ESCAPE          = 256,      // Key: Esc
+    KEY_ENTER           = 257,      // Key: Enter
+    KEY_TAB             = 258,      // Key: Tab
+    KEY_BACKSPACE       = 259,      // Key: Backspace
+    KEY_INSERT          = 260,      // Key: Ins
+    KEY_DELETE          = 261,      // Key: Del
+    KEY_RIGHT           = 262,      // Key: Cursor right
+    KEY_LEFT            = 263,      // Key: Cursor left
+    KEY_DOWN            = 264,      // Key: Cursor down
+    KEY_UP              = 265,      // Key: Cursor up
+    KEY_PAGE_UP         = 266,      // Key: Page up
+    KEY_PAGE_DOWN       = 267,      // Key: Page down
+    KEY_HOME            = 268,      // Key: Home
+    KEY_END             = 269,      // Key: End
+    KEY_CAPS_LOCK       = 280,      // Key: Caps lock
+    KEY_SCROLL_LOCK     = 281,      // Key: Scroll down
+    KEY_NUM_LOCK        = 282,      // Key: Num lock
+    KEY_PRINT_SCREEN    = 283,      // Key: Print screen
+    KEY_PAUSE           = 284,      // Key: Pause
+    KEY_F1              = 290,      // Key: F1
+    KEY_F2              = 291,      // Key: F2
+    KEY_F3              = 292,      // Key: F3
+    KEY_F4              = 293,      // Key: F4
+    KEY_F5              = 294,      // Key: F5
+    KEY_F6              = 295,      // Key: F6
+    KEY_F7              = 296,      // Key: F7
+    KEY_F8              = 297,      // Key: F8
+    KEY_F9              = 298,      // Key: F9
+    KEY_F10             = 299,      // Key: F10
+    KEY_F11             = 300,      // Key: F11
+    KEY_F12             = 301,      // Key: F12
+    KEY_LEFT_SHIFT      = 340,      // Key: Shift left
+    KEY_LEFT_CONTROL    = 341,      // Key: Control left
+    KEY_LEFT_ALT        = 342,      // Key: Alt left
+    KEY_LEFT_SUPER      = 343,      // Key: Super left
+    KEY_RIGHT_SHIFT     = 344,      // Key: Shift right
+    KEY_RIGHT_CONTROL   = 345,      // Key: Control right
+    KEY_RIGHT_ALT       = 346,      // Key: Alt right
+    KEY_RIGHT_SUPER     = 347,      // Key: Super right
+    KEY_KB_MENU         = 348,      // Key: KB menu
+    // Keypad keys
+    KEY_KP_0            = 320,      // Key: Keypad 0
+    KEY_KP_1            = 321,      // Key: Keypad 1
+    KEY_KP_2            = 322,      // Key: Keypad 2
+    KEY_KP_3            = 323,      // Key: Keypad 3
+    KEY_KP_4            = 324,      // Key: Keypad 4
+    KEY_KP_5            = 325,      // Key: Keypad 5
+    KEY_KP_6            = 326,      // Key: Keypad 6
+    KEY_KP_7            = 327,      // Key: Keypad 7
+    KEY_KP_8            = 328,      // Key: Keypad 8
+    KEY_KP_9            = 329,      // Key: Keypad 9
+    KEY_KP_DECIMAL      = 330,      // Key: Keypad .
+    KEY_KP_DIVIDE       = 331,      // Key: Keypad /
+    KEY_KP_MULTIPLY     = 332,      // Key: Keypad *
+    KEY_KP_SUBTRACT     = 333,      // Key: Keypad -
+    KEY_KP_ADD          = 334,      // Key: Keypad +
+    KEY_KP_ENTER        = 335,      // Key: Keypad Enter
+    KEY_KP_EQUAL        = 336,      // Key: Keypad =
+    // Android key buttons
+    KEY_BACK            = 4,        // Key: Android back button
+    KEY_MENU            = 82,       // Key: Android menu button
+    KEY_VOLUME_UP       = 24,       // Key: Android volume up button
+    KEY_VOLUME_DOWN     = 25        // Key: Android volume down button
+}
+
+public enum MouseButton
+{
+	MOUSE_BUTTON_LEFT    = 0,       // Mouse button left
+    MOUSE_BUTTON_RIGHT   = 1,       // Mouse button right
+    MOUSE_BUTTON_MIDDLE  = 2,       // Mouse button middle (pressed wheel)
+    MOUSE_BUTTON_SIDE    = 3,       // Mouse button side (advanced mouse device)
+    MOUSE_BUTTON_EXTRA   = 4,       // Mouse button extra (advanced mouse device)
+    MOUSE_BUTTON_FORWARD = 5,       // Mouse button forward (advanced mouse device)
+    MOUSE_BUTTON_BACK    = 6,       // Mouse button back (advanced mouse device)
+}
+
+public enum MouseCursor
+{
+	MOUSE_CURSOR_DEFAULT       = 0,     // Default pointer shape
+    MOUSE_CURSOR_ARROW         = 1,     // Arrow shape
+    MOUSE_CURSOR_IBEAM         = 2,     // Text writing cursor shape
+    MOUSE_CURSOR_CROSSHAIR     = 3,     // Cross shape
+    MOUSE_CURSOR_POINTING_HAND = 4,     // Pointing hand cursor
+    MOUSE_CURSOR_RESIZE_EW     = 5,     // Horizontal resize/move arrow shape
+    MOUSE_CURSOR_RESIZE_NS     = 6,     // Vertical resize/move arrow shape
+    MOUSE_CURSOR_RESIZE_NWSE   = 7,     // Top-left to bottom-right diagonal resize/move arrow shape
+    MOUSE_CURSOR_RESIZE_NESW   = 8,     // The top-right to bottom-left diagonal resize/move arrow shape
+    MOUSE_CURSOR_RESIZE_ALL    = 9,     // The omnidirectional resize/move cursor shape
+    MOUSE_CURSOR_NOT_ALLOWED   = 10     // The operation-not-allowed shape
+}
+
+public enum GamepadButton
+{
+	GAMEPAD_BUTTON_UNKNOWN = 0,         // Unknown button, just for error checking
+    GAMEPAD_BUTTON_LEFT_FACE_UP,        // Gamepad left DPAD up button
+    GAMEPAD_BUTTON_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
+    GAMEPAD_BUTTON_LEFT_FACE_DOWN,      // Gamepad left DPAD down button
+    GAMEPAD_BUTTON_LEFT_FACE_LEFT,      // Gamepad left DPAD left button
+    GAMEPAD_BUTTON_RIGHT_FACE_UP,       // Gamepad right button up (i.e. PS3: Triangle, Xbox: Y)
+    GAMEPAD_BUTTON_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Square, Xbox: X)
+    GAMEPAD_BUTTON_RIGHT_FACE_DOWN,     // Gamepad right button down (i.e. PS3: Cross, Xbox: A)
+    GAMEPAD_BUTTON_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Circle, Xbox: B)
+    GAMEPAD_BUTTON_LEFT_TRIGGER_1,      // Gamepad top/back trigger left (first), it could be a trailing button
+    GAMEPAD_BUTTON_LEFT_TRIGGER_2,      // Gamepad top/back trigger left (second), it could be a trailing button
+    GAMEPAD_BUTTON_RIGHT_TRIGGER_1,     // Gamepad top/back trigger right (one), it could be a trailing button
+    GAMEPAD_BUTTON_RIGHT_TRIGGER_2,     // Gamepad top/back trigger right (second), it could be a trailing button
+    GAMEPAD_BUTTON_MIDDLE_LEFT,         // Gamepad center buttons, left one (i.e. PS3: Select)
+    GAMEPAD_BUTTON_MIDDLE,              // Gamepad center buttons, middle one (i.e. PS3: PS, Xbox: XBOX)
+    GAMEPAD_BUTTON_MIDDLE_RIGHT,        // Gamepad center buttons, right one (i.e. PS3: Start)
+    GAMEPAD_BUTTON_LEFT_THUMB,          // Gamepad joystick pressed button left
+    GAMEPAD_BUTTON_RIGHT_THUMB          // Gamepad joystick pressed button right
+}
+
+public enum GamepadAxis
+{
+	GAMEPAD_AXIS_LEFT_X        = 0,     // Gamepad left stick X axis
+    GAMEPAD_AXIS_LEFT_Y        = 1,     // Gamepad left stick Y axis
+    GAMEPAD_AXIS_RIGHT_X       = 2,     // Gamepad right stick X axis
+    GAMEPAD_AXIS_RIGHT_Y       = 3,     // Gamepad right stick Y axis
+    GAMEPAD_AXIS_LEFT_TRIGGER  = 4,     // Gamepad back trigger left, pressure level: [1..-1]
+    GAMEPAD_AXIS_RIGHT_TRIGGER = 5      // Gamepad back trigger right, pressure level: [1..-1]
+}
+
+public enum MaterialMapIndex
+{
+	MATERIAL_MAP_ALBEDO = 0,        // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
+    MATERIAL_MAP_METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
+    MATERIAL_MAP_NORMAL,            // Normal material
+    MATERIAL_MAP_ROUGHNESS,         // Roughness material
+    MATERIAL_MAP_OCCLUSION,         // Ambient occlusion material
+    MATERIAL_MAP_EMISSION,          // Emission material
+    MATERIAL_MAP_HEIGHT,            // Heightmap material
+    MATERIAL_MAP_CUBEMAP,           // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+    MATERIAL_MAP_IRRADIANCE,        // Irradiance material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+    MATERIAL_MAP_PREFILTER,         // Prefilter material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+    MATERIAL_MAP_BRDF               // Brdf material
+}
+
+public enum ShaderLocationIndex
+{
+	SHADER_LOC_VERTEX_POSITION = 0, // Shader location: vertex attribute: position
+    SHADER_LOC_VERTEX_TEXCOORD01,   // Shader location: vertex attribute: texcoord01
+    SHADER_LOC_VERTEX_TEXCOORD02,   // Shader location: vertex attribute: texcoord02
+    SHADER_LOC_VERTEX_NORMAL,       // Shader location: vertex attribute: normal
+    SHADER_LOC_VERTEX_TANGENT,      // Shader location: vertex attribute: tangent
+    SHADER_LOC_VERTEX_COLOR,        // Shader location: vertex attribute: color
+    SHADER_LOC_MATRIX_MVP,          // Shader location: matrix uniform: model-view-projection
+    SHADER_LOC_MATRIX_VIEW,         // Shader location: matrix uniform: view (camera transform)
+    SHADER_LOC_MATRIX_PROJECTION,   // Shader location: matrix uniform: projection
+    SHADER_LOC_MATRIX_MODEL,        // Shader location: matrix uniform: model (transform)
+    SHADER_LOC_MATRIX_NORMAL,       // Shader location: matrix uniform: normal
+    SHADER_LOC_VECTOR_VIEW,         // Shader location: vector uniform: view
+    SHADER_LOC_COLOR_DIFFUSE,       // Shader location: vector uniform: diffuse color
+    SHADER_LOC_COLOR_SPECULAR,      // Shader location: vector uniform: specular color
+    SHADER_LOC_COLOR_AMBIENT,       // Shader location: vector uniform: ambient color
+    SHADER_LOC_MAP_ALBEDO,          // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+    SHADER_LOC_MAP_METALNESS,       // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+    SHADER_LOC_MAP_NORMAL,          // Shader location: sampler2d texture: normal
+    SHADER_LOC_MAP_ROUGHNESS,       // Shader location: sampler2d texture: roughness
+    SHADER_LOC_MAP_OCCLUSION,       // Shader location: sampler2d texture: occlusion
+    SHADER_LOC_MAP_EMISSION,        // Shader location: sampler2d texture: emission
+    SHADER_LOC_MAP_HEIGHT,          // Shader location: sampler2d texture: height
+    SHADER_LOC_MAP_CUBEMAP,         // Shader location: samplerCube texture: cubemap
+    SHADER_LOC_MAP_IRRADIANCE,      // Shader location: samplerCube texture: irradiance
+    SHADER_LOC_MAP_PREFILTER,       // Shader location: samplerCube texture: prefilter
+    SHADER_LOC_MAP_BRDF             // Shader location: sampler2d texture: brdf
+}
+
+public enum ShaderUniformDataType
+{
+	SHADER_UNIFORM_FLOAT = 0,       // Shader uniform type: float
+    SHADER_UNIFORM_VEC2,            // Shader uniform type: vec2 (2 float)
+    SHADER_UNIFORM_VEC3,            // Shader uniform type: vec3 (3 float)
+    SHADER_UNIFORM_VEC4,            // Shader uniform type: vec4 (4 float)
+    SHADER_UNIFORM_INT,             // Shader uniform type: int
+    SHADER_UNIFORM_IVEC2,           // Shader uniform type: ivec2 (2 int)
+    SHADER_UNIFORM_IVEC3,           // Shader uniform type: ivec3 (3 int)
+    SHADER_UNIFORM_IVEC4,           // Shader uniform type: ivec4 (4 int)
+    SHADER_UNIFORM_SAMPLER2D        // Shader uniform type: sampler2d
+}
+
+public enum ShaderAttributeDataType
+{
+	SHADER_ATTRIB_FLOAT = 0,        // Shader attribute type: float
+    SHADER_ATTRIB_VEC2,             // Shader attribute type: vec2 (2 float)
+    SHADER_ATTRIB_VEC3,             // Shader attribute type: vec3 (3 float)
+    SHADER_ATTRIB_VEC4              // Shader attribute type: vec4 (4 float)
+}
+
+public enum PixelFormat
+{
+	PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1, // 8 bit per pixel (no alpha)
+    PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,    // 8*2 bpp (2 channels)
+    PIXELFORMAT_UNCOMPRESSED_R5G6B5,        // 16 bpp
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8,        // 24 bpp
+    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,      // 16 bpp (1 bit alpha)
+    PIXELFORMAT_UNCOMPRESSED_R4G4B4A4,      // 16 bpp (4 bit alpha)
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,      // 32 bpp
+    PIXELFORMAT_UNCOMPRESSED_R32,           // 32 bpp (1 channel - float)
+    PIXELFORMAT_UNCOMPRESSED_R32G32B32,     // 32*3 bpp (3 channels - float)
+    PIXELFORMAT_UNCOMPRESSED_R32G32B32A32,  // 32*4 bpp (4 channels - float)
+    PIXELFORMAT_UNCOMPRESSED_R16,           // 16 bpp (1 channel - half float)
+    PIXELFORMAT_UNCOMPRESSED_R16G16B16,     // 16*3 bpp (3 channels - half float)
+    PIXELFORMAT_UNCOMPRESSED_R16G16B16A16,  // 16*4 bpp (4 channels - half float)
+    PIXELFORMAT_COMPRESSED_DXT1_RGB,        // 4 bpp (no alpha)
+    PIXELFORMAT_COMPRESSED_DXT1_RGBA,       // 4 bpp (1 bit alpha)
+    PIXELFORMAT_COMPRESSED_DXT3_RGBA,       // 8 bpp
+    PIXELFORMAT_COMPRESSED_DXT5_RGBA,       // 8 bpp
+    PIXELFORMAT_COMPRESSED_ETC1_RGB,        // 4 bpp
+    PIXELFORMAT_COMPRESSED_ETC2_RGB,        // 4 bpp
+    PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA,   // 8 bpp
+    PIXELFORMAT_COMPRESSED_PVRT_RGB,        // 4 bpp
+    PIXELFORMAT_COMPRESSED_PVRT_RGBA,       // 4 bpp
+    PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA,   // 8 bpp
+    PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA    // 2 bpp
+}
+
+public enum TextureFilter
+{
+	TEXTURE_FILTER_POINT = 0,               // No filter, just pixel approximation
+    TEXTURE_FILTER_BILINEAR,                // Linear filtering
+    TEXTURE_FILTER_TRILINEAR,               // Trilinear filtering (linear with mipmaps)
+    TEXTURE_FILTER_ANISOTROPIC_4X,          // Anisotropic filtering 4x
+    TEXTURE_FILTER_ANISOTROPIC_8X,          // Anisotropic filtering 8x
+    TEXTURE_FILTER_ANISOTROPIC_16X,         // Anisotropic filtering 16x
+}
+
+public enum TextureWrap
+{
+	TEXTURE_WRAP_REPEAT = 0,                // Repeats texture in tiled mode
+    TEXTURE_WRAP_CLAMP,                     // Clamps texture to edge pixel in tiled mode
+    TEXTURE_WRAP_MIRROR_REPEAT,             // Mirrors and repeats the texture in tiled mode
+    TEXTURE_WRAP_MIRROR_CLAMP               // Mirrors and clamps to border the texture in tiled mode
+}
+
+// Cubemap layouts
+public enum CubemapLayout
+{
+    CUBEMAP_LAYOUT_AUTO_DETECT = 0,         // Automatically detect layout type
+    CUBEMAP_LAYOUT_LINE_VERTICAL,           // Layout is defined by a vertical line with faces
+    CUBEMAP_LAYOUT_LINE_HORIZONTAL,         // Layout is defined by a horizontal line with faces
+    CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR,     // Layout is defined by a 3x4 cross with cubemap faces
+    CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE,     // Layout is defined by a 4x3 cross with cubemap faces
+    CUBEMAP_LAYOUT_PANORAMA                 // Layout is defined by a panorama image (equirrectangular map)
+}
+
+// Font type, defines generation method
+public enum FontType
+{
+    FONT_DEFAULT = 0,               // Default font generation, anti-aliased
+    FONT_BITMAP,                    // Bitmap font generation, no anti-aliasing
+    FONT_SDF                        // SDF font generation, requires external shader
+}
+
+// Color blending modes (pre-defined)
+public enum BlendMode
+{
+    BLEND_ALPHA = 0,                // Blend textures considering alpha (default)
+    BLEND_ADDITIVE,                 // Blend textures adding colors
+    BLEND_MULTIPLIED,               // Blend textures multiplying colors
+    BLEND_ADD_COLORS,               // Blend textures adding colors (alternative)
+    BLEND_SUBTRACT_COLORS,          // Blend textures subtracting colors (alternative)
+    BLEND_ALPHA_PREMULTIPLY,        // Blend premultiplied textures considering alpha
+    BLEND_CUSTOM,                   // Blend textures using custom src/dst factors (use rlSetBlendFactors())
+    BLEND_CUSTOM_SEPARATE           // Blend textures using custom rgb/alpha separate src/dst factors (use rlSetBlendFactorsSeparate())
+}
+
+// Gesture
+// NOTE: Provided as bit-wise flags to enable only desired gestures
+public enum Gesture
+{
+    GESTURE_NONE        = 0,        // No gesture
+    GESTURE_TAP         = 1,        // Tap gesture
+    GESTURE_DOUBLETAP   = 2,        // Double tap gesture
+    GESTURE_HOLD        = 4,        // Hold gesture
+    GESTURE_DRAG        = 8,        // Drag gesture
+    GESTURE_SWIPE_RIGHT = 16,       // Swipe right gesture
+    GESTURE_SWIPE_LEFT  = 32,       // Swipe left gesture
+    GESTURE_SWIPE_UP    = 64,       // Swipe up gesture
+    GESTURE_SWIPE_DOWN  = 128,      // Swipe down gesture
+    GESTURE_PINCH_IN    = 256,      // Pinch in gesture
+    GESTURE_PINCH_OUT   = 512       // Pinch out gesture
+}
+
+// Camera system modes
+public enum CameraMode
+{
+    CAMERA_CUSTOM = 0,              // Custom camera
+    CAMERA_FREE,                    // Free camera
+    CAMERA_ORBITAL,                 // Orbital camera
+    CAMERA_FIRST_PERSON,            // First person camera
+    CAMERA_THIRD_PERSON             // Third person camera
+}
+
+// Camera projection
+public enum CameraProjection
+{
+    CAMERA_PERSPECTIVE = 0,         // Perspective projection
+    CAMERA_ORTHOGRAPHIC             // Orthographic projection
+}
+
+// N-patch layout
+public enum NPatchLayout
+{
+    NPATCH_NINE_PATCH = 0,          // Npatch layout: 3x3 tiles
+    NPATCH_THREE_PATCH_VERTICAL,    // Npatch layout: 1x3 tiles
+    NPATCH_THREE_PATCH_HORIZONTAL   // Npatch layout: 3x1 tiles
+}
+
+// Callbacks to hook some internal functions
+// WARNING: These callbacks are intended for advance users
+public typedef TraceLogCallback : void(int logLevel, char* text, /*va_list*/ char* args);  // Logging: Redirect trace log messages
+public typedef LoadFileDataCallback : char*(char* fileName, int* dataSize);    // FileIO: Load binary data
+public typedef SaveFileDataCallback : bool(char* fileName, byte* data, int dataSize);   // FileIO: Save binary data
+public typedef LoadFileTextCallback : char*(char* fileName);            // FileIO: Load text data
+public typedef SaveFileTextCallback : bool(char* fileName, char *text); // FileIO: Save text data
+
+
+// Window-related functions
+public externc dllimport void InitWindow(int width, int height, char *title);  // Initialize window and OpenGL context
+public externc dllimport void CloseWindow();                                     // Close window and unload OpenGL context
+public externc dllimport bool WindowShouldClose();                               // Check if application should close (KEY_ESCAPE pressed or windows close icon clicked)
+public externc dllimport bool IsWindowReady();                                   // Check if window has been initialized successfully
+public externc dllimport bool IsWindowFullscreen();                              // Check if window is currently fullscreen
+public externc dllimport bool IsWindowHidden();                                  // Check if window is currently hidden (only PLATFORM_DESKTOP)
+public externc dllimport bool IsWindowMinimized();                               // Check if window is currently minimized (only PLATFORM_DESKTOP)
+public externc dllimport bool IsWindowMaximized();                               // Check if window is currently maximized (only PLATFORM_DESKTOP)
+public externc dllimport bool IsWindowFocused();                                 // Check if window is currently focused (only PLATFORM_DESKTOP)
+public externc dllimport bool IsWindowResized();                                 // Check if window has been resized last frame
+public externc dllimport bool IsWindowState(uint flag);                      // Check if one specific window flag is enabled
+public externc dllimport void SetWindowState(uint flags);                    // Set window configuration state using flags (only PLATFORM_DESKTOP)
+public externc dllimport void ClearWindowState(uint flags);                  // Clear window configuration state flags
+public externc dllimport void ToggleFullscreen();                                // Toggle window state: fullscreen/windowed (only PLATFORM_DESKTOP)
+public externc dllimport void ToggleBorderlessWindowed();                        // Toggle window state: borderless windowed (only PLATFORM_DESKTOP)
+public externc dllimport void MaximizeWindow();                                  // Set window state: maximized, if resizable (only PLATFORM_DESKTOP)
+public externc dllimport void MinimizeWindow();                                  // Set window state: minimized, if resizable (only PLATFORM_DESKTOP)
+public externc dllimport void RestoreWindow();                                   // Set window state: not minimized/maximized (only PLATFORM_DESKTOP)
+public externc dllimport void SetWindowIcon(Image image);                            // Set icon for window (single image, RGBA 32bit, only PLATFORM_DESKTOP)
+public externc dllimport void SetWindowIcons(Image *images, int count);              // Set icon for window (multiple images, RGBA 32bit, only PLATFORM_DESKTOP)
+public externc dllimport void SetWindowTitle(char* title);                     // Set title for window (only PLATFORM_DESKTOP and PLATFORM_WEB)
+public externc dllimport void SetWindowPosition(int x, int y);                       // Set window position on screen (only PLATFORM_DESKTOP)
+public externc dllimport void SetWindowMonitor(int monitor);                         // Set monitor for the current window
+public externc dllimport void SetWindowMinSize(int width, int height);               // Set window minimum dimensions (for FLAG_WINDOW_RESIZABLE)
+public externc dllimport void SetWindowMaxSize(int width, int height);               // Set window maximum dimensions (for FLAG_WINDOW_RESIZABLE)
+public externc dllimport void SetWindowSize(int width, int height);                  // Set window dimensions
+public externc dllimport void SetWindowOpacity(float opacity);                       // Set window opacity [0.0f..1.0f] (only PLATFORM_DESKTOP)
+public externc dllimport void SetWindowFocused();                                // Set window focused (only PLATFORM_DESKTOP)
+public externc dllimport byte* GetWindowHandle();                                // Get native window handle
+public externc dllimport int GetScreenWidth();                                   // Get current screen width
+public externc dllimport int GetScreenHeight();                                  // Get current screen height
+public externc dllimport int GetRenderWidth();                                   // Get current render width (it considers HiDPI)
+public externc dllimport int GetRenderHeight();                                  // Get current render height (it considers HiDPI)
+public externc dllimport int GetMonitorCount();                                  // Get number of connected monitors
+public externc dllimport int GetCurrentMonitor();                                // Get current connected monitor
+public externc dllimport Vector2 GetMonitorPosition(int monitor);                    // Get specified monitor position
+public externc dllimport int GetMonitorWidth(int monitor);                           // Get specified monitor width (current video mode used by monitor)
+public externc dllimport int GetMonitorHeight(int monitor);                          // Get specified monitor height (current video mode used by monitor)
+public externc dllimport int GetMonitorPhysicalWidth(int monitor);                   // Get specified monitor physical width in millimetres
+public externc dllimport int GetMonitorPhysicalHeight(int monitor);                  // Get specified monitor physical height in millimetres
+public externc dllimport int GetMonitorRefreshRate(int monitor);                     // Get specified monitor refresh rate
+public externc dllimport Vector2 GetWindowPosition();                            // Get window position XY on monitor
+public externc dllimport Vector2 GetWindowScaleDPI();                            // Get window scale DPI factor
+public externc dllimport char* GetMonitorName(int monitor);                    // Get the human-readable, UTF-8 encoded name of the specified monitor
+public externc dllimport void SetClipboardText(char *text);                    // Set clipboard text content
+public externc dllimport char* GetClipboardText();                         // Get clipboard text content
+public externc dllimport void EnableEventWaiting();                              // Enable waiting for events on EndDrawing(), no automatic event polling
+public externc dllimport void DisableEventWaiting();                             // Disable waiting for events on EndDrawing(), automatic events polling
+
+// Cursor-related functions
+public externc dllimport void ShowCursor();                                      // Shows cursor
+public externc dllimport void HideCursor();                                      // Hides cursor
+public externc dllimport bool IsCursorHidden();                                  // Check if cursor is not visible
+public externc dllimport void EnableCursor();                                    // Enables cursor (unlock cursor)
+public externc dllimport void DisableCursor();                                   // Disables cursor (lock cursor)
+public externc dllimport bool IsCursorOnScreen();                                // Check if cursor is on the screen
+
+// Drawing-related functions
+public externc dllimport void ClearBackground(Color color);                          // Set background color (framebuffer clear color)
+public externc dllimport void BeginDrawing();                                    // Setup canvas (framebuffer) to start drawing
+public externc dllimport void EndDrawing();                                      // End canvas drawing and swap buffers (double buffering)
+public externc dllimport void BeginMode2D(Camera2D camera);                          // Begin 2D mode with custom camera (2D)
+public externc dllimport void EndMode2D();                                       // Ends 2D mode with custom camera
+public externc dllimport void BeginMode3D(Camera3D camera);                          // Begin 3D mode with custom camera (3D)
+public externc dllimport void EndMode3D();                                       // Ends 3D mode and returns to default 2D orthographic mode
+public externc dllimport void BeginTextureMode(RenderTexture2D target);              // Begin drawing to render texture
+public externc dllimport void EndTextureMode();                                  // Ends drawing to render texture
+public externc dllimport void BeginShaderMode(Shader shader);                        // Begin custom shader drawing
+public externc dllimport void EndShaderMode();                                   // End custom shader drawing (use default shader)
+public externc dllimport void BeginBlendMode(int mode);                              // Begin blending mode (alpha, additive, multiplied, subtract, custom)
+public externc dllimport void EndBlendMode();                                    // End blending mode (reset to default: alpha blending)
+public externc dllimport void BeginScissorMode(int x, int y, int width, int height); // Begin scissor mode (define screen area for following drawing)
+public externc dllimport void EndScissorMode();                                  // End scissor mode
+public externc dllimport void BeginVrStereoMode(VrStereoConfig config);              // Begin stereo rendering (requires VR simulator)
+public externc dllimport void EndVrStereoMode();                                 // End stereo rendering (requires VR simulator)
+
+// VR stereo config functions for VR simulator
+public externc dllimport VrStereoConfig LoadVrStereoConfig(VrDeviceInfo device);     // Load VR stereo config for VR simulator device parameters
+public externc dllimport void UnloadVrStereoConfig(VrStereoConfig config);           // Unload VR stereo config
+
+// Shader management functions
+// NOTE: Shader functionality is not available on OpenGL 1.1
+public externc dllimport Shader LoadShader(char* vsFileName, char* fsFileName);   // Load shader from files and bind default locations
+public externc dllimport Shader LoadShaderFromMemory(char* vsCode, char* fsCode); // Load shader from code strings and bind default locations
+public externc dllimport bool IsShaderReady(Shader shader);                                   // Check if a shader is ready
+public externc dllimport int GetShaderLocation(Shader shader, char* uniformName);       // Get shader uniform location
+public externc dllimport int GetShaderLocationAttrib(Shader shader, char* attribName);  // Get shader attribute location
+public externc dllimport void SetShaderValue(Shader shader, int locIndex, byte* value, int uniformType);               // Set shader uniform value
+public externc dllimport void SetShaderValueV(Shader shader, int locIndex, void* value, int uniformType, int count);   // Set shader uniform value vector
+public externc dllimport void SetShaderValueMatrix(Shader shader, int locIndex, Matrix mat);         // Set shader uniform value (matrix 4x4)
+public externc dllimport void SetShaderValueTexture(Shader shader, int locIndex, Texture2D texture); // Set shader uniform value for texture (sampler2d)
+public externc dllimport void UnloadShader(Shader shader);                                    // Unload shader from GPU memory (VRAM)
+
+// Screen-space-related functions
+public externc dllimport Ray GetMouseRay(Vector2 mousePosition, Camera camera);      // Get a ray trace from mouse position
+public externc dllimport Matrix GetCameraMatrix(Camera camera);                      // Get camera transform matrix (view matrix)
+public externc dllimport Matrix GetCameraMatrix2D(Camera2D camera);                  // Get camera 2d transform matrix
+public externc dllimport Vector2 GetWorldToScreen(Vector3 position, Camera camera);  // Get the screen space position for a 3d world space position
+public externc dllimport Vector2 GetScreenToWorld2D(Vector2 position, Camera2D camera); // Get the world space position for a 2d camera screen space position
+public externc dllimport Vector2 GetWorldToScreenEx(Vector3 position, Camera camera, int width, int height); // Get size position for a 3d world space position
+public externc dllimport Vector2 GetWorldToScreen2D(Vector2 position, Camera2D camera); // Get the screen space position for a 2d camera world space position
+
+// Timing-related functions
+public externc dllimport void SetTargetFPS(int fps);                                 // Set target FPS (maximum)
+public externc dllimport float GetFrameTime();                                   // Get time in seconds for last frame drawn (delta time)
+public externc dllimport double GetTime();                                       // Get elapsed time in seconds since InitWindow()
+public externc dllimport int GetFPS();                                           // Get current FPS
+
+// Custom frame control functions
+// NOTE: Those functions are intended for advance users that want full control over the frame processing
+// By default EndDrawing() does this job: draws everything + SwapScreenBuffer() + manage frame timing + PollInputEvents()
+// To avoid that behaviour and control frame processes manually, enable in config.h: SUPPORT_CUSTOM_FRAME_CONTROL
+public externc dllimport void SwapScreenBuffer();                                // Swap back buffer with front buffer (screen drawing)
+public externc dllimport void PollInputEvents();                                 // Register all input events
+public externc dllimport void WaitTime(double seconds);                              // Wait for some time (halt program execution)
+
+// Random values generation functions
+public externc dllimport void SetRandomSeed(uint seed);                      // Set the seed for the random number generator
+public externc dllimport int GetRandomValue(int min, int max);                       // Get a random value between min and max (both included)
+public externc dllimport int* LoadRandomSequence(uint count, int min, int max); // Load random values sequence, no values repeated
+public externc dllimport void UnloadRandomSequence(int* sequence);                   // Unload random values sequence
+
+// Misc. functions
+public externc dllimport void TakeScreenshot(char* fileName);                  // Takes a screenshot of current screen (filename extension defines format)
+public externc dllimport void SetConfigFlags(uint flags);                    // Setup init configuration flags (view FLAGS)
+public externc dllimport void OpenURL(char *url);                              // Open URL with default system browser (if available)
+
+// NOTE: Following functions implemented in module [utils]
+//------------------------------------------------------------------
+//public externc dllimport void TraceLog(int logLevel, char* text, ...);         // Show trace log messages (LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR...)
+public externc dllimport void SetTraceLogLevel(int logLevel);                        // Set the current threshold (minimum) log level
+public externc dllimport void* MemAlloc(uint size);                          // Internal memory allocator
+public externc dllimport void* MemRealloc(byte* ptr, uint size);             // Internal memory reallocator
+public externc dllimport void MemFree(void* ptr);                                    // Internal memory free
+
+// Set custom callbacks
+// WARNING: Callbacks setup is intended for advance users
+public externc dllimport void SetTraceLogCallback(TraceLogCallback callback);         // Set custom trace log
+public externc dllimport void SetLoadFileDataCallback(LoadFileDataCallback callback); // Set custom file binary data loader
+public externc dllimport void SetSaveFileDataCallback(SaveFileDataCallback callback); // Set custom file binary data saver
+public externc dllimport void SetLoadFileTextCallback(LoadFileTextCallback callback); // Set custom file text data loader
+public externc dllimport void SetSaveFileTextCallback(SaveFileTextCallback callback); // Set custom file text data saver
+
+// Files management functions
+public externc dllimport byte* LoadFileData(char* fileName, int* dataSize); // Load file data as byte array (read)
+public externc dllimport void UnloadFileData(char* data);                   // Unload file data allocated by LoadFileData()
+public externc dllimport bool SaveFileData(char* fileName, byte* data, int dataSize); // Save data to file from byte array (write), returns true on success
+public externc dllimport bool ExportDataAsCode(byte* data, int dataSize, char* fileName); // Export data to code (.h), returns true on success
+public externc dllimport char* LoadFileText(char* fileName);                   // Load text data from file (read), returns a '\0' terminated string
+public externc dllimport void UnloadFileText(char* text);                            // Unload file text data allocated by LoadFileText()
+public externc dllimport bool SaveFileText(char* fileName, char* text);        // Save text data to file (write), string must be '\0' terminated, returns true on success
+//------------------------------------------------------------------
+
+// File system functions
+public externc dllimport bool FileExists(char* fileName);                      // Check if file exists
+public externc dllimport bool DirectoryExists(char* dirPath);                  // Check if a directory path exists
+public externc dllimport bool IsFileExtension(char* fileName, char* ext); // Check file extension (including point: .png, .wav)
+public externc dllimport int GetFileLength(char* fileName);                    // Get file length in bytes (NOTE: GetFileSize() conflicts with windows.h)
+public externc dllimport char* GetFileExtension(char* fileName);         // Get pointer to extension for a filename string (includes dot: '.png')
+public externc dllimport char* GetFileName(char* filePath);              // Get pointer to filename for a path string
+public externc dllimport char* GetFileNameWithoutExt(char* filePath);    // Get filename string without extension (uses static string)
+public externc dllimport char* GetDirectoryPath(char* filePath);         // Get full path for a given fileName with path (uses static string)
+public externc dllimport char* GetPrevDirectoryPath(char* dirPath);      // Get previous directory path for a given path (uses static string)
+public externc dllimport char* GetWorkingDirectory();                      // Get current working directory (uses static string)
+public externc dllimport char* GetApplicationDirectory();                  // Get the directory of the running application (uses static string)
+public externc dllimport bool ChangeDirectory(char* dir);                      // Change working directory, return true on success
+public externc dllimport bool IsPathFile(char* path);                          // Check if a given path is a file or a directory
+public externc dllimport FilePathList LoadDirectoryFiles(char* dirPath);       // Load directory filepaths
+public externc dllimport FilePathList LoadDirectoryFilesEx(char* basePath, char* filter, bool scanSubdirs); // Load directory filepaths with extension filtering and recursive directory scan
+public externc dllimport void UnloadDirectoryFiles(FilePathList files);              // Unload filepaths
+public externc dllimport bool IsFileDropped();                                   // Check if a file has been dropped into window
+public externc dllimport FilePathList LoadDroppedFiles();                        // Load dropped filepaths
+public externc dllimport void UnloadDroppedFiles(FilePathList files);                // Unload dropped filepaths
+public externc dllimport long GetFileModTime(char* fileName);                  // Get file modification time (last write time)
+
+// Compression/Encoding functionality
+public externc dllimport byte* CompressData(byte* data, int dataSize, int *compDataSize);        // Compress data (DEFLATE algorithm), memory must be MemFree()
+public externc dllimport byte* DecompressData(byte* compData, int compDataSize, int *dataSize);  // Decompress data (DEFLATE algorithm), memory must be MemFree()
+public externc dllimport char* EncodeDataBase64(byte* data, int dataSize, int *outputSize);               // Encode data to Base64 string, memory must be MemFree()
+public externc dllimport byte* DecodeDataBase64(byte* data, int *outputSize);                    // Decode Base64 string data, memory must be MemFree()
+
+// Automation events functionality
+public externc dllimport AutomationEventList LoadAutomationEventList(char* fileName);                // Load automation events list from file, NULL for empty list, capacity = MAX_AUTOMATION_EVENTS
+public externc dllimport void UnloadAutomationEventList(AutomationEventList *list);                        // Unload automation events list from file
+public externc dllimport bool ExportAutomationEventList(AutomationEventList list, char* fileName);   // Export automation events list as text file
+public externc dllimport void SetAutomationEventList(AutomationEventList *list);                           // Set automation event list to record to
+public externc dllimport void SetAutomationEventBaseFrame(int frame);                                      // Set automation event internal base frame to start recording
+public externc dllimport void StartAutomationEventRecording();                                         // Start recording automation events (AutomationEventList must be set)
+public externc dllimport void StopAutomationEventRecording();                                          // Stop recording automation events
+public externc dllimport void PlayAutomationEvent(AutomationEvent event);                                  // Play a recorded automation event
+
+//------------------------------------------------------------------------------------
+// Input Handling Functions (Module: core)
+//------------------------------------------------------------------------------------
+
+// Input-related functions: keyboard
+public externc dllimport bool IsKeyPressed(int key);                             // Check if a key has been pressed once
+public externc dllimport bool IsKeyPressedRepeat(int key);                       // Check if a key has been pressed again (Only PLATFORM_DESKTOP)
+public externc dllimport bool IsKeyDown(int key);                                // Check if a key is being pressed
+public externc dllimport bool IsKeyReleased(int key);                            // Check if a key has been released once
+public externc dllimport bool IsKeyUp(int key);                                  // Check if a key is NOT being pressed
+public externc dllimport int GetKeyPressed();                                // Get key pressed (keycode), call it multiple times for keys queued, returns 0 when the queue is empty
+public externc dllimport int GetCharPressed();                               // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
+public externc dllimport void SetExitKey(int key);                               // Set a custom key to exit program (default is ESC)
+
+// Input-related functions: gamepads
+public externc dllimport bool IsGamepadAvailable(int gamepad);                   // Check if a gamepad is available
+public externc dllimport char* GetGamepadName(int gamepad);                // Get gamepad internal name id
+public externc dllimport bool IsGamepadButtonPressed(int gamepad, int button);   // Check if a gamepad button has been pressed once
+public externc dllimport bool IsGamepadButtonDown(int gamepad, int button);      // Check if a gamepad button is being pressed
+public externc dllimport bool IsGamepadButtonReleased(int gamepad, int button);  // Check if a gamepad button has been released once
+public externc dllimport bool IsGamepadButtonUp(int gamepad, int button);        // Check if a gamepad button is NOT being pressed
+public externc dllimport int GetGamepadButtonPressed();                      // Get the last gamepad button pressed
+public externc dllimport int GetGamepadAxisCount(int gamepad);                   // Get gamepad axis count for a gamepad
+public externc dllimport float GetGamepadAxisMovement(int gamepad, int axis);    // Get axis movement value for a gamepad axis
+public externc dllimport int SetGamepadMappings(char* mappings);           // Set internal gamepad mappings (SDL_GameControllerDB)
+
+// Input-related functions: mouse
+public externc dllimport bool IsMouseButtonPressed(int button);                  // Check if a mouse button has been pressed once
+public externc dllimport bool IsMouseButtonDown(int button);                     // Check if a mouse button is being pressed
+public externc dllimport bool IsMouseButtonReleased(int button);                 // Check if a mouse button has been released once
+public externc dllimport bool IsMouseButtonUp(int button);                       // Check if a mouse button is NOT being pressed
+public externc dllimport int GetMouseX();                                    // Get mouse position X
+public externc dllimport int GetMouseY();                                    // Get mouse position Y
+public externc dllimport Vector2 GetMousePosition();                         // Get mouse position XY
+public externc dllimport Vector2 GetMouseDelta();                            // Get mouse delta between frames
+public externc dllimport void SetMousePosition(int x, int y);                    // Set mouse position XY
+public externc dllimport void SetMouseOffset(int offsetX, int offsetY);          // Set mouse offset
+public externc dllimport void SetMouseScale(float scaleX, float scaleY);         // Set mouse scaling
+public externc dllimport float GetMouseWheelMove();                          // Get mouse wheel movement for X or Y, whichever is larger
+public externc dllimport Vector2 GetMouseWheelMoveV();                       // Get mouse wheel movement for both X and Y
+public externc dllimport void SetMouseCursor(int cursor);                        // Set mouse cursor
+
+// Input-related functions: touch
+public externc dllimport int GetTouchX();                                    // Get touch position X for touch point 0 (relative to screen size)
+public externc dllimport int GetTouchY();                                    // Get touch position Y for touch point 0 (relative to screen size)
+public externc dllimport Vector2 GetTouchPosition(int index);                    // Get touch position XY for a touch point index (relative to screen size)
+public externc dllimport int GetTouchPointId(int index);                         // Get touch point identifier for given index
+public externc dllimport int GetTouchPointCount();                           // Get number of touch points
+
+//------------------------------------------------------------------------------------
+// Gestures and Touch Handling Functions (Module: rgestures)
+//------------------------------------------------------------------------------------
+public externc dllimport void SetGesturesEnabled(uint flags);      // Enable a set of gestures using flags
+public externc dllimport bool IsGestureDetected(uint gesture);     // Check if a gesture have been detected
+public externc dllimport int GetGestureDetected();                     // Get latest detected gesture
+public externc dllimport float GetGestureHoldDuration();               // Get gesture hold time in milliseconds
+public externc dllimport Vector2 GetGestureDragVector();               // Get gesture drag vector
+public externc dllimport float GetGestureDragAngle();                  // Get gesture drag angle
+public externc dllimport Vector2 GetGesturePinchVector();              // Get gesture pinch delta
+public externc dllimport float GetGesturePinchAngle();                 // Get gesture pinch angle
+
+//------------------------------------------------------------------------------------
+// Camera System Functions (Module: rcamera)
+//------------------------------------------------------------------------------------
+public externc dllimport void UpdateCamera(Camera *camera, int mode);      // Update camera position for selected mode
+public externc dllimport void UpdateCameraPro(Camera *camera, Vector3 movement, Vector3 rotation, float zoom); // Update camera movement/rotation
+
+//------------------------------------------------------------------------------------
+// Basic Shapes Drawing Functions (Module: shapes)
+//------------------------------------------------------------------------------------
+// Set texture and rectangle to be used on shapes drawing
+// NOTE: It can be useful when using basic shapes and one single font,
+// defining a font char white rectangle would allow drawing everything in a single draw call
+public externc dllimport void SetShapesTexture(Texture2D texture, Rectangle source);       // Set texture and rectangle to be used on shapes drawing
+
+// Basic shapes drawing functions
+public externc dllimport void DrawPixel(int posX, int posY, Color color);                                                   // Draw a pixel
+public externc dllimport void DrawPixelV(Vector2 position, Color color);                                                    // Draw a pixel (Vector version)
+public externc dllimport void DrawLine(int startPosX, int startPosY, int endPosX, int endPosY, Color color);                // Draw a line
+public externc dllimport void DrawLineV(Vector2 startPos, Vector2 endPos, Color color);                                     // Draw a line (using gl lines)
+public externc dllimport void DrawLineEx(Vector2 startPos, Vector2 endPos, float thick, Color color);                       // Draw a line (using triangles/quads)
+public externc dllimport void DrawLineStrip(Vector2 *points, int pointCount, Color color);                                  // Draw lines sequence (using gl lines)
+public externc dllimport void DrawLineBezier(Vector2 startPos, Vector2 endPos, float thick, Color color);                   // Draw line segment cubic-bezier in-out interpolation
+public externc dllimport void DrawCircle(int centerX, int centerY, float radius, Color color);                              // Draw a color-filled circle
+public externc dllimport void DrawCircleSector(Vector2 center, float radius, float startAngle, float endAngle, int segments, Color color);      // Draw a piece of a circle
+public externc dllimport void DrawCircleSectorLines(Vector2 center, float radius, float startAngle, float endAngle, int segments, Color color); // Draw circle sector outline
+public externc dllimport void DrawCircleGradient(int centerX, int centerY, float radius, Color color1, Color color2);       // Draw a gradient-filled circle
+public externc dllimport void DrawCircleV(Vector2 center, float radius, Color color);                                       // Draw a color-filled circle (Vector version)
+public externc dllimport void DrawCircleLines(int centerX, int centerY, float radius, Color color);                         // Draw circle outline
+public externc dllimport void DrawCircleLinesV(Vector2 center, float radius, Color color);                                  // Draw circle outline (Vector version)
+public externc dllimport void DrawEllipse(int centerX, int centerY, float radiusH, float radiusV, Color color);             // Draw ellipse
+public externc dllimport void DrawEllipseLines(int centerX, int centerY, float radiusH, float radiusV, Color color);        // Draw ellipse outline
+public externc dllimport void DrawRing(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, int segments, Color color); // Draw ring
+public externc dllimport void DrawRingLines(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, int segments, Color color);    // Draw ring outline
+public externc dllimport void DrawRectangle(int posX, int posY, int width, int height, Color color);                        // Draw a color-filled rectangle
+public externc dllimport void DrawRectangleV(Vector2 position, Vector2 size, Color color);                                  // Draw a color-filled rectangle (Vector version)
+public externc dllimport void DrawRectangleRec(Rectangle rec, Color color);                                                 // Draw a color-filled rectangle
+public externc dllimport void DrawRectanglePro(Rectangle rec, Vector2 origin, float rotation, Color color);                 // Draw a color-filled rectangle with pro parameters
+public externc dllimport void DrawRectangleGradientV(int posX, int posY, int width, int height, Color color1, Color color2);// Draw a vertical-gradient-filled rectangle
+public externc dllimport void DrawRectangleGradientH(int posX, int posY, int width, int height, Color color1, Color color2);// Draw a horizontal-gradient-filled rectangle
+public externc dllimport void DrawRectangleGradientEx(Rectangle rec, Color col1, Color col2, Color col3, Color col4);       // Draw a gradient-filled rectangle with custom vertex colors
+public externc dllimport void DrawRectangleLines(int posX, int posY, int width, int height, Color color);                   // Draw rectangle outline
+public externc dllimport void DrawRectangleLinesEx(Rectangle rec, float lineThick, Color color);                            // Draw rectangle outline with extended parameters
+public externc dllimport void DrawRectangleRounded(Rectangle rec, float roundness, int segments, Color color);              // Draw rectangle with rounded edges
+public externc dllimport void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, float lineThick, Color color); // Draw rectangle with rounded edges outline
+public externc dllimport void DrawTriangle(Vector2 v1, Vector2 v2, Vector2 v3, Color color);                                // Draw a color-filled triangle (vertex in counter-clockwise order!)
+public externc dllimport void DrawTriangleLines(Vector2 v1, Vector2 v2, Vector2 v3, Color color);                           // Draw triangle outline (vertex in counter-clockwise order!)
+public externc dllimport void DrawTriangleFan(Vector2 *points, int pointCount, Color color);                                // Draw a triangle fan defined by points (first vertex is the center)
+public externc dllimport void DrawTriangleStrip(Vector2 *points, int pointCount, Color color);                              // Draw a triangle strip defined by points
+public externc dllimport void DrawPoly(Vector2 center, int sides, float radius, float rotation, Color color);               // Draw a regular polygon (Vector version)
+public externc dllimport void DrawPolyLines(Vector2 center, int sides, float radius, float rotation, Color color);          // Draw a polygon outline of n sides
+public externc dllimport void DrawPolyLinesEx(Vector2 center, int sides, float radius, float rotation, float lineThick, Color color); // Draw a polygon outline of n sides with extended parameters
+
+// Splines drawing functions
+public externc dllimport void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color);                  // Draw spline: Linear, minimum 2 points
+public externc dllimport void DrawSplineBasis(Vector2 *points, int pointCount, float thick, Color color);                   // Draw spline: B-Spline, minimum 4 points
+public externc dllimport void DrawSplineCatmullRom(Vector2 *points, int pointCount, float thick, Color color);              // Draw spline: Catmull-Rom, minimum 4 points
+public externc dllimport void DrawSplineBezierQuadratic(Vector2 *points, int pointCount, float thick, Color color);         // Draw spline: Quadratic Bezier, minimum 3 points (1 control point): [p1, c2, p3, c4...]
+public externc dllimport void DrawSplineBezierCubic(Vector2 *points, int pointCount, float thick, Color color);             // Draw spline: Cubic Bezier, minimum 4 points (2 control points): [p1, c2, c3, p4, c5, c6...]
+public externc dllimport void DrawSplineSegmentLinear(Vector2 p1, Vector2 p2, float thick, Color color);                    // Draw spline segment: Linear, 2 points
+public externc dllimport void DrawSplineSegmentBasis(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float thick, Color color); // Draw spline segment: B-Spline, 4 points
+public externc dllimport void DrawSplineSegmentCatmullRom(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float thick, Color color); // Draw spline segment: Catmull-Rom, 4 points
+public externc dllimport void DrawSplineSegmentBezierQuadratic(Vector2 p1, Vector2 c2, Vector2 p3, float thick, Color color); // Draw spline segment: Quadratic Bezier, 2 points, 1 control point
+public externc dllimport void DrawSplineSegmentBezierCubic(Vector2 p1, Vector2 c2, Vector2 c3, Vector2 p4, float thick, Color color); // Draw spline segment: Cubic Bezier, 2 points, 2 control points
+
+// Spline segment point evaluation functions, for a given t [0.0f .. 1.0f]
+public externc dllimport Vector2 GetSplinePointLinear(Vector2 startPos, Vector2 endPos, float t);                           // Get (evaluate) spline point: Linear
+public externc dllimport Vector2 GetSplinePointBasis(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float t);              // Get (evaluate) spline point: B-Spline
+public externc dllimport Vector2 GetSplinePointCatmullRom(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float t);         // Get (evaluate) spline point: Catmull-Rom
+public externc dllimport Vector2 GetSplinePointBezierQuad(Vector2 p1, Vector2 c2, Vector2 p3, float t);                     // Get (evaluate) spline point: Quadratic Bezier
+public externc dllimport Vector2 GetSplinePointBezierCubic(Vector2 p1, Vector2 c2, Vector2 c3, Vector2 p4, float t);        // Get (evaluate) spline point: Cubic Bezier
+
+// Basic shapes collision detection functions
+public externc dllimport bool CheckCollisionRecs(Rectangle rec1, Rectangle rec2);                                           // Check collision between two rectangles
+public externc dllimport bool CheckCollisionCircles(Vector2 center1, float radius1, Vector2 center2, float radius2);        // Check collision between two circles
+public externc dllimport bool CheckCollisionCircleRec(Vector2 center, float radius, Rectangle rec);                         // Check collision between circle and rectangle
+public externc dllimport bool CheckCollisionPointRec(Vector2 point, Rectangle rec);                                         // Check if point is inside rectangle
+public externc dllimport bool CheckCollisionPointCircle(Vector2 point, Vector2 center, float radius);                       // Check if point is inside circle
+public externc dllimport bool CheckCollisionPointTriangle(Vector2 point, Vector2 p1, Vector2 p2, Vector2 p3);               // Check if point is inside a triangle
+public externc dllimport bool CheckCollisionPointPoly(Vector2 point, Vector2 *points, int pointCount);                      // Check if point is within a polygon described by array of vertices
+public externc dllimport bool CheckCollisionLines(Vector2 startPos1, Vector2 endPos1, Vector2 startPos2, Vector2 endPos2, Vector2 *collisionPoint); // Check the collision between two lines defined by two points each, returns collision point by reference
+public externc dllimport bool CheckCollisionPointLine(Vector2 point, Vector2 p1, Vector2 p2, int threshold);                // Check if point belongs to line created between two points [p1] and [p2] with defined margin in pixels [threshold]
+public externc dllimport Rectangle GetCollisionRec(Rectangle rec1, Rectangle rec2);                                         // Get collision rectangle for two rectangles collision
+
+//------------------------------------------------------------------------------------
+// Texture Loading and Drawing Functions (Module: textures)
+//------------------------------------------------------------------------------------
+
+// Image loading functions
+// NOTE: These functions do not require GPU access
+public externc dllimport Image LoadImage(char* fileName);                                                             // Load image from file into CPU memory (RAM)
+public externc dllimport Image LoadImageRaw(char* fileName, int width, int height, int format, int headerSize);       // Load image from RAW file data
+public externc dllimport Image LoadImageSvg(char* fileNameOrString, int width, int height);                           // Load image from SVG file data or string with specified size
+public externc dllimport Image LoadImageAnim(char* fileName, int *frames);                                            // Load image sequence from file (frames appended to image.data)
+public externc dllimport Image LoadImageFromMemory(char* fileType, byte* fileData, int dataSize);      // Load image from memory buffer, fileType refers to extension: i.e. '.png'
+public externc dllimport Image LoadImageFromTexture(Texture2D texture);                                                     // Load image from GPU texture data
+public externc dllimport Image LoadImageFromScreen();                                                                   // Load image from screen buffer and (screenshot)
+public externc dllimport bool IsImageReady(Image image);                                                                    // Check if an image is ready
+public externc dllimport void UnloadImage(Image image);                                                                     // Unload image from CPU memory (RAM)
+public externc dllimport bool ExportImage(Image image, char* fileName);                                               // Export image data to file, returns true on success
+public externc dllimport byte* ExportImageToMemory(Image image, char* fileType, int *fileSize);              // Export image to memory buffer
+public externc dllimport bool ExportImageAsCode(Image image, char* fileName);                                         // Export image as code file defining an array of bytes, returns true on success
+
+// Image generation functions
+public externc dllimport Image GenImageColor(int width, int height, Color color);                                           // Generate image: plain color
+public externc dllimport Image GenImageGradientLinear(int width, int height, int direction, Color start, Color end);        // Generate image: linear gradient, direction in degrees [0..360], 0=Vertical gradient
+public externc dllimport Image GenImageGradientRadial(int width, int height, float density, Color inner, Color outer);      // Generate image: radial gradient
+public externc dllimport Image GenImageGradientSquare(int width, int height, float density, Color inner, Color outer);      // Generate image: square gradient
+public externc dllimport Image GenImageChecked(int width, int height, int checksX, int checksY, Color col1, Color col2);    // Generate image: checked
+public externc dllimport Image GenImageWhiteNoise(int width, int height, float factor);                                     // Generate image: white noise
+public externc dllimport Image GenImagePerlinNoise(int width, int height, int offsetX, int offsetY, float scale);           // Generate image: perlin noise
+public externc dllimport Image GenImageCellular(int width, int height, int tileSize);                                       // Generate image: cellular algorithm, bigger tileSize means bigger cells
+public externc dllimport Image GenImageText(int width, int height, char* text);                                       // Generate image: grayscale image from text data
+
+// Image manipulation functions
+public externc dllimport Image ImageCopy(Image image);                                                                      // Create an image duplicate (useful for transformations)
+public externc dllimport Image ImageFromImage(Image image, Rectangle rec);                                                  // Create an image from another image piece
+public externc dllimport Image ImageText(char* text, int fontSize, Color color);                                      // Create an image from text (default font)
+public externc dllimport Image ImageTextEx(Font font, char* text, float fontSize, float spacing, Color tint);         // Create an image from text (custom sprite font)
+public externc dllimport void ImageFormat(Image *image, int newFormat);                                                     // Convert image data to desired format
+public externc dllimport void ImageToPOT(Image *image, Color fill);                                                         // Convert image to POT (power-of-two)
+public externc dllimport void ImageCrop(Image *image, Rectangle crop);                                                      // Crop an image to a defined rectangle
+public externc dllimport void ImageAlphaCrop(Image *image, float threshold);                                                // Crop image depending on alpha value
+public externc dllimport void ImageAlphaClear(Image *image, Color color, float threshold);                                  // Clear alpha channel to desired color
+public externc dllimport void ImageAlphaMask(Image *image, Image alphaMask);                                                // Apply alpha mask to image
+public externc dllimport void ImageAlphaPremultiply(Image *image);                                                          // Premultiply alpha channel
+public externc dllimport void ImageBlurGaussian(Image *image, int blurSize);                                                // Apply Gaussian blur using a box blur approximation
+public externc dllimport void ImageResize(Image *image, int newWidth, int newHeight);                                       // Resize image (Bicubic scaling algorithm)
+public externc dllimport void ImageResizeNN(Image *image, int newWidth,int newHeight);                                      // Resize image (Nearest-Neighbor scaling algorithm)
+public externc dllimport void ImageResizeCanvas(Image *image, int newWidth, int newHeight, int offsetX, int offsetY, Color fill);  // Resize canvas and fill with color
+public externc dllimport void ImageMipmaps(Image *image);                                                                   // Compute all mipmap levels for a provided image
+public externc dllimport void ImageDither(Image *image, int rBpp, int gBpp, int bBpp, int aBpp);                            // Dither image data to 16bpp or lower (Floyd-Steinberg dithering)
+public externc dllimport void ImageFlipVertical(Image *image);                                                              // Flip image vertically
+public externc dllimport void ImageFlipHorizontal(Image *image);                                                            // Flip image horizontally
+public externc dllimport void ImageRotate(Image *image, int degrees);                                                       // Rotate image by input angle in degrees (-359 to 359)
+public externc dllimport void ImageRotateCW(Image *image);                                                                  // Rotate image clockwise 90deg
+public externc dllimport void ImageRotateCCW(Image *image);                                                                 // Rotate image counter-clockwise 90deg
+public externc dllimport void ImageColorTint(Image *image, Color color);                                                    // Modify image color: tint
+public externc dllimport void ImageColorInvert(Image *image);                                                               // Modify image color: invert
+public externc dllimport void ImageColorGrayscale(Image *image);                                                            // Modify image color: grayscale
+public externc dllimport void ImageColorContrast(Image *image, float contrast);                                             // Modify image color: contrast (-100 to 100)
+public externc dllimport void ImageColorBrightness(Image *image, int brightness);                                           // Modify image color: brightness (-255 to 255)
+public externc dllimport void ImageColorReplace(Image *image, Color color, Color replace);                                  // Modify image color: replace color
+public externc dllimport Color *LoadImageColors(Image image);                                                               // Load color data from image as a Color array (RGBA - 32bit)
+public externc dllimport Color *LoadImagePalette(Image image, int maxPaletteSize, int *colorCount);                         // Load colors palette from image as a Color array (RGBA - 32bit)
+public externc dllimport void UnloadImageColors(Color *colors);                                                             // Unload color data loaded with LoadImageColors()
+public externc dllimport void UnloadImagePalette(Color *colors);                                                            // Unload colors palette loaded with LoadImagePalette()
+public externc dllimport Rectangle GetImageAlphaBorder(Image image, float threshold);                                       // Get image alpha border rectangle
+public externc dllimport Color GetImageColor(Image image, int x, int y);                                                    // Get image pixel color at (x, y) position
+
+// Image drawing functions
+// NOTE: Image software-rendering functions (CPU)
+public externc dllimport void ImageClearBackground(Image *dst, Color color);                                                // Clear image background with given color
+public externc dllimport void ImageDrawPixel(Image *dst, int posX, int posY, Color color);                                  // Draw pixel within an image
+public externc dllimport void ImageDrawPixelV(Image *dst, Vector2 position, Color color);                                   // Draw pixel within an image (Vector version)
+public externc dllimport void ImageDrawLine(Image *dst, int startPosX, int startPosY, int endPosX, int endPosY, Color color); // Draw line within an image
+public externc dllimport void ImageDrawLineV(Image *dst, Vector2 start, Vector2 end, Color color);                          // Draw line within an image (Vector version)
+public externc dllimport void ImageDrawCircle(Image *dst, int centerX, int centerY, int radius, Color color);               // Draw a filled circle within an image
+public externc dllimport void ImageDrawCircleV(Image *dst, Vector2 center, int radius, Color color);                        // Draw a filled circle within an image (Vector version)
+public externc dllimport void ImageDrawCircleLines(Image *dst, int centerX, int centerY, int radius, Color color);          // Draw circle outline within an image
+public externc dllimport void ImageDrawCircleLinesV(Image *dst, Vector2 center, int radius, Color color);                   // Draw circle outline within an image (Vector version)
+public externc dllimport void ImageDrawRectangle(Image *dst, int posX, int posY, int width, int height, Color color);       // Draw rectangle within an image
+public externc dllimport void ImageDrawRectangleV(Image *dst, Vector2 position, Vector2 size, Color color);                 // Draw rectangle within an image (Vector version)
+public externc dllimport void ImageDrawRectangleRec(Image *dst, Rectangle rec, Color color);                                // Draw rectangle within an image
+public externc dllimport void ImageDrawRectangleLines(Image *dst, Rectangle rec, int thick, Color color);                   // Draw rectangle lines within an image
+public externc dllimport void ImageDraw(Image *dst, Image src, Rectangle srcRec, Rectangle dstRec, Color tint);             // Draw a source image within a destination image (tint applied to source)
+public externc dllimport void ImageDrawText(Image *dst, char* text, int posX, int posY, int fontSize, Color color);   // Draw text (using default font) within an image (destination)
+public externc dllimport void ImageDrawTextEx(Image *dst, Font font, char* text, Vector2 position, float fontSize, float spacing, Color tint); // Draw text (custom sprite font) within an image (destination)
+
+// Texture loading functions
+// NOTE: These functions require GPU access
+public externc dllimport Texture2D LoadTexture(char* fileName);                                                       // Load texture from file into GPU memory (VRAM)
+public externc dllimport Texture2D LoadTextureFromImage(Image image);                                                       // Load texture from image data
+public externc dllimport TextureCubemap LoadTextureCubemap(Image image, int layout);                                        // Load cubemap from image, multiple image cubemap layouts supported
+public externc dllimport RenderTexture2D LoadRenderTexture(int width, int height);                                          // Load texture for rendering (framebuffer)
+public externc dllimport bool IsTextureReady(Texture2D texture);                                                            // Check if a texture is ready
+public externc dllimport void UnloadTexture(Texture2D texture);                                                             // Unload texture from GPU memory (VRAM)
+public externc dllimport bool IsRenderTextureReady(RenderTexture2D target);                                                 // Check if a render texture is ready
+public externc dllimport void UnloadRenderTexture(RenderTexture2D target);                                                  // Unload render texture from GPU memory (VRAM)
+public externc dllimport void UpdateTexture(Texture2D texture, byte* pixels);                                         // Update GPU texture with new data
+public externc dllimport void UpdateTextureRec(Texture2D texture, Rectangle rec, byte* pixels);                       // Update GPU texture rectangle with new data
+
+// Texture configuration functions
+public externc dllimport void GenTextureMipmaps(Texture2D *texture);                                                        // Generate GPU mipmaps for a texture
+public externc dllimport void SetTextureFilter(Texture2D texture, int filter);                                              // Set texture scaling filter mode
+public externc dllimport void SetTextureWrap(Texture2D texture, int wrap);                                                  // Set texture wrapping mode
+
+// Texture drawing functions
+public externc dllimport void DrawTexture(Texture2D texture, int posX, int posY, Color tint);                               // Draw a Texture2D
+public externc dllimport void DrawTextureV(Texture2D texture, Vector2 position, Color tint);                                // Draw a Texture2D with position defined as Vector2
+public externc dllimport void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);  // Draw a Texture2D with extended parameters
+public externc dllimport void DrawTextureRec(Texture2D texture, Rectangle source, Vector2 position, Color tint);            // Draw a part of a texture defined by a rectangle
+public externc dllimport void DrawTexturePro(Texture2D texture, Rectangle source, Rectangle dest, Vector2 origin, float rotation, Color tint); // Draw a part of a texture defined by a rectangle with 'pro' parameters
+public externc dllimport void DrawTextureNPatch(Texture2D texture, NPatchInfo nPatchInfo, Rectangle dest, Vector2 origin, float rotation, Color tint); // Draws a texture (or part of it) that stretches or shrinks nicely
+
+// Color/pixel related functions
+public externc dllimport Color Fade(Color color, float alpha);                                 // Get color with alpha applied, alpha goes from 0.0f to 1.0f
+public externc dllimport int ColorToInt(Color color);                                          // Get hexadecimal value for a Color
+public externc dllimport Vector4 ColorNormalize(Color color);                                  // Get Color normalized as float [0..1]
+public externc dllimport Color ColorFromNormalized(Vector4 normalized);                        // Get Color from normalized values [0..1]
+public externc dllimport Vector3 ColorToHSV(Color color);                                      // Get HSV values for a Color, hue [0..360], saturation/value [0..1]
+public externc dllimport Color ColorFromHSV(float hue, float saturation, float value);         // Get a Color from HSV values, hue [0..360], saturation/value [0..1]
+public externc dllimport Color ColorTint(Color color, Color tint);                             // Get color multiplied with another color
+public externc dllimport Color ColorBrightness(Color color, float factor);                     // Get color with brightness correction, brightness factor goes from -1.0f to 1.0f
+public externc dllimport Color ColorContrast(Color color, float contrast);                     // Get color with contrast correction, contrast values between -1.0f and 1.0f
+public externc dllimport Color ColorAlpha(Color color, float alpha);                           // Get color with alpha applied, alpha goes from 0.0f to 1.0f
+public externc dllimport Color ColorAlphaBlend(Color dst, Color src, Color tint);              // Get src alpha-blended into dst color with tint
+public externc dllimport Color GetColor(uint hexValue);                                // Get Color structure from hexadecimal value
+public externc dllimport Color GetPixelColor(byte* srcPtr, int format);                        // Get Color from a source pixel pointer of certain format
+public externc dllimport void SetPixelColor(byte* dstPtr, Color color, int format);            // Set color formatted into destination pixel pointer
+public externc dllimport int GetPixelDataSize(int width, int height, int format);              // Get pixel data size in bytes for certain format
+
+//------------------------------------------------------------------------------------
+// Font Loading and Text Drawing Functions (Module: text)
+//------------------------------------------------------------------------------------
+
+// Font loading/unloading functions
+public externc dllimport Font GetFontDefault();                                                            // Get the default Font
+public externc dllimport Font LoadFont(char* fileName);                                                  // Load font from file into GPU memory (VRAM)
+public externc dllimport Font LoadFontEx(char* fileName, int fontSize, int *codepoints, int codepointCount);  // Load font from file with extended parameters, use NULL for codepoints and 0 for codepointCount to load the default character set
+public externc dllimport Font LoadFontFromImage(Image image, Color key, int firstChar);                        // Load font from Image (XNA style)
+public externc dllimport Font LoadFontFromMemory(char* fileType, byte* fileData, int dataSize, int fontSize, int *codepoints, int codepointCount); // Load font from memory buffer, fileType refers to extension: i.e. '.ttf'
+public externc dllimport bool IsFontReady(Font font);                                                          // Check if a font is ready
+public externc dllimport GlyphInfo *LoadFontData(byte* fileData, int dataSize, int fontSize, int *codepoints, int codepointCount, int type); // Load font data for further use
+public externc dllimport Image GenImageFontAtlas(GlyphInfo* glyphs, Rectangle **glyphRecs, int glyphCount, int fontSize, int padding, int packMethod); // Generate image font atlas using chars info
+public externc dllimport void UnloadFontData(GlyphInfo *glyphs, int glyphCount);                               // Unload font chars info data (RAM)
+public externc dllimport void UnloadFont(Font font);                                                           // Unload font from GPU memory (VRAM)
+public externc dllimport bool ExportFontAsCode(Font font, char* fileName);                               // Export font as code file, returns true on success
+
+// Text drawing functions
+public externc dllimport void DrawFPS(int posX, int posY);                                                     // Draw current FPS
+public externc dllimport void DrawText(char* text, int posX, int posY, int fontSize, Color color);       // Draw text (using default font)
+public externc dllimport void DrawTextEx(Font font, char* text, Vector2 position, float fontSize, float spacing, Color tint); // Draw text using font and additional parameters
+public externc dllimport void DrawTextPro(Font font, char* text, Vector2 position, Vector2 origin, float rotation, float fontSize, float spacing, Color tint); // Draw text using Font and pro parameters (rotation)
+public externc dllimport void DrawTextCodepoint(Font font, int codepoint, Vector2 position, float fontSize, Color tint); // Draw one character (codepoint)
+public externc dllimport void DrawTextCodepoints(Font font, int* codepoints, int codepointCount, Vector2 position, float fontSize, float spacing, Color tint); // Draw multiple character (codepoint)
+
+// Text font info functions
+public externc dllimport void SetTextLineSpacing(int spacing);                                                 // Set vertical line spacing when drawing with line-breaks
+public externc dllimport int MeasureText(char* text, int fontSize);                                      // Measure string width for default font
+public externc dllimport Vector2 MeasureTextEx(Font font, char* text, float fontSize, float spacing);    // Measure string size for Font
+public externc dllimport int GetGlyphIndex(Font font, int codepoint);                                          // Get glyph index position in font for a codepoint (unicode character), fallback to '?' if not found
+public externc dllimport GlyphInfo GetGlyphInfo(Font font, int codepoint);                                     // Get glyph font info data for a codepoint (unicode character), fallback to '?' if not found
+public externc dllimport Rectangle GetGlyphAtlasRec(Font font, int codepoint);                                 // Get glyph rectangle in font atlas for a codepoint (unicode character), fallback to '?' if not found
+
+// Text codepoints management functions (unicode characters)
+public externc dllimport char *LoadUTF8(int* codepoints, int length);                // Load UTF-8 text encoded from codepoints array
+public externc dllimport void UnloadUTF8(char *text);                                      // Unload UTF-8 text encoded from codepoints array
+public externc dllimport int *LoadCodepoints(char* text, int *count);                // Load all codepoints from a UTF-8 text string, codepoints count returned by parameter
+public externc dllimport void UnloadCodepoints(int *codepoints);                           // Unload codepoints data from memory
+public externc dllimport int GetCodepointCount(char* text);                          // Get total number of codepoints in a UTF-8 encoded string
+public externc dllimport int GetCodepoint(char* text, int *codepointSize);           // Get next codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
+public externc dllimport int GetCodepointNext(char* text, int *codepointSize);       // Get next codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
+public externc dllimport int GetCodepointPrevious(char* text, int *codepointSize);   // Get previous codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
+public externc dllimport char* CodepointToUTF8(int codepoint, int *utf8Size);        // Encode one codepoint into UTF-8 byte array (array length returned as parameter)
+
+// Text strings management functions (no UTF-8 strings, only byte chars)
+// NOTE: Some strings allocate memory internally for returned strings, just be careful!
+public externc dllimport int TextCopy(char *dst, char* src);                                             // Copy one string to another, returns bytes copied
+public externc dllimport bool TextIsEqual(char* text1, char* text2);                               // Check if two text string are equal
+public externc dllimport uint TextLength(char* text);                                            // Get text length, checks for '\0' ending
+//public externc dllimport char* TextFormat(char* text, ...);                                        // Text formatting with variables (sprintf() style)
+public externc dllimport char* TextSubtext(char* text, int position, int length);                  // Get a piece of a text string
+public externc dllimport char *TextReplace(char *text, char* replace, char* by);                   // Replace text string (WARNING: memory must be freed!)
+public externc dllimport char *TextInsert(char* text, char* insert, int position);                 // Insert text in a position (WARNING: memory must be freed!)
+public externc dllimport char* TextJoin(char* *textList, int count, char* delimiter);        // Join text strings with delimiter
+public externc dllimport char* *TextSplit(char* text, char delimiter, int *count);                 // Split text into multiple strings
+public externc dllimport void TextAppend(char *text, char* append, int *position);                       // Append text at specific position and move cursor!
+public externc dllimport int TextFindIndex(char* text, char* find);                                // Find first text occurrence within a string
+public externc dllimport char* TextToUpper(char* text);                      // Get upper case version of provided string
+public externc dllimport char* TextToLower(char* text);                      // Get lower case version of provided string
+public externc dllimport char* TextToPascal(char* text);                     // Get Pascal case notation version of provided string
+public externc dllimport int TextToInteger(char* text);                            // Get integer value from text (negative values not supported)
+
+//------------------------------------------------------------------------------------
+// Basic 3d Shapes Drawing Functions (Module: models)
+//------------------------------------------------------------------------------------
+
+// Basic geometric 3D shapes drawing functions
+public externc dllimport void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color);                                    // Draw a line in 3D world space
+public externc dllimport void DrawPoint3D(Vector3 position, Color color);                                                   // Draw a point in 3D space, actually a small line
+public externc dllimport void DrawCircle3D(Vector3 center, float radius, Vector3 rotationAxis, float rotationAngle, Color color); // Draw a circle in 3D world space
+public externc dllimport void DrawTriangle3D(Vector3 v1, Vector3 v2, Vector3 v3, Color color);                              // Draw a color-filled triangle (vertex in counter-clockwise order!)
+public externc dllimport void DrawTriangleStrip3D(Vector3 *points, int pointCount, Color color);                            // Draw a triangle strip defined by points
+public externc dllimport void DrawCube(Vector3 position, float width, float height, float length, Color color);             // Draw cube
+public externc dllimport void DrawCubeV(Vector3 position, Vector3 size, Color color);                                       // Draw cube (Vector version)
+public externc dllimport void DrawCubeWires(Vector3 position, float width, float height, float length, Color color);        // Draw cube wires
+public externc dllimport void DrawCubeWiresV(Vector3 position, Vector3 size, Color color);                                  // Draw cube wires (Vector version)
+public externc dllimport void DrawSphere(Vector3 centerPos, float radius, Color color);                                     // Draw sphere
+public externc dllimport void DrawSphereEx(Vector3 centerPos, float radius, int rings, int slices, Color color);            // Draw sphere with extended parameters
+public externc dllimport void DrawSphereWires(Vector3 centerPos, float radius, int rings, int slices, Color color);         // Draw sphere wires
+public externc dllimport void DrawCylinder(Vector3 position, float radiusTop, float radiusBottom, float height, int slices, Color color); // Draw a cylinder/cone
+public externc dllimport void DrawCylinderEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, int sides, Color color); // Draw a cylinder with base at startPos and top at endPos
+public externc dllimport void DrawCylinderWires(Vector3 position, float radiusTop, float radiusBottom, float height, int slices, Color color); // Draw a cylinder/cone wires
+public externc dllimport void DrawCylinderWiresEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, int sides, Color color); // Draw a cylinder wires with base at startPos and top at endPos
+public externc dllimport void DrawCapsule(Vector3 startPos, Vector3 endPos, float radius, int slices, int rings, Color color); // Draw a capsule with the center of its sphere caps at startPos and endPos
+public externc dllimport void DrawCapsuleWires(Vector3 startPos, Vector3 endPos, float radius, int slices, int rings, Color color); // Draw capsule wireframe with the center of its sphere caps at startPos and endPos
+public externc dllimport void DrawPlane(Vector3 centerPos, Vector2 size, Color color);                                      // Draw a plane XZ
+public externc dllimport void DrawRay(Ray ray, Color color);                                                                // Draw a ray line
+public externc dllimport void DrawGrid(int slices, float spacing);                                                          // Draw a grid (centered at (0, 0, 0))
+
+//------------------------------------------------------------------------------------
+// Model 3d Loading and Drawing Functions (Module: models)
+//------------------------------------------------------------------------------------
+
+// Model management functions
+public externc dllimport Model LoadModel(char* fileName);                                                // Load model from files (meshes and materials)
+public externc dllimport Model LoadModelFromMesh(Mesh mesh);                                                   // Load model from generated mesh (default material)
+public externc dllimport bool IsModelReady(Model model);                                                       // Check if a model is ready
+public externc dllimport void UnloadModel(Model model);                                                        // Unload model (including meshes) from memory (RAM and/or VRAM)
+public externc dllimport BoundingBox GetModelBoundingBox(Model model);                                         // Compute model bounding box limits (considers all meshes)
+
+// Model drawing functions
+public externc dllimport void DrawModel(Model model, Vector3 position, float scale, Color tint);               // Draw a model (with texture if set)
+public externc dllimport void DrawModelEx(Model model, Vector3 position, Vector3 rotationAxis, float rotationAngle, Vector3 scale, Color tint); // Draw a model with extended parameters
+public externc dllimport void DrawModelWires(Model model, Vector3 position, float scale, Color tint);          // Draw a model wires (with texture if set)
+public externc dllimport void DrawModelWiresEx(Model model, Vector3 position, Vector3 rotationAxis, float rotationAngle, Vector3 scale, Color tint); // Draw a model wires (with texture if set) with extended parameters
+public externc dllimport void DrawBoundingBox(BoundingBox box, Color color);                                   // Draw bounding box (wires)
+public externc dllimport void DrawBillboard(Camera camera, Texture2D texture, Vector3 position, float size, Color tint);   // Draw a billboard texture
+public externc dllimport void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector3 position, Vector2 size, Color tint); // Draw a billboard texture defined by source
+public externc dllimport void DrawBillboardPro(Camera camera, Texture2D texture, Rectangle source, Vector3 position, Vector3 up, Vector2 size, Vector2 origin, float rotation, Color tint); // Draw a billboard texture defined by source and rotation
+
+// Mesh management functions
+public externc dllimport void UploadMesh(Mesh *mesh, bool dynamic);                                            // Upload mesh vertex data in GPU and provide VAO/VBO ids
+public externc dllimport void UpdateMeshBuffer(Mesh mesh, int index, byte* data, int dataSize, int offset); // Update mesh vertex data in GPU for a specific buffer index
+public externc dllimport void UnloadMesh(Mesh mesh);                                                           // Unload mesh data from CPU and GPU
+public externc dllimport void DrawMesh(Mesh mesh, Material material, Matrix transform);                        // Draw a 3d mesh with material and transform
+public externc dllimport void DrawMeshInstanced(Mesh mesh, Material material, Matrix* transforms, int instances); // Draw multiple mesh instances with material and different transforms
+public externc dllimport bool ExportMesh(Mesh mesh, char* fileName);                                     // Export mesh data to file, returns true on success
+public externc dllimport BoundingBox GetMeshBoundingBox(Mesh mesh);                                            // Compute mesh bounding box limits
+public externc dllimport void GenMeshTangents(Mesh *mesh);                                                     // Compute mesh tangents
+
+// Mesh generation functions
+public externc dllimport Mesh GenMeshPoly(int sides, float radius);                                            // Generate polygonal mesh
+public externc dllimport Mesh GenMeshPlane(float width, float length, int resX, int resZ);                     // Generate plane mesh (with subdivisions)
+public externc dllimport Mesh GenMeshCube(float width, float height, float length);                            // Generate cuboid mesh
+public externc dllimport Mesh GenMeshSphere(float radius, int rings, int slices);                              // Generate sphere mesh (standard sphere)
+public externc dllimport Mesh GenMeshHemiSphere(float radius, int rings, int slices);                          // Generate half-sphere mesh (no bottom cap)
+public externc dllimport Mesh GenMeshCylinder(float radius, float height, int slices);                         // Generate cylinder mesh
+public externc dllimport Mesh GenMeshCone(float radius, float height, int slices);                             // Generate cone/pyramid mesh
+public externc dllimport Mesh GenMeshTorus(float radius, float size, int radSeg, int sides);                   // Generate torus mesh
+public externc dllimport Mesh GenMeshKnot(float radius, float size, int radSeg, int sides);                    // Generate trefoil knot mesh
+public externc dllimport Mesh GenMeshHeightmap(Image heightmap, Vector3 size);                                 // Generate heightmap mesh from image data
+public externc dllimport Mesh GenMeshCubicmap(Image cubicmap, Vector3 cubeSize);                               // Generate cubes-based map mesh from image data
+
+// Material loading/unloading functions
+public externc dllimport Material *LoadMaterials(char* fileName, int *materialCount);                    // Load materials from model file
+public externc dllimport Material LoadMaterialDefault();                                                   // Load default material (Supports: DIFFUSE, SPECULAR, NORMAL maps)
+public externc dllimport bool IsMaterialReady(Material material);                                              // Check if a material is ready
+public externc dllimport void UnloadMaterial(Material material);                                               // Unload material from GPU memory (VRAM)
+public externc dllimport void SetMaterialTexture(Material *material, int mapType, Texture2D texture);          // Set texture for a material map type (MATERIAL_MAP_DIFFUSE, MATERIAL_MAP_SPECULAR...)
+public externc dllimport void SetModelMeshMaterial(Model *model, int meshId, int materialId);                  // Set material for a mesh
+
+// Model animations loading/unloading functions
+public externc dllimport ModelAnimation *LoadModelAnimations(char* fileName, int *animCount);            // Load model animations from file
+public externc dllimport void UpdateModelAnimation(Model model, ModelAnimation anim, int frame);               // Update model animation pose
+public externc dllimport void UnloadModelAnimation(ModelAnimation anim);                                       // Unload animation data
+public externc dllimport void UnloadModelAnimations(ModelAnimation *animations, int animCount);                // Unload animation array data
+public externc dllimport bool IsModelAnimationValid(Model model, ModelAnimation anim);                         // Check model animation skeleton match
+
+// Collision detection functions
+public externc dllimport bool CheckCollisionSpheres(Vector3 center1, float radius1, Vector3 center2, float radius2);   // Check collision between two spheres
+public externc dllimport bool CheckCollisionBoxes(BoundingBox box1, BoundingBox box2);                                 // Check collision between two bounding boxes
+public externc dllimport bool CheckCollisionBoxSphere(BoundingBox box, Vector3 center, float radius);                  // Check collision between box and sphere
+public externc dllimport RayCollision GetRayCollisionSphere(Ray ray, Vector3 center, float radius);                    // Get collision info between ray and sphere
+public externc dllimport RayCollision GetRayCollisionBox(Ray ray, BoundingBox box);                                    // Get collision info between ray and box
+public externc dllimport RayCollision GetRayCollisionMesh(Ray ray, Mesh mesh, Matrix transform);                       // Get collision info between ray and mesh
+public externc dllimport RayCollision GetRayCollisionTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3);            // Get collision info between ray and triangle
+public externc dllimport RayCollision GetRayCollisionQuad(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4);    // Get collision info between ray and quad
+
+//------------------------------------------------------------------------------------
+// Audio Loading and Playing Functions (Module: audio)
+//------------------------------------------------------------------------------------
+public typedef AudioCallback : void(byte* bufferData, uint frames);
+
+// Audio device management functions
+public externc dllimport void InitAudioDevice();                                     // Initialize audio device and context
+public externc dllimport void CloseAudioDevice();                                    // Close the audio device and context
+public externc dllimport bool IsAudioDeviceReady();                                  // Check if audio device has been initialized successfully
+public externc dllimport void SetMasterVolume(float volume);                             // Set master volume (listener)
+public externc dllimport float GetMasterVolume();                                    // Get master volume (listener)
+
+// Wave/Sound loading/unloading functions
+public externc dllimport Wave LoadWave(char* fileName);                            // Load wave data from file
+public externc dllimport Wave LoadWaveFromMemory(char* fileType, byte* fileData, int dataSize); // Load wave from memory buffer, fileType refers to extension: i.e. '.wav'
+public externc dllimport bool IsWaveReady(Wave wave);                                    // Checks if wave data is ready
+public externc dllimport Sound LoadSound(char* fileName);                          // Load sound from file
+public externc dllimport Sound LoadSoundFromWave(Wave wave);                             // Load sound from wave data
+public externc dllimport Sound LoadSoundAlias(Sound source);                             // Create a new sound that shares the same sample data as the source sound, does not own the sound data
+public externc dllimport bool IsSoundReady(Sound sound);                                 // Checks if a sound is ready
+public externc dllimport void UpdateSound(Sound sound, byte* data, int sampleCount); // Update sound buffer with new data
+public externc dllimport void UnloadWave(Wave wave);                                     // Unload wave data
+public externc dllimport void UnloadSound(Sound sound);                                  // Unload sound
+public externc dllimport void UnloadSoundAlias(Sound alias);                             // Unload a sound alias (does not deallocate sample data)
+public externc dllimport bool ExportWave(Wave wave, char* fileName);               // Export wave data to file, returns true on success
+public externc dllimport bool ExportWaveAsCode(Wave wave, char* fileName);         // Export wave sample data to code (.h), returns true on success
+
+// Wave/Sound management functions
+public externc dllimport void PlaySound(Sound sound);                                    // Play a sound
+public externc dllimport void StopSound(Sound sound);                                    // Stop playing a sound
+public externc dllimport void PauseSound(Sound sound);                                   // Pause a sound
+public externc dllimport void ResumeSound(Sound sound);                                  // Resume a paused sound
+public externc dllimport bool IsSoundPlaying(Sound sound);                               // Check if a sound is currently playing
+public externc dllimport void SetSoundVolume(Sound sound, float volume);                 // Set volume for a sound (1.0 is max level)
+public externc dllimport void SetSoundPitch(Sound sound, float pitch);                   // Set pitch for a sound (1.0 is base level)
+public externc dllimport void SetSoundPan(Sound sound, float pan);                       // Set pan for a sound (0.5 is center)
+public externc dllimport Wave WaveCopy(Wave wave);                                       // Copy a wave to a new wave
+public externc dllimport void WaveCrop(Wave *wave, int initSample, int finalSample);     // Crop a wave to defined samples range
+public externc dllimport void WaveFormat(Wave *wave, int sampleRate, int sampleSize, int channels); // Convert wave data to desired format
+public externc dllimport float *LoadWaveSamples(Wave wave);                              // Load samples data from wave as a 32bit float data array
+public externc dllimport void UnloadWaveSamples(float *samples);                         // Unload samples data loaded with LoadWaveSamples()
+
+// Music management functions
+public externc dllimport Music LoadMusicStream(char* fileName);                    // Load music stream from file
+public externc dllimport Music LoadMusicStreamFromMemory(char* fileType, byte* data, int dataSize); // Load music stream from data
+public externc dllimport bool IsMusicReady(Music music);                                 // Checks if a music stream is ready
+public externc dllimport void UnloadMusicStream(Music music);                            // Unload music stream
+public externc dllimport void PlayMusicStream(Music music);                              // Start music playing
+public externc dllimport bool IsMusicStreamPlaying(Music music);                         // Check if music is playing
+public externc dllimport void UpdateMusicStream(Music music);                            // Updates buffers for music streaming
+public externc dllimport void StopMusicStream(Music music);                              // Stop music playing
+public externc dllimport void PauseMusicStream(Music music);                             // Pause music playing
+public externc dllimport void ResumeMusicStream(Music music);                            // Resume playing paused music
+public externc dllimport void SeekMusicStream(Music music, float position);              // Seek music to a position (in seconds)
+public externc dllimport void SetMusicVolume(Music music, float volume);                 // Set volume for music (1.0 is max level)
+public externc dllimport void SetMusicPitch(Music music, float pitch);                   // Set pitch for a music (1.0 is base level)
+public externc dllimport void SetMusicPan(Music music, float pan);                       // Set pan for a music (0.5 is center)
+public externc dllimport float GetMusicTimeLength(Music music);                          // Get music time length (in seconds)
+public externc dllimport float GetMusicTimePlayed(Music music);                          // Get current music time played (in seconds)
+
+// AudioStream management functions
+public externc dllimport AudioStream LoadAudioStream(uint sampleRate, uint sampleSize, uint channels); // Load audio stream (to stream raw audio pcm data)
+public externc dllimport bool IsAudioStreamReady(AudioStream stream);                    // Checks if an audio stream is ready
+public externc dllimport void UnloadAudioStream(AudioStream stream);                     // Unload audio stream and free memory
+public externc dllimport void UpdateAudioStream(AudioStream stream, byte* data, int frameCount); // Update audio stream buffers with data
+public externc dllimport bool IsAudioStreamProcessed(AudioStream stream);                // Check if any audio stream buffers requires refill
+public externc dllimport void PlayAudioStream(AudioStream stream);                       // Play audio stream
+public externc dllimport void PauseAudioStream(AudioStream stream);                      // Pause audio stream
+public externc dllimport void ResumeAudioStream(AudioStream stream);                     // Resume audio stream
+public externc dllimport bool IsAudioStreamPlaying(AudioStream stream);                  // Check if audio stream is playing
+public externc dllimport void StopAudioStream(AudioStream stream);                       // Stop audio stream
+public externc dllimport void SetAudioStreamVolume(AudioStream stream, float volume);    // Set volume for audio stream (1.0 is max level)
+public externc dllimport void SetAudioStreamPitch(AudioStream stream, float pitch);      // Set pitch for audio stream (1.0 is base level)
+public externc dllimport void SetAudioStreamPan(AudioStream stream, float pan);          // Set pan for audio stream (0.5 is centered)
+public externc dllimport void SetAudioStreamBufferSizeDefault(int size);                 // Default size for new audio streams
+public externc dllimport void SetAudioStreamCallback(AudioStream stream, AudioCallback callback); // Audio thread callback to request new data
+
+public externc dllimport void AttachAudioStreamProcessor(AudioStream stream, AudioCallback processor); // Attach audio stream processor to stream, receives the samples as <float>s
+public externc dllimport void DetachAudioStreamProcessor(AudioStream stream, AudioCallback processor); // Detach audio stream processor from stream
+
+public externc dllimport void AttachAudioMixedProcessor(AudioCallback processor); // Attach audio stream processor to the entire audio pipeline, receives the samples as <float>s
+public externc dllimport void DetachAudioMixedProcessor(AudioCallback processor); // Detach audio stream processor from the entire audio pipeline

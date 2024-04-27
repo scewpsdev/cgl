@@ -26,6 +26,18 @@ void CGLCompiler::addFile(const char* filename, const char* name, const char* sr
 	sourceFiles.add(sourceFile);
 }
 
+void CGLCompiler::addLinkerFile(const char* filename)
+{
+	LinkerFile linkerFile;
+	linkerFile.filename = filename;
+	linkerFiles.add(linkerFile);
+}
+
+void CGLCompiler::addLinkerPath(const char* path)
+{
+	linkerPaths.add(path);
+}
+
 bool CGLCompiler::compile()
 {
 	asts.reserve(sourceFiles.size);
