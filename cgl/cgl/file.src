@@ -1,0 +1,19 @@
+package snek.file;
+
+import cstdio;
+
+
+public string readText(string path)
+{
+	void* file = fopen(path.ptr, "r".ptr);
+	fseek(file, 0, SEEK_END);
+	int numBytes = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	
+	byte* buffer = new byte: numBytes + 1;
+	fread(buffer, 1, numBytes, file);
+	buffer[numBytes] = 0;
+	fclose(file);
+	
+	return string(buffer);
+}

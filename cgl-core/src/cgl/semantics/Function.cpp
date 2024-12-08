@@ -82,7 +82,8 @@ bool Resolver::findFunctionsInModule(const char* name, AST::Module* module, List
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
-		return findFunctionsInFile(name, file, functions);
+		if (findFunctionsInFile(name, file, functions))
+			return true;
 	}
 	return false;
 }
@@ -93,7 +94,7 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 
 	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
 	if (findFunctionsInModule(name, module, functions))
-		return true;
+		found = true;
 
 	for (int i = 0; i < currentFile->dependencies.size; i++)
 	{

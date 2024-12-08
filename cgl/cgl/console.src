@@ -10,12 +10,6 @@ public void write(string str)
 		putchar(str[i]);
 }
 
-public void write(float f)
-{
-	//printf("%f".ptr, f);
-	putchar('f');
-}
-
 public void writeln(string str)
 {
 	for (int i = 0; i < str.length; i++)
@@ -23,9 +17,26 @@ public void writeln(string str)
 	putchar('\n');
 }
 
+public void write(float f)
+{
+	writeFloat(f);
+}
+
 public void writeln(float f)
 {
-	//printf("%f\n".ptr, f);
+	writeFloat(f);
+	putchar('\n');
+}
+
+public void write(int i)
+{
+	writeInt(i);
+}
+
+public void writeln(int i)
+{
+	writeInt(i);
+	putchar('\n');
 }
 
 void writeInt(int value)

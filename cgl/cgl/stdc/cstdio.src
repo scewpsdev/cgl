@@ -1,5 +1,16 @@
 package cstdio;
 
 
+public const int SEEK_SET = 0;
+public const int SEEK_CUR = 1;
+public const int SEEK_END = 2;
+
+
 public externc void putchar(int c);
 //public externc int printf(char* format, ...);
+
+public externc void* fopen(char* filename, char* mode);
+public externc int fclose(void* file);
+public externc int fseek(void* file, int offset, int whence);
+public externc int ftell(void* file);
+public externc long fread(void* ptr, long size, long nmemb, void* file);

@@ -17,3 +17,8 @@ public float sigmoid(float x)
 {
 	return 1.0f / (1.0f + cmath.expf(-x));
 }
+
+public int abs(int i)
+{
+	return i < 0 ? -i : i;
+}

@@ -46,3 +46,7 @@ u32 __stou32(string s);
 u64 __stou64(string s);
 string __itos(i64 i);
 string __utos(u64 n);
+
+extern void* malloc(u64 size);
+extern void free(void* ptr);
+extern long long strlen(const char* str);

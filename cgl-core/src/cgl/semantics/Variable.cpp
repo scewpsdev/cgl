@@ -87,7 +87,6 @@ Variable* Resolver::findGlobalVariableInFile(const char* name, AST::File* file)
 
 Variable* Resolver::findGlobalVariableInModule(const char* name, AST::Module* module, AST::Module* current)
 {
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (Variable* variable = findGlobalVariableInFile(name, file))
@@ -113,12 +112,16 @@ Variable* Resolver::findVariable(const char* name)
 		return variable;
 
 	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
+	if (Variable* variable = findGlobalVariableInModule(name, module, module))
+		return variable;
+
+	/*
 	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (file != currentFile)
 		{
-			if (Variable* variable = findGlobalVariableInFile(name, currentFile))
+			if (Variable* variable = findGlobalVariableInFile(name, file))
 			{
 				if (variable->visibility >= AST::Visibility::Public)
 					return variable;
@@ -130,9 +133,15 @@ Variable* Resolver::findVariable(const char* name)
 			}
 		}
 	}
+	*/
+
 	for (int i = 0; i < currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = currentFile->dependencies[i];
+		if (Variable* variable = findGlobalVariableInModule(name, dependency, module))
+			return variable;
+
+		/*
 		//if (AST::File* file = dependency->file)
 		for (AST::File* file : dependency->files)
 		{
@@ -147,6 +156,7 @@ Variable* Resolver::findVariable(const char* name)
 				}
 			}
 		}
+		*/
 	}
 	return nullptr;
 }

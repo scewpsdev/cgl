@@ -1,0 +1,74 @@
+package snek.string;
+
+
+public string substring(string str, int offset, int length)
+{
+	char[] buffer = new char[length];
+	for (int i = 0; i < length; i++)
+		buffer[i] = str[offset + i];
+	return string(buffer);
+}
+
+public string[] split(string str, string delims)
+{
+	int numElements = 0;
+	int lastDelim = -1;
+	for (int i = 0; i <= str.length; i++)
+	{
+		bool isDelim = false;
+		if (i < str.length)
+		{
+			for (int j = 0; j < delims.length; j++)
+			{
+				if (str[i] == delims[j])
+				{
+					isDelim = true;
+					break;
+				}
+			}
+		}
+		else
+		{
+			isDelim = true;
+		}
+		
+		if (isDelim)
+		{
+			if (lastDelim < i - 1)
+				numElements++;
+			lastDelim = i;
+		}
+	}
+	
+	string[] result = new string[numElements];
+	numElements = 0;
+	lastDelim = -1;
+	for (int i = 0; i <= str.length; i++)
+	{
+		bool isDelim = false;
+		if (i < str.length)
+		{
+			for (int j = 0; j < delims.length; j++)
+			{
+				if (str[i] == delims[j])
+				{
+					isDelim = true;
+					break;
+				}
+			}
+		}
+		else
+		{
+			isDelim = true;
+		}
+		
+		if (isDelim)
+		{
+			if (lastDelim < i - 1)
+				result[numElements++] = substring(str, lastDelim + 1, i - lastDelim - 1);
+			lastDelim = i;
+		}
+	}
+	
+	return result;
+}

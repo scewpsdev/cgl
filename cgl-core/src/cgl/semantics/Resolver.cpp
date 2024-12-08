@@ -779,6 +779,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 						const char* functionTypeString = GetTypeString(function->functionType);
 						strcat(functionList, function->name);
+						strcat(functionList, " ");
 						strcat(functionList, functionTypeString);
 
 						if (i < functionOverloads->size - 1)
@@ -1498,17 +1499,17 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 			}
 			if (!arrayType->length)
 			{
-				SnekErrorLoc(resolver->context, expr->location, "Allocating string needs a length");
+				SnekErrorLoc(resolver->context, expr->location, "Allocating array needs a length");
 				result = false;
 			}
 
 			if (expr->count)
 			{
-				SnekErrorLoc(resolver->context, expr->location, "Can't allocate multiple strings at once");
+				SnekErrorLoc(resolver->context, expr->location, "Can't allocate multiple arrays at once");
 				result = false;
 			}
 
-			expr->valueType = GetPointerType(GetArrayType(arrayType->typeID->arrayType.elementType, arrayType->typeID->arrayType.length));
+			expr->valueType = GetArrayType(arrayType->typeID->arrayType.elementType, arrayType->typeID->arrayType.length);
 			expr->lvalue = false;
 		}
 		else if (expr->dstType->typeKind == AST::TypeKind::String)
@@ -2392,7 +2393,7 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 		resolver->findFunctionsInModule(decl->name, decl->file->module, overloadsWithSameName);
 		for (int i = 0; i < overloadsWithSameName.size; i++)
 		{
-			if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0)
+			if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0 && (overloadsWithSameName[i]->body || overloadsWithSameName[i]->bodyExpression) && (decl->body || decl->bodyExpression))
 			{
 				SnekErrorLoc(resolver->context, decl->location, "Function '%s' of type %s already defined at %s", decl->name, GetTypeString(decl->functionType), SourceLocationToString(overloadsWithSameName[i]->location));
 				result = false;
@@ -2962,7 +2963,8 @@ static bool ResolveModuleDecl(Resolver* resolver, AST::ModuleDeclaration* decl)
 
 static void AddModuleDependency(AST::File* file, AST::Module* module, bool recursive)
 {
-	file->dependencies.add(module);
+	if (!file->dependencies.contains(module))
+		file->dependencies.add(module);
 	if (recursive)
 	{
 		for (int i = 0; i < module->children.size; i++)
@@ -3022,10 +3024,6 @@ static bool ResolveImport(Resolver* resolver, AST::Import* decl)
 			{
 				AST::Module* module = nullptr;
 
-				if (!module && parent == resolver->globalModule)
-				{
-					module = FindModule(resolver, name, resolver->globalModule);
-				}
 				if (!module)
 				{
 					module = FindModule(resolver, name, parent);
@@ -3093,6 +3091,15 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 
 		ast->module->files.add(ast);
 	}
+
+	AST::Module* consoleModule = FindModule(resolver, "console", FindModule(resolver, "snek", resolver->globalModule));
+	for (int i = 0; i < resolver->asts.size; i++)
+	{
+		AST::File* ast = resolver->asts[i];
+		if (ast->module != consoleModule)
+			AddModuleDependency(ast, consoleModule, false);
+	}
+
 	for (int i = 0; i < resolver->asts.size; i++)
 	{
 		AST::File* ast = resolver->asts[i];

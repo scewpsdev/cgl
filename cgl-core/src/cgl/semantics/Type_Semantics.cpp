@@ -609,7 +609,7 @@ static char* TypeToString(TypeID type)
 	case AST::TypeKind::Function:
 	{
 		const char* returnTypeStr = GetTypeString(type->functionType.returnType);
-		int len = type->functionType.returnType->typeKind != AST::TypeKind::Void ? (2 + 4 + (int)strlen(returnTypeStr)) : 2; // ' -> ', '()'
+		int len = 2 + (int)strlen(returnTypeStr); // '()'
 
 		for (int i = 0; i < type->functionType.numParams; i++)
 		{
@@ -623,6 +623,7 @@ static char* TypeToString(TypeID type)
 
 		char* str = new char[len + 1];
 		str[0] = 0;
+		strcat(str, returnTypeStr);
 		strcat(str, "(");
 
 		for (int i = 0; i < type->functionType.numParams; i++)
@@ -636,12 +637,6 @@ static char* TypeToString(TypeID type)
 			strcat(str, "...");
 
 		strcat(str, ")");
-
-		if (type->functionType.returnType->typeKind != AST::TypeKind::Void)
-		{
-			strcat(str, " -> ");
-			strcat(str, returnTypeStr);
-		}
 
 		return str;
 	}

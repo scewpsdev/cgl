@@ -497,7 +497,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL) || NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL_MULTILINE))
 	{
-		bool raw = NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL);
+		bool raw = NextTokenIs(parser, TOKEN_TYPE_STRING_LITERAL_MULTILINE);
 
 		Token token = NextToken(parser);
 

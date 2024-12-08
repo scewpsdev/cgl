@@ -1,0 +1,59 @@
+package snek.list;
+
+import snek.sort;
+import snek.math;
+
+
+public int[] slice(int[] arr, int start, int count)
+{
+	int[] result = new int[count];
+	for (int i = 0; i < count; i++)
+		result[i] = arr[start + i];
+	return result;
+}
+
+public int[] sliceInterleaved(int[] arr, int start, int stride)
+{
+	int resultLen = (arr.length - start + stride - 1) / stride;
+	int[] result = new int[resultLen];
+	for (int i = 0; i < resultLen; i++)
+		result[i] = arr[start + i * stride];
+	return result;
+}
+
+public int[] sort(int[] arr)
+{
+	quickSort(arr);
+	return arr;
+}
+
+public int[] abs(int[] arr)
+{
+	for (int i = 0; i < arr.length; i++)
+		arr[i] = abs(arr[i]);
+	return arr;
+}
+
+public int[] add(int[] a, int[] b)
+{
+	int[] result = new int[a.length];
+	for (int i = 0; i < a.length; i++)
+		result[i] = a[i] + b[i];
+	return result;
+}
+
+public int[] subtract(int[] a, int[] b)
+{
+	int[] result = new int[a.length];
+	for (int i = 0; i < a.length; i++)
+		result[i] = a[i] - b[i];
+	return result;
+}
+
+public int sum(int[] arr)
+{
+	int result = 0;
+	for (int i = 0; i < arr.length; i++)
+		result += arr[i];
+	return result;
+}
