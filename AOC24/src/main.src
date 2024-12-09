@@ -1,7 +1,0 @@
-import snek.console;
-
-
-public void main()
-{
-	day2();
-}

@@ -2371,11 +2371,13 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 
 		if (decl->returnType)
 			returnType = decl->returnType->typeID;
+		/*
 		else if (decl->bodyExpression)
 		{
 			result = ResolveExpression(resolver, decl->bodyExpression) && result;
 			returnType = decl->bodyExpression->valueType;
 		}
+		*/
 		else
 		{
 			returnType = GetVoidType();
@@ -2456,6 +2458,8 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 			if (decl->body)
 				result = ResolveStatement(resolver, decl->body) && result;
+			else if (decl->bodyExpression)
+				result = ResolveExpression(resolver, decl->bodyExpression) && result;
 
 			resolver->popScope();
 

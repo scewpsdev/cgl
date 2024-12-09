@@ -9,6 +9,38 @@ public string substring(string str, int offset, int length)
 	return string(buffer);
 }
 
+public string[] split(string str, char delim)
+{
+	int numElements = 0;
+	int lastDelim = -1;
+	for (int i = 0; i <= str.length; i++)
+	{
+		bool isDelim = i >= str.length || str[i] == delim;
+		if (isDelim)
+		{
+			if (lastDelim < i - 1)
+				numElements++;
+			lastDelim = i;
+		}
+	}
+	
+	string[] result = new string[numElements];
+	numElements = 0;
+	lastDelim = -1;
+	for (int i = 0; i <= str.length; i++)
+	{
+		bool isDelim = i >= str.length || str[i] == delim;
+		if (isDelim)
+		{
+			if (lastDelim < i - 1)
+				result[numElements++] = substring(str, lastDelim + 1, i - lastDelim - 1);
+			lastDelim = i;
+		}
+	}
+	
+	return result;
+}
+
 public string[] split(string str, string delims)
 {
 	int numElements = 0;

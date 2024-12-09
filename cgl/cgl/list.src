@@ -57,3 +57,13 @@ public int sum(int[] arr)
 		result += arr[i];
 	return result;
 }
+
+public int[] removeAt(int[] arr, int idx)
+{
+	int[] newArr = new int[arr.length - 1];
+	for (int i = 0; i < idx; i++)
+		newArr[i] = arr[i];
+	for (int i = idx + 1; i < arr.length; i++)
+		newArr[i - 1] = arr[i];
+	return newArr;
+}

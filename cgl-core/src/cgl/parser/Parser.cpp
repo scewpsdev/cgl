@@ -2326,13 +2326,15 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 					NextToken(parser); // =
 					NextToken(parser); // >
 
+					AST::Type* returnType = type;
+
 					AST::Expression* bodyExpression = ParseExpression(parser);
 
 					SkipToken(parser, ';');
 
 					InputState endInputState = GetInputState(parser);
 
-					return new AST::Function(parser->module, inputState, flags, endInputState, name, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, bodyExpression, isGeneric, genericParams);
+					return new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, bodyExpression, isGeneric, genericParams);
 				}
 				else
 				{

@@ -1965,7 +1965,8 @@ class CodegenTCC
 			*instructionStream << "{";
 			pushScope();
 
-			*instructionStream << "return " << genExpression(function->bodyExpression) << ";";
+			std::string returnValue = genExpression(function->bodyExpression);
+			*instructionStream << "return " << returnValue << ";";
 
 			popScope();
 			*instructionStream << "}";
