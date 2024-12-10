@@ -99,7 +99,7 @@ namespace AST
 
 	bool Function::isGenericParam(int idx) const
 	{
-		if (isGenericInstance)
+		if (isGenericInstance || isGeneric)
 		{
 			if (idx >= 0 && idx < paramTypes.size)
 			{

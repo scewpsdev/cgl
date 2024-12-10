@@ -67,3 +67,16 @@ public int[] removeAt(int[] arr, int idx)
 		newArr[i - 1] = arr[i];
 	return newArr;
 }
+
+public t sum<t>(t[] arr)
+{
+	t result = 0;
+	//for t in arr
+	//	result += t;
+	return result;
+}
+
+public void genericsTest(int[] arr)
+{
+	sum<int>(arr);
+}

@@ -115,10 +115,10 @@ int Resolver::getFunctionOverloadScore(const AST::Function* function, const List
 
 	for (int i = 0; i < arguments.size; i++)
 	{
-		if (CompareTypes(arguments[i]->valueType, function->paramTypes[i]->typeID))
-			;
-		else if (function->isGenericParam(i))
+		if (function->isGenericParam(i))
 			score++;
+		else if (CompareTypes(arguments[i]->valueType, function->paramTypes[i]->typeID))
+			;
 		else if (CanConvertImplicit(arguments[i]->valueType, function->paramTypes[i]->typeID, arguments[i]->isConstant()))
 			score += 2;
 		else
