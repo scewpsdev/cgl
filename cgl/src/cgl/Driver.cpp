@@ -8,8 +8,11 @@
 #include <filesystem>
 
 
-static void OnCompilerMessage(MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
+static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
 {
+	if (context->disableError)
+		return;
+
 	static const char* const MSG_TYPE_NAMES[MESSAGE_TYPE_MAX] = {
 		"<null>",
 		"info",

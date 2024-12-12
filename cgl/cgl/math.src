@@ -3,6 +3,10 @@ package snek.math;
 import cmath;
 
 
+public t min<t>(t a, t b) => a < b ? a : b;
+
+public t max<t>(t a, t b) => a > b ? a : b;
+
 public float exp(float f)
 {
 	return cmath.expf(f);
@@ -26,4 +30,14 @@ public int abs(int i)
 public int sign(int i)
 {
 	return i > 0 ? 1 : i < 0 ? -1 : 0;
+}
+
+public float log10(float f)
+{
+	return log10f(f);
+}
+
+public float pow(float f, float g)
+{
+	return powf(f, g);
 }

@@ -274,7 +274,8 @@ namespace AST
 		List<Expression*> arguments;
 
 		bool hasGenericArgs;
-		List<Type*> genericArgs;
+		List<Type*> genericArgsAST;
+		List<TypeID> genericArgs;
 
 		Function* function = nullptr;
 		bool isMethodCall = false;

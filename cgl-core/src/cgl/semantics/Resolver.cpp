@@ -57,12 +57,14 @@ static AST::File* FindFileWithNamespace(Resolver* resolver, const char* name, AS
 	return nullptr;
 }
 
-static bool ResolveType(Resolver* resolver, AST::Type* type);
+bool ResolveType(Resolver* resolver, AST::Type* type);
 static bool ResolveExpression(Resolver* resolver, AST::Expression* expr);
 static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl);
 static bool ResolveFunction(Resolver* resolver, AST::Function* decl);
 static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl);
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl);
+static bool ResolveClassHeader(Resolver* resolver, AST::Class* decl);
+static bool ResolveClass(Resolver* resolver, AST::Class* decl);
 
 static const char* SourceLocationToString(AST::SourceLocation location)
 {
@@ -235,6 +237,9 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 			AST::Struct* instance = structDecl->getGenericInstance(type->genericArgs);
 			if (!instance)
 			{
+				AST::File* lastFile = resolver->currentFile;
+				resolver->currentFile = structDecl->file;
+
 				instance = (AST::Struct*)structDecl->copy();
 				instance->isGeneric = false;
 				instance->isGenericInstance = true;
@@ -245,13 +250,16 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 					instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
 				}
 
+				// add instance to list before resolving to avoid stack overflow with circular dependencies
+				structDecl->genericInstances.add(instance);
+
 				result = ResolveStructHeader(resolver, instance) && result;
 				result = ResolveStruct(resolver, instance) && result;
 
-				structDecl->genericInstances.add(instance);
+				resolver->currentFile = lastFile;
 			}
 
-			type->typeKind = AST::TypeKind::Alias;
+			type->typeKind = AST::TypeKind::Struct;
 			type->typeID = instance->type;
 			type->declaration = instance;
 
@@ -273,10 +281,63 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 	}
 	else if (AST::Class* classDecl = FindClass(resolver, type->name))
 	{
-		type->typeKind = AST::TypeKind::Class;
-		type->typeID = classDecl->type;
-		type->declaration = classDecl;
-		return true;
+		if (classDecl->isGeneric)
+		{
+			if (!type->hasGenericArgs)
+			{
+				SnekErrorLoc(resolver->context, type->location, "Using generic class type '%s' without type arguments", classDecl->name);
+				return false;
+			}
+
+			bool result = true;
+
+			for (int i = 0; i < type->genericArgs.size; i++)
+			{
+				result = ResolveType(resolver, type->genericArgs[i]) && result;
+			}
+
+			AST::Class* instance = classDecl->getGenericInstance(type->genericArgs);
+			if (!instance)
+			{
+				AST::File* lastFile = resolver->currentFile;
+				resolver->currentFile = classDecl->file;
+
+				instance = (AST::Class*)classDecl->copy();
+				instance->isGeneric = false;
+				instance->isGenericInstance = true;
+
+				instance->genericTypeArguments.resize(type->genericArgs.size);
+				for (int i = 0; i < type->genericArgs.size; i++)
+				{
+					instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
+				}
+
+				classDecl->genericInstances.add(instance);
+
+				result = ResolveClassHeader(resolver, instance) && result;
+				result = ResolveClass(resolver, instance) && result;
+
+				resolver->currentFile = lastFile;
+			}
+
+			type->typeKind = AST::TypeKind::Class;
+			type->typeID = instance->type;
+			type->declaration = instance;
+
+			return result;
+		}
+		else
+		{
+			if (type->hasGenericArgs)
+			{
+				SnekErrorLoc(resolver->context, type->location, "Can't use type arguments on non-generic class type '%s'", classDecl->name);
+				return false;
+			}
+			type->typeKind = AST::TypeKind::Class;
+			type->typeID = classDecl->type;
+			type->declaration = classDecl;
+			return true;
+		}
 	}
 	else if (AST::Typedef* typedefDecl = FindTypedef(resolver, type->name))
 	{
@@ -440,7 +501,7 @@ static bool ResolveStringType(Resolver* resolver, AST::StringType* type)
 	}
 }
 
-static bool ResolveType(Resolver* resolver, AST::Type* type)
+bool ResolveType(Resolver* resolver, AST::Type* type)
 {
 	AST::Element* lastElement = resolver->currentElement;
 	resolver->currentElement = type;
@@ -596,7 +657,7 @@ static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 		expr->valueType = variable->type;
 		expr->lvalue = true; // !variable->isConstant;
 		expr->variable = variable;
-		return true;
+		return variable->type != nullptr;
 	}
 	if (resolver->findFunctions(expr->name, expr->functions))
 	{
@@ -656,6 +717,103 @@ static bool ResolveTupleExpression(Resolver* resolver, AST::TupleExpression* exp
 	expr->lvalue = false;
 
 	return success;
+}
+
+TypeID DeduceGenericArg(AST::Type* type, TypeID argType, const AST::Function* function)
+{
+	if (type->typeKind == AST::TypeKind::NamedType)
+	{
+		AST::NamedType* namedType = (AST::NamedType*)type;
+		if (namedType->hasGenericArgs)
+		{
+			if (argType->typeKind == AST::TypeKind::Struct)
+			{
+				if (argType->structType.declaration && argType->structType.declaration->isGenericInstance &&
+					namedType->genericArgs.size == argType->structType.declaration->genericTypeArguments.size)
+				{
+					for (int i = 0; i < argType->structType.declaration->genericTypeArguments.size; i++)
+					{
+						if (TypeID type = DeduceGenericArg(namedType->genericArgs[i], argType->structType.declaration->genericTypeArguments[i], function))
+							return type;
+					}
+				}
+			}
+			else if (argType->typeKind == AST::TypeKind::Class)
+			{
+				if (argType->classType.declaration && argType->classType.declaration->isGenericInstance &&
+					namedType->genericArgs.size == argType->classType.declaration->genericTypeArguments.size)
+				{
+					for (int i = 0; i < argType->classType.declaration->genericTypeArguments.size; i++)
+					{
+						if (TypeID type = DeduceGenericArg(namedType->genericArgs[i], argType->classType.declaration->genericTypeArguments[i], function))
+							return type;
+					}
+				}
+			}
+			else
+			{
+				// TODO implement
+				__debugbreak();
+			}
+		}
+		else
+		{
+			for (int i = 0; i < function->genericParams.size; i++)
+			{
+				if (strcmp(function->genericParams[i], namedType->name) == 0)
+				{
+					return argType;
+				}
+			}
+		}
+	}
+	else if (type->typeKind == argType->typeKind)
+	{
+		if (type->typeKind == AST::TypeKind::Pointer)
+		{
+			return DeduceGenericArg(((AST::PointerType*)type)->elementType, argType->pointerType.elementType, function);
+		}
+		else if (type->typeKind == AST::TypeKind::Optional)
+		{
+			return DeduceGenericArg(((AST::OptionalType*)type)->elementType, argType->optionalType.elementType, function);
+		}
+		else if (type->typeKind == AST::TypeKind::Function)
+		{
+			AST::FunctionType* functionType = (AST::FunctionType*)type;
+			if (TypeID type = DeduceGenericArg(functionType->returnType, argType->functionType.returnType, function))
+				return type;
+			if (functionType->paramTypes.size == argType->functionType.numParams)
+			{
+				for (int i = 0; i < functionType->paramTypes.size; i++)
+				{
+					if (TypeID type = DeduceGenericArg(functionType->paramTypes[i], argType->functionType.paramTypes[i], function))
+						return type;
+				}
+			}
+		}
+		else if (type->typeKind == AST::TypeKind::Tuple)
+		{
+			AST::TupleType* tupleType = (AST::TupleType*)type;
+			if (tupleType->valueTypes.size == argType->tupleType.numValues)
+			{
+				for (int i = 0; i < tupleType->valueTypes.size; i++)
+				{
+					if (TypeID type = DeduceGenericArg(tupleType->valueTypes[i], argType->tupleType.valueTypes[i], function))
+						return type;
+				}
+			}
+		}
+		else if (type->typeKind == AST::TypeKind::Array)
+		{
+			AST::ArrayType* arrayType = (AST::ArrayType*)type;
+			if ((arrayType->length && arrayType->length->isConstant()) == (argType->arrayType.length != -1))
+			{
+				return DeduceGenericArg(arrayType->elementType, argType->arrayType.elementType, function);
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
@@ -733,6 +891,18 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			return false;
 
 
+		if (expr->hasGenericArgs)
+		{
+			SnekAssert(expr->callee->type == AST::ExpressionType::Identifier);
+
+			for (int i = 0; i < expr->genericArgsAST.size; i++)
+			{
+				result = ResolveType(resolver, expr->genericArgsAST[i]) && result;
+				expr->genericArgs.add(expr->genericArgsAST[i]->typeID);
+			}
+		}
+
+
 		const char* functionName = nullptr;
 		List<AST::Function*>* functionOverloads = nullptr;
 		if (expr->callee->type == AST::ExpressionType::Identifier && ((AST::Identifier*)expr->callee)->functions.size > 0)
@@ -745,50 +915,77 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			functionName = ((AST::DotOperator*)expr->callee)->name;
 			functionOverloads = &((AST::DotOperator*)expr->callee)->namespacedFunctions;
 		}
-
-		if (functionOverloads)
+		else
 		{
-			resolver->chooseFunctionOverload(*functionOverloads, expr->arguments);
+			SnekAssert(false);
+		}
 
-			if (functionOverloads->size > 0)
+		resolver->chooseFunctionOverload(*functionOverloads, expr->arguments);
+
+		if (functionOverloads->size > 0 && resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments) < 1000)
+		{
+			int lowestScore = resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments);
+			function = functionOverloads->get(0);
+
+			if (function->isGeneric)
 			{
-				int lowestScore = resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments);
+				if (!expr->hasGenericArgs || expr->genericArgs.size < function->genericParams.size)
+				{
+					// Deduce generic args
+					expr->hasGenericArgs = true;
 
-				if (functionOverloads->size == 1)
-				{
-					expr->callee->valueType = functionOverloads->get(0)->functionType;
-				}
-				else if (functionOverloads->size > 1 && resolver->getFunctionOverloadScore(functionOverloads->get(1), expr->arguments) > lowestScore)
-				{
-					expr->callee->valueType = functionOverloads->get(0)->functionType;
-				}
-				else
-				{
-					char argumentTypesString[128] = "";
-					for (int i = 0; i < expr->arguments.size; i++)
+					for (int i = expr->genericArgs.size; i < function->genericParams.size; i++)
 					{
-						strcat(argumentTypesString, GetTypeString(expr->arguments[i]->valueType));
-						if (i < expr->arguments.size - 1)
-							strcat(argumentTypesString, ",");
+						for (int j = 0; j < function->paramTypes.size; j++)
+						{
+							if (TypeID type = DeduceGenericArg(function->paramTypes[j], expr->arguments[j]->valueType, function))
+							{
+								expr->genericArgs.add(type);
+								break;
+							}
+						}
+					}
+				}
+
+				function = functionOverloads->get(0)->getGenericInstance(expr->genericArgs);
+				if (!function)
+				{
+					AST::File* lastFile = resolver->currentFile;
+					resolver->currentFile = functionOverloads->get(0)->file;
+
+					function = (AST::Function*)(functionOverloads->get(0)->copy()); // Create a separate version of the function, TODO: reuse functions with the same type arguments
+					function->isGeneric = false;
+					function->isGenericInstance = true;
+
+					function->genericTypeArguments.resize(expr->genericArgs.size);
+					for (int i = 0; i < expr->genericArgs.size; i++)
+					{
+						function->genericTypeArguments[i] = expr->genericArgs[i];
 					}
 
-					char functionList[1024] = "";
-					for (int i = 0; i < functionOverloads->size; i++)
-					{
-						AST::Function* function = (*functionOverloads)[i];
+					functionOverloads->get(0)->genericInstances.add(function);
 
-						const char* functionTypeString = GetTypeString(function->functionType);
-						strcat(functionList, function->name);
-						strcat(functionList, " ");
-						strcat(functionList, functionTypeString);
+					Scope* callerScope = resolver->scope;
+					resolver->scope = nullptr;
 
-						if (i < functionOverloads->size - 1)
-							strcat(functionList, ", ");
-					}
+					result = ResolveFunctionHeader(resolver, function) && result;
+					result = ResolveFunction(resolver, function) && result;
 
-					SnekErrorLoc(resolver->context, expr->callee->location, "Ambiguous function call %s(%s): %i possible overloads: %s", functionName, argumentTypesString, functionOverloads->size, functionList);
-					result = false;
+					resolver->scope = callerScope;
+
+					resolver->currentFile = lastFile;
 				}
+			}
+
+			functionType = function->functionType;
+
+			if (functionOverloads->size == 1)
+			{
+				expr->callee->valueType = function->functionType;
+			}
+			else if (functionOverloads->size > 1 && resolver->getFunctionOverloadScore(functionOverloads->get(1), expr->arguments) > lowestScore)
+			{
+				expr->callee->valueType = function->functionType;
 			}
 			else
 			{
@@ -800,48 +997,25 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 						strcat(argumentTypesString, ",");
 				}
 
-				SnekErrorLoc(resolver->context, expr->callee->location, "No overload for function call %s(%s)", functionName, argumentTypesString);
-				result = false;
-			}
-		}
-
-		if (!result)
-			return false;
-
-
-		if (expr->hasGenericArgs)
-		{
-			SnekAssert(expr->callee->type == AST::ExpressionType::Identifier);
-
-			for (int i = 0; i < expr->genericArgs.size; i++)
-			{
-				result = ResolveType(resolver, expr->genericArgs[i]) && result;
-			}
-
-			AST::Identifier* calleeIdentifier = (AST::Identifier*)expr->callee;
-
-			function = calleeIdentifier->functions[0]->getGenericInstance(expr->genericArgs);
-			if (!function)
-			{
-				function = (AST::Function*)(calleeIdentifier->functions[0]->copy()); // Create a separate version of the function, TODO: reuse functions with the same type arguments
-				function->isGeneric = false;
-				function->isGenericInstance = true;
-
-				function->genericTypeArguments.resize(expr->genericArgs.size);
-				for (int i = 0; i < expr->genericArgs.size; i++)
+				char functionList[1024] = "";
+				for (int i = 0; i < functionOverloads->size; i++)
 				{
-					function->genericTypeArguments[i] = expr->genericArgs[i]->typeID;
+					AST::Function* function = (*functionOverloads)[i];
+
+					const char* functionTypeString = GetTypeString(function->functionType);
+					strcat(functionList, function->name);
+					strcat(functionList, " ");
+					strcat(functionList, functionTypeString);
+
+					if (i < functionOverloads->size - 1)
+						strcat(functionList, ", ");
 				}
 
-				result = ResolveFunctionHeader(resolver, function) && result;
-				result = ResolveFunction(resolver, function) && result;
-
-				functionType = function->functionType;
-
-				calleeIdentifier->functions[0]->genericInstances.add(function);
+				SnekErrorLoc(resolver->context, expr->callee->location, "Ambiguous function call %s(%s): %i possible overloads: %s", functionName, argumentTypesString, functionOverloads->size, functionList);
+				return false;
 			}
 		}
-		else
+		else if (expr->callee->valueType)
 		{
 			if (expr->callee->type == AST::ExpressionType::Identifier)
 			{
@@ -881,6 +1055,21 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 			function = functionType->functionType.declaration;
 		}
+		else
+		{
+			char argumentTypesString[128] = "";
+			for (int i = 0; i < expr->arguments.size; i++)
+			{
+				strcat(argumentTypesString, GetTypeString(expr->arguments[i]->valueType));
+				if (i < expr->arguments.size - 1)
+					strcat(argumentTypesString, ",");
+			}
+
+			resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments);
+			SnekErrorLoc(resolver->context, expr->callee->location, "No overload for function call %s(%s)", functionName, argumentTypesString);
+			return false;
+		}
+
 
 		expr->function = function;
 		expr->valueType = functionType->functionType.returnType;
@@ -918,69 +1107,54 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 	}
 
 
-	if (result)
-	{
-		for (int i = 0; i < expr->genericArgs.size; i++)
-		{
-			// TODO check generic arg count
+	if (!result)
+		return false;
 
-			if (ResolveType(resolver, expr->genericArgs[i]))
-			{
-			}
-			else
+
+	for (int i = 0; i < expr->arguments.size; i++)
+	{
+		TypeID argType = expr->arguments[i]->valueType;
+		bool argIsConstant = expr->arguments[i]->isConstant();
+
+		int paramOffset = expr->isMethodCall ? 1 : 0;
+		int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
+
+		if (i < paramCount)
+		{
+			TypeID paramType = functionType->functionType.paramTypes[paramOffset + i];
+
+			if (!CanConvertImplicit(argType, paramType, argIsConstant))
 			{
 				result = false;
-			}
-		}
 
-		if (result)
-		{
-			for (int i = 0; i < expr->arguments.size; i++)
-			{
-				TypeID argType = expr->arguments[i]->valueType;
-				bool argIsConstant = expr->arguments[i]->isConstant();
+				const char* argTypeStr = GetTypeString(argType);
+				const char* paramTypeStr = GetTypeString(paramType);
 
-				int paramOffset = expr->isMethodCall ? 1 : 0;
-				int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
-
-				if (i < paramCount)
+				if (function)
 				{
-					TypeID paramType = functionType->functionType.paramTypes[paramOffset + i];
-
-					if (!CanConvertImplicit(argType, paramType, argIsConstant))
-					{
-						result = false;
-
-						const char* argTypeStr = GetTypeString(argType);
-						const char* paramTypeStr = GetTypeString(paramType);
-
-						if (function)
-						{
-							SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[paramOffset + i]);
-							result = false;
-						}
-						else
-						{
-							SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i);
-							result = false;
-						}
-					}
+					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[paramOffset + i]);
+					result = false;
 				}
 				else
 				{
-					SnekAssert(functionType->functionType.varArgs);
-
-					if (!CanConvertImplicit(argType, functionType->functionType.varArgsType, argIsConstant))
-					{
-						result = false;
-
-						const char* argTypeStr = GetTypeString(argType);
-						const char* varArgsTypeStr = GetTypeString(functionType->functionType.varArgsType);
-
-						SnekErrorLoc(resolver->context, expr->location, "Can't implicitly cast variadic argument #%d to type %s, should be %s", i - functionType->functionType.numParams, varArgsTypeStr, argTypeStr);
-						result = false;
-					}
+					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i);
+					result = false;
 				}
+			}
+		}
+		else
+		{
+			SnekAssert(functionType->functionType.varArgs);
+
+			if (!CanConvertImplicit(argType, functionType->functionType.varArgsType, argIsConstant))
+			{
+				result = false;
+
+				const char* argTypeStr = GetTypeString(argType);
+				const char* varArgsTypeStr = GetTypeString(functionType->functionType.varArgsType);
+
+				SnekErrorLoc(resolver->context, expr->location, "Can't implicitly cast variadic argument #%d to type %s, should be %s", i - functionType->functionType.numParams, varArgsTypeStr, argTypeStr);
+				result = false;
 			}
 		}
 	}
@@ -1052,7 +1226,7 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 			}
 			else
 			{
-				SnekAssert(false);
+				SnekErrorLoc(resolver->context, expr->operand->location, "Subscript operator [int] not applicable to value of type %s", GetTypeString(expr->operand->valueType));
 				return false;
 			}
 		}
@@ -1080,7 +1254,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		const char* nameSpace = ((AST::Identifier*)expr->operand)->name;
 
 		//if (AST::File* file = FindFileWithNamespace(resolver, nameSpace, resolver->currentFile))
-		if (AST::Module* module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile))
+		AST::Module* module;
+		if (!resolver->findVariable(nameSpace) && (module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile)))
 		{
 			//if (AST::File* file = module->file)
 			for (AST::File* file : module->files)
@@ -1109,7 +1284,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "No identifier '%s' in file '%s'", expr->name, nameSpace);
+			SnekErrorLoc(resolver->context, expr->location, "No property '%s.%s' in file '%s'", nameSpace, expr->name, nameSpace);
 			return false;
 		}
 
@@ -1488,7 +1663,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 
 	if (ResolveType(resolver, expr->dstType))
 	{
-		if (expr->dstType->typeKind == AST::TypeKind::Array)
+		if (expr->dstType->typeID->typeKind == AST::TypeKind::Array)
 		{
 			AST::ArrayType* arrayType = (AST::ArrayType*)expr->dstType;
 
@@ -1512,7 +1687,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 			expr->valueType = GetArrayType(arrayType->typeID->arrayType.elementType, arrayType->typeID->arrayType.length);
 			expr->lvalue = false;
 		}
-		else if (expr->dstType->typeKind == AST::TypeKind::String)
+		else if (expr->dstType->typeID->typeKind == AST::TypeKind::String)
 		{
 			AST::StringType* stringType = (AST::StringType*)expr->dstType;
 
@@ -1536,7 +1711,7 @@ static bool ResolveMalloc(Resolver* resolver, AST::Malloc* expr)
 			expr->valueType = GetPointerType(GetStringType());
 			expr->lvalue = false;
 		}
-		else if (expr->dstType->typeKind == AST::TypeKind::Class)
+		else if (expr->dstType->typeID->typeKind == AST::TypeKind::Class)
 		{
 			if (AST::Constructor* constructor = expr->dstType->typeID->classType.declaration->constructor)
 			{
@@ -1955,6 +2130,7 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
 		{
 			AST::Element* declaration = variableWithSameName->declaration;
+			resolver->findVariable(declarator->name);
 			SnekErrorLoc(resolver->context, statement->location, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
 			result = false;
 		}
@@ -1973,8 +2149,9 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 					initializerList->initializerType = arrayType;
 					initializerList->valueType = arrayType;
 				}
-				else if (declarator->value->valueType && declarator->value->valueType->typeKind == AST::TypeKind::Pointer && CompareTypes(declarator->value->valueType->pointerType.elementType, statement->varType))
-					;
+				// why was this here again?
+				//else if (declarator->value->valueType && declarator->value->valueType->typeKind == AST::TypeKind::Pointer && CompareTypes(declarator->value->valueType->pointerType.elementType, statement->varType))
+				//	;
 				else if (!CanConvertImplicit(declarator->value->valueType, statement->varType, declarator->value->isConstant()))
 				{
 					SnekErrorLoc(resolver->context, statement->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(declarator->value->valueType), GetTypeString(statement->varType));
@@ -2019,10 +2196,11 @@ static bool ResolveIfStatement(Resolver* resolver, AST::IfStatement* statement)
 		result = false;
 	}
 
-	result = ResolveStatement(resolver, statement->thenStatement) && result;
-	if (statement->elseStatement)
+	if (result)
 	{
-		result = ResolveStatement(resolver, statement->elseStatement) && result;
+		result = ResolveStatement(resolver, statement->thenStatement) && result;
+		if (statement->elseStatement)
+			result = ResolveStatement(resolver, statement->elseStatement) && result;
 	}
 
 	return result;
@@ -2390,19 +2568,22 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			result = CheckEntrypointDecl(resolver, decl) && result;
 		}
 
-		char* mangledName = MangleFunctionName(decl);
-		List<AST::Function*> overloadsWithSameName;
-		resolver->findFunctionsInModule(decl->name, decl->file->module, overloadsWithSameName);
-		for (int i = 0; i < overloadsWithSameName.size; i++)
+		if (result)
 		{
-			if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0 && (overloadsWithSameName[i]->body || overloadsWithSameName[i]->bodyExpression) && (decl->body || decl->bodyExpression))
+			char* mangledName = MangleFunctionName(decl);
+			List<AST::Function*> overloadsWithSameName;
+			resolver->findFunctionsInModule(decl->name, decl->file->module, overloadsWithSameName);
+			for (int i = 0; i < overloadsWithSameName.size; i++)
 			{
-				SnekErrorLoc(resolver->context, decl->location, "Function '%s' of type %s already defined at %s", decl->name, GetTypeString(decl->functionType), SourceLocationToString(overloadsWithSameName[i]->location));
-				result = false;
-				break;
+				if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0 && (overloadsWithSameName[i]->body || overloadsWithSameName[i]->bodyExpression) && (decl->body || decl->bodyExpression))
+				{
+					SnekErrorLoc(resolver->context, decl->location, "Function '%s' of type %s already defined at %s", decl->name, GetTypeString(decl->functionType), SourceLocationToString(overloadsWithSameName[i]->location));
+					result = false;
+					break;
+				}
 			}
+			decl->mangledName = mangledName;
 		}
-		decl->mangledName = mangledName;
 	}
 
 	resolver->currentFunction = lastFunction;
@@ -2484,7 +2665,7 @@ static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl)
 	else
 	{
 		decl->mangledName = MangleStructName(decl);
-		decl->type = GetStructType(decl->name, decl);
+		decl->type = GetStructType(decl->mangledName, decl);
 	}
 
 	return true;
@@ -2549,9 +2730,16 @@ static bool ResolveClassHeader(Resolver* resolver, AST::Class* decl)
 	resolver->currentElement = decl;
 	defer _(nullptr, [=](...) { resolver->currentElement = lastElement; });
 
-	decl->mangledName = _strdup(decl->name);
 	decl->visibility = GetVisibilityFromFlags(decl->flags);
-	decl->type = GetClassType(decl->name, decl);
+
+	if (decl->isGeneric)
+	{
+	}
+	else
+	{
+		decl->mangledName = MangleClassName(decl);
+		decl->type = GetClassType(decl->mangledName, decl);
+	}
 
 	return true;
 }
@@ -2660,25 +2848,36 @@ static bool ResolveClass(Resolver* resolver, AST::Class* decl)
 
 	bool result = true;
 
-	int numFields = decl->fields.size;
-	TypeID* fieldTypes = new TypeID[numFields];
-	const char** fieldNames = new const char* [numFields];
-	for (int i = 0; i < numFields; i++)
+	if (decl->isGeneric)
 	{
-		AST::ClassField* field = decl->fields[i];
-		if (ResolveType(resolver, field->type))
-		{
-			fieldTypes[i] = decl->fields[i]->type->typeID;
-		}
-		else
-		{
-			result = false;
-		}
-		fieldNames[i] = decl->fields[i]->name;
 	}
-	decl->type->classType.numFields = numFields;
-	decl->type->classType.fieldTypes = fieldTypes;
-	decl->type->classType.fieldNames = fieldNames;
+	else
+	{
+		AST::Class* lastClass = resolver->currentClass;
+		resolver->currentClass = decl;
+
+		int numFields = decl->fields.size;
+		TypeID* fieldTypes = new TypeID[numFields];
+		const char** fieldNames = new const char* [numFields];
+		for (int i = 0; i < numFields; i++)
+		{
+			AST::ClassField* field = decl->fields[i];
+			if (ResolveType(resolver, field->type))
+			{
+				fieldTypes[i] = decl->fields[i]->type->typeID;
+			}
+			else
+			{
+				result = false;
+			}
+			fieldNames[i] = decl->fields[i]->name;
+		}
+		decl->type->classType.numFields = numFields;
+		decl->type->classType.fieldTypes = fieldTypes;
+		decl->type->classType.fieldNames = fieldNames;
+
+		resolver->currentClass = lastClass;
+	}
 
 	return result;
 }

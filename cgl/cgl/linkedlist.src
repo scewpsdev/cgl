@@ -1,0 +1,67 @@
+package snek.linkedlist;
+
+
+struct LinkedListElement<T>
+{
+	T value;
+	LinkedListElement<T>* prev;
+	LinkedListElement<T>* next;
+}
+
+public class LinkedList<T>
+{
+	LinkedListElement<T>* first;
+	LinkedListElement<T>* last;
+	int count;
+}
+
+public void add<T>(LinkedList<T> list, T value)
+{
+	LinkedListElement<T>* newElement = new LinkedListElement<T>;
+	newElement.value = value;
+	newElement.prev = list.last;
+	if list.last
+		list.last.next = newElement;
+	list.last = newElement;
+	if !list.first
+		list.first = newElement;
+	list.count++;
+}
+
+public void insert<T>(LinkedList<T> list, int idx, T value)
+{
+	LinkedListElement<T>* node = list.first;
+	for (int i = 0; i < idx; i++)
+		node = node.next;
+	
+	LinkedListElement<T>* left = node ? node.prev : null;
+	LinkedListElement<T>* right = node;
+	
+	LinkedListElement<T>* newElement = new LinkedListElement<T>;
+	newElement.value = value;
+	newElement.prev = left;
+	newElement.next = right;
+	
+	if left left.next = newElement;
+	if right right.prev = newElement;
+	if !list.first list.first = newElement;
+	if !list.last list.last = newElement;
+	
+	list.count++;
+}
+
+public T get<T>(LinkedList<T> list, int idx)
+{
+	LinkedListElement<T>* node = list.first;
+	for (int i = 0; i < idx; i++)
+		node = node.next;
+	return node.value;
+}
+
+public void set<T>(LinkedList<T> list, int idx, T value)
+{
+	LinkedListElement<T>* node = list.first;
+	for (int i = 0; i < idx; i++)
+		node = node.next;
+	node.value = value;
+}

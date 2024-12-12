@@ -11,11 +11,11 @@
 #define SnekAssertMsg(condition, message)
 #endif
 
-#define SnekTrace(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_INFO, NULL, 0, 0, msg, ##__VA_ARGS__)
-#define SnekWarnLoc(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
-#define SnekErrorLoc(context, location, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
-#define SnekError(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
-#define SnekFatal(context, msg, ...) GetMsgCallback(context)(MESSAGE_TYPE_FATAL_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekTrace(context, msg, ...) GetMsgCallback(context)(context, MESSAGE_TYPE_INFO, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekWarnLoc(context, location, msg, ...) GetMsgCallback(context)(context, MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekErrorLoc(context, location, msg, ...) GetMsgCallback(context)(context, MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekError(context, msg, ...) GetMsgCallback(context)(context, MESSAGE_TYPE_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekFatal(context, msg, ...) GetMsgCallback(context)(context, MESSAGE_TYPE_FATAL_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
 
 
 enum MessageType
@@ -30,9 +30,8 @@ enum MessageType
 	MESSAGE_TYPE_MAX,
 };
 
-typedef void(*MessageCallback_t)(MessageType msgType, const char* filename, int line, int col, const char* msg, ...);
-
-
 class CGLCompiler;
+typedef void(*MessageCallback_t)(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...);
+
 
 MessageCallback_t GetMsgCallback(CGLCompiler* context);

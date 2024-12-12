@@ -45,6 +45,7 @@ struct Resolver
 	AST::Element* currentElement = nullptr;
 	AST::Function* currentFunction = nullptr;
 	AST::Struct* currentStruct = nullptr;
+	AST::Class* currentClass = nullptr;
 	//AstStatement* currentStatement;
 	//AstExpression* currentExpression;
 
@@ -103,3 +104,8 @@ struct Resolver
 
 	bool isFunctionVisible(const AST::Function* function, AST::Module* currentModule);
 };
+
+
+bool ResolveType(Resolver* resolver, AST::Type* type);
+
+TypeID DeduceGenericArg(AST::Type* type, TypeID argType, const AST::Function* function);

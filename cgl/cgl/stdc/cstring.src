@@ -1,0 +1,4 @@
+package cstring;
+
+
+public externc void* memcpy(void* dest, void* src, long n);

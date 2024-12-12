@@ -732,11 +732,11 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 	}
 	else if (argType->typeKind == AST::TypeKind::FloatingPoint && paramType->typeKind == AST::TypeKind::FloatingPoint)
 	{
-		return argIsConstant;
+		return paramType->fpType.precision > argType->fpType.precision || argIsConstant;
 	}
 	else if (argType->typeKind == AST::TypeKind::Integer && paramType->typeKind == AST::TypeKind::FloatingPoint)
 	{
-		return argIsConstant;
+		return true;
 	}
 	else if (argType->typeKind == AST::TypeKind::Pointer && paramType->typeKind == AST::TypeKind::Pointer)
 	{

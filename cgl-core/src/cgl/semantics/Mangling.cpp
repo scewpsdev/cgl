@@ -180,3 +180,21 @@ char* MangleStructName(AST::Struct* str)
 
 	return buffer.buffer;
 }
+
+char* MangleClassName(AST::Class* cls)
+{
+	StringBuffer buffer = CreateStringBuffer(4);
+
+	StringBufferAppend(buffer, cls->name);
+
+	if (cls && cls->isGenericInstance)
+	{
+		for (int i = 0; i < cls->genericTypeArguments.size; i++)
+		{
+			StringBufferAppend(buffer, '_');
+			MangleType(cls->genericTypeArguments[i], buffer);
+		}
+	}
+
+	return buffer.buffer;
+}

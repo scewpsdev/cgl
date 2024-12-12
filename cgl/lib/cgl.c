@@ -18,7 +18,6 @@ extern FILE(*_imp___iob)[];
 
 #define	SIGTRAP	5
 
-extern void* malloc(u64 size);
 extern int fputs(const char*, FILE*);
 int raise(int _SigNum);
 void exit(int status);
@@ -37,6 +36,23 @@ void __assertmsg(int x, const char* msg)
 		__debugbreak();
 		exit(-1);
 	}
+}
+
+
+extern void* malloc(u64 size);
+extern void free(void* ptr);
+extern void* memset(void* ptr, int c, long long n);
+
+void* __alloc(u64 size)
+{
+	void* ptr = malloc(size);
+	memset(ptr, 0, size);
+	return ptr;
+}
+
+void __free(void* ptr)
+{
+	free(ptr);
 }
 
 

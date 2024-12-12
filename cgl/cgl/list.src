@@ -1,82 +1,54 @@
 package snek.list;
 
-import snek.sort;
 import snek.math;
+import cstring;
 
 
-public int[] slice(int[] arr, int start, int count)
+public class List
 {
-	int[] result = new int[count];
-	for (int i = 0; i < count; i++)
-		result[i] = arr[start + i];
-	return result;
+	int* buffer;
+	int count;
+	int capacity;
 }
 
-public int[] sliceInterleaved(int[] arr, int start, int stride)
+public void reserve(List list, int newCapacity)
 {
-	int resultLen = (arr.length - start + stride - 1) / stride;
-	int[] result = new int[resultLen];
-	for (int i = 0; i < resultLen; i++)
-		result[i] = arr[start + i * stride];
-	return result;
+	int* newBuffer = new int: newCapacity;
+	memcpy(newBuffer, list.buffer, min(newCapacity, list.count) * 4);
+	delete list.buffer;
+	list.buffer = newBuffer;
+	list.capacity = newCapacity;
 }
 
-public int[] sort(int[] arr)
+public void add(List list, int value)
 {
-	quickSort(arr);
-	return arr;
+	if list.count == list.capacity
+		reserve(list, max(list.capacity * 3 / 2, list.capacity + 1));
+	list.buffer[list.count++] = value;
 }
 
-public int[] abs(int[] arr)
+public void insert(List list, int idx, int value)
 {
-	for (int i = 0; i < arr.length; i++)
-		arr[i] = abs(arr[i]);
-	return arr;
+	if list.count == list.capacity
+		reserve(list, max(list.capacity * 3 / 2, list.capacity + 1));
+	for (int i = list.count - 1; i >= idx; i--)
+		list.buffer[i + 1] = list.buffer[i];
+	list.buffer[idx] = value;
+	list.count++;
 }
 
-public int[] add(int[] a, int[] b)
+public void removeAt(List list, int idx)
 {
-	int[] result = new int[a.length];
-	for (int i = 0; i < a.length; i++)
-		result[i] = a[i] + b[i];
-	return result;
+	memcpy(&list.buffer[idx + 1], &list.buffer[idx], list.count - idx - 1);
+	list.count--;
 }
 
-public int[] subtract(int[] a, int[] b)
+public int get(List list, int idx)
 {
-	int[] result = new int[a.length];
-	for (int i = 0; i < a.length; i++)
-		result[i] = a[i] - b[i];
-	return result;
+	return list.buffer[idx];
 }
 
-public int sum(int[] arr)
+public void set(List list, int idx, int value)
 {
-	int result = 0;
-	for (int i = 0; i < arr.length; i++)
-		result += arr[i];
-	return result;
-}
-
-public int[] removeAt(int[] arr, int idx)
-{
-	int[] newArr = new int[arr.length - 1];
-	for (int i = 0; i < idx; i++)
-		newArr[i] = arr[i];
-	for (int i = idx + 1; i < arr.length; i++)
-		newArr[i - 1] = arr[i];
-	return newArr;
-}
-
-public t sum<t>(t[] arr)
-{
-	t result = 0;
-	//for t in arr
-	//	result += t;
-	return result;
-}
-
-public void genericsTest(int[] arr)
-{
-	sum<int>(arr);
+	list.buffer[idx] = value;
 }

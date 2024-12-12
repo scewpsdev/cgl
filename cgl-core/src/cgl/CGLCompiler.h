@@ -18,6 +18,7 @@ public:
 
 	List<AST::File*> asts;
 	MessageCallback_t msgCallback = nullptr;
+	bool disableError = false;
 
 
 	void init(MessageCallback_t msgCallback);

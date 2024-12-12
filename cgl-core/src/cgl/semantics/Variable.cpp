@@ -45,6 +45,11 @@ TypeID Resolver::getGenericTypeArgument(const char* name)
 		if (TypeID type = currentStruct->getGenericTypeArgument(name))
 			return type;
 	}
+	if (currentClass)
+	{
+		if (TypeID type = currentClass->getGenericTypeArgument(name))
+			return type;
+	}
 	return nullptr;
 }
 
@@ -314,7 +319,7 @@ AST::Class* FindClass(Resolver* resolver, const char* name)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
 		//if (AST::File* file = module->file)
-		for (AST::File* file : module->files)
+		for (AST::File* file : dependency->files)
 		{
 			if (AST::Class* clss = FindClassInFile(resolver, file, name))
 			{
@@ -482,7 +487,7 @@ AST::Macro* FindMacro(Resolver* resolver, const char* name)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
 		//if (AST::File* file = dependency->file)
-		for (AST::File* file : module->files)
+		for (AST::File* file : dependency->files)
 		{
 			if (AST::Macro* ed = FindMacroInFile(resolver, file, name))
 			{

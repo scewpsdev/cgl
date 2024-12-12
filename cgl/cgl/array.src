@@ -1,0 +1,69 @@
+package snek.array;
+
+import snek.sort;
+import snek.math;
+
+
+public t[] slice<t>(t[] arr, int start, int count)
+{
+	t[] result = new t[count];
+	for (int i = 0; i < count; i++)
+		result[i] = arr[start + i];
+	return result;
+}
+
+public t[] sliceInterleaved<t>(t[] arr, int start, int stride)
+{
+	int resultLen = (arr.length - start + stride - 1) / stride;
+	t[] result = new t[resultLen];
+	for (int i = 0; i < resultLen; i++)
+		result[i] = arr[start + i * stride];
+	return result;
+}
+
+public t[] sort<t>(t[] arr)
+{
+	quickSort(arr);
+	return arr;
+}
+
+public t[] abs<t>(t[] arr)
+{
+	for (int i = 0; i < arr.length; i++)
+		arr[i] = abs(arr[i]);
+	return arr;
+}
+
+public t[] add<t>(t[] a, t[] b)
+{
+	t[] result = new t[a.length];
+	for (int i = 0; i < a.length; i++)
+		result[i] = a[i] + b[i];
+	return result;
+}
+
+public t[] subtract<t>(t[] a, t[] b)
+{
+	t[] result = new t[a.length];
+	for (int i = 0; i < a.length; i++)
+		result[i] = a[i] - b[i];
+	return result;
+}
+
+public t sum<t>(t[] arr)
+{
+	int result = 0;
+	for (int i = 0; i < arr.length; i++)
+		result += arr[i];
+	return result;
+}
+
+public t[] removeAt<t>(t[] arr, int idx)
+{
+	t[] newArr = new t[arr.length - 1];
+	for (int i = 0; i < idx; i++)
+		newArr[i] = arr[i];
+	for (int i = idx + 1; i < arr.length; i++)
+		newArr[i - 1] = arr[i];
+	return newArr;
+}

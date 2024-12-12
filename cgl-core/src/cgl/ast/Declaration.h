@@ -97,6 +97,7 @@ namespace AST
 		ValueHandle valueHandle = nullptr;
 
 
+		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
 		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Function();
@@ -105,9 +106,9 @@ namespace AST
 
 		int getNumRequiredParams();
 
-		bool isGenericParam(int idx) const;
+		bool isGenericParam(int idx, TypeID argType) const;
 		TypeID getGenericTypeArgument(const char* name);
-		Function* getGenericInstance(const List<Type*>& genericArgs);
+		Function* getGenericInstance(const List<TypeID>& genericArgs);
 	};
 
 	struct Method : Function
@@ -190,16 +191,26 @@ namespace AST
 		List<Method*> methods;
 		Constructor* constructor;
 
+		bool isGeneric = false;
+		bool isGenericInstance = false;
+		List<char*> genericParams;
+		List<TypeID> genericTypeArguments;
+
+		List<Class*> genericInstances;
+
 		char* mangledName = nullptr;
 		TypeID type = nullptr;
 
 		TypeHandle typeHandle = nullptr;
 
 
-		Class(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, const List<ClassField*>& fields, const List<Method*>& methods, Constructor* constructor);
+		Class(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, const List<ClassField*>& fields, const List<Method*>& methods, Constructor* constructor, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Class();
 
 		virtual Element* copy() override;
+
+		TypeID getGenericTypeArgument(const char* name);
+		Class* getGenericInstance(const List<Type*>& genericArgs);
 	};
 
 	struct Typedef : Declaration

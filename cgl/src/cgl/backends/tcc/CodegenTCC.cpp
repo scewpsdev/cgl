@@ -21,6 +21,7 @@ class CodegenTCC
 	List<Variable*> importedGlobals;
 	List<AST::Function*> importedFunctions;
 	List<AST::Struct*> importedStructs;
+	List<AST::Class*> importedClasses;
 	std::map<TypeID, std::string> optionalTypes;
 	std::map<TypeID, std::string> functionTypes;
 	std::map<TypeID, std::string> tupleTypes;
@@ -260,17 +261,38 @@ class CodegenTCC
 		instructionStream = parentStream;
 	}
 
+	void importClass(AST::Class* clss)
+	{
+		genClass(clss);
+		return;
+	}
+
 	std::string genTypeStruct(TypeID type)
 	{
 		if (type->structType.declaration && type->structType.declaration->file != file)
 		{
 			if (!importedStructs.contains(type->structType.declaration))
 			{
-				importStruct(type->structType.declaration);
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 				importedStructs.add(type->structType.declaration);
+				importStruct(type->structType.declaration);
 			}
 		}
 		return "struct " + std::string(type->structType.name);
+	}
+
+	std::string genTypeClass(TypeID type)
+	{
+		if (type->classType.declaration && type->classType.declaration->file != file)
+		{
+			if (!importedClasses.contains(type->classType.declaration))
+			{
+				// add to list before importing to avoid stack overflow during importClass with circular dependencies
+				importedClasses.add(type->classType.declaration);
+				importClass(type->classType.declaration);
+			}
+		}
+		return "struct " + std::string(type->structType.name) + "*";
 	}
 
 	std::string genTypeAlias(TypeID type)
@@ -390,8 +412,7 @@ class CodegenTCC
 		case AST::TypeKind::Struct:
 			return genTypeStruct(type);
 		case AST::TypeKind::Class:
-			SnekAssert(false);
-			return "";
+			return genTypeClass(type);
 		case AST::TypeKind::Alias:
 			return genTypeAlias(type);
 		case AST::TypeKind::Pointer:
@@ -840,7 +861,7 @@ class CodegenTCC
 		}
 		else if (expression->functions.size > 0)
 		{
-			SnekAssert(expression->functions.size == 1);
+			//SnekAssert(expression->functions.size == 1);
 			return getFunctionValue(expression->functions[0]);
 		}
 		else
@@ -893,7 +914,7 @@ class CodegenTCC
 			returnValue = localName;
 		}
 
-		std::string callee = genExpression(expression->callee);
+		std::string callee = expression->function ? getFunctionValue(expression->function) : genExpression(expression->callee);
 		callStream << callee << "(";
 		int numParams = expression->callee->valueType->functionType.numParams;
 		for (int i = 0; i < numParams; i++)
@@ -1162,17 +1183,19 @@ class CodegenTCC
 			AST::ArrayType* arrayType = (AST::ArrayType*)expression->dstType;
 			std::string elementType = genType(arrayType->elementType);
 			std::string length = genExpression(arrayType->length);
-			return "(" + genType(arrayType->typeID) + "){(" + elementType + "*)malloc(sizeof(" + elementType + ")*" + length + ")," + length + "}";
+			return "(" + genType(arrayType->typeID) + "){(" + elementType + "*)__alloc(sizeof(" + elementType + ")*" + length + ")," + length + "}";
 		}
 		else
 		{
 			std::string type = genType(expression->dstType);
+			if (expression->dstType->typeKind == AST::TypeKind::Class)
+				type = type.substr(0, type.length() - 1);
 			std::string count = "";
 			if (expression->count)
 			{
 				count = "*(" + genExpression(expression->count) + ")";
 			}
-			return "(" + type + (expression->count ? "*" : "") + ")malloc(sizeof(" + type + ")" + count + ")";
+			return "(" + type + "*" + ")__alloc(sizeof(" + type + ")" + count + ")";
 		}
 	}
 
@@ -1343,7 +1366,17 @@ class CodegenTCC
 
 	std::string genExpressionTernaryOperator(AST::TernaryOperator* expression)
 	{
-		return genExpression(expression->condition) + "?" + genExpression(expression->thenValue) + ":" + genExpression(expression->elseValue);
+		char val[8];
+		newLocalName(val);
+		*instructionStream << genType(expression->thenValue->valueType) << " " << val << ";";
+		newLine();
+		*instructionStream << "if(" << genExpression(expression->condition) << "){";
+		std::string then = genExpression(expression->thenValue);
+		*instructionStream << val << "=" << then << ";}else{";
+		std::string els = genExpression(expression->elseValue);
+		*instructionStream << val << "=" << els << ";}";
+		newLine();
+		return std::string(val);
 	}
 
 	std::string genExpression(AST::Expression* expression)
@@ -1740,12 +1773,12 @@ class CodegenTCC
 	{
 		if (type->typeKind == AST::TypeKind::Pointer)
 		{
-			*instructionStream << "free(" + value + ");";
+			*instructionStream << "__free(" + value + ");";
 			newLine();
 		}
 		else if (type->typeKind == AST::TypeKind::String)
 		{
-			*instructionStream << "free(" + value + ".ptr);";
+			*instructionStream << "__free(" + value + ".ptr);";
 			newLine();
 		}
 		else if (type->typeKind == AST::TypeKind::Array)
@@ -1768,7 +1801,7 @@ class CodegenTCC
 			}
 
 			if (type->arrayType.length == -1)
-				*instructionStream << "free(" + value + ".ptr);";
+				*instructionStream << "__free(" + value + ".ptr);";
 			newLine();
 		}
 	}
@@ -1830,6 +1863,15 @@ class CodegenTCC
 
 	void genStruct(AST::Struct* strct)
 	{
+		if (strct->isGeneric)
+		{
+			for (int i = 0; i < strct->genericInstances.size; i++)
+			{
+				genStruct(strct->genericInstances[i]);
+			}
+			return;
+		}
+
 		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream structStream;
@@ -1863,10 +1905,57 @@ class CodegenTCC
 		types << structStream.str();
 	}
 
+	void genClass(AST::Class* clss)
+	{
+		if (clss->isGeneric)
+		{
+			for (int i = 0; i < clss->genericInstances.size; i++)
+			{
+				genClass(clss->genericInstances[i]);
+			}
+			return;
+		}
+
+
+		std::stringstream* parentStream = instructionStream;
+
+		std::stringstream structStream;
+		instructionStream = &structStream;
+
+		*instructionStream << "struct " << clss->mangledName;
+		*instructionStream << "{";
+		indentation++;
+		newLine();
+
+		for (int i = 0; i < clss->fields.size; i++)
+		{
+			*instructionStream << genType(clss->fields[i]->type) << " " << clss->fields[i]->name << ";";
+			newLine();
+		}
+
+		stepBackWhitespace();
+		indentation--;
+		*instructionStream << "};";
+		*instructionStream << "\n\n";
+
+		instructionStream = parentStream;
+
+		types << structStream.str();
+	}
+
 	void genFunctionHeader(AST::Function* function)
 	{
 		if (function->isEntryPoint)
 			return;
+
+		if (function->isGeneric)
+		{
+			for (int i = 0; i < function->genericInstances.size; i++)
+			{
+				genFunctionHeader(function->genericInstances[i]);
+			}
+			return;
+		}
 
 		std::stringstream* parentStream = instructionStream;
 
@@ -1898,6 +1987,15 @@ class CodegenTCC
 
 	void genFunction(AST::Function* function)
 	{
+		if (function->isGeneric)
+		{
+			for (int i = 0; i < function->genericInstances.size; i++)
+			{
+				genFunction(function->genericInstances[i]);
+			}
+			return;
+		}
+
 		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream functionStream;
@@ -2062,6 +2160,10 @@ public:
 		for (AST::Struct* strct : file->structs)
 		{
 			genStruct(strct);
+		}
+		for (AST::Class* clss : file->classes)
+		{
+			genClass(clss);
 		}
 		for (AST::Function* function : file->functions)
 		{

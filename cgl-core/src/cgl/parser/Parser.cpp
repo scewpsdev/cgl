@@ -632,10 +632,6 @@ static AST::Expression* ParseArgumentOperator(Parser* parser, AST::Expression* e
 				if (upcomingDeclarator)
 					SkipToken(parser, ',');
 			}
-			else
-			{
-				SnekAssert(false);
-			}
 		}
 
 		SkipToken(parser, ')');
@@ -1731,6 +1727,37 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 			List<AST::Method*> methods;
 			AST::Constructor* constructor = nullptr;
 
+			bool isGeneric = false;
+			List<char*> genericParams;
+
+			if (NextTokenIs(parser, TOKEN_TYPE_OP_LESS_THAN)) // Generic types
+			{
+				NextToken(parser); // <
+
+				isGeneric = true;
+				genericParams = CreateList<char*>();
+
+				bool hasNext = !NextTokenIs(parser, TOKEN_TYPE_OP_GREATER_THAN);
+				while (hasNext)
+				{
+					if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+					{
+						char* genericParamName = GetTokenString(NextToken(parser));
+						genericParams.add(genericParamName);
+
+						hasNext = NextTokenIs(parser, ',');
+						if (hasNext)
+							NextToken(parser); // ,
+					}
+					else
+					{
+						SnekAssert(false); // TODO ERROR
+					}
+				}
+
+				SkipToken(parser, TOKEN_TYPE_OP_GREATER_THAN);
+			}
+
 			if (NextTokenIs(parser, '{'))
 			{
 				NextToken(parser); // {
@@ -2017,7 +2044,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				SkipToken(parser, ';');
 			}
 
-			return new AST::Class(parser->module, inputState, flags, className, fields, methods, constructor);
+			return new AST::Class(parser->module, inputState, flags, className, fields, methods, constructor, isGeneric, genericParams);
 		}
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_TYPEDEF))

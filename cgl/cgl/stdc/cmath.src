@@ -3,3 +3,6 @@ package cmath;
 
 public externc float expf(float arg);
 public externc double exp(double arg);
+public externc float log10f(float x);
+public externc double log10(double x);
+public externc float powf(float x, float y);

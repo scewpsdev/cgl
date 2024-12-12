@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "Declaration.h"
 
+#include "../semantics/Resolver.h"
+
 
 namespace AST
 {
@@ -16,6 +18,11 @@ namespace AST
 
 	Declaration::Declaration(File* file, const SourceLocation& location, DeclarationType type, DeclarationFlags flags)
 		: Element(file, location), type(type), flags(flags)
+	{
+	}
+
+	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
+		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), body(body), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
 	{
 	}
 
@@ -83,7 +90,7 @@ namespace AST
 				genericParamsCopy.add(_strdup(genericParams[i]));
 		}
 
-		return new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, (Statement*)body->copy(), isGeneric, genericParamsCopy);
+		return new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, body ? (Statement*)body->copy() : nullptr, bodyExpression ? (Expression*)bodyExpression->copy() : nullptr, isGeneric, genericParamsCopy);
 	}
 
 	int Function::getNumRequiredParams()
@@ -97,22 +104,15 @@ namespace AST
 		return i;
 	}
 
-	bool Function::isGenericParam(int idx) const
+	bool Function::isGenericParam(int idx, TypeID argType) const
 	{
 		if (isGenericInstance || isGeneric)
 		{
 			if (idx >= 0 && idx < paramTypes.size)
 			{
 				AST::Type* paramType = paramTypes[idx];
-				if (paramType->typeKind == AST::TypeKind::NamedType)
-				{
-					AST::NamedType* namedType = (AST::NamedType*)paramType;
-					for (int i = 0; i < genericParams.size; i++)
-					{
-						if (strcmp(genericParams[i], namedType->name) == 0)
-							return true;
-					}
-				}
+				if (TypeID type = DeduceGenericArg(paramType, argType, this))
+					return true;
 			}
 		}
 		return false;
@@ -131,14 +131,14 @@ namespace AST
 		return nullptr;
 	}
 
-	Function* Function::getGenericInstance(const List<Type*>& genericArgs)
+	Function* Function::getGenericInstance(const List<TypeID>& genericArgs)
 	{
 		for (Function* instance : genericInstances)
 		{
 			bool matching = true;
 			for (int i = 0; i < genericArgs.size; i++)
 			{
-				if (!CompareTypes(genericArgs[i]->typeID, instance->genericTypeArguments[i]))
+				if (!CompareTypes(genericArgs[i], instance->genericTypeArguments[i]))
 				{
 					matching = false;
 					break;
@@ -332,8 +332,8 @@ namespace AST
 		return new ClassField(file, location, (Type*)type->copy(), _strdup(name), index);
 	}
 
-	Class::Class(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, const List<ClassField*>& fields, const List<Method*>& methods, Constructor* constructor)
-		: Declaration(file, location, DeclarationType::Class, flags), name(name), fields(fields), methods(methods), constructor(constructor)
+	Class::Class(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, const List<ClassField*>& fields, const List<Method*>& methods, Constructor* constructor, bool isGeneric, const List<char*>& genericParams)
+		: Declaration(file, location, DeclarationType::Class, flags), name(name), fields(fields), methods(methods), constructor(constructor), isGeneric(isGeneric), genericParams(genericParams)
 	{
 	}
 
@@ -367,7 +367,47 @@ namespace AST
 		for (int i = 0; i < methods.size; i++)
 			methodsCopy.add((Method*)methods[i]->copy());
 
-		return new Class(file, location, flags, _strdup(name), fieldsCopy, methodsCopy, constructor ? (Constructor*)constructor->copy() : nullptr);
+		List<char*> genericParamsCopy = {};
+		if (isGeneric || isGenericInstance)
+		{
+			genericParamsCopy = CreateList<char*>(genericParams.size);
+			for (int i = 0; i < genericParams.size; i++)
+				genericParamsCopy.add(_strdup(genericParams[i]));
+		}
+
+		return new Class(file, location, flags, _strdup(name), fieldsCopy, methodsCopy, constructor ? (Constructor*)constructor->copy() : nullptr, isGeneric, genericParamsCopy);
+	}
+
+	TypeID Class::getGenericTypeArgument(const char* name)
+	{
+		if (isGenericInstance)
+		{
+			for (int i = 0; i < genericParams.size; i++)
+			{
+				if (strcmp(genericParams[i], name) == 0)
+					return genericTypeArguments[i];
+			}
+		}
+		return nullptr;
+	}
+
+	Class* Class::getGenericInstance(const List<Type*>& genericArgs)
+	{
+		for (Class* instance : genericInstances)
+		{
+			bool matching = true;
+			for (int i = 0; i < genericArgs.size; i++)
+			{
+				if (!CompareTypes(genericArgs[i]->typeID, instance->genericTypeArguments[i]))
+				{
+					matching = false;
+					break;
+				}
+			}
+			if (matching)
+				return instance;
+		}
+		return nullptr;
 	}
 
 	Typedef::Typedef(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Type* alias)

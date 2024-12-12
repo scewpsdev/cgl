@@ -2,6 +2,7 @@
 #include "Function.h"
 
 #include "Resolver.h"
+#include "cgl/CGLCompiler.h"
 #include "cgl/ast/File.h"
 #include "cgl/ast/Declaration.h"
 #include "cgl/ast/Module.h"
@@ -109,20 +110,30 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 int Resolver::getFunctionOverloadScore(const AST::Function* function, const List<AST::Expression*>& arguments)
 {
 	if (arguments.size != function->paramTypes.size)
-		return INT32_MAX;
+		return 1000;
 
 	int score = 0;
 
 	for (int i = 0; i < arguments.size; i++)
 	{
-		if (function->isGenericParam(i))
-			score++;
-		else if (CompareTypes(arguments[i]->valueType, function->paramTypes[i]->typeID))
+		if (function->paramTypes[i]->typeID && CompareTypes(arguments[i]->valueType, function->paramTypes[i]->typeID))
 			;
+		else if (function->isGeneric && !function->paramTypes[i]->typeID)
+		{
+			if (function->isGenericParam(i, arguments[i]->valueType))
+				score++;
+			else
+			{
+				context->disableError = true;
+				if (!ResolveType(this, function->paramTypes[i]))
+					score = 1000;
+				context->disableError = false;
+			}
+		}
 		else if (CanConvertImplicit(arguments[i]->valueType, function->paramTypes[i]->typeID, arguments[i]->isConstant()))
 			score += 2;
 		else
-			score = INT32_MAX;
+			score = 1000;
 	}
 
 	if (!isFunctionVisible(function, currentFile->module))
