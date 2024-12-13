@@ -905,6 +905,11 @@ class CodegenTCC
 
 		std::string returnValue = "";
 
+		List<AST::Expression*> arguments;
+		arguments.addAll(expression->arguments);
+		if (expression->methodInstance)
+			arguments.insert(0, expression->methodInstance);
+
 		SnekAssert(expression->callee->valueType->typeKind == AST::TypeKind::Function);
 		if (expression->callee->valueType->functionType.returnType->typeKind != AST::TypeKind::Void)
 		{
@@ -919,7 +924,7 @@ class CodegenTCC
 		int numParams = expression->callee->valueType->functionType.numParams;
 		for (int i = 0; i < numParams; i++)
 		{
-			callStream << castValue(expression->arguments[i], expression->callee->valueType->functionType.paramTypes[i]);;
+			callStream << castValue(arguments[i], expression->callee->valueType->functionType.paramTypes[i]);;
 
 			if (i < numParams - 1)
 				callStream << ",";
@@ -927,14 +932,14 @@ class CodegenTCC
 
 		if (expression->callee->valueType->functionType.varArgs)
 		{
-			int numVarArgs = expression->arguments.size - numParams;
+			int numVarArgs = arguments.size - numParams;
 
 			TypeID varArgsType = expression->callee->valueType->functionType.varArgsType;
 			TypeID arrayType = GetArrayType(varArgsType, -1);
 
 			if (numVarArgs)
 			{
-				AST::Expression* lastArg = expression->arguments[expression->arguments.size - 1];
+				AST::Expression* lastArg = arguments[arguments.size - 1];
 				if (numVarArgs == 1 && lastArg->valueType->typeKind == AST::TypeKind::Array && CompareTypes(lastArg->valueType->arrayType.elementType, varArgsType))
 				{
 					callStream << "," << castValue(lastArg, arrayType);
@@ -945,7 +950,7 @@ class CodegenTCC
 					varArgsStream << "{";
 					for (int i = 0; i < numVarArgs; i++)
 					{
-						varArgsStream << castValue(expression->arguments[numParams + i], varArgsType);
+						varArgsStream << castValue(arguments[numParams + i], varArgsType);
 						if (i < numVarArgs - 1)
 							varArgsStream << ',';
 					}
@@ -1022,6 +1027,20 @@ class CodegenTCC
 			std::string index = genExpression(expression->arguments[0]);
 			stringBoundsCheck(operand, index, expression->location);
 			return operand + ".ptr[" + index + "]";
+		}
+		else if (expression->operand->valueType->typeKind == AST::TypeKind::Struct || expression->operand->valueType->typeKind == AST::TypeKind::Class)
+		{
+			SnekAssert(expression->operatorOverload);
+			std::stringstream stream;
+			stream << expression->operatorOverload->mangledName << "(";
+			for (int i = 0; i < expression->arguments.size; i++)
+			{
+				stream << genExpression(expression->arguments[i]);
+				if (i < expression->arguments.size - 1)
+					stream << ",";
+			}
+			stream << ")";
+			return stream.str();
 		}
 		else
 		{

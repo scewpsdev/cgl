@@ -879,6 +879,8 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 	TypeID functionType = NULL;
 	AST::Function* function = NULL;
+	List<AST::Expression*> arguments;
+	arguments.addAll(expr->arguments);
 
 	if (ResolveExpression(resolver, expr->callee))
 	{
@@ -905,6 +907,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 		const char* functionName = nullptr;
 		List<AST::Function*>* functionOverloads = nullptr;
+		AST::Expression* methodInstance = nullptr;
 		if (expr->callee->type == AST::ExpressionType::Identifier && ((AST::Identifier*)expr->callee)->functions.size > 0)
 		{
 			functionName = ((AST::Identifier*)expr->callee)->name;
@@ -915,16 +918,23 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			functionName = ((AST::DotOperator*)expr->callee)->name;
 			functionOverloads = &((AST::DotOperator*)expr->callee)->namespacedFunctions;
 		}
+		else if (expr->callee->type == AST::ExpressionType::DotOperator && ((AST::DotOperator*)expr->callee)->methods.size > 0)
+		{
+			functionName = ((AST::DotOperator*)expr->callee)->name;
+			functionOverloads = &((AST::DotOperator*)expr->callee)->methods;
+			methodInstance = ((AST::DotOperator*)expr->callee)->operand;
+			arguments.insert(0, methodInstance);
+		}
 		else
 		{
 			SnekAssert(false);
 		}
 
-		resolver->chooseFunctionOverload(*functionOverloads, expr->arguments);
+		resolver->chooseFunctionOverload(*functionOverloads, arguments, methodInstance);
 
-		if (functionOverloads->size > 0 && resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments) < 1000)
+		if (functionOverloads->size > 0 && resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments) < 1000)
 		{
-			int lowestScore = resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments);
+			int lowestScore = resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments);
 			function = functionOverloads->get(0);
 
 			if (function->isGeneric)
@@ -938,7 +948,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 					{
 						for (int j = 0; j < function->paramTypes.size; j++)
 						{
-							if (TypeID type = DeduceGenericArg(function->paramTypes[j], expr->arguments[j]->valueType, function))
+							if (TypeID type = DeduceGenericArg(function->paramTypes[j], arguments[j]->valueType, function))
 							{
 								expr->genericArgs.add(type);
 								break;
@@ -983,17 +993,17 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			{
 				expr->callee->valueType = function->functionType;
 			}
-			else if (functionOverloads->size > 1 && resolver->getFunctionOverloadScore(functionOverloads->get(1), expr->arguments) > lowestScore)
+			else if (functionOverloads->size > 1 && resolver->getFunctionOverloadScore(functionOverloads->get(1), arguments) > lowestScore)
 			{
 				expr->callee->valueType = function->functionType;
 			}
 			else
 			{
 				char argumentTypesString[128] = "";
-				for (int i = 0; i < expr->arguments.size; i++)
+				for (int i = 0; i < arguments.size; i++)
 				{
-					strcat(argumentTypesString, GetTypeString(expr->arguments[i]->valueType));
-					if (i < expr->arguments.size - 1)
+					strcat(argumentTypesString, GetTypeString(arguments[i]->valueType));
+					if (i < arguments.size - 1)
 						strcat(argumentTypesString, ",");
 				}
 
@@ -1058,14 +1068,14 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		else
 		{
 			char argumentTypesString[128] = "";
-			for (int i = 0; i < expr->arguments.size; i++)
+			for (int i = 0; i < arguments.size; i++)
 			{
-				strcat(argumentTypesString, GetTypeString(expr->arguments[i]->valueType));
-				if (i < expr->arguments.size - 1)
+				strcat(argumentTypesString, GetTypeString(arguments[i]->valueType));
+				if (i < arguments.size - 1)
 					strcat(argumentTypesString, ",");
 			}
 
-			resolver->getFunctionOverloadScore(functionOverloads->get(0), expr->arguments);
+			resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments);
 			SnekErrorLoc(resolver->context, expr->callee->location, "No overload for function call %s(%s)", functionName, argumentTypesString);
 			return false;
 		}
@@ -1074,6 +1084,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		expr->function = function;
 		expr->valueType = functionType->functionType.returnType;
 		expr->lvalue = false;
+		expr->methodInstance = methodInstance;
 
 		if (expr->callee->type == AST::ExpressionType::DotOperator)
 		{
@@ -1091,8 +1102,8 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			}
 		}
 
-		if (expr->arguments.size < (function ? function->getNumRequiredParams() : functionType->functionType.numParams) ||
-			expr->arguments.size > functionType->functionType.numParams && !functionType->functionType.varArgs)
+		if (arguments.size < (function ? function->getNumRequiredParams() : functionType->functionType.numParams) ||
+			arguments.size > functionType->functionType.numParams && !functionType->functionType.varArgs)
 		{
 			if (function)
 				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments when calling function '%s': should be %d instead of %d", function->name, functionType->functionType.numParams, expr->arguments.size);
@@ -1111,10 +1122,10 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		return false;
 
 
-	for (int i = 0; i < expr->arguments.size; i++)
+	for (int i = 0; i < arguments.size; i++)
 	{
-		TypeID argType = expr->arguments[i]->valueType;
-		bool argIsConstant = expr->arguments[i]->isConstant();
+		TypeID argType = arguments[i]->valueType;
+		bool argIsConstant = arguments[i]->isConstant();
 
 		int paramOffset = expr->isMethodCall ? 1 : 0;
 		int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
@@ -1224,11 +1235,101 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 					return false;
 				}
 			}
-			else
+			else if (expr->operand->valueType->typeKind == AST::TypeKind::Struct || expr->operand->valueType->typeKind == AST::TypeKind::Class)
 			{
-				SnekErrorLoc(resolver->context, expr->operand->location, "Subscript operator [int] not applicable to value of type %s", GetTypeString(expr->operand->valueType));
+				TypeID operandType = expr->operand->valueType;
+				List<AST::Expression*> arguments;
+				arguments.addAll(expr->arguments);
+				arguments.insert(0, expr->operand);
+
+				AST::Function* function = resolver->findOperatorOverload(operandType, AST::OperatorOverload::Subscript);
+				if (function)
+				{
+					bool result = true;
+
+					if (function->isGeneric)
+					{
+						SnekAssert(function->genericParams.size == 1);
+
+						List<TypeID> genericArgs;
+						genericArgs.add(operandType);
+
+						function = function->getGenericInstance(genericArgs);
+						if (!function)
+						{
+							AST::File* lastFile = resolver->currentFile;
+							resolver->currentFile = function->file;
+
+							function = (AST::Function*)(function->copy()); // Create a separate version of the function, TODO: reuse functions with the same type arguments
+							function->isGeneric = false;
+							function->isGenericInstance = true;
+
+							function->genericTypeArguments.resize(genericArgs.size);
+							function->genericTypeArguments.addAll(genericArgs);
+
+							function->genericInstances.add(function);
+
+							Scope* callerScope = resolver->scope;
+							resolver->scope = nullptr;
+
+							result = ResolveFunctionHeader(resolver, function) && result;
+							result = ResolveFunction(resolver, function) && result;
+
+							resolver->scope = callerScope;
+
+							resolver->currentFile = lastFile;
+						}
+					}
+
+					TypeID functionType = function->functionType;
+
+					expr->operatorOverload = function;
+					expr->valueType = functionType->functionType.returnType;
+					expr->lvalue = false;
+
+					SnekAssert(!function->varArgs);
+
+					for (int i = 0; i < arguments.size; i++)
+					{
+						TypeID argType = arguments[i]->valueType;
+						bool argIsConstant = arguments[i]->isConstant();
+
+						int paramCount = functionType->functionType.numParams;
+
+						if (i < paramCount)
+						{
+							TypeID paramType = functionType->functionType.paramTypes[i];
+
+							if (!CanConvertImplicit(argType, paramType, argIsConstant))
+							{
+								result = false;
+
+								const char* argTypeStr = GetTypeString(argType);
+								const char* paramTypeStr = GetTypeString(paramType);
+
+								if (function)
+								{
+									SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[i]);
+									result = false;
+								}
+								else
+								{
+									SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i);
+									result = false;
+								}
+							}
+						}
+					}
+
+					return result;
+				}
+
+				SnekAssert(false);
 				return false;
 			}
+
+			SnekErrorLoc(resolver->context, expr->operand->location, "Subscript operator [int] not applicable to value of type %s", GetTypeString(expr->operand->valueType));
+			return false;
 		}
 	}
 	return false;
@@ -1439,15 +1540,23 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		}
 
 		TypeID operandType = expr->operand->valueType;
-
-		while (operandType->typeKind == AST::TypeKind::Alias)
-			operandType = operandType->aliasType.alias;
-
+		operandType = UnwrapType(operandType);
 		if (operandType->typeKind == AST::TypeKind::Pointer)
 			operandType = operandType->pointerType.elementType;
+		operandType = UnwrapType(operandType);
 
-		while (operandType->typeKind == AST::TypeKind::Alias)
-			operandType = operandType->aliasType.alias;
+		SnekAssert(expr->methods.size == 0);
+		if (resolver->findFunctions(expr->name, expr->methods))
+		{
+			for (int i = 0; i < expr->methods.size; i++)
+			{
+				if (expr->methods[i]->paramTypes.size < 1)
+					expr->methods.removeAt(i--);
+			}
+
+			if (expr->methods.size > 0)
+				return true;
+		}
 
 		if (operandType->typeKind == AST::TypeKind::Struct)
 		{

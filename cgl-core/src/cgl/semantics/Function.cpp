@@ -107,6 +107,57 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 	return found;
 }
 
+AST::Function* Resolver::findOperatorOverloadInFile(TypeID operandType, AST::OperatorOverload operatorOverload, AST::File* file)
+{
+	for (int i = 0; i < file->functions.size; i++)
+	{
+		AST::Function* function = file->functions[i];
+		if (function->visibility == AST::Visibility::Public || function->file == currentFile)
+		{
+			TypeID type = DeduceGenericArg(function->paramTypes[0], operandType, function);
+			if (function->operatorOverload == operatorOverload && function->paramTypes.size > 0 && CompareTypes(function->paramTypes[0]->typeID, operandType))
+			{
+				return function;
+			}
+		}
+	}
+	return nullptr;
+}
+
+AST::Function* Resolver::findOperatorOverloadInModule(TypeID operandType, AST::OperatorOverload operatorOverload, AST::Module* module)
+{
+	for (AST::File* file : module->files)
+	{
+		return findOperatorOverloadInFile(operandType, operatorOverload, file);
+	}
+	return nullptr;
+}
+
+AST::Function* Resolver::findOperatorOverload(TypeID operandType, AST::OperatorOverload operatorOverload)
+{
+	if (AST::Function* function = findOperatorOverloadInFile(operandType, operatorOverload, currentFile))
+	{
+		return function;
+	}
+
+	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
+	if (AST::Function* function = findOperatorOverloadInModule(operandType, operatorOverload, module))
+	{
+		return function;
+	}
+
+	for (int i = 0; i < currentFile->dependencies.size; i++)
+	{
+		AST::Module* dependency = currentFile->dependencies[i];
+		if (AST::Function* function = findOperatorOverloadInModule(operandType, operatorOverload, dependency))
+		{
+			return function;
+		}
+	}
+
+	return nullptr;
+}
+
 int Resolver::getFunctionOverloadScore(const AST::Function* function, const List<AST::Expression*>& arguments)
 {
 	if (arguments.size != function->paramTypes.size)
@@ -142,7 +193,7 @@ int Resolver::getFunctionOverloadScore(const AST::Function* function, const List
 	return score;
 }
 
-void Resolver::chooseFunctionOverload(List<AST::Function*>& functions, const List<AST::Expression*>& arguments)
+void Resolver::chooseFunctionOverload(List<AST::Function*>& functions, const List<AST::Expression*>& arguments, AST::Expression* methodInstance)
 {
 	if (functions.size <= 1)
 		return;

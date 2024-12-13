@@ -65,3 +65,8 @@ public void set<T>(LinkedList<T> list, int idx, T value)
 		node = node.next;
 	node.value = value;
 }
+
+public T operator[]<T>(LinkedList<T> list, int idx)
+{
+	return get(list, idx);
+}

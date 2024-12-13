@@ -296,6 +296,8 @@ namespace AST
 		Expression* operand;
 		List<Expression*> arguments;
 
+		Function* operatorOverload = nullptr;
+
 
 		SubscriptOperator(File* file, const SourceLocation& location, Expression* operand, const List<Expression*>& arguments);
 		virtual ~SubscriptOperator();
@@ -323,6 +325,8 @@ namespace AST
 
 		// classes
 		ClassField* classField = nullptr;
+
+		List<Function*> methods;
 
 
 		DotOperator(File* file, const SourceLocation& location, Expression* operand, int index);

@@ -78,9 +78,12 @@ struct Resolver
 	bool findFunctionsInFile(const char* name, AST::File* file, List<AST::Function*>& functions);
 	bool findFunctionsInModule(const char* name, AST::Module* module, List<AST::Function*>& functions);
 	bool findFunctions(const char* name, List<AST::Function*>& functions);
+	AST::Function* findOperatorOverloadInFile(TypeID operandType, AST::OperatorOverload operatorOverload, AST::File* file);
+	AST::Function* findOperatorOverloadInModule(TypeID operandType, AST::OperatorOverload operatorOverload, AST::Module* module);
+	AST::Function* findOperatorOverload(TypeID operandType, AST::OperatorOverload operatorOverload);
 
 	int getFunctionOverloadScore(const AST::Function* function, const List<AST::Expression*>& arguments);
-	void chooseFunctionOverload(List<AST::Function*>& functions, const List<AST::Expression*>& arguments);
+	void chooseFunctionOverload(List<AST::Function*>& functions, const List<AST::Expression*>& arguments, AST::Expression* methodInstance);
 
 	AST::Enum* findEnumInFile(const char* name, AST::File* file);
 	AST::Enum* findEnumInModule(const char* name, AST::Module* module);

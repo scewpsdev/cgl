@@ -50,6 +50,12 @@ namespace AST
 	DeclarationFlags operator|(DeclarationFlags flag0, DeclarationFlags flag1);
 	DeclarationFlags operator&(DeclarationFlags flag0, DeclarationFlags flag1);
 
+	enum class OperatorOverload : uint8_t
+	{
+		None = 0,
+		Subscript,
+	};
+
 	struct Declaration : Element
 	{
 		DeclarationType type;
@@ -78,11 +84,12 @@ namespace AST
 		Statement* body = nullptr;
 		Expression* bodyExpression = nullptr;
 
+		OperatorOverload operatorOverload = OperatorOverload::None;
+
 		bool isGeneric = false;
 		bool isGenericInstance = false;
 		List<char*> genericParams;
 		List<TypeID> genericTypeArguments;
-
 		List<Function*> genericInstances;
 
 		SourceLocation endLocation;

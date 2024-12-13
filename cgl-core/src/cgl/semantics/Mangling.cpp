@@ -100,6 +100,13 @@ char* MangleFunctionName(AST::Function* function)
 	{
 		return _strdup(function->name);
 	}
+	else if (function->operatorOverload != AST::OperatorOverload::None)
+	{
+		if (function->operatorOverload == AST::OperatorOverload::Subscript)
+			return _strdup("__operator_subscript");
+		SnekAssert(false);
+		return nullptr;
+	}
 	else
 	{
 		StringBuffer result = CreateStringBuffer(4);

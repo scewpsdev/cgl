@@ -2224,9 +2224,16 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 			char* name = GetTokenString(NextToken(parser));
 
+			AST::OperatorOverload operatorOverload = AST::OperatorOverload::None;
+			if (strcmp(name, "operator") == 0 && NextTokenIs(parser, '['))
+			{
+				NextToken(parser); // [
+				SkipToken(parser, ']');
+				operatorOverload = AST::OperatorOverload::Subscript;
+			}
+
 			bool isGeneric = false;
 			List<char*> genericParams;
-
 			if (NextTokenIs(parser, TOKEN_TYPE_OP_LESS_THAN)) // Generic types
 			{
 				NextToken(parser); // <
@@ -2348,6 +2355,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				SkipToken(parser, ')');
 
 
+				AST::Function* function = nullptr;
 				if (NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS) && NextTokenIs(parser, TOKEN_TYPE_OP_GREATER_THAN, 1))
 				{
 					NextToken(parser); // =
@@ -2361,7 +2369,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 					InputState endInputState = GetInputState(parser);
 
-					return new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, bodyExpression, isGeneric, genericParams);
+					function = new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, bodyExpression, isGeneric, genericParams);
 				}
 				else
 				{
@@ -2390,8 +2398,12 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 					InputState endInputState = GetInputState(parser);
 
-					return new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, body, isGeneric, genericParams);
+					function = new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, body, isGeneric, genericParams);
 				}
+
+				function->operatorOverload = operatorOverload;
+
+				return function;
 			}
 			else
 			{
