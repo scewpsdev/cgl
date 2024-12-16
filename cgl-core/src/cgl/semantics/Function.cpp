@@ -114,10 +114,12 @@ AST::Function* Resolver::findOperatorOverloadInFile(TypeID operandType, AST::Ope
 		AST::Function* function = file->functions[i];
 		if (function->visibility == AST::Visibility::Public || function->file == currentFile)
 		{
-			TypeID type = DeduceGenericArg(function->paramTypes[0], operandType, function);
-			if (function->operatorOverload == operatorOverload && function->paramTypes.size > 0 && CompareTypes(function->paramTypes[0]->typeID, operandType))
+			if (function->paramTypes.size > 0)
 			{
-				return function;
+				if (function->operatorOverload == operatorOverload && (!function->isGeneric && CompareTypes(function->paramTypes[0]->typeID, operandType) || DeduceGenericArg(function->paramTypes[0], operandType, function)))
+				{
+					return function;
+				}
 			}
 		}
 	}

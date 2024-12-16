@@ -1032,7 +1032,8 @@ class CodegenTCC
 		{
 			SnekAssert(expression->operatorOverload);
 			std::stringstream stream;
-			stream << expression->operatorOverload->mangledName << "(";
+			stream << getFunctionValue(expression->operatorOverload) << "(";
+			stream << genExpression(expression->operand) << ",";
 			for (int i = 0; i < expression->arguments.size; i++)
 			{
 				stream << genExpression(expression->arguments[i]);

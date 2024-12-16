@@ -1252,33 +1252,35 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 						SnekAssert(function->genericParams.size == 1);
 
 						List<TypeID> genericArgs;
-						genericArgs.add(operandType);
+						genericArgs.add(DeduceGenericArg(function->paramTypes[0], operandType, function));
 
-						function = function->getGenericInstance(genericArgs);
-						if (!function)
+						AST::Function* instance = function->getGenericInstance(genericArgs);
+						if (!instance)
 						{
 							AST::File* lastFile = resolver->currentFile;
 							resolver->currentFile = function->file;
 
-							function = (AST::Function*)(function->copy()); // Create a separate version of the function, TODO: reuse functions with the same type arguments
-							function->isGeneric = false;
-							function->isGenericInstance = true;
+							instance = (AST::Function*)(function->copy()); // Create a separate version of the function, TODO: reuse functions with the same type arguments
+							instance->isGeneric = false;
+							instance->isGenericInstance = true;
 
-							function->genericTypeArguments.resize(genericArgs.size);
-							function->genericTypeArguments.addAll(genericArgs);
+							instance->genericTypeArguments.reserve(genericArgs.size);
+							instance->genericTypeArguments.addAll(genericArgs);
 
-							function->genericInstances.add(function);
+							function->genericInstances.add(instance);
 
 							Scope* callerScope = resolver->scope;
 							resolver->scope = nullptr;
 
-							result = ResolveFunctionHeader(resolver, function) && result;
-							result = ResolveFunction(resolver, function) && result;
+							result = ResolveFunctionHeader(resolver, instance) && result;
+							result = ResolveFunction(resolver, instance) && result;
 
 							resolver->scope = callerScope;
 
 							resolver->currentFile = lastFile;
 						}
+
+						function = instance;
 					}
 
 					TypeID functionType = function->functionType;
