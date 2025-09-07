@@ -7,7 +7,7 @@
 
 char* ReadText(const char* path)
 {
-	if (FILE* file = fopen(path, "r"))
+	if (FILE* file = fopen(path, "rb"))
 	{
 		fseek(file, 0, SEEK_END);
 		long numBytes = ftell(file);
@@ -15,13 +15,31 @@ char* ReadText(const char* path)
 
 		char* buffer = new char[numBytes + 1];
 		memset(buffer, 0, numBytes);
-		fread(buffer, 1, numBytes, file);
+		numBytes = fread(buffer, 1, numBytes, file);
 		fclose(file);
 		buffer[numBytes] = 0;
 
 		return buffer;
 	}
 	return nullptr;
+}
+
+int WriteText(const char* txt, const char* path)
+{
+	if (FILE* file = fopen(path, "wb"))
+	{
+		int numBytes = fputs(txt, file);
+		fclose(file);
+		return numBytes;
+	}
+	return 0;
+}
+
+int WriteText(const char* txt, FILE* file)
+{
+	int numBytes = fputs(txt, file);
+	fclose(file);
+	return numBytes;
 }
 
 const char* LocalFilePath(const char* path)

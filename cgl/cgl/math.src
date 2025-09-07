@@ -1,43 +1,40 @@
 package snek.math;
 
-import cmath;
 
+public const float PI = 3.14159265358979323846;
+
+
+externc float expf(float x);
+public externc double exp(double x);
+public float exp(float x) => expf(x);
+
+externc float log10f(float x);
+public externc double log10(double x);
+public float log10(float x) => log10f(x);
+
+externc float powf(float x, float y);
+public externc double pow(double x, double y);
+public float pow(float x, float y) => powf(x, y);
+
+externc float sinf(float x);
+public externc double sin(double x);
+public float sin(float x) => sinf(x);
+
+externc float cosf(float x);
+public externc double cos(double x);
+public float cos(float x) => cosf(x);
+
+externc float tanf(float x);
+public externc double tan(double x);
+public float tan(float x) => tanf(x);
+
+public float sigmoid(float x) => 1.0f / (1.0f + expf(-x));
+
+public int abs(int i) => i < 0 ? -i : i;
+
+public int sign(int i) => i > 0 ? 1 : i < 0 ? -1 : 0;
+
+public float toRadians(float f) => f / 180.0f * PI;
 
 public t min<t>(t a, t b) => a < b ? a : b;
-
 public t max<t>(t a, t b) => a > b ? a : b;
-
-public float exp(float f)
-{
-	return cmath.expf(f);
-}
-
-public double exp(double d)
-{
-	return cmath.exp(d);
-}
-
-public float sigmoid(float x)
-{
-	return 1.0f / (1.0f + cmath.expf(-x));
-}
-
-public int abs(int i)
-{
-	return i < 0 ? -i : i;
-}
-
-public int sign(int i)
-{
-	return i > 0 ? 1 : i < 0 ? -1 : 0;
-}
-
-public float log10(float f)
-{
-	return log10f(f);
-}
-
-public float pow(float f, float g)
-{
-	return powf(f, g);
-}

@@ -563,6 +563,11 @@ static char* TypeToString(TypeID type)
 	case AST::TypeKind::Struct:
 	{
 		StringBuffer result = CreateStringBuffer(8);
+		if (type->structType.declaration)
+		{
+			StringBufferAppend(result, type->structType.declaration->file->getFullName());
+			StringBufferAppend(result, '.');
+		}
 		StringBufferAppend(result, type->structType.name);
 
 		if (type->structType.declaration && type->structType.declaration->isGenericInstance)

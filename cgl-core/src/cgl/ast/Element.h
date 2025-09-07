@@ -41,8 +41,8 @@ namespace AST
 		Null = 0,
 
 		Private,
-		Public,
 		Internal,
+		Public,
 		Export,
 	};
 }

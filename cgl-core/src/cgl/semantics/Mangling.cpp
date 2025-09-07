@@ -47,11 +47,11 @@ static void MangleType(TypeID type, StringBuffer& buffer)
 			break;
 		case AST::TypeKind::Struct:
 			StringBufferAppend(buffer, 'x');
-			StringBufferAppend(buffer, (unsigned long)hash(type->structType.name));
+			StringBufferAppend(buffer, (uint16_t)hash(type->structType.name));
 			break;
 		case AST::TypeKind::Class:
 			StringBufferAppend(buffer, 'X');
-			StringBufferAppend(buffer, (unsigned long)hash(type->classType.name));
+			StringBufferAppend(buffer, (uint16_t)hash(type->classType.name));
 			break;
 		case AST::TypeKind::Alias:
 			MangleType(type->aliasType.alias, buffer);
@@ -96,7 +96,7 @@ char* MangleFunctionName(AST::Function* function)
 	{
 		return _strdup("main");
 	}
-	else if (isExtern)
+	else if (isExtern || function->dllImport)
 	{
 		return _strdup(function->name);
 	}

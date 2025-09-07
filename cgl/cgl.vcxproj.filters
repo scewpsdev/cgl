@@ -15,36 +15,28 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\cgl\backends\CodegenC.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\cgl\Driver.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\cgl\backends\tcc\CodegenTCC.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\cgl\Platform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\cgl\File.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\cgl\Platform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cgl\backends\CodegenClang.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="test\Main.cgl" />
-    <None Include="test\Tests.cgl" />
-    <None Include="test\Console.cgl" />
-    <None Include="test\Types.cgl" />
-    <None Include="test\Strings.cgl" />
-    <None Include="test\Functions.cgl" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\cgl\Platform.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\cgl\File.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="todo.txt" />
+    <ClInclude Include="src\cgl\Platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

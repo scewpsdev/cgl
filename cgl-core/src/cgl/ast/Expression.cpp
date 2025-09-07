@@ -375,6 +375,7 @@ namespace AST
 	{
 		auto expr = new DotOperator(file, location, (Expression*)operand->copy(), name ? _strdup(name) : nullptr);
 		expr->fieldIndex = fieldIndex;
+		expr->enumValue = enumValue;
 		return expr;
 	}
 

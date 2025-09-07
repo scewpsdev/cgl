@@ -2,8 +2,6 @@
 
 #include "cgl/File.h"
 
-#include "lib/libtcc/libtcc.h"
-
 #include "cgl/semantics/Variable.h"
 #include "cgl/semantics/Function.h"
 
@@ -13,7 +11,7 @@ struct Scope
 	Scope* parent = nullptr;
 };
 
-class CodegenTCC
+class CodegenC
 {
 	CGLCompiler* context;
 	AST::File* file;
@@ -22,6 +20,7 @@ class CodegenTCC
 	List<AST::Function*> importedFunctions;
 	List<AST::Struct*> importedStructs;
 	List<AST::Class*> importedClasses;
+	List<AST::Enum*> importedEnums;
 	std::map<TypeID, std::string> optionalTypes;
 	std::map<TypeID, std::string> functionTypes;
 	std::map<TypeID, std::string> tupleTypes;
@@ -38,6 +37,7 @@ class CodegenTCC
 	std::stringstream* instructionStream = nullptr;
 
 	AST::Function* currentFunction = nullptr;
+	AST::Statement* currentStatement = nullptr;
 	Scope* scope = nullptr;
 
 	int unnamedLocalId = 0;
@@ -74,22 +74,31 @@ class CodegenTCC
 		instructionStream->seekg(0, std::ios::end);
 	}
 
-	void stepBackPastWhitespace()
+	void stepBackPastWhitespace(std::stringstream& stream)
 	{
 		int i = 1;
 		while (true)
 		{
-			instructionStream->seekg(-i, std::ios::end);
+			stream.seekg(-i, std::ios::end);
 			//instructionStream->seekp(instructionStream->cur-1);
 			char c;
-			instructionStream->read(&c, 1);
+			stream.read(&c, 1);
 			//char c = instructionStream->get();
 			if (isWhitespace(c))
+			{
 				i++;
+
+				if (stream.tellg() == 1) // if stream is at the beginning (reading advances pointer from 0->1)
+				{
+					stream.seekp(0);
+					stream.seekg(0, std::ios::end);
+					return;
+				}
+			}
 			else
 			{
-				instructionStream->seekp(-i + 1, std::ios::end);
-				instructionStream->seekg(0, std::ios::end);
+				stream.seekp(-i + 1, std::ios::end);
+				stream.seekg(0, std::ios::end);
 				return;
 			}
 		}
@@ -110,11 +119,47 @@ class CodegenTCC
 		sprintf(&name[2], "%d", unnamedLocalId++);
 	}
 
+	void emitLocation(AST::Element* element, std::stringstream& stream)
+	{
+		if (!(context->debugInfo || context->runtimeStackTrace))
+			return;
+
+		stepBackPastWhitespace(stream);
+
+		char filename[256];
+		sprintf(filename, "%s", element->location.filename);
+		for (int i = 0; i < (int)strlen(filename); i++)
+		{
+			if (filename[i] == '\\')
+				filename[i] = '/';
+		}
+
+		stream << "\n#line " << element->location.line << " \"" << filename << "\"";
+		newLine();
+	}
+
+	/*void emitLocation(int line, std::stringstream& stream)
+	{
+		stepBackPastWhitespace(stream);
+
+		char filename[256];
+		sprintf(filename, "%s", file->sourceFile->filename);
+		for (int i = 0; i < (int)strlen(filename); i++)
+		{
+			if (filename[i] == '\\')
+				filename[i] = '/';
+		}
+
+		stream << "\n#line " << line << " \"" << filename << "\"";
+		newLine(stream);
+	}*/
+
 	Scope* pushScope()
 	{
 		Scope* newScope = new Scope();
 		newScope->parent = scope;
 		scope = newScope;
+
 		return newScope;
 	}
 
@@ -484,6 +529,10 @@ class CodegenTCC
 		{
 			return "(" + genType(type) + ")" + expression + "";
 		}
+		else if (valueType->typeKind == AST::TypeKind::Struct && type->typeKind == AST::TypeKind::Pointer && CompareTypes(type->pointerType.elementType, valueType) && ast && ast->lvalue)
+		{
+			return "&" + expression;
+		}
 		else if (valueType->typeKind != AST::TypeKind::Optional && type->typeKind == AST::TypeKind::Optional &&
 			CompareTypes(type->optionalType.elementType, valueType))
 		{
@@ -627,7 +676,7 @@ class CodegenTCC
 			if (ast && ast->type == AST::ExpressionType::StringLiteral)
 				return "(string){" + expression + "," + std::to_string(((AST::StringLiteral*)ast)->length) + "}";
 			else
-				return "(string){" + expression + ",strlen(" + expression + ")}";
+				return "(string){" + expression + ",__cstrl(" + expression + ")}";
 		}
 		else if (valueType->typeKind == AST::TypeKind::Array &&
 			valueType->arrayType.elementType->typeKind == AST::TypeKind::Integer &&
@@ -777,7 +826,15 @@ class CodegenTCC
 		std::stringstream* parentStream = instructionStream;
 		instructionStream = &functionDeclarations;
 
-		*instructionStream << "extern " << genType(function->functionType->functionType.returnType) << " " << function->mangledName << "(";
+		*instructionStream << "extern " << genType(function->functionType->functionType.returnType);
+		if (function->dllImport)
+		{
+			*instructionStream << "(*" << function->mangledName << ")(";
+		}
+		else
+		{
+			*instructionStream << " " << function->mangledName << "(";
+		}
 
 		for (int i = 0; i < function->functionType->functionType.numParams; i++)
 		{
@@ -807,6 +864,24 @@ class CodegenTCC
 			}
 		}
 		return function->mangledName;
+	}
+
+	void importEnum(AST::Enum* en)
+	{
+		genEnum(en);
+	}
+
+	std::string getEnumValue(AST::EnumValue* value)
+	{
+		if (file != value->declaration->file)
+		{
+			if (!importedEnums.contains(value->declaration))
+			{
+				importEnum(value->declaration);
+				importedEnums.add(value->declaration);
+			}
+		}
+		return value->valueStr;
 	}
 
 	std::string genExpressionInitializerList(AST::InitializerList* expression)
@@ -1060,6 +1135,8 @@ class CodegenTCC
 		}
 		else if (expression->namespacedVariable)
 			return getVariableValue(expression->namespacedVariable);
+		else if (expression->enumValue)
+			return getEnumValue(expression->enumValue);
 		else if (expression->namespacedFunctions.size > 0)
 			return getFunctionValue(expression->namespacedFunctions[0]);
 		else if (expression->builtinTypeProperty != AST::BuiltinTypeProperty::Null)
@@ -1663,7 +1740,10 @@ class CodegenTCC
 
 			if (statement->iterateExpr)
 			{
+				AST::Statement* lastStatement = currentStatement;
+				emitLocation(statement->iterateExpr, *instructionStream);
 				genExpression(statement->iterateExpr);
+				emitLocation(lastStatement, *instructionStream);
 				//newLine();
 			}
 
@@ -1750,13 +1830,24 @@ class CodegenTCC
 		}
 		else
 		{
-			*instructionStream << "return;";
+			if (currentFunction->isEntryPoint)
+			{
+				*instructionStream << "return 0;";
+			}
+			else
+			{
+				*instructionStream << "return;";
+			}
 			newLine();
 		}
 	}
 
 	void genStatementAssert(AST::Assert* statement)
 	{
+		*instructionStream << "assert(" << castValue(statement->condition, GetBoolType()) << ",\"" << statement->file->name << "\"," << statement->location.line << "," << statement->location.col << ");";
+		newLine();
+		return;
+
 		*instructionStream << "if(!(" << castValue(statement->condition, GetBoolType()) << ")){";
 		indentation++;
 		newLine();
@@ -1837,6 +1928,9 @@ class CodegenTCC
 
 	void genStatement(AST::Statement* statement)
 	{
+		currentStatement = statement;
+		emitLocation(statement, *instructionStream);
+
 		switch (statement->type)
 		{
 		case AST::StatementType::NoOp:
@@ -1963,6 +2057,40 @@ class CodegenTCC
 		types << structStream.str();
 	}
 
+	void genEnum(AST::Enum* en)
+	{
+		for (int i = 0; i < en->values.size; i++)
+		{
+			AST::EnumValue* value = en->values[i];
+
+			if (value->valueStr != "")
+				continue;
+
+			if (value->value)
+			{
+				value->valueStr = genExpression(value->value);
+			}
+			else
+			{
+				for (int j = value->idx == 0 ? 0 : value->idx - 1; j >= 0; j--)
+				{
+					if (en->values[j]->value)
+					{
+						if (en->values[j]->value->type == AST::ExpressionType::IntegerLiteral)
+							value->valueStr = castValue(std::to_string(((AST::IntegerLiteral*)en->values[j]->value)->value + (value->idx - j)), GetIntegerType(32, true), en->type);
+						else
+							value->valueStr = castValue(en->values[j]->value, en->type) + "+" + castValue(std::to_string(value->idx - j), GetIntegerType(32, true), en->type);
+					}
+					else if (j == 0)
+					{
+						value->valueStr = castValue(std::to_string(value->idx - j), GetIntegerType(32, true), en->type);
+					}
+				}
+			}
+			SnekAssert(value->valueStr != "");
+		}
+	}
+
 	void genFunctionHeader(AST::Function* function)
 	{
 		if (function->isEntryPoint)
@@ -1982,11 +2110,22 @@ class CodegenTCC
 		std::stringstream functionStream;
 		instructionStream = &functionStream;
 
-		// Apparently not needed for functions?
-		//if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
-		//	*instructionStream << "__declspec(dllimport) ";
+		if (HasFlag(function->flags, AST::DeclarationFlags::Extern))
+			*instructionStream << "extern ";
+		else if (HasFlag(function->flags, AST::DeclarationFlags::Private))
+			*instructionStream << "static ";
 
-		*instructionStream << genType(function->functionType->functionType.returnType) << " " << function->mangledName << "(";
+		*instructionStream << genType(function->functionType->functionType.returnType) << ' ';
+
+		if (function->dllImport == nullptr)
+		{
+			*instructionStream << function->mangledName << "(";
+		}
+		else
+		{
+			*instructionStream << "(*" << function->mangledName << ")(";
+		}
+
 		for (int i = 0; i < function->functionType->functionType.numParams; i++)
 		{
 			*instructionStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
@@ -2005,6 +2144,45 @@ class CodegenTCC
 		functionDeclarations << functionStream.str();
 	}
 
+	std::string preprocessCode(std::stringstream& input)
+	{
+		//std::cout << input.str() << std::endl;
+
+		input.seekg(0);
+
+		std::stringstream output;
+
+		int lineNumber = -1;
+		std::string file;
+		int lastLineNumber = -1;
+
+		std::string line;
+		while (std::getline(input, line, '\n'))
+		{
+			if (line.starts_with("#line "))
+			{
+				line = line.substr(6);
+				auto space = line.find_first_of(' ');
+				lineNumber = std::stoi(line.substr(0, space));
+				file = line.substr(space + 1);
+			}
+			else
+			{
+				if (lineNumber != -1)
+				{
+					if (lastLineNumber == -1 || lineNumber != lastLineNumber + 1)
+						output << "#line " << lineNumber << ' ' << file << std::endl;
+					lastLineNumber = lineNumber;
+				}
+				output << line << std::endl;
+			}
+		}
+
+		//std::cout << output.str() << std::endl << "---" << std::endl;
+
+		return output.str();
+	}
+
 	void genFunction(AST::Function* function)
 	{
 		if (function->isGeneric)
@@ -2016,28 +2194,37 @@ class CodegenTCC
 			return;
 		}
 
+		if (!function->body && !function->isGenericInstance)
+			return;
+
 		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream functionStream;
 		instructionStream = &functionStream;
 
-		// Apparently not needed for functions?
-		//if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
-		//	*instructionStream << "__declspec(dllimport) ";
-
 		if (HasFlag(function->flags, AST::DeclarationFlags::Extern))
 			*instructionStream << "extern ";
+		else if (HasFlag(function->flags, AST::DeclarationFlags::Private))
+			*instructionStream << "static ";
 
 		if (function->isEntryPoint)
 		{
-			*instructionStream << "int";
+			*instructionStream << "int ";
 		}
 		else
 		{
-			*instructionStream << genType(function->functionType->functionType.returnType);
+			*instructionStream << genType(function->functionType->functionType.returnType) << ' ';
 		}
 
-		*instructionStream << " " << function->mangledName << "(";
+		if (function->dllImport == nullptr)
+		{
+			*instructionStream << function->mangledName << "(";
+		}
+		else
+		{
+			SnekAssert(false);
+		}
+
 		for (int i = 0; i < function->functionType->functionType.numParams; i++)
 		{
 			*instructionStream << genType(function->functionType->functionType.paramTypes[i]) << " " << function->paramNames[i];
@@ -2056,13 +2243,44 @@ class CodegenTCC
 		if (function->body)
 		{
 			*instructionStream << "{";
+
+			std::stringstream* parentStream = instructionStream;
+			std::stringstream codeStream;
+			instructionStream = &codeStream;
+
 			indentation++;
 			newLine();
 			pushScope();
 
 			currentFunction = function;
 
+			emitLocation(function, *instructionStream);
+
+			if (context->runtimeStackTrace)
+			{
+				*instructionStream << "__TRACE_PUSH();";
+				newLine();
+			}
+
+			if (function->isEntryPoint)
+			{
+				if (context->runtimeStackTrace)
+				{
+					*instructionStream << "__setup_crash_handler();";
+					newLine();
+				}
+				*instructionStream << "__init_" << file->getFullIdentifier() << "();";
+				newLine();
+			}
+
 			genStatement(function->body);
+
+			if (context->runtimeStackTrace)
+			{
+				*instructionStream << "__TRACE_POP();";
+				newLine();
+			}
+
 			if (function->isEntryPoint)
 			{
 				*instructionStream << "return 0;";
@@ -2076,17 +2294,11 @@ class CodegenTCC
 			//instructionStream->seekp(-1, instructionStream->cur);
 			indentation--;
 			//newLine();
-			*instructionStream << "}";
-		}
-		else if (function->bodyExpression)
-		{
-			*instructionStream << "{";
-			pushScope();
 
-			std::string returnValue = genExpression(function->bodyExpression);
-			*instructionStream << "return " << returnValue << ";";
+			instructionStream = parentStream;
 
-			popScope();
+			*instructionStream << preprocessCode(codeStream);
+
 			*instructionStream << "}";
 		}
 		else
@@ -2097,7 +2309,7 @@ class CodegenTCC
 
 		instructionStream = parentStream;
 
-		if (function->body || function->bodyExpression)
+		if (function->body)
 			functions << functionStream.str();
 		else
 			functionDeclarations << functionStream.str();
@@ -2166,16 +2378,59 @@ class CodegenTCC
 		globals << globalStream.str();
 	}
 
+	void genFileInitializer(std::stringstream& stream)
+	{
+		for (int i = 0; i < file->dependencies.size; i++)
+		{
+			for (int j = 0; j < file->dependencies[i]->files.size; j++)
+			{
+				stream << "void __init_" << file->dependencies[i]->files[j]->getFullIdentifier() << "();\n";
+			}
+		}
+		stream << "static bool __init_" << file->getFullIdentifier() << "_state = 0; \n";
+		stream << "void __init_" << file->getFullIdentifier() << "(){\n";
+		stream << "\tif(__init_" << file->getFullIdentifier() << "_state)return; __init_" << file->getFullIdentifier() << "_state = 1;\n";
+		for (int i = 0; i < file->functions.size; i++)
+		{
+			if (file->functions[i]->dllImport)
+			{
+				stream << "\t" << file->functions[i]->mangledName << "=";
+				/*
+				functions << "(" << genType(file->functions[i]->functionType->functionType.returnType);
+				functions << "(*)(";
+				for (int i = 0; i < file->functions[i]->functionType->functionType.numParams; i++)
+				{
+					functions << genType(file->functions[i]->functionType->functionType.paramTypes[i]);
+					if (i < file->functions[i]->functionType->functionType.numParams - 1)
+						functions << ",";
+				}
+				functions << "))";
+				*/
+				stream << "__loadDllFunc(\"" << file->functions[i]->dllImport << "\",\"" << file->functions[i]->mangledName << "\");\n";
+			}
+		}
+		for (int i = 0; i < file->dependencies.size; i++)
+		{
+			for (int j = 0; j < file->dependencies[i]->files.size; j++)
+			{
+				stream << "\t__init_" << file->dependencies[i]->files[j]->getFullIdentifier() << "();\n";
+			}
+		}
+		stream << "}\n";
+	}
+
 public:
-	CodegenTCC(CGLCompiler* context, AST::File* file)
+	CodegenC(CGLCompiler* context, AST::File* file)
 		: context(context), file(file)
 	{
 	}
 
 	std::string genFile(AST::File* file)
 	{
-		builtinDefinitionStream << "// " << file->name << "\n";
+		builtinDefinitionStream << "// " << file->getFullName() << "\n";
 		builtinDefinitionStream << "#include <cgl.h>\n";
+
+		genFileInitializer(functions);
 
 		for (AST::Struct* strct : file->structs)
 		{
@@ -2184,6 +2439,10 @@ public:
 		for (AST::Class* clss : file->classes)
 		{
 			genClass(clss);
+		}
+		for (AST::Enum* en : file->enums)
+		{
+			genEnum(en);
 		}
 		for (AST::Function* function : file->functions)
 		{
@@ -2221,137 +2480,3 @@ public:
 		return fileStream.str();
 	}
 };
-
-int CGLCompiler::run(int argc, char* argv[], bool printIR)
-{
-	TCCState* tcc = tcc_new();
-
-	tcc_add_library_path(tcc, LocalFilePath("lib\\libtcc"));
-	tcc_add_include_path(tcc, LocalFilePath("lib"));
-	//tcc_add_library(tcc, ".\\lib\\libtcc1-64.a");
-	//tcc_add_include_path(tcc, "D:\\Repositories\\tcc\\include\\");
-	//tcc_add_library_path(tcc, "D:\\Repositories\\tcc\\lib\\");
-	//tcc_set_options(tcc, "-L D:\\Repositories\\tcc\\lib\\ -lucrt -ldl -lmsvcrt");
-	//tcc_set_lib_path(tcc, "D:\\Repositories\\tcc\\");
-	//tcc_add_library_path(tcc, "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64\\");
-	//tcc_add_library(tcc, "libb/llibtcc1-64.a");
-	//tcc_add_library(tcc, "msvcrt.lib");
-	//tcc_set_options(tcc, "-Wall -LC:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.37.32822\\lib\\x64 -lucrt -lcmt");
-	//tcc_add_library_path(tcc, "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.37.32822\\lib\\x64");
-	//tcc_add_library(tcc, "libucrt.lib");
-
-	tcc_set_output_type(tcc, TCC_OUTPUT_MEMORY);
-
-	{
-		char* builtinSrc = ReadText(LocalFilePath("lib/cgl.c"));
-		if (builtinSrc)
-		{
-			tcc_compile_string(tcc, builtinSrc);
-			delete builtinSrc;
-		}
-		else
-		{
-			fprintf(stderr, "cgl.c is missing!\n");
-			return -1;
-		}
-	}
-
-	for (AST::File* file : asts)
-	{
-		CodegenTCC codegen(this, file);
-		std::string cSrc = codegen.genFile(file);
-		if (printIR)
-		{
-			fprintf(stderr, "%s\n", cSrc.c_str());
-			fprintf(stderr, "----------------------\n");
-		}
-		if (tcc_compile_string(tcc, cSrc.c_str()) == -1)
-		{
-			SnekAssert(false);
-		}
-	}
-
-	for (const LinkerFile& linkerFile : linkerFiles)
-	{
-		if (tcc_add_file(tcc, linkerFile.filename))
-		{
-			SnekError(this, "Failed to add file %s", linkerFile.filename);
-		}
-	}
-
-	for (const char* linkerPath : linkerPaths)
-	{
-		if (tcc_add_library_path(tcc, linkerPath))
-		{
-			SnekError(this, "Failed to add linker path %s", linkerPath);
-		}
-	}
-
-	int result = tcc_run(tcc, argc, argv);
-
-	tcc_delete(tcc);
-
-	return result;
-}
-
-int CGLCompiler::output(const char* path, bool printIR)
-{
-	TCCState* tcc = tcc_new();
-
-	tcc_add_library_path(tcc, LocalFilePath("lib\\libtcc"));
-	tcc_add_include_path(tcc, LocalFilePath("lib"));
-
-	tcc_set_output_type(tcc, TCC_OUTPUT_EXE);
-
-	{
-		char* builtinSrc = ReadText(LocalFilePath("lib/cgl.c"));
-		if (builtinSrc)
-		{
-			tcc_compile_string(tcc, builtinSrc);
-			delete builtinSrc;
-		}
-		else
-		{
-			fprintf(stderr, "cgl.c is missing!\n");
-			return -1;
-		}
-	}
-
-	for (AST::File* file : asts)
-	{
-		CodegenTCC codegen(this, file);
-		std::string cSrc = codegen.genFile(file);
-		if (printIR)
-		{
-			fprintf(stderr, "%s\n", cSrc.c_str());
-			fprintf(stderr, "----------------------\n");
-		}
-		if (tcc_compile_string(tcc, cSrc.c_str()) == -1)
-		{
-			SnekAssert(false);
-		}
-	}
-
-	for (const LinkerFile& linkerFile : linkerFiles)
-	{
-		if (tcc_add_file(tcc, linkerFile.filename))
-		{
-			SnekError(this, "Failed to add file %s", linkerFile.filename);
-		}
-	}
-
-	for (const char* linkerPath : linkerPaths)
-	{
-		if (tcc_add_library_path(tcc, linkerPath))
-		{
-			SnekError(this, "Failed to add linker path %s", linkerPath);
-		}
-	}
-
-	CreateDirectories(path);
-	int result = tcc_output_file(tcc, path);
-
-	tcc_delete(tcc);
-
-	return result;
-}

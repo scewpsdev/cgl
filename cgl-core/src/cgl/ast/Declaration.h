@@ -29,6 +29,7 @@ namespace AST
 		Enumeration,
 		Macro,
 		GlobalVariable,
+		DllImport,
 		Module,
 		Namespace,
 		Import,
@@ -40,7 +41,7 @@ namespace AST
 		Constant = 1 << 0,
 		Extern = 1 << 1,
 		DllExport = 1 << 2,
-		DllImport = 1 << 3,
+		//DllImport = 1 << 3,
 		Public = 1 << 4,
 		Private = 1 << 5,
 		Internal = 1 << 6,
@@ -81,8 +82,9 @@ namespace AST
 		TypeID varArgsType = nullptr;
 		char* varArgsName = nullptr;
 
+		char* dllImport = nullptr;
+
 		Statement* body = nullptr;
-		Expression* bodyExpression = nullptr;
 
 		OperatorOverload operatorOverload = OperatorOverload::None;
 
@@ -104,9 +106,7 @@ namespace AST
 		ValueHandle valueHandle = nullptr;
 
 
-		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
-		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams);
 		virtual ~Function();
 
 		virtual Element* copy() override;
@@ -240,13 +240,15 @@ namespace AST
 	{
 		char* name;
 		Expression* value;
+		int idx;
 
 		Enum* declaration = nullptr;
 
+		std::string valueStr;
 		ValueHandle valueHandle = nullptr;
 
 
-		EnumValue(File* file, const SourceLocation& location, char* name, Expression* value);
+		EnumValue(File* file, const SourceLocation& location, char* name, Expression* value, int idx);
 		virtual ~EnumValue();
 
 		virtual Element* copy() override;
@@ -283,6 +285,8 @@ namespace AST
 	{
 		Type* varType;
 		List<VariableDeclarator*> declarators;
+
+		char* dllImport = nullptr;
 
 
 		GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* varType, List<VariableDeclarator*>& declarators);

@@ -21,18 +21,8 @@ namespace AST
 	{
 	}
 
-	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
-		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), body(body), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
-	{
-	}
-
 	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams)
 		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), body(body), isGeneric(isGeneric), genericParams(genericParams)
-	{
-	}
-
-	Function::Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Expression* bodyExpression, bool isGeneric, const List<char*>& genericParams)
-		: Declaration(file, location, DeclarationType::Function, flags), endLocation(endLocation), name(name), returnType(returnType), paramTypes(paramTypes), paramNames(paramNames), paramValues(paramValues), varArgs(varArgs), varArgsTypeAST(varArgsTypeAST), varArgsName(varArgsName), bodyExpression(bodyExpression), isGeneric(isGeneric), genericParams(genericParams)
 	{
 	}
 
@@ -90,7 +80,9 @@ namespace AST
 				genericParamsCopy.add(_strdup(genericParams[i]));
 		}
 
-		return new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, body ? (Statement*)body->copy() : nullptr, bodyExpression ? (Expression*)bodyExpression->copy() : nullptr, isGeneric, genericParamsCopy);
+		Function* decl = new Function(file, location, flags, endLocation, _strdup(name), returnType ? (Type*)returnType->copy() : nullptr, paramTypesCopy, paramNamesCopy, paramValuesCopy, varArgs, varArgsTypeAST ? (Type*)varArgsTypeAST->copy() : nullptr, varArgsName ? _strdup(varArgsName) : nullptr, body ? (Statement*)body->copy() : nullptr, isGeneric, genericParamsCopy);
+		decl->dllImport = dllImport;
+		return decl;
 	}
 
 	int Function::getNumRequiredParams()
@@ -428,8 +420,8 @@ namespace AST
 		return new Typedef(file, location, flags, _strdup(name), (Type*)alias->copy());
 	}
 
-	EnumValue::EnumValue(File* file, const SourceLocation& location, char* name, Expression* value)
-		: Element(file, location), name(name), value(value)
+	EnumValue::EnumValue(File* file, const SourceLocation& location, char* name, Expression* value, int idx)
+		: Element(file, location), name(name), value(value), idx(idx)
 	{
 	}
 
@@ -443,7 +435,7 @@ namespace AST
 
 	Element* EnumValue::copy()
 	{
-		return new EnumValue(file, location, _strdup(name), (Expression*)value->copy());
+		return new EnumValue(file, location, _strdup(name), (Expression*)value->copy(), idx);
 	}
 
 	Enum::Enum(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Type* alias, const List<EnumValue*>& values)
@@ -517,7 +509,9 @@ namespace AST
 		for (int i = 0; i < declarators.size; i++)
 			declaratorsCopy.add((VariableDeclarator*)declarators[i]->copy());
 
-		return new GlobalVariable(file, location, flags, (Type*)varType->copy(), declaratorsCopy);
+		GlobalVariable* decl = new GlobalVariable(file, location, flags, (Type*)varType->copy(), declaratorsCopy);
+		decl->dllImport = dllImport;
+		return decl;
 	}
 
 	ModuleDeclaration::ModuleDeclaration(File* file, const SourceLocation& location, DeclarationFlags flags, ModuleIdentifier identifier)

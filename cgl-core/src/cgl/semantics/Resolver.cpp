@@ -1089,7 +1089,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		if (expr->callee->type == AST::ExpressionType::DotOperator)
 		{
 			AST::DotOperator* dotOperator = (AST::DotOperator*)expr->callee;
-			if (dotOperator->classMethod)
+			if (dotOperator->classMethod || dotOperator->methods.size > 0)
 			{
 				expr->isMethodCall = true;
 				expr->methodInstance = ((AST::DotOperator*)expr->callee)->operand;
@@ -1130,11 +1130,21 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		int paramOffset = expr->isMethodCall ? 1 : 0;
 		int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
 
-		if (i < paramCount)
+		if (i < paramCount || i == 0 && expr->isMethodCall)
 		{
 			TypeID paramType = functionType->functionType.paramTypes[paramOffset + i];
 
-			if (!CanConvertImplicit(argType, paramType, argIsConstant))
+			if (i == 0 && expr->isMethodCall)
+			{
+				TypeID instanceType = functionType->functionType.paramTypes[0];
+				if (instanceType->typeKind == AST::TypeKind::Pointer && CompareTypes(instanceType->pointerType.elementType, argType))
+					;
+				else
+				{
+					SnekAssert(false);
+				}
+			}
+			else if (!CanConvertImplicit(argType, paramType, argIsConstant))
 			{
 				result = false;
 
@@ -1357,33 +1367,47 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		const char* nameSpace = ((AST::Identifier*)expr->operand)->name;
 
 		//if (AST::File* file = FindFileWithNamespace(resolver, nameSpace, resolver->currentFile))
-		AST::Module* module;
-		if (!resolver->findVariable(nameSpace) && (module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile)))
+		if (!resolver->findVariable(nameSpace))
 		{
-			//if (AST::File* file = module->file)
-			for (AST::File* file : module->files)
+			if (AST::Module* module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile))
 			{
-				if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
+				//if (AST::File* file = module->file)
+				for (AST::File* file : module->files)
 				{
-					//if (function->visibility >= AST::Visibility::Public || file->module == resolver->currentFile->module)
-					//{
-						//expr->namespacedFunction = function;
-					expr->valueType = expr->namespacedFunctions[0]->functionType;
-					expr->lvalue = false;
-					return true;
-					//}
-					//else
-					//{
-					//	SnekError(resolver->context, expr->location, ERROR_CODE_NON_VISIBLE_DECLARATION, "Function '%s' is not visible", function->name);
-					//	return false;
-					//}
+					if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
+					{
+						//if (function->visibility >= AST::Visibility::Public || file->module == resolver->currentFile->module)
+						//{
+							//expr->namespacedFunction = function;
+						expr->valueType = expr->namespacedFunctions[0]->functionType;
+						expr->lvalue = false;
+						return true;
+						//}
+						//else
+						//{
+						//	SnekError(resolver->context, expr->location, ERROR_CODE_NON_VISIBLE_DECLARATION, "Function '%s' is not visible", function->name);
+						//	return false;
+						//}
+					}
+					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
+					{
+						expr->namespacedVariable = variable;
+						expr->valueType = variable->type;
+						expr->lvalue = true;
+						return true;
+					}
 				}
-				if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
+			}
+			else if (AST::Enum* en = FindEnum(resolver, nameSpace))
+			{
+				for (int i = 0; i < en->values.size; i++)
 				{
-					expr->namespacedVariable = variable;
-					expr->valueType = variable->type;
-					expr->lvalue = true;
-					return true;
+					if (strcmp(en->values[i]->name, expr->name) == 0)
+					{
+						expr->enumValue = en->values[i];
+						expr->valueType = en->type;
+						return true;
+					}
 				}
 			}
 
@@ -1548,6 +1572,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		operandType = UnwrapType(operandType);
 
 		SnekAssert(expr->methods.size == 0);
+		/*
 		if (resolver->findFunctions(expr->name, expr->methods))
 		{
 			for (int i = 0; i < expr->methods.size; i++)
@@ -1559,6 +1584,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 			if (expr->methods.size > 0)
 				return true;
 		}
+		*/
 
 		if (operandType->typeKind == AST::TypeKind::Struct)
 		{
@@ -1575,11 +1601,11 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			if (AST::Function* method = resolver->findFunction(expr->name))
+			if (AST::Function* method = resolver->findFunction(expr->name, operandType))
 			{
 				expr->valueType = method->functionType;
 				expr->lvalue = false;
-				expr->classMethod = method;
+				expr->methods.add(method);
 				return true;
 			}
 
@@ -2238,11 +2264,10 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		AST::VariableDeclarator* declarator = statement->declarators[i];
 
 		// Check if variable with that name already exists in the current function
-		if (Variable* variableWithSameName = resolver->findVariable(declarator->name))
+		if (Variable* variableWithSameName = resolver->findLocalVariableInScope(declarator->name, resolver->scope, true))
 		{
 			AST::Element* declaration = variableWithSameName->declaration;
-			resolver->findVariable(declarator->name);
-			SnekErrorLoc(resolver->context, statement->location, "Variable with name '%s' already exists in module %s at %d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
+			SnekErrorLoc(resolver->context, statement->location, "Variable '%s' already defined at %s:%d:%d", declarator->name, declaration->file->name, declaration->location.line, declaration->location.col);
 			result = false;
 		}
 
@@ -2686,7 +2711,7 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			resolver->findFunctionsInModule(decl->name, decl->file->module, overloadsWithSameName);
 			for (int i = 0; i < overloadsWithSameName.size; i++)
 			{
-				if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0 && (overloadsWithSameName[i]->body || overloadsWithSameName[i]->bodyExpression) && (decl->body || decl->bodyExpression))
+				if (overloadsWithSameName[i]->mangledName && strcmp(mangledName, overloadsWithSameName[i]->mangledName) == 0 && overloadsWithSameName[i]->body && decl->body)
 				{
 					SnekErrorLoc(resolver->context, decl->location, "Function '%s' of type %s already defined at %s", decl->name, GetTypeString(decl->functionType), SourceLocationToString(overloadsWithSameName[i]->location));
 					result = false;
@@ -2724,7 +2749,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 	}
 	else
 	{
-		if (decl->body || decl->bodyExpression)
+		if (decl->body)
 		{
 			AST::Function* lastFunction = resolver->currentFunction;
 			resolver->currentFunction = decl;
@@ -2748,10 +2773,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 				resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
 			}
 
-			if (decl->body)
-				result = ResolveStatement(resolver, decl->body) && result;
-			else if (decl->bodyExpression)
-				result = ResolveExpression(resolver, decl->bodyExpression) && result;
+			result = ResolveStatement(resolver, decl->body) && result;
 
 			resolver->popScope();
 
@@ -3598,7 +3620,7 @@ Resolver::Resolver(CGLCompiler* context, List<AST::File*>& asts)
 
 Resolver::~Resolver()
 {
-	delete globalModule;
+	//delete globalModule;
 }
 
 bool Resolver::run()

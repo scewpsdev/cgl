@@ -2,104 +2,65 @@
 #include <cgl.h>
 
 
-typedef struct { i32 buffer[1000]; }__a1000i32;
-typedef struct { i32* ptr; long length; }__ai32;
-typedef struct { any* ptr; long length; }__ay;
+struct LaunchParams {
+    i32 width;
+    i32 height;
+    i8* title;
+    bool maximized;
+    bool fullscreen;
+    i32 fpsCap;
+    i32 vsync;
+};
+
+typedef void(*__Fv0)();
+typedef void(*__Fv0)();
+typedef void(*__Fv0)();
+typedef void(*__Fv1f32)(float);
+typedef void(*__Fv0)();
+typedef void(*__Fv1pi8)(i8*);
+typedef void(*__Fv3i32i32u16)(i32, i32, u16);
+typedef void(*__Fv2i32i32)(i32, i32);
+typedef void(*__Fv2u8u32)(u8, u32);
+typedef void(*__Fv3i32i32b)(i32, i32, bool);
+typedef void(*__Fv2i32b)(i32, bool);
+typedef void(*__Fv2i32i32)(i32, i32);
+typedef void(*__Fv1pi8)(i8*);
+typedef void(*__Fv1b)(bool);
+struct ApplicationCallbacks {
+    __Fv0 init;
+    __Fv0 destroy;
+    __Fv0 update;
+    __Fv1f32 fixedUpdate;
+    __Fv0 draw;
+    __Fv1pi8 onInternalError;
+    __Fv3i32i32u16 onAxisEvent;
+    __Fv2i32i32 onGamepadEvent;
+    __Fv2u8u32 onCharEvent;
+    __Fv3i32i32b onKeyEvent;
+    __Fv2i32b onMouseButtonEvent;
+    __Fv2i32i32 onViewportSizeEvent;
+    __Fv1pi8 onDropFileEvent;
+    __Fv1b onExitEvent;
+};
+
+typedef i32 GamepadAxis;
+typedef i32 KeyCode;
+typedef i32 KeyModifier;
+typedef i32 MouseButton;
+typedef __Fv0 GameInit_t;
+typedef __Fv0 GameDestroy_t;
+typedef __Fv0 GameUpdate_t;
+typedef __Fv1f32 GameFixedUpdate_t;
+typedef __Fv0 GameDraw_t;
+typedef __Fv1pi8 OnInternalErrorEvent_t;
+typedef __Fv3i32i32u16 OnAxisEvent_t;
+typedef __Fv2i32i32 OnGamepadEvent_t;
+typedef __Fv2u8u32 OnCharEvent_t;
+typedef __Fv3i32i32b OnKeyEvent_t;
+typedef __Fv2i32b OnMouseButtonEvent_t;
+typedef __Fv2i32i32 OnViewportSizeEvent_t;
+typedef __Fv1pi8 OnDropFileEvent_t;
+typedef __Fv1b OnExitEvent_t;
 
 
-static const string __G0 = { "input1.txt",10 };
-static const string __G1 = { "Result: %",9 };
-
-
-i32 parseNumber_3si32i32(string str, i32 idx, i32 len);
-
-void day1();
-
-extern string snek_file__readText_1s(string path);
-extern void snek_sort__sort_1ai32(__ai32 list);
-extern void snek_console__println_1s_vy(string format, __ay args);
-
-
-i32 parseNumber_3si32i32(string str, i32 idx, i32 len) {
-    i32 result = 0;
-    {
-        i32 i = 0;
-        while (i < len) {
-            assert(idx + i >= 0 && idx + i < str.length, "src\\day1.src", 10, 30);
-            result = result * 10 + (i32)((str.ptr[idx + i] - (i8)(48)));
-            i32 __0 = i;
-            i += 1;
-        }
-    }
-    return result;
-}
-
-void day1() {
-    string __0 = snek_file__readText_1s(__G0);
-    string str = __0;
-    __a1000i32 list1 = { 0 };
-    __a1000i32 list2 = { 0 };
-    i32 cursor = 0;
-    {
-        i32 i = 0;
-        while (i < 1000) {
-            assert(i >= 0 && i < 1000, "src\\day1.src", 24, 8);
-            i32 __1 = parseNumber_3si32i32(str, i * 14 + 0, 5);
-            list1.buffer[i] = __1;
-            assert(i >= 0 && i < 1000, "src\\day1.src", 25, 8);
-            i32 __2 = parseNumber_3si32i32(str, i * 14 + 5 + 3, 5);
-            list2.buffer[i] = __2;
-            i32 __3 = i;
-            i += 1;
-        }
-    }
-    snek_sort__sort_1ai32({ list1.buffer,1000 });
-    snek_sort__sort_1ai32({ list2.buffer,1000 });
-    i32 result = 0;
-    {
-        i32 i = 0;
-        while (i < 1000) {
-            assert(i >= 0 && i < 1000, "src\\day1.src", 34, 18);
-            assert(i >= 0 && i < 1000, "src\\day1.src", 34, 29);
-            result = result + list2.buffer[i] - list1.buffer[i];
-            i32 __4 = i;
-            i += 1;
-        }
-    }
-    any __5[1] = { (any) { (void*)2,* (void**)&result } };
-    snek_console__println_1s_vy(__G1, (__ay) { __5, 1 });
-}
-
-
-
-
-
-
-#include <stdbool.h>
-#include <stdlib.h>
-
-#include <stdarg.h>
-
-
-typedef struct { const char* buffer; long length; } string;
-
-
-
-// main
-//#include <cgl.h>
-
-
-static const string __G0 = { "Hello World",11 };
-static const string __G1 = { "lfdsjkfj",8 };
-
-
-//static const string a = __G1;
-
-
-extern void snek_console__writeln_1s(string str);
-
-
-int main() {
-	snek_console__writeln_1s(__G0);
-	return 0;
-}
+__declspec(dllimport) void rainfall__Application_Run_2x47296x59397(struct LaunchParams params, struct ApplicationCallbacks callbacks);

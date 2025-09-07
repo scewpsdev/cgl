@@ -196,7 +196,6 @@ static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const cha
 int main(int argc, char* argv[])
 {
 	bool run = false;
-	bool printIR = false;
 	const char* outPath = "a.exe";
 
 	CGLCompiler compiler;
@@ -204,7 +203,7 @@ int main(int argc, char* argv[])
 
 	bool result = true;
 
-	result = AddSourceFolder(compiler, LocalFilePath(""), "src", true) && result;
+	result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -236,7 +235,22 @@ int main(int argc, char* argv[])
 			else if (strcmp(arg, "-r") == 0 || strcmp(arg, "--run") == 0)
 				run = true;
 			else if (strcmp(arg, "--print-ir") == 0)
-				printIR = true;
+				compiler.printIR = true;
+			else if (strcmp(arg, "-g") == 0)
+				compiler.debugInfo = true;
+			else if (strlen(arg) == 3 && arg[0] == '-' && arg[1] == 'O')
+			{
+				if (arg[2] >= '0' && arg[2] <= '3')
+				{
+					compiler.optimization = arg[2] - '0';
+				}
+				else
+				{
+					SnekError(&compiler, "Invalid optimization level: %d, should be 0-3", arg[2] - '0');
+				}
+			}
+			else if (strcmp(arg, "--runtime-stack-trace") == 0)
+				compiler.runtimeStackTrace = true;
 			else
 			{
 				SnekError(&compiler, "Unknown argument %s", arg);
@@ -275,12 +289,12 @@ int main(int argc, char* argv[])
 			{
 				if (run)
 				{
-					int result = compiler.run(0, nullptr, printIR);
+					int result = compiler.run(0, nullptr);
 					printf("Program exited with code %i\n", result);
 				}
 				else
 				{
-					compiler.output(outPath, printIR);
+					compiler.output(outPath);
 				}
 			}
 			else

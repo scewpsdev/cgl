@@ -72,9 +72,9 @@ struct Resolver
 	Variable* findGlobalVariableInModule(const char* name, AST::Module* module, AST::Module* current);
 	Variable* findVariable(const char* name);
 
-	AST::Function* findFunctionInFile(const char* name, AST::File* file);
-	AST::Function* findFunctionInModule(const char* name, AST::Module* module);
-	AST::Function* findFunction(const char* name);
+	AST::Function* findFunctionInFile(const char* name, AST::File* file, TypeID instanceType = nullptr);
+	AST::Function* findFunctionInModule(const char* name, AST::Module* module, TypeID instanceType = nullptr);
+	AST::Function* findFunction(const char* name, TypeID instanceType = nullptr);
 	bool findFunctionsInFile(const char* name, AST::File* file, List<AST::Function*>& functions);
 	bool findFunctionsInModule(const char* name, AST::Module* module, List<AST::Function*>& functions);
 	bool findFunctions(const char* name, List<AST::Function*>& functions);

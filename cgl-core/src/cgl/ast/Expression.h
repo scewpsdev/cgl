@@ -328,6 +328,9 @@ namespace AST
 
 		List<Function*> methods;
 
+		// enums
+		EnumValue* enumValue = nullptr;
+
 
 		DotOperator(File* file, const SourceLocation& location, Expression* operand, int index);
 		DotOperator(File* file, const SourceLocation& location, Expression* operand, char* name);

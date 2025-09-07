@@ -8,14 +8,14 @@
 #include "cgl/ast/Module.h"
 
 
-AST::Function* Resolver::findFunctionInFile(const char* name, AST::File* file)
+AST::Function* Resolver::findFunctionInFile(const char* name, AST::File* file, TypeID instanceType)
 {
 	for (int i = 0; i < file->functions.size; i++)
 	{
 		AST::Function* function = file->functions[i];
 		if (function->visibility == AST::Visibility::Public || function->file == currentFile)
 		{
-			if (strcmp(function->name, name) == 0)
+			if (strcmp(function->name, name) == 0 && (!instanceType || function->paramTypes.size >= 1 && (CanConvertImplicit(instanceType, function->paramTypes[0]->typeID, false) || function->paramTypes[0]->typeKind == AST::TypeKind::Pointer && CompareTypes(instanceType, function->paramTypes[0]->typeID->pointerType.elementType))))
 			{
 				return function;
 			}
@@ -24,24 +24,25 @@ AST::Function* Resolver::findFunctionInFile(const char* name, AST::File* file)
 	return nullptr;
 }
 
-AST::Function* Resolver::findFunctionInModule(const char* name, AST::Module* module)
+AST::Function* Resolver::findFunctionInModule(const char* name, AST::Module* module, TypeID instanceType)
 {
 	for (AST::File* file : module->files)
 	{
-		return findFunctionInFile(name, file);
+		if (AST::Function* function = findFunctionInFile(name, file, instanceType))
+			return function;
 	}
 	return nullptr;
 }
 
-AST::Function* Resolver::findFunction(const char* name)
+AST::Function* Resolver::findFunction(const char* name, TypeID instanceType)
 {
-	if (AST::Function* function = findFunctionInFile(name, currentFile))
+	if (AST::Function* function = findFunctionInFile(name, currentFile, instanceType))
 	{
 		return function;
 	}
 
 	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
-	if (AST::Function* function = findFunctionInModule(name, module))
+	if (AST::Function* function = findFunctionInModule(name, module, instanceType))
 	{
 		return function;
 	}
@@ -49,7 +50,7 @@ AST::Function* Resolver::findFunction(const char* name)
 	for (int i = 0; i < currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = currentFile->dependencies[i];
-		if (AST::Function* function = findFunctionInModule(name, dependency))
+		if (AST::Function* function = findFunctionInModule(name, dependency, instanceType))
 		{
 			return function;
 		}
@@ -81,27 +82,31 @@ bool Resolver::findFunctionsInFile(const char* name, AST::File* file, List<AST::
 bool Resolver::findFunctionsInModule(const char* name, AST::Module* module, List<AST::Function*>& functions)
 {
 	//if (AST::File* file = module->file)
+	bool found = false;
 	for (AST::File* file : module->files)
 	{
 		if (findFunctionsInFile(name, file, functions))
-			return true;
+			found = true;
 	}
-	return false;
+	return found;
 }
 
 bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 {
 	bool found = false;
 
-	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
-	if (findFunctionsInModule(name, module, functions))
-		found = true;
+	found = findFunctionsInFile(name, currentFile, functions) || found;
 
-	for (int i = 0; i < currentFile->dependencies.size; i++)
+	if (!found)
 	{
-		AST::Module* dependency = currentFile->dependencies[i];
-		if (findFunctionsInModule(name, dependency, functions))
-			found = true;
+		AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
+		found = findFunctionsInModule(name, module, functions) || found;
+
+		for (int i = 0; i < currentFile->dependencies.size; i++)
+		{
+			AST::Module* dependency = currentFile->dependencies[i];
+			found = findFunctionsInModule(name, dependency, functions) || found;
+		}
 	}
 
 	return found;

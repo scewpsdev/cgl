@@ -21,6 +21,8 @@ namespace AST
 
 		Module* module = nullptr;
 		char* nameSpace = nullptr;
+		char* fullName = nullptr;
+		char* fullIdentifier = nullptr;
 
 		ModuleDeclaration* moduleDecl = nullptr;
 		NamespaceDeclaration* namespaceDecl = nullptr;
@@ -38,5 +40,8 @@ namespace AST
 
 
 		File(const char* name, int moduleID, SourceFile* sourceFile);
+
+		const char* getFullName();
+		const char* getFullIdentifier();
 	};
 }

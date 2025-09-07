@@ -392,6 +392,10 @@ static AST::Expression* ParseAtom(Parser* parser)
 			{
 				value = value * base + (str[i] - 'a' + 10);
 			}
+			else if (isalpha(str[i]) && str[i] >= 'A' && str[i] <= 'F' && base == 16)
+			{
+				value = value * base + (str[i] - 'A' + 10);
+			}
 			else if (base == 10 && str[i] == 'b')
 			{
 				SnekAssert(value == 0);
@@ -1543,11 +1547,13 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 			NextToken(parser); // dllexport
 			flags = flags | AST::DeclarationFlags::DllExport;
 		}
+		/*
 		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT))
 		{
 			NextToken(parser); // dllimport
 			flags = flags | AST::DeclarationFlags::DllImport;
 		}
+		*/
 		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
 		{
 			NextToken(parser); // const
@@ -2096,7 +2102,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 					entryValue = ParseExpression(parser);
 				}
 
-				AST::EnumValue* value = new AST::EnumValue(parser->module, inputState, entryName, entryValue);
+				AST::EnumValue* value = new AST::EnumValue(parser->module, inputState, entryName, entryValue, values.size);
 				values.add(value);
 
 				upcomingEntry = NextTokenIs(parser, ',') && !NextTokenIs(parser, '}', 1);
@@ -2112,6 +2118,60 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		SkipToken(parser, '}');
 
 		return new AST::Enum(parser->module, inputState, flags, name, alias, values);
+	}
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT))
+	{
+		NextToken(parser); // dllimport
+
+		SkipToken(parser, '(');
+		char* dllName = GetTokenString(NextToken(parser));
+		SkipToken(parser, ')');
+
+		SkipToken(parser, '{');
+
+		while (HasNext(parser) && !NextTokenIs(parser, '}'))
+		{
+			if (AST::Declaration* decl = ParseDeclaration(parser))
+			{
+				switch (decl->type)
+				{
+				case AST::DeclarationType::Function:
+				{
+					AST::Function* function = (AST::Function*)decl;
+					function->dllImport = dllName;
+					parser->module->functions.add(function);
+					break;
+				}
+				case AST::DeclarationType::GlobalVariable: {
+					AST::GlobalVariable* global = (AST::GlobalVariable*)decl;
+					global->dllImport = dllName;
+					parser->module->globals.add(global);
+
+					for (int i = 1; i < global->declarators.size; i++)
+					{
+						AST::VariableDeclarator* declarator = global->declarators[i];
+						List<AST::VariableDeclarator*> declaratorList;
+						declaratorList.add(declarator);
+						AST::GlobalVariable* next = new AST::GlobalVariable(declarator->file, declarator->location, global->flags, (AST::Type*)global->varType->copy(), declaratorList);
+						next->dllImport = dllName;
+						parser->module->globals.add(next);
+					}
+
+					while (global->declarators.size > 1)
+						global->declarators.removeAt(1);
+
+					break;
+				}
+				default:
+					SnekAssert(false);
+					break;
+				}
+			}
+		}
+
+		NextToken(parser); // }
+
+		return nullptr;
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_MACRO))
 	{
@@ -2363,13 +2423,14 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 					AST::Type* returnType = type;
 
-					AST::Expression* bodyExpression = ParseExpression(parser);
+					AST::Expression* value = ParseExpression(parser);
+					AST::Return* returnStatement = new AST::Return(parser->module, value->location, value);
 
 					SkipToken(parser, ';');
 
 					InputState endInputState = GetInputState(parser);
 
-					function = new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, bodyExpression, isGeneric, genericParams);
+					function = new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, returnStatement, isGeneric, genericParams);
 				}
 				else
 				{
@@ -2424,12 +2485,15 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 						value = ParseExpression(parser);
 					}
 
-					upcomingDeclarator = NextTokenIs(parser, ',');
-					if (upcomingDeclarator)
-						SkipToken(parser, ',');
-
 					AST::VariableDeclarator* declarator = new AST::VariableDeclarator(parser->module, inputState, name, value);
 					declarators.add(declarator);
+
+					upcomingDeclarator = NextTokenIs(parser, ',');
+					if (upcomingDeclarator)
+					{
+						SkipToken(parser, ',');
+						name = GetTokenString(NextToken(parser));
+					}
 				}
 
 				SkipToken(parser, ';');
@@ -2507,6 +2571,8 @@ AST::File* Parser::run(SourceFile& sourceFile)
 
 				break;
 			}
+			case AST::DeclarationType::DllImport:
+				break;
 			case AST::DeclarationType::Module:
 				file->moduleDecl = (AST::ModuleDeclaration*)decl;
 				break;

@@ -32,7 +32,10 @@ typedef struct { void* type; void* value; } any;
 #define __UINT64_MIN 0
 #define __UINT64_MAX 0xffffffffffffffff
 
+#ifdef __TINYC__
 void __debugbreak();
+#endif
+
 void __assertmsg(int x, const char* msg);
 #define assert(x, file, line, col) __assertmsg(x, "Assertion failed at " file ":" #line ":" #col ": " #x)
 
@@ -46,8 +49,27 @@ u32 __stou32(string s);
 u64 __stou64(string s);
 string __itos(i64 i);
 string __utos(u64 n);
-
-extern long long strlen(const char* str);
+i32 __cstrl(const char* str);
 
 void* __alloc(u64 size);
 void __free(void* ptr);
+
+void* __loadDllFunc(const char* dllName, const char* funcName);
+
+// DEBUGGING
+
+void __push_trace(const char* func, const char* file, int line);
+void __pop_trace(void);
+void __print_trace(void);
+void __setup_crash_handler(void);
+
+void __panic(const char* msg);
+
+// RAII-style scope tracer (GCC/Clang only)
+#define __TRACE_SCOPE() \
+    __push_trace(__func__, __FILE__, __LINE__); \
+    __attribute__((cleanup(__trace_pop_guard))) int __trace_guard = 0
+
+// Manual push/pop
+#define __TRACE_PUSH() __push_trace(__func__, __FILE__, __LINE__)
+#define __TRACE_POP()  __pop_trace()
