@@ -20,6 +20,8 @@ public:
 	MessageCallback_t msgCallback = nullptr;
 	bool disableError = false;
 
+	bool staticLibrary = false;
+	bool sharedLibrary = false;
 	bool printIR = false;
 	bool debugInfo = false;
 	int optimization = 0;

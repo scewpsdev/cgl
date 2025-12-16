@@ -51,12 +51,6 @@ namespace AST
 	DeclarationFlags operator|(DeclarationFlags flag0, DeclarationFlags flag1);
 	DeclarationFlags operator&(DeclarationFlags flag0, DeclarationFlags flag1);
 
-	enum class OperatorOverload : uint8_t
-	{
-		None = 0,
-		Subscript,
-	};
-
 	struct Declaration : Element
 	{
 		DeclarationType type;
@@ -86,7 +80,8 @@ namespace AST
 
 		Statement* body = nullptr;
 
-		OperatorOverload operatorOverload = OperatorOverload::None;
+		UnaryOperatorType unaryOperator = UnaryOperatorType::Null;
+		BinaryOperatorType binaryOperator = BinaryOperatorType::Null;
 
 		bool isGeneric = false;
 		bool isGenericInstance = false;
@@ -143,6 +138,12 @@ namespace AST
 		char* name;
 		int index;
 
+		bool isStruct = false;
+		List<StructField*> structFields;
+
+		bool isUnion = false;
+		List<StructField*> unionFields;
+
 
 		StructField(File* file, const SourceLocation& location, Type* type, char* name, int index);
 		virtual ~StructField();
@@ -173,6 +174,8 @@ namespace AST
 		virtual ~Struct();
 
 		virtual Element* copy() override;
+
+		StructField* getFieldWithName(const char* name, int* index = nullptr);
 
 		TypeID getGenericTypeArgument(const char* name);
 		Struct* getGenericInstance(const List<Type*>& genericArgs);

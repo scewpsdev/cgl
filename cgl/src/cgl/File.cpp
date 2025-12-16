@@ -15,7 +15,7 @@ char* ReadText(const char* path)
 
 		char* buffer = new char[numBytes + 1];
 		memset(buffer, 0, numBytes);
-		numBytes = fread(buffer, 1, numBytes, file);
+		numBytes = (long)fread(buffer, 1, numBytes, file);
 		fclose(file);
 		buffer[numBytes] = 0;
 

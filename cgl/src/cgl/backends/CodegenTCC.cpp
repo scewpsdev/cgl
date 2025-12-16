@@ -101,7 +101,12 @@ int CGLCompiler::output(const char* path)
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include"));
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include\\winapi"));
 
-	tcc_set_output_type(tcc, TCC_OUTPUT_EXE);
+	if (staticLibrary)
+		tcc_set_output_type(tcc, TCC_OUTPUT_OBJ);
+	else if (sharedLibrary)
+		tcc_set_output_type(tcc, TCC_OUTPUT_DLL);
+	else
+		tcc_set_output_type(tcc, TCC_OUTPUT_EXE);
 
 	{
 		char* builtinSrc = ReadText(LocalFilePath("lib/cgl.c"));
@@ -138,14 +143,6 @@ int CGLCompiler::output(const char* path)
 		}
 	}
 
-	for (const LinkerFile& linkerFile : linkerFiles)
-	{
-		if (tcc_add_file(tcc, linkerFile.filename))
-		{
-			SnekError(this, "Failed to add file %s", linkerFile.filename);
-		}
-	}
-
 	for (const char* linkerPath : linkerPaths)
 	{
 		if (tcc_add_library_path(tcc, linkerPath))
@@ -154,8 +151,19 @@ int CGLCompiler::output(const char* path)
 		}
 	}
 
+	for (const LinkerFile& linkerFile : linkerFiles)
+	{
+		if (tcc_add_library(tcc, linkerFile.filename))
+		{
+			SnekError(this, "Failed to add library %s", linkerFile.filename);
+		}
+	}
+
+	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
 	if (runtimeStackTrace)
 		tcc_define_symbol(tcc, "RUNTIME_STACK_TRACE", nullptr);
+
+	fprintf(stderr, "Running TCC backend\n");
 
 	CreateDirectories(path);
 	int result = tcc_output_file(tcc, path);

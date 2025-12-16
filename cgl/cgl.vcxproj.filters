@@ -27,7 +27,7 @@
     <ClCompile Include="src\cgl\Platform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\cgl\backends\CodegenClang.cpp">
+    <ClCompile Include="src\cgl\backends\CodegenTCC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

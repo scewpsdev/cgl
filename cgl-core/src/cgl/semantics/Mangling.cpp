@@ -96,14 +96,29 @@ char* MangleFunctionName(AST::Function* function)
 	{
 		return _strdup("main");
 	}
-	else if (isExtern || function->dllImport)
+	else if (isExtern || function->dllImport || HasFlag(function->flags, AST::DeclarationFlags::DllExport))
 	{
 		return _strdup(function->name);
 	}
-	else if (function->operatorOverload != AST::OperatorOverload::None)
+	else if (function->unaryOperator != AST::UnaryOperatorType::Null)
 	{
-		if (function->operatorOverload == AST::OperatorOverload::Subscript)
+		if (function->unaryOperator == AST::UnaryOperatorType::Subscript)
 			return _strdup("__operator_subscript");
+		SnekAssert(false);
+		return nullptr;
+	}
+	else if (function->binaryOperator != AST::BinaryOperatorType::Null)
+	{
+		if (function->binaryOperator == AST::BinaryOperatorType::Add)
+			return _strdup("__operator_add");
+		if (function->binaryOperator == AST::BinaryOperatorType::Subtract)
+			return _strdup("__operator_sub");
+		if (function->binaryOperator == AST::BinaryOperatorType::Multiply)
+			return _strdup("__operator_mul");
+		if (function->binaryOperator == AST::BinaryOperatorType::Divide)
+			return _strdup("__operator_div");
+		if (function->binaryOperator == AST::BinaryOperatorType::Modulo)
+			return _strdup("__operator_mod");
 		SnekAssert(false);
 		return nullptr;
 	}

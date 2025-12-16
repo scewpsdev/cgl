@@ -237,3 +237,12 @@ void DestroyList(List<T>& list)
 	list.capacity = 0;
 	list.size = 0;
 }
+
+template<typename T>
+List<T> CopyList(List<T>& list)
+{
+	List<T> newList = CreateList<T>(list.size);
+	newList.size = list.size;
+	memcpy(newList.buffer, list.buffer, list.size * sizeof(T));
+	return newList;
+}

@@ -227,7 +227,18 @@ namespace AST
 
 	Element* StructField::copy()
 	{
-		return new StructField(file, location, (Type*)type->copy(), _strdup(name), index);
+		StructField* field = new StructField(file, location, (Type*)type->copy(), _strdup(name), index);
+		if (isStruct)
+		{
+			field->isStruct = true;
+			field->structFields = CopyList(structFields);
+		}
+		else if (isUnion)
+		{
+			field->isUnion = true;
+			field->unionFields = CopyList(unionFields);
+		}
+		return field;
 	}
 
 	Struct::Struct(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, bool hasBody, const List<StructField*>& fields, bool isGeneric, const List<char*>& genericParams)
@@ -272,6 +283,43 @@ namespace AST
 		}
 
 		return new Struct(file, location, flags, _strdup(name), hasBody, fieldsCopy, isGeneric, genericParamsCopy);
+	}
+
+	StructField* CheckStructField(StructField* field, const char* name)
+	{
+		if (field->name && strcmp(field->name, name) == 0)
+			return field;
+		if (field->isStruct && !field->name)
+		{
+			for (int i = 0; i < field->structFields.size; i++)
+			{
+				if (StructField* structField = CheckStructField(field->structFields[i], name))
+					return structField;
+			}
+		}
+		if (field->isUnion && !field->name)
+		{
+			for (int i = 0; i < field->unionFields.size; i++)
+			{
+				if (StructField* unionField = CheckStructField(field->unionFields[i], name))
+					return unionField;
+			}
+		}
+		return nullptr;
+	}
+
+	StructField* Struct::getFieldWithName(const char* name, int* index)
+	{
+		for (int i = 0; i < fields.size; i++)
+		{
+			if (StructField* field = CheckStructField(fields[i], name))
+			{
+				if (index)
+					*index = i;
+				return field;
+			}
+		}
+		return nullptr;
 	}
 
 	TypeID Struct::getGenericTypeArgument(const char* name)

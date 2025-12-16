@@ -56,6 +56,8 @@ namespace AST
 
 		Increment,
 		Decrement,
+
+		Subscript,
 	};
 
 	enum class BinaryOperatorType : uint8_t
@@ -97,7 +99,11 @@ namespace AST
 
 		NullCoalescing,
 		Ternary, // Technically not a binary operator, but it makes sense to have it here
+
+		Count
 	};
+
+	const char* GetBinaryOperatorStr(BinaryOperatorType type);
 
 	enum class BuiltinTypeProperty : uint8_t
 	{
@@ -127,7 +133,7 @@ namespace AST
 		ExpressionType type;
 
 		TypeID valueType;
-		bool lvalue;
+		bool lvalue = false;
 
 
 		Expression(File* file, const SourceLocation& location, ExpressionType type);
@@ -214,11 +220,12 @@ namespace AST
 	{
 		Type* initializerTypeAST;
 		List<Expression*> values;
+		List<char*> labels;
 
 		TypeID initializerType = nullptr;
 
 
-		InitializerList(File* file, const SourceLocation& location, Type* initializerTypeAST, const List<Expression*>& values);
+		InitializerList(File* file, const SourceLocation& location, Type* initializerTypeAST, const List<Expression*>& values, const List<char*>& labels);
 		virtual ~InitializerList();
 
 		virtual Element* copy() override;
@@ -396,6 +403,8 @@ namespace AST
 	{
 		Expression* left, * right;
 		BinaryOperatorType operatorType;
+
+		Function* operatorOverload = nullptr;
 
 		TypeID opAssignResultingType;
 

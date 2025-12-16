@@ -112,7 +112,7 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 	return found;
 }
 
-AST::Function* Resolver::findOperatorOverloadInFile(TypeID operandType, AST::OperatorOverload operatorOverload, AST::File* file)
+AST::Function* Resolver::findUnaryOperatorOverloadInFile(TypeID operandType, AST::UnaryOperatorType operatorOverload, AST::File* file)
 {
 	for (int i = 0; i < file->functions.size; i++)
 	{
@@ -121,7 +121,7 @@ AST::Function* Resolver::findOperatorOverloadInFile(TypeID operandType, AST::Ope
 		{
 			if (function->paramTypes.size > 0)
 			{
-				if (function->operatorOverload == operatorOverload && (!function->isGeneric && CompareTypes(function->paramTypes[0]->typeID, operandType) || DeduceGenericArg(function->paramTypes[0], operandType, function)))
+				if (function->unaryOperator == operatorOverload && (!function->isGeneric && CompareTypes(function->paramTypes[0]->typeID, operandType) || DeduceGenericArg(function->paramTypes[0], operandType, function)))
 				{
 					return function;
 				}
@@ -131,24 +131,25 @@ AST::Function* Resolver::findOperatorOverloadInFile(TypeID operandType, AST::Ope
 	return nullptr;
 }
 
-AST::Function* Resolver::findOperatorOverloadInModule(TypeID operandType, AST::OperatorOverload operatorOverload, AST::Module* module)
+AST::Function* Resolver::findUnaryOperatorOverloadInModule(TypeID operandType, AST::UnaryOperatorType operatorOverload, AST::Module* module)
 {
 	for (AST::File* file : module->files)
 	{
-		return findOperatorOverloadInFile(operandType, operatorOverload, file);
+		if (AST::Function* overload = findUnaryOperatorOverloadInFile(operandType, operatorOverload, file))
+			return overload;
 	}
 	return nullptr;
 }
 
-AST::Function* Resolver::findOperatorOverload(TypeID operandType, AST::OperatorOverload operatorOverload)
+AST::Function* Resolver::findUnaryOperatorOverload(TypeID operandType, AST::UnaryOperatorType operatorOverload)
 {
-	if (AST::Function* function = findOperatorOverloadInFile(operandType, operatorOverload, currentFile))
+	if (AST::Function* function = findUnaryOperatorOverloadInFile(operandType, operatorOverload, currentFile))
 	{
 		return function;
 	}
 
 	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
-	if (AST::Function* function = findOperatorOverloadInModule(operandType, operatorOverload, module))
+	if (AST::Function* function = findUnaryOperatorOverloadInModule(operandType, operatorOverload, module))
 	{
 		return function;
 	}
@@ -156,7 +157,61 @@ AST::Function* Resolver::findOperatorOverload(TypeID operandType, AST::OperatorO
 	for (int i = 0; i < currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = currentFile->dependencies[i];
-		if (AST::Function* function = findOperatorOverloadInModule(operandType, operatorOverload, dependency))
+		if (AST::Function* function = findUnaryOperatorOverloadInModule(operandType, operatorOverload, dependency))
+		{
+			return function;
+		}
+	}
+
+	return nullptr;
+}
+
+AST::Function* Resolver::findBinaryOperatorOverloadInFile(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload, AST::File* file)
+{
+	for (int i = 0; i < file->functions.size; i++)
+	{
+		AST::Function* function = file->functions[i];
+		if (function->visibility == AST::Visibility::Public || function->file == currentFile)
+		{
+			if (function->paramTypes.size == 2)
+			{
+				if (function->binaryOperator == operatorOverload && (!function->isGeneric && CompareTypes(function->paramTypes[0]->typeID, left) && CompareTypes(function->paramTypes[1]->typeID, right) || DeduceGenericArg(function->paramTypes[0], left, function) && DeduceGenericArg(function->paramTypes[1], right, function)))
+				{
+					return function;
+				}
+			}
+		}
+	}
+	return nullptr;
+}
+
+AST::Function* Resolver::findBinaryOperatorOverloadInModule(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload, AST::Module* module)
+{
+	for (AST::File* file : module->files)
+	{
+		if (AST::Function* overload = findBinaryOperatorOverloadInFile(left, right, operatorOverload, file))
+			return overload;
+	}
+	return nullptr;
+}
+
+AST::Function* Resolver::findBinaryOperatorOverload(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload)
+{
+	if (AST::Function* function = findBinaryOperatorOverloadInFile(left, right, operatorOverload, currentFile))
+	{
+		return function;
+	}
+
+	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
+	if (AST::Function* function = findBinaryOperatorOverloadInModule(left, right, operatorOverload, module))
+	{
+		return function;
+	}
+
+	for (int i = 0; i < currentFile->dependencies.size; i++)
+	{
+		AST::Module* dependency = currentFile->dependencies[i];
+		if (AST::Function* function = findBinaryOperatorOverloadInModule(left, right, operatorOverload, dependency))
 		{
 			return function;
 		}
@@ -191,7 +246,7 @@ int Resolver::getFunctionOverloadScore(const AST::Function* function, const List
 		else if (CanConvertImplicit(arguments[i]->valueType, function->paramTypes[i]->typeID, arguments[i]->isConstant()))
 			score += 2;
 		else
-			score = 1000;
+			score += 10;
 	}
 
 	if (!isFunctionVisible(function, currentFile->module))

@@ -778,6 +778,30 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 			}
 		}
 	}
+	else if (argType->typeKind == AST::TypeKind::Tuple && paramType->typeKind == AST::TypeKind::Array)
+	{
+		if (!argIsConstant)
+			return false;
+		for (int i = 0; i < argType->tupleType.numValues; i++)
+		{
+			if (!CompareTypes(argType->tupleType.valueTypes[i], paramType->arrayType.elementType))
+				return false;
+		}
+		return true;
+	}
+	else if (argType->typeKind == AST::TypeKind::Tuple && paramType->typeKind == AST::TypeKind::Struct)
+	{
+		if (!argIsConstant)
+			return false;
+		if (argType->tupleType.numValues > paramType->structType.numFields)
+			return false;
+		for (int i = 0; i < argType->tupleType.numValues; i++)
+		{
+			if (!CompareTypes(argType->tupleType.valueTypes[i], paramType->structType.fieldTypes[i]))
+				return false;
+		}
+		return true;
+	}
 	else if (argType->typeKind == AST::TypeKind::Pointer && paramType->typeKind == AST::TypeKind::Class)
 	{
 		if (argIsConstant)
@@ -835,6 +859,29 @@ bool CanConvert(TypeID argType, TypeID paramType)
 	{
 		if (paramType->typeKind == AST::TypeKind::Integer)
 			return true;
+	}
+	else if (argType->typeKind == AST::TypeKind::Tuple)
+	{
+		if (paramType->typeKind == AST::TypeKind::Array)
+		{
+			for (int i = 0; i < argType->tupleType.numValues; i++)
+			{
+				if (!CompareTypes(argType->tupleType.valueTypes[i], paramType->arrayType.elementType))
+					return false;
+			}
+			return true;
+		}
+		else if (argType->typeKind == AST::TypeKind::Tuple && paramType->typeKind == AST::TypeKind::Struct)
+		{
+			if (argType->tupleType.numValues > paramType->structType.numFields)
+				return false;
+			for (int i = 0; i < argType->tupleType.numValues; i++)
+			{
+				if (!CompareTypes(argType->tupleType.valueTypes[i], paramType->structType.fieldTypes[i]))
+					return false;
+			}
+			return true;
+		}
 	}
 	else if (argType->typeKind == AST::TypeKind::Pointer)
 	{
@@ -912,9 +959,6 @@ TypeID BinaryOperatorTypeMeet(Resolver* resolver, TypeID leftType, TypeID rightT
 	{
 		return leftType;
 	}
-	else
-	{
-		SnekErrorLoc(resolver->context, resolver->currentElement->location, "Incompatible operator types: '%s' and '%s'", GetTypeString(leftType), GetTypeString(rightType));
-		return nullptr;
-	}
+
+	return nullptr;
 }

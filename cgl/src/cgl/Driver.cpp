@@ -232,12 +232,24 @@ int main(int argc, char* argv[])
 					result = false;
 				}
 			}
-			else if (strcmp(arg, "-r") == 0 || strcmp(arg, "--run") == 0)
+			else if (strcmp(arg, "-l") == 0)
+			{
+				if (i < argc - 1)
+					compiler.addLinkerFile(argv[++i]);
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a path", arg);
+					result = false;
+				}
+			}
+			else if (strcmp(arg, "-run") == 0)
 				run = true;
-			else if (strcmp(arg, "--print-ir") == 0)
+			else if (strcmp(arg, "-print-ir") == 0)
 				compiler.printIR = true;
-			else if (strcmp(arg, "-g") == 0)
+			else if (strcmp(arg, "-debuginfo") == 0)
 				compiler.debugInfo = true;
+			else if (strcmp(arg, "-optimize") == 0)
+				compiler.optimization = 3;
 			else if (strlen(arg) == 3 && arg[0] == '-' && arg[1] == 'O')
 			{
 				if (arg[2] >= '0' && arg[2] <= '3')
@@ -249,7 +261,11 @@ int main(int argc, char* argv[])
 					SnekError(&compiler, "Invalid optimization level: %d, should be 0-3", arg[2] - '0');
 				}
 			}
-			else if (strcmp(arg, "--runtime-stack-trace") == 0)
+			else if (strcmp(arg, "-library") == 0)
+				compiler.staticLibrary = true;
+			else if (strcmp(arg, "-shared") == 0)
+				compiler.sharedLibrary = true;
+			else if (strcmp(arg, "-runtime-stack-trace") == 0)
 				compiler.runtimeStackTrace = true;
 			else
 			{
@@ -285,15 +301,18 @@ int main(int argc, char* argv[])
 	{
 		if (compiler.sourceFiles.size > 0)
 		{
+			fprintf(stderr, "Compiling source files\n");
 			if (compiler.compile())
 			{
 				if (run)
 				{
+					fprintf(stderr, "Running code\n");
 					int result = compiler.run(0, nullptr);
-					printf("Program exited with code %i\n", result);
+					fprintf(stderr, "Program exited with code %i\n", result);
 				}
 				else
 				{
+					fprintf(stderr, "Generating code\n");
 					compiler.output(outPath);
 				}
 			}

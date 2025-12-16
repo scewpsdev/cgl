@@ -153,8 +153,8 @@ namespace AST
 		return true;
 	}
 
-	InitializerList::InitializerList(File* file, const SourceLocation& location, Type* initializerTypeAST, const List<Expression*>& values)
-		: Expression(file, location, ExpressionType::InitializerList), initializerTypeAST(initializerTypeAST), values(values)
+	InitializerList::InitializerList(File* file, const SourceLocation& location, Type* initializerTypeAST, const List<Expression*>& values, const List<char*>& labels)
+		: Expression(file, location, ExpressionType::InitializerList), initializerTypeAST(initializerTypeAST), values(values), labels(labels)
 	{
 	}
 
@@ -168,6 +168,12 @@ namespace AST
 				delete values[i];
 		}
 		DestroyList(values);
+		for (int i = 0; i < labels.size; i++)
+		{
+			if (labels[i])
+				delete labels[i];
+		}
+		DestroyList(labels);
 	}
 
 	Element* InitializerList::copy()
@@ -176,7 +182,11 @@ namespace AST
 		for (int i = 0; i < values.size; i++)
 			valuesCopy.add((Expression*)values[i]->copy());
 
-		return new InitializerList(file, location, (Type*)initializerTypeAST->copy(), valuesCopy);
+		List<char*> labelsCopy = CreateList<char*>(labels.size);
+		for (int i = 0; i < labels.size; i++)
+			labelsCopy.add(_strdup(labels[i]));
+
+		return new InitializerList(file, location, (Type*)initializerTypeAST->copy(), valuesCopy, labelsCopy);
 	}
 
 	bool InitializerList::isConstant()
@@ -458,6 +468,52 @@ namespace AST
 	bool UnaryOperator::isConstant()
 	{
 		return operand->isConstant();
+	}
+
+	const char* GetBinaryOperatorStr(BinaryOperatorType type)
+	{
+		static const char* operatorStrings[(int)BinaryOperatorType::Count] =
+		{
+			"???",
+
+			"+",
+			"-",
+			"*",
+			"/",
+			"%",
+
+			"==",
+			"!=",
+			"<",
+			">",
+			"<=",
+			">=",
+			"&&",
+			"||",
+			"&",
+			"|",
+			"^",
+			"<<",
+			">>",
+
+			"=",
+			"+=",
+			"-=",
+			"*=",
+			"/=",
+			"%=",
+			"&=",
+			"|=",
+			"^=",
+			"<<=",
+			">>=",
+			"->",
+
+			"??",
+			"?:", // Technically not a binary operator, but it makes sense to have it here
+		};
+
+		return operatorStrings[(int)type];
 	}
 
 	BinaryOperator::BinaryOperator(File* file, const SourceLocation& location, Expression* left, Expression* right, BinaryOperatorType operatorType)

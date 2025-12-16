@@ -8,6 +8,7 @@
 #include "cgl/parser/lexer.h"
 #include "cgl/utils/Utils.h"
 #include "cgl/utils/Log.h"
+#include "cgl/CGLCompiler.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -606,6 +607,9 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 {
 	bool result = true;
 
+	if (!expr->initializerTypeAST && resolver->expectedType)
+		expr->initializerType = resolver->expectedType;
+
 	//if (ResolveType(resolver, expr->structType))
 	{
 		TypeID* valueTypes = new TypeID[expr->values.size];
@@ -627,20 +631,40 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 			{
 				result = false;
 			}
+
+			char* label = expr->labels[i];
+			if (label)
+			{
+				if (expr->initializerType->typeKind == AST::TypeKind::Struct)
+				{
+					SnekAssert(expr->initializerType->structType.declaration);
+					int fieldIdx;
+					AST::StructField* field = expr->initializerType->structType.declaration->getFieldWithName(label);
+					if (!field)
+					{
+						SnekErrorLoc(resolver->context, expr->location, "Undefined initializer label %s", label);
+						result = false;
+					}
+				}
+			}
 		}
 
-		if (expr->initializerTypeAST)
+		//if (expr->initializerTypeAST)
+		if (resolver->expectedType)
 		{
-			result = ResolveType(resolver, expr->initializerTypeAST) && result;
-			expr->initializerType = expr->initializerTypeAST->typeID;
+			//result = ResolveType(resolver, expr->initializerTypeAST) && result;
+			//expr->initializerType = expr->initializerTypeAST->typeID;
+			expr->initializerType = resolver->expectedType;
 		}
 		else
 		{
 			//SnekAssert(expr->values.size > 0);
-			if (expr->values.size > 0)
-				expr->initializerType = GetArrayType(expr->values[0]->valueType, expr->values.size);
-			else
-				expr->initializerType = GetArrayType(GetIntegerType(32, true), expr->values.size);
+			int numValues = expr->values.size;
+			TypeID* valueTypes = new TypeID[numValues];
+			for (int i = 0; i < numValues; i++)
+				valueTypes[i] = expr->values[i]->valueType;
+
+			expr->initializerType = GetTupleType(numValues, valueTypes);
 		}
 
 		expr->valueType = expr->initializerType;
@@ -925,14 +949,11 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			methodInstance = ((AST::DotOperator*)expr->callee)->operand;
 			arguments.insert(0, methodInstance);
 		}
-		else
-		{
-			SnekAssert(false);
-		}
 
-		resolver->chooseFunctionOverload(*functionOverloads, arguments, methodInstance);
+		if (functionOverloads)
+			resolver->chooseFunctionOverload(*functionOverloads, arguments, methodInstance);
 
-		if (functionOverloads->size > 0 && resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments) < 1000)
+		if (functionOverloads && functionOverloads->size > 0 && resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments) < 1000)
 		{
 			int lowestScore = resolver->getFunctionOverloadScore(functionOverloads->get(0), arguments);
 			function = functionOverloads->get(0);
@@ -1106,7 +1127,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			arguments.size > functionType->functionType.numParams && !functionType->functionType.varArgs)
 		{
 			if (function)
-				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments when calling function '%s': should be %d instead of %d", function->name, functionType->functionType.numParams, expr->arguments.size);
+				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments when calling function '%s': should be %d instead of %d", function->name, functionType->functionType.numParams - (methodInstance ? 1 : 0), expr->arguments.size);
 			else
 				SnekErrorLoc(resolver->context, expr->location, "Wrong number of arguments in function call: should be %d instead of %d", functionType->functionType.numParams, expr->arguments.size);
 			result = false;
@@ -1130,9 +1151,9 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		int paramOffset = expr->isMethodCall ? 1 : 0;
 		int paramCount = functionType->functionType.numParams - (expr->isMethodCall ? 1 : 0);
 
-		if (i < paramCount || i == 0 && expr->isMethodCall)
+		if (i < paramCount || expr->isMethodCall)
 		{
-			TypeID paramType = functionType->functionType.paramTypes[paramOffset + i];
+			TypeID paramType = functionType->functionType.paramTypes[i];
 
 			if (i == 0 && expr->isMethodCall)
 			{
@@ -1153,12 +1174,12 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 				if (function)
 				{
-					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[paramOffset + i]);
+					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s %s'", argTypeStr, paramTypeStr, function->paramNames[i]);
 					result = false;
 				}
 				else
 				{
-					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i);
+					SnekErrorLoc(resolver->context, expr->location, "Invalid argument type '%s' for function parameter '%s #%d'", argTypeStr, paramTypeStr, i - paramOffset);
 					result = false;
 				}
 			}
@@ -1252,7 +1273,7 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 				arguments.addAll(expr->arguments);
 				arguments.insert(0, expr->operand);
 
-				AST::Function* function = resolver->findOperatorOverload(operandType, AST::OperatorOverload::Subscript);
+				AST::Function* function = resolver->findUnaryOperatorOverload(operandType, AST::UnaryOperatorType::Subscript);
 				if (function)
 				{
 					bool result = true;
@@ -1411,7 +1432,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "No property '%s.%s' in file '%s'", nameSpace, expr->name, nameSpace);
+			SnekErrorLoc(resolver->context, expr->location, "No property '%s.%s'", nameSpace, expr->name);
 			return false;
 		}
 
@@ -1588,6 +1609,15 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 
 		if (operandType->typeKind == AST::TypeKind::Struct)
 		{
+			if (AST::StructField* field = operandType->structType.declaration->getFieldWithName(expr->name))
+			{
+				SnekAssert(field->type);
+				expr->valueType = field->type->typeID;
+				expr->lvalue = true;
+				expr->structField = field;
+				return true;
+			}
+			/*
 			for (int i = 0; i < operandType->structType.declaration->fields.size; i++)
 			{
 				AST::StructField* field = operandType->structType.declaration->fields[i];
@@ -1600,6 +1630,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 					return true;
 				}
 			}
+			*/
 
 			if (AST::Function* method = resolver->findFunction(expr->name, operandType))
 			{
@@ -2002,9 +2033,30 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 			case AST::BinaryOperatorType::Multiply:
 			case AST::BinaryOperatorType::Divide:
 			case AST::BinaryOperatorType::Modulo:
-				expr->valueType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
-				expr->lvalue = false;
-				return expr->valueType != nullptr;
+			{
+				TypeID resultingType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+
+				if (resultingType)
+				{
+					expr->valueType = resultingType;
+					expr->lvalue = false;
+					return expr->valueType;
+				}
+				else
+				{
+					if (AST::Function* overload = resolver->findBinaryOperatorOverload(expr->left->valueType, expr->right->valueType, expr->operatorType))
+					{
+						expr->operatorOverload = overload;
+						expr->valueType = overload->returnType->typeID;
+						expr->lvalue = false;
+						return expr->valueType;
+					}
+
+					const char* operatorTokenStr = GetBinaryOperatorStr(expr->operatorType);
+					SnekErrorLoc(resolver->context, expr->location, "Invalid binary operator %s %s %s", GetTypeString(expr->left->valueType), operatorTokenStr, GetTypeString(expr->right->valueType));
+					return false;
+				}
+			}
 
 			case AST::BinaryOperatorType::Equals:
 			case AST::BinaryOperatorType::DoesNotEqual:
@@ -2078,6 +2130,7 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 						else
 						{
 							TypeID resultingType = BinaryOperatorTypeMeet(resolver, expr->left->valueType, expr->right->valueType);
+							SnekAssert(resultingType); // TODO handle
 							expr->opAssignResultingType = resultingType;
 							if (CanConvertImplicit(resultingType, expr->left->valueType, expr->right->isConstant()))
 							{
@@ -2273,8 +2326,11 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 
 		if (declarator->value)
 		{
+			resolver->expectedType = statement->varType;
 			if (ResolveExpression(resolver, declarator->value))
 			{
+				resolver->expectedType = nullptr;
+
 				if (!statement->varType)
 					statement->varType = declarator->value->valueType;
 
@@ -2297,6 +2353,8 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 			}
 			else
 			{
+				resolver->expectedType = nullptr;
+
 				result = false;
 			}
 		}
@@ -2478,8 +2536,11 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 {
 	if (statement->value)
 	{
+		resolver->expectedType = resolver->currentFunction->returnType->typeID;
 		if (ResolveExpression(resolver, statement->value))
 		{
+			resolver->expectedType = nullptr;
+
 			AST::Function* currentFunction = resolver->currentFunction;
 			TypeID returnType = currentFunction->returnType ? currentFunction->returnType->typeID : GetVoidType();
 
@@ -2495,6 +2556,7 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 		}
 		else
 		{
+			resolver->expectedType = nullptr;
 			return false;
 		}
 	}
@@ -2804,6 +2866,50 @@ static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl)
 	return true;
 }
 
+static bool ResolveStructField(Resolver* resolver, AST::StructField* field, TypeID* fieldType, const char** fieldName)
+{
+	if (field->isStruct)
+	{
+		if (field->name && fieldType)
+		{
+			TypeID* structFieldTypes = new TypeID[field->structFields.size];
+			for (int i = 0; i < field->structFields.size; i++)
+			{
+				ResolveStructField(resolver, field->structFields[i], &structFieldTypes[i], nullptr);
+			}
+			*fieldType = GetStructType(field->structFields.size, structFieldTypes);
+		}
+		else
+		{
+			for (int i = 0; i < field->structFields.size; i++)
+			{
+				ResolveStructField(resolver, field->structFields[i], nullptr, nullptr);
+			}
+		}
+	}
+	else if (field->isUnion)
+	{
+		for (int i = 0; i < field->unionFields.size; i++)
+		{
+			ResolveStructField(resolver, field->unionFields[i], nullptr, nullptr);
+		}
+	}
+	else if (ResolveType(resolver, field->type))
+	{
+		if (fieldType)
+			*fieldType = field->type->typeID;
+	}
+	else
+	{
+		return false;
+	}
+
+	if (fieldName)
+		*fieldName = field->name;
+
+	return true;
+}
+
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 {
 	AST::Element* lastElement = resolver->currentElement;
@@ -2829,16 +2935,7 @@ static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 			const char** fieldNames = new const char* [numFields];
 			for (int i = 0; i < numFields; i++)
 			{
-				AST::StructField* field = decl->fields[i];
-				if (ResolveType(resolver, field->type))
-				{
-					fieldTypes[i] = decl->fields[i]->type->typeID;
-				}
-				else
-				{
-					result = false;
-				}
-				fieldNames[i] = decl->fields[i]->name;
+				ResolveStructField(resolver, decl->fields[i], &fieldTypes[i], &fieldNames[i]);
 			}
 			decl->type->structType.numFields = numFields;
 			decl->type->structType.fieldTypes = fieldTypes;
@@ -3640,7 +3737,7 @@ bool Resolver::run()
 	if (result)
 		result = ResolveModules(this);
 
-	if (!entryPoint)
+	if (!entryPoint && !context->staticLibrary && !context->sharedLibrary)
 	{
 		SnekError(context, "No entry point 'main'");
 		result = false;

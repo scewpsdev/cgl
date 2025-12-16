@@ -151,7 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\cgl\backends\CodegenC.h" />
-    <ClCompile Include="src\cgl\backends\CodegenClang.cpp" />
+    <ClCompile Include="src\cgl\backends\CodegenTCC.cpp" />
     <ClCompile Include="src\cgl\Driver.cpp" />
     <ClCompile Include="src\cgl\File.cpp" />
     <ClCompile Include="src\cgl\Platform.cpp" />

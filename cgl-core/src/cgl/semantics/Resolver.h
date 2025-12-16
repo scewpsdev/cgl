@@ -51,6 +51,8 @@ struct Resolver
 
 	Scope* scope = nullptr;
 
+	TypeID expectedType = nullptr;
+
 
 	Resolver(CGLCompiler* context, List<AST::File*>& asts);
 	~Resolver();
@@ -78,9 +80,14 @@ struct Resolver
 	bool findFunctionsInFile(const char* name, AST::File* file, List<AST::Function*>& functions);
 	bool findFunctionsInModule(const char* name, AST::Module* module, List<AST::Function*>& functions);
 	bool findFunctions(const char* name, List<AST::Function*>& functions);
-	AST::Function* findOperatorOverloadInFile(TypeID operandType, AST::OperatorOverload operatorOverload, AST::File* file);
-	AST::Function* findOperatorOverloadInModule(TypeID operandType, AST::OperatorOverload operatorOverload, AST::Module* module);
-	AST::Function* findOperatorOverload(TypeID operandType, AST::OperatorOverload operatorOverload);
+
+	AST::Function* findUnaryOperatorOverloadInFile(TypeID operandType, AST::UnaryOperatorType operatorOverload, AST::File* file);
+	AST::Function* findUnaryOperatorOverloadInModule(TypeID operandType, AST::UnaryOperatorType operatorOverload, AST::Module* module);
+	AST::Function* findUnaryOperatorOverload(TypeID operandType, AST::UnaryOperatorType operatorOverload);
+
+	AST::Function* findBinaryOperatorOverloadInFile(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload, AST::File* file);
+	AST::Function* findBinaryOperatorOverloadInModule(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload, AST::Module* module);
+	AST::Function* findBinaryOperatorOverload(TypeID left, TypeID right, AST::BinaryOperatorType operatorOverload);
 
 	int getFunctionOverloadScore(const AST::Function* function, const List<AST::Expression*>& arguments);
 	void chooseFunctionOverload(List<AST::Function*>& functions, const List<AST::Expression*>& arguments, AST::Expression* methodInstance);

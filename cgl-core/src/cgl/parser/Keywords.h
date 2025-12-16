@@ -13,6 +13,7 @@
 #define KEYWORD_MACRO     "macro"
 #define KEYWORD_METHOD    "method"
 #define KEYWORD_ENUM      "enum"
+#define KEYWORD_UNION     "union"
 
 #define KEYWORD_PUBLIC    "public"
 #define KEYWORD_PRIVATE   "private"

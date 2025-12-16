@@ -21,6 +21,7 @@ int CGLCompiler::run(int argc, char* argv[])
 		cmd << "-g ";
 	if (optimization > 0)
 		cmd << "-O" << optimization << ' ';
+	cmd << "-D DLLEXPORT=__declspec(dllexport) ";
 	if (runtimeStackTrace)
 		cmd << "-D RUNTIME_STACK_TRACE ";
 
@@ -74,6 +75,10 @@ int CGLCompiler::output(const char* path)
 	cmd << "clang ";
 
 	cmd << "-w ";
+	if (staticLibrary)
+		cmd << "-c ";
+	if (sharedLibrary)
+		cmd << "-shared ";
 	if (debugInfo)
 		cmd << "-g ";
 	if (optimization > 0)
@@ -113,6 +118,8 @@ int CGLCompiler::output(const char* path)
 
 	//CreateDirectories(path);
 	cmd << "-o " << path;
+
+	fprintf(stderr, "Running clang backend\n");
 
 	std::string cmdStr = cmd.str();
 	return system(cmdStr.c_str());

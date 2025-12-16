@@ -4,13 +4,13 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>src/**.src -o ../bin/Rainfall.exe -g</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2025\Rainfall\build</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2025\Wildcard\Wildcard</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>src/**.src -o ../bin/Rainfall.exe -g</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2025\Rainfall\build</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2025\Wildcard\Wildcard</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

@@ -826,13 +826,23 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 	{
 		NextToken(parser); // {
 
-		List<AST::Expression*> values = CreateList<AST::Expression*>();
+		List<AST::Expression*> values;
+		List<char*> labels;
 
 		bool upcomingValue = !NextTokenIs(parser, '}');
 		while (upcomingValue && HasNext(parser))
 		{
+			char* label = nullptr;
+
+			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) && NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS, 1))
+			{
+				label = GetTokenString(NextToken(parser));
+				NextToken(parser); // =
+			}
+
 			AST::Expression* value = ParseExpression(parser);
 			values.add(value);
+			labels.add(label);
 
 			upcomingValue = NextTokenIs(parser, ',');
 			if (upcomingValue)
@@ -841,7 +851,7 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 
 		SkipToken(parser, '}');
 
-		return new AST::InitializerList(parser->module, inputState, nullptr, values);
+		return new AST::InitializerList(parser->module, inputState, nullptr, values, labels);
 	}
 	else
 	{
@@ -1529,6 +1539,104 @@ static AST::Statement* ParseStatement(Parser* parser)
 	return nullptr;
 }
 
+static List<AST::StructField*> ParseStructFields(Parser* parser);
+
+static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
+{
+	InputState fieldInputState = GetInputState(parser);
+
+	if (NextTokenIsKeyword(parser, KEYWORD_TYPE_UNION))
+	{
+		NextToken(parser); // union
+
+		SkipToken(parser, '{');
+
+		char* name = nullptr;
+		AST::StructField* field = new AST::StructField(parser->module, fieldInputState, nullptr, name, fields.size);
+		field->isUnion = true;
+		field->unionFields = ParseStructFields(parser);
+
+		SkipToken(parser, '}');
+
+		fields.add(field);
+
+		return true;
+	}
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_STRUCT))
+	{
+		NextToken(parser); // struct
+
+		SkipToken(parser, '{');
+
+		char* name = nullptr;
+		AST::StructField* field = new AST::StructField(parser->module, fieldInputState, nullptr, name, fields.size);
+		field->isStruct = true;
+		field->structFields = ParseStructFields(parser);
+
+		SkipToken(parser, '}');
+
+		fields.add(field);
+
+		return true;
+	}
+	else if (AST::Type* type = ParseType(parser))
+	{
+		bool upcomingField = true;
+
+		while (upcomingField && HasNext(parser))
+		{
+			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+			{
+				char* name = GetTokenString(NextToken(parser));
+				AST::StructField* field = new AST::StructField(parser->module, fieldInputState, type, name, fields.size);
+				fields.add(field);
+			}
+			else
+			{
+				Token tok = NextToken(parser);
+				SnekErrorLoc(parser->context, parser->lexer->input.state, "Expected a field name: %.*s", tok.len, tok.str);
+				SkipPastToken(parser, ';');
+				parser->failed = true;
+				break;
+			}
+
+			upcomingField = NextTokenIs(parser, ',');
+			if (upcomingField)
+			{
+				NextToken(parser); // ,
+				type = (AST::Type*)type->copy();
+			}
+		}
+
+		SkipToken(parser, ';');
+
+		return !parser->failed;
+	}
+	else
+	{
+		Token tok = NextToken(parser);
+		SnekErrorLoc(parser->context, parser->lexer->input.state, "Expected a type: %.*s", tok.len, tok.str);
+		SkipPastToken(parser, ';');
+		parser->failed = true;
+
+		return false;
+	}
+}
+
+static List<AST::StructField*> ParseStructFields(Parser* parser)
+{
+	List<AST::StructField*> fields;
+
+	bool upcomingMember = !NextTokenIs(parser, '}');
+	while (HasNext(parser) && upcomingMember)
+	{
+		ParseStructField(parser, fields);
+		upcomingMember = !NextTokenIs(parser, '}');
+	}
+
+	return fields;
+}
+
 static AST::Declaration* ParseDeclaration(Parser* parser)
 {
 	InputState inputState = GetInputState(parser);
@@ -1629,6 +1737,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		{
 			char* name = GetTokenString(NextToken(parser));
 			bool hasBody = false;
+
 			List<AST::StructField*> fields;
 
 			bool isGeneric = false;
@@ -1667,52 +1776,8 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				NextToken(parser); // {
 
 				hasBody = true;
+				fields = ParseStructFields(parser);
 
-				bool upcomingMember = !NextTokenIs(parser, '}');
-				while (HasNext(parser) && upcomingMember)
-				{
-					InputState fieldInputState = GetInputState(parser);
-					if (AST::Type* type = ParseType(parser))
-					{
-						bool upcomingField = true;
-
-						while (upcomingField && HasNext(parser))
-						{
-							if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
-							{
-								char* name = GetTokenString(NextToken(parser));
-								AST::StructField* field = new AST::StructField(parser->module, fieldInputState, type, name, fields.size);
-								fields.add(field);
-							}
-							else
-							{
-								Token tok = NextToken(parser);
-								SnekErrorLoc(parser->context, parser->lexer->input.state, "Expected a field name: %.*s", tok.len, tok.str);
-								SkipPastToken(parser, ';');
-								parser->failed = true;
-								break;
-							}
-
-							upcomingField = NextTokenIs(parser, ',');
-							if (upcomingField)
-							{
-								NextToken(parser); // ,
-								type = (AST::Type*)type->copy();
-							}
-						}
-					}
-					else
-					{
-						Token tok = NextToken(parser);
-						SnekErrorLoc(parser->context, parser->lexer->input.state, "Expected a type: %.*s", tok.len, tok.str);
-						SkipPastToken(parser, ';');
-						parser->failed = true;
-					}
-
-					SkipToken(parser, ';');
-
-					upcomingMember = !NextTokenIs(parser, '}');
-				}
 				SkipToken(parser, '}');
 			}
 			else
@@ -2284,12 +2349,37 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 			char* name = GetTokenString(NextToken(parser));
 
-			AST::OperatorOverload operatorOverload = AST::OperatorOverload::None;
-			if (strcmp(name, "operator") == 0 && NextTokenIs(parser, '['))
+			AST::UnaryOperatorType unaryOperator = AST::UnaryOperatorType::Null;
+			AST::BinaryOperatorType binaryOperator = AST::BinaryOperatorType::Null;
+
+			if (strcmp(name, "operator") == 0)
 			{
-				NextToken(parser); // [
-				SkipToken(parser, ']');
-				operatorOverload = AST::OperatorOverload::Subscript;
+				if (NextTokenIs(parser, TOKEN_TYPE_OP_PLUS))
+				{
+					NextToken(parser); // +
+					binaryOperator = AST::BinaryOperatorType::Add;
+				}
+				else if (NextTokenIs(parser, TOKEN_TYPE_OP_MINUS))
+				{
+					NextToken(parser); // -
+					binaryOperator = AST::BinaryOperatorType::Subtract;
+				}
+				else if (NextTokenIs(parser, TOKEN_TYPE_OP_ASTERISK))
+				{
+					NextToken(parser); // *
+					binaryOperator = AST::BinaryOperatorType::Multiply;
+				}
+				else if (NextTokenIs(parser, TOKEN_TYPE_OP_SLASH))
+				{
+					NextToken(parser); // /
+					binaryOperator = AST::BinaryOperatorType::Divide;
+				}
+				else if (NextTokenIs(parser, '['))
+				{
+					NextToken(parser); // [
+					SkipToken(parser, ']');
+					unaryOperator = AST::UnaryOperatorType::Subscript;
+				}
 			}
 
 			bool isGeneric = false;
@@ -2462,7 +2552,8 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 					function = new AST::Function(parser->module, inputState, flags, endInputState, name, returnType, paramTypes, paramNames, paramValues, varArgs, varArgsType, varArgsName, body, isGeneric, genericParams);
 				}
 
-				function->operatorOverload = operatorOverload;
+				function->unaryOperator = unaryOperator;
+				function->binaryOperator = binaryOperator;
 
 				return function;
 			}

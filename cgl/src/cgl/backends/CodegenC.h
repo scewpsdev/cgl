@@ -499,8 +499,12 @@ class CodegenC
 
 	std::string castValue(std::string expression, TypeID valueType, TypeID type, AST::Expression* ast = nullptr)
 	{
+		valueType = UnwrapType(valueType);
+		type = UnwrapType(type);
+
 		if (CompareTypes(valueType, type))
 			return expression;
+
 		else if (valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::Integer)
 		{
 			return "(" + genType(type) + ")(" + expression + ")";
@@ -519,8 +523,8 @@ class CodegenC
 		}
 		else if (valueType->typeKind == AST::TypeKind::Pointer && type->typeKind == AST::TypeKind::Pointer)
 		{
-			if (/*argIsConstant || */valueType->pointerType.elementType->typeKind == AST::TypeKind::Void || type->pointerType.elementType->typeKind == AST::TypeKind::Void)
-				return "(" + genType(type) + ")(" + expression + ")";
+			//if (/*argIsConstant || */valueType->pointerType.elementType->typeKind == AST::TypeKind::Void || type->pointerType.elementType->typeKind == AST::TypeKind::Void)
+			return "(" + genType(type) + ")(" + expression + ")";
 			SnekAssert(false);
 			return "";
 		}
@@ -578,6 +582,45 @@ class CodegenC
 					return stream.str();
 				}
 			}
+		}
+		else if (valueType->typeKind == AST::TypeKind::Tuple && type->typeKind == AST::TypeKind::Array)
+		{
+			if (ast && ast->isConstant())
+				return expression;
+
+			std::stringstream stream;
+			stream << "(" << genType(type) << "){";
+			for (int i = 0; i < valueType->tupleType.numValues; i++)
+			{
+				stream << expression << "._" << i;
+				if (i < valueType->tupleType.numValues - 1)
+					stream << ',';
+			}
+			stream << "}";
+			return stream.str();
+		}
+		else if (valueType->typeKind == AST::TypeKind::Tuple && type->typeKind == AST::TypeKind::Struct)
+		{
+			std::stringstream stream;
+			stream << "{";
+			for (int i = 0; i < valueType->tupleType.numValues; i++)
+			{
+				stream << '.' << type->structType.fieldNames[i] << '=';
+
+				TypeID dstType = valueType->tupleType.valueTypes[i];
+				stream << expression << "._" << i;
+
+				if (i < valueType->tupleType.numValues - 1)
+					stream << ",";
+			}
+			stream << "};";
+			newLine(stream);
+
+			char valueName[8];
+			newLocalName(valueName);
+			*instructionStream << genType(type) << " " << valueName << "=" << stream.str();
+
+			return std::string(valueName);
 		}
 		// Boolean conversions
 		else if (type->typeKind == AST::TypeKind::Boolean && valueType->typeKind == AST::TypeKind::Integer)
@@ -922,6 +965,59 @@ class CodegenC
 				return "{" + std::string(arrayName) + "," + std::to_string(expression->values.size) + "}";
 			}
 		}
+		else if (expression->initializerType->typeKind == AST::TypeKind::Struct)
+		{
+			std::stringstream arrayValueStream;
+			arrayValueStream << "{";
+			for (int i = 0; i < expression->values.size; i++)
+			{
+				if (expression->labels[i])
+				{
+					SnekAssert(expression->initializerType->structType.declaration);
+					AST::StructField* field = expression->initializerType->structType.declaration->getFieldWithName(expression->labels[i]);
+					TypeID dstType = field->type->typeID;
+
+					arrayValueStream << "." << expression->labels[i] << "=" << castValue(expression->values[i], dstType);
+				}
+				else
+				{
+					TypeID dstType = expression->initializerType->structType.numFields == expression->values.size ? expression->initializerType->structType.fieldTypes[i] : nullptr;
+					arrayValueStream << castValue(expression->values[i], dstType);
+				}
+
+				if (i < expression->values.size - 1)
+					arrayValueStream << ",";
+			}
+			arrayValueStream << "};";
+			newLine(arrayValueStream);
+
+			char arrayName[8];
+			newLocalName(arrayName);
+			*instructionStream << genType(expression->initializerType) << " " << arrayName << "=" << arrayValueStream.str();
+
+			return std::string(arrayName);
+		}
+		else if (expression->initializerType->typeKind == AST::TypeKind::Tuple)
+		{
+			std::stringstream arrayValueStream;
+			arrayValueStream << "{";
+			for (int i = 0; i < expression->values.size; i++)
+			{
+				TypeID dstType = expression->initializerType->tupleType.valueTypes[i];
+				arrayValueStream << castValue(expression->values[i], dstType);
+
+				if (i < expression->values.size - 1)
+					arrayValueStream << ",";
+			}
+			arrayValueStream << "};";
+			newLine(arrayValueStream);
+
+			char arrayName[8];
+			newLocalName(arrayName);
+			*instructionStream << genType(expression->initializerType) << " " << arrayName << "=" << arrayValueStream.str();
+
+			return std::string(arrayName);
+		}
 		else
 		{
 			return "";
@@ -954,7 +1050,7 @@ class CodegenC
 	std::string genExpressionTuple(AST::TupleExpression* expression)
 	{
 		std::stringstream result;
-		result << "(" << genType(expression->valueType) << "){";
+		result << /*"(" << genType(expression->valueType) << ")" */ "{";
 		for (int i = 0; i < expression->values.size; i++)
 		{
 			AST::Expression* value = expression->values[i];
@@ -1363,6 +1459,11 @@ class CodegenC
 	{
 		auto left = genExpression(expression->left);
 		auto right = genExpression(expression->right);
+
+		if (expression->operatorOverload)
+		{
+			return getFunctionValue(expression->operatorOverload) + "(" + castValue(left, expression->left->valueType, expression->valueType) + "," + castValue(right, expression->right->valueType, expression->valueType) + ")";
+		}
 
 		switch (expression->operatorType)
 		{
@@ -1975,6 +2076,46 @@ class CodegenC
 		}
 	}
 
+	void genStructField(AST::StructField* field)
+	{
+		if (field->isStruct)
+		{
+			*instructionStream << "struct {";
+			indentation++;
+			newLine();
+
+			for (int i = 0; i < field->structFields.size; i++)
+			{
+				genStructField(field->structFields[i]);
+				newLine();
+			}
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "};";
+		}
+		else if (field->isUnion)
+		{
+			*instructionStream << "union {";
+			indentation++;
+			newLine();
+
+			for (int i = 0; i < field->unionFields.size; i++)
+			{
+				genStructField(field->unionFields[i]);
+				newLine();
+			}
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "};";
+		}
+		else if (field->type)
+		{
+			*instructionStream << genType(field->type) << ' ' << field->name << ';';
+		}
+	}
+
 	void genStruct(AST::Struct* strct)
 	{
 		if (strct->isGeneric)
@@ -2000,7 +2141,7 @@ class CodegenC
 
 			for (int i = 0; i < strct->fields.size; i++)
 			{
-				*instructionStream << genType(strct->fields[i]->type) << " " << strct->fields[i]->name << ";";
+				genStructField(strct->fields[i]);
 				newLine();
 			}
 
@@ -2114,6 +2255,8 @@ class CodegenC
 			*instructionStream << "extern ";
 		else if (HasFlag(function->flags, AST::DeclarationFlags::Private))
 			*instructionStream << "static ";
+		else if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
+			*instructionStream << "__attribute__((dllexport)) ";
 
 		*instructionStream << genType(function->functionType->functionType.returnType) << ' ';
 
@@ -2206,6 +2349,8 @@ class CodegenC
 			*instructionStream << "extern ";
 		else if (HasFlag(function->flags, AST::DeclarationFlags::Private))
 			*instructionStream << "static ";
+		else if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
+			*instructionStream << "__attribute__((dllexport)) ";
 
 		if (function->isEntryPoint)
 		{
@@ -2366,6 +2511,8 @@ class CodegenC
 					*instructionStream << " " << declarator->variable->mangledName;
 					if (declarator->value)
 						*instructionStream << "=" << castValue(declarator->value, global->varType->typeID);
+					else
+						*instructionStream << "={0}";
 					if (i < global->declarators.size - 1)
 						*instructionStream << ",";
 				}
