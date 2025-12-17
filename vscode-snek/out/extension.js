@@ -45,7 +45,7 @@ const node_1 = require("vscode-languageclient/node");
 let client;
 function activate(context) {
     // The server is implemented in node
-    const serverModule = context.asAbsolutePath(path.join('../', 'bin', 'x64', 'Debug', 'snek-lsp.exe'));
+    const serverModule = context.asAbsolutePath(path.join('../', 'snek-lsp', 'bin', 'x64', 'Debug', 'snek-lsp.exe'));
     // If the extension is launched in debug mode then the debug server options are used
     // Otherwise the run options are used
     const serverOptions = {
@@ -65,7 +65,7 @@ function activate(context) {
         }
     };
     // Create the language client and start the client.
-    client = new node_1.LanguageClient('languageServerExample', 'Language Server Example', serverOptions, clientOptions);
+    client = new node_1.LanguageClient('sneklang-lsp', 'Snek Language Server', serverOptions, clientOptions);
     // Start the client. This will also launch the server
     client.start();
 }

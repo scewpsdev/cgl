@@ -18,7 +18,7 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
 	// The server is implemented in node
 	const serverModule = context.asAbsolutePath(
-		path.join('../', 'bin', 'x64', 'Debug', 'snek-lsp.exe')
+		path.join('../', 'snek-lsp', 'bin', 'x64', 'Debug', 'snek-lsp.exe')
 	);
 
 	// If the extension is launched in debug mode then the debug server options are used
@@ -43,8 +43,8 @@ export function activate(context: ExtensionContext) {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'languageServerExample',
-		'Language Server Example',
+		'sneklang-lsp',
+		'Snek Language Server',
 		serverOptions,
 		clientOptions
 	);

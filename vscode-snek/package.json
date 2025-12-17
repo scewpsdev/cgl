@@ -4,42 +4,40 @@
   "description": "Syntax highlighting and completion for SnekLang",
   "version": "0.0.1",
   "publisher": "scoopsdev",
-
   "engines": {
     "vscode": "^1.80.0"
   },
-
-  "categories": ["Programming Languages"],
-
+  "categories": [
+    "Programming Languages"
+  ],
   "activationEvents": [
     "onLanguage:sneklang"
   ],
-
   "main": "./out/extension.js",
-
   "contributes": {
     "languages": [
       {
         "id": "sneklang",
-        "aliases": ["SnekLang"],
-        "extensions": [".src"],
+        "aliases": [
+          "SnekLang"
+        ],
+        "extensions": [
+          ".src"
+        ],
         "configuration": "./language-configuration.json"
       }
     ]
   },
-
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },
-
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
   },
-
   "devDependencies": {
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.80.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   }
 }
