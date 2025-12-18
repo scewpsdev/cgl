@@ -110,7 +110,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;$(SolutionDir)cgl-core\src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -125,7 +125,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;$(SolutionDir)cgl-core\src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -136,6 +136,7 @@
     <ClCompile Include="src\Main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Document.h" />
     <ClInclude Include="src\nlohmann\adl_serializer.hpp" />
     <ClInclude Include="src\nlohmann\byte_container_with_subtype.hpp" />
     <ClInclude Include="src\nlohmann\detail\abi_macros.hpp" />
@@ -182,6 +183,11 @@
     <ClInclude Include="src\nlohmann\ordered_map.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley_undef.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cgl-core\cgl-core.vcxproj">
+      <Project>{544de3f6-d621-404c-92cb-323b709cef7e}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -7,13 +7,34 @@
 #include <stdio.h>
 #include <nlohmann/json.hpp>
 
+#include "Document.h"
+
+#include "cgl/CGLCompiler.h"
+
+
 using json = nlohmann::json;
 
-// Store documents in memory
-std::unordered_map<std::string, std::string> documents;
 
-// Very dumb lexer (replace later)
+enum TokenType
+{
+	TOKEN_TYPE_KEYWORD,
+	TOKEN_TYPE_VARIABLE,
+	TOKEN_TYPE_FUNCTION,
+
+	TOKEN_TYPE_LAST
+};
+
+static const char* tokenTypeIdentifiers[TOKEN_TYPE_LAST] = {
+	"keyword",
+	"variable",
+	"function",
+};
+
+
 std::vector<std::string> keywords = { "fn", "let", "struct", "if", "else", "while", "return" };
+
+std::unordered_map<std::string, Document> documents;
+
 
 void send(json msg)
 {
@@ -73,6 +94,15 @@ int main()
 
 		if (method == "initialize")
 		{
+			json tokenLegend = {
+				{"tokenTypes", json::array()},
+				{"tokenModifiers", json::array()},
+			};
+			for (int i = 0; i < TOKEN_TYPE_LAST; i++)
+			{
+				tokenLegend["tokenTypes"][i] = tokenTypeIdentifiers[i];
+			}
+
 			json result = {
 				{"capabilities", {
 					{"textDocumentSync", 1},
@@ -80,14 +110,10 @@ int main()
 					{"completionProvider", {
 						{"resolveProvider", false}
 					}},
-					//{"completionProvider", { {"resolveProvider", false} }},
-					//{"semanticTokensProvider", {
-					//	{"legend", {
-					//		{"tokenTypes", {"keyword", "variable", "function"}},
-					//		{"tokenModifiers", json::array()}
-					//	}},
-					//	{"full", true}
-					//}}
+					{"semanticTokensProvider", {
+						{"legend", tokenLegend},
+						{"full", true},
+					}},
 				}},
 				{"serverInfo", {
 					{"name", "Snek Language Server"},
@@ -121,14 +147,22 @@ int main()
 		}
 		else if (method == "textDocument/semanticTokens/full")
 		{
-			auto uri = request["params"]["textDocument"]["uri"];
-			std::string text = documents[uri];
+			std::string uri = request["params"]["textDocument"]["uri"];
+			Document& document = documents[uri];
+
+			CGLCompiler compiler;
+			compiler.init(nullptr);
+			compiler.addFile(uri.c_str(), "testmodule", document.text.c_str());
+			compiler.compile();
+
+			SourceFile& sourceFile = compiler.sourceFiles[0];
 
 			std::vector<int> data;
 			int line = 0;
 			int col = 0;
+			int lastLine = 0, lastCol = 0;
 
-			std::istringstream stream(text);
+			std::istringstream stream(document.text);
 			std::string word;
 
 			while (stream >> word)
@@ -138,11 +172,14 @@ int main()
 					if (word == k)
 					{
 						// deltaLine, deltaStart, length, tokenType, tokenModifiers
-						data.push_back(line);
-						data.push_back(col);
+						data.push_back(line - lastLine);
+						data.push_back(line == lastLine ? col - lastCol : col);
 						data.push_back((int)word.length());
 						data.push_back(0); // keyword
 						data.push_back(0);
+
+						lastLine = line;
+						lastCol = col;
 					}
 				}
 				col += (int)word.length() + 1;
@@ -166,7 +203,10 @@ int main()
 			auto textDocument = params["textDocument"];
 			std::string uri = textDocument["uri"];
 			std::string text = textDocument["text"];
-			documents[uri] = text;
+
+			Document document = {};
+			document.text = text;
+			documents[uri] = document;
 
 			fprintf(stderr, "Opened text document %s\n", uri.c_str());
 			fprintf(stderr, "%s\n", text.c_str());
@@ -183,7 +223,9 @@ int main()
 			{
 				json changeEvent = contentChanges[i];
 				std::string text = changeEvent["text"];
-				documents[uri] = text;
+
+				Document& document = documents[uri];
+				document.text = text;
 
 				fprintf(stderr, "Changed text document %s\n", uri.c_str());
 				fprintf(stderr, "%s\n", text.c_str());

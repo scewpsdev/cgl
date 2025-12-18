@@ -638,7 +638,6 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 				if (expr->initializerType->typeKind == AST::TypeKind::Struct)
 				{
 					SnekAssert(expr->initializerType->structType.declaration);
-					int fieldIdx;
 					AST::StructField* field = expr->initializerType->structType.declaration->getFieldWithName(label);
 					if (!field)
 					{
