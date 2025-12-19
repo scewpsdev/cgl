@@ -8,6 +8,7 @@
 
 #include "cgl/utils/List.h"
 #include "cgl/semantics/Type.h"
+#include "cgl/parser/lexer.h"
 
 #include <stdint.h>
 
@@ -66,7 +67,8 @@ namespace AST
 
 	struct Function : Declaration
 	{
-		char* name = nullptr;
+		char* name;
+		Token nameToken = {};
 		Type* returnType = nullptr;
 		List<Type*> paramTypes;
 		List<char*> paramNames;
@@ -79,6 +81,7 @@ namespace AST
 		char* dllImport = nullptr;
 
 		Statement* body = nullptr;
+		Expression* bodyExpression = nullptr;
 
 		UnaryOperatorType unaryOperator = UnaryOperatorType::Null;
 		BinaryOperatorType binaryOperator = BinaryOperatorType::Null;
@@ -154,6 +157,7 @@ namespace AST
 	struct Struct : Declaration
 	{
 		char* name;
+		Token nameToken;
 		bool hasBody;
 		List<StructField*> fields;
 

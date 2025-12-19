@@ -113,8 +113,8 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(SolutionDir)cgl-core\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,8 +132,8 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(SolutionDir)cgl-core\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,14 +151,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\cgl\backends\CodegenC.h" />
-    <ClCompile Include="src\cgl\backends\CodegenTCC.cpp" />
+    <ClCompile Include="src\cgl\backends\CodegenClang.cpp" />
     <ClCompile Include="src\cgl\Driver.cpp" />
     <ClCompile Include="src\cgl\File.cpp" />
-    <ClCompile Include="src\cgl\Platform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\cgl\File.h" />
-    <ClInclude Include="src\cgl\Platform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

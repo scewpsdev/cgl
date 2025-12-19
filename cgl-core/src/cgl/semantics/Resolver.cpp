@@ -880,7 +880,28 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 		{
 			expr->isCast = true;
 
-			if (expr->arguments.size == 1)
+			if (keywordType == KEYWORD_TYPE_STRING && expr->arguments.size == 2)
+			{
+				if (ResolveExpression(resolver, expr->arguments[0]) && ResolveExpression(resolver, expr->arguments[1]))
+				{
+					if (!CompareTypes(expr->arguments[0]->valueType, GetPointerType(GetIntegerType(8, true))) ||
+						expr->arguments[1]->valueType->typeKind != AST::TypeKind::Integer)
+					{
+						SnekErrorLoc(resolver->context, expr->arguments[0]->location, "bleh bleh");
+						return false;
+					}
+
+					expr->valueType = expr->castDstType;
+					expr->lvalue = false;
+
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else if (expr->arguments.size == 1)
 			{
 				ResolveExpression(resolver, expr->arguments[0]);
 
@@ -2653,7 +2674,7 @@ static AST::Visibility GetVisibilityFromFlags(AST::DeclarationFlags flags)
 	else if (HasFlag(flags, AST::DeclarationFlags::Private))
 		return AST::Visibility::Private;
 	else
-		return AST::Visibility::Private;
+		return AST::Visibility::Public;
 }
 
 static bool CheckEntrypointDecl(Resolver* resolver, AST::Function* function)
@@ -2746,13 +2767,11 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 
 		if (decl->returnType)
 			returnType = decl->returnType->typeID;
-		/*
 		else if (decl->bodyExpression)
 		{
 			result = ResolveExpression(resolver, decl->bodyExpression) && result;
 			returnType = decl->bodyExpression->valueType;
 		}
-		*/
 		else
 		{
 			returnType = GetVoidType();
@@ -3524,6 +3543,7 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 		ast->module->files.add(ast);
 	}
 
+	/*
 	AST::Module* consoleModule = FindModule(resolver, "console", FindModule(resolver, "snek", resolver->globalModule));
 	for (int i = 0; i < resolver->asts.size; i++)
 	{
@@ -3531,6 +3551,7 @@ static bool ResolveModuleHeaders(Resolver* resolver)
 		if (ast->module != consoleModule)
 			AddModuleDependency(ast, consoleModule, false);
 	}
+	*/
 
 	for (int i = 0; i < resolver->asts.size; i++)
 	{

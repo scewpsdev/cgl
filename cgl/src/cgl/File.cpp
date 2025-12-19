@@ -1,6 +1,6 @@
 #include "File.h"
 
-#include "Platform.h"
+#include "cgl/Platform.h"
 
 #include <stdio.h>
 
@@ -61,5 +61,9 @@ void CreateDirectories(const char* path)
 	if (std::filesystem::is_directory(path))
 		std::filesystem::create_directories(path);
 	else
-		std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+	{
+		auto directory = std::filesystem::path(path).parent_path();
+		if (!directory.empty())
+			std::filesystem::create_directories(directory);
+	}
 }

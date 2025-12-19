@@ -1,3 +1,10 @@
-fn main() {
-    if else return
+public void main() {
+    if a == b return;
+    else {
+        fmt.println("abc", 12345.0f);
+    }
+}
+
+struct ABC<T> {
+    List<T> list;
 }

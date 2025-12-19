@@ -13,6 +13,7 @@ void DestroyStringBuffer(StringBuffer& buffer);
 
 void StringBufferResize(StringBuffer& buffer, int newCapacity);
 void StringBufferAppend(StringBuffer& buffer, const char* str);
+void StringBufferAppend(StringBuffer& buffer, const char* str, int len);
 void StringBufferAppend(StringBuffer& buffer, char c);
 void StringBufferAppend(StringBuffer& buffer, int i);
 void StringBufferAppend(StringBuffer& buffer, unsigned long ull);

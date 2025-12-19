@@ -117,6 +117,17 @@ Lexer::~Lexer()
 	DestroyInput(&input);
 }
 
+// replacement for isalpha because that one crashes when passing ö
+bool isAlpha(char c)
+{
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
+}
+
+bool isDigit(char c)
+{
+	return c >= '0' && c <= '9';
+}
+
 static bool nextIsWhitespace(Lexer* lexer)
 {
 	char c = InputPeek(&lexer->input, 0);
@@ -142,7 +153,7 @@ static bool nextIsNumberLiteral(Lexer* lexer)
 {
 	char c1 = InputPeek(&lexer->input, 0);
 	char c2 = InputPeek(&lexer->input, 1);
-	return isdigit(c1) || (c1 == '-' && isdigit(c2));
+	return isDigit(c1) || (c1 == '-' && isDigit(c2));
 }
 
 static bool nextIsPunctuation(Lexer* lexer)
@@ -183,7 +194,7 @@ static bool nextIsOperator(Lexer* lexer)
 static bool nextIsIdentifier(Lexer* lexer)
 {
 	char c = InputPeek(&lexer->input, 0);
-	return isalpha(c) || c == '_';
+	return isAlpha(c) || c == '_';
 }
 
 static void skipComment(Lexer* lexer)
@@ -221,7 +232,7 @@ static void skipWhitespace(Lexer* lexer)
 
 static Token readStringLiteral(Lexer* lexer)
 {
-	Token token;
+	Token token = {};
 	token.line = lexer->input.state.line;
 	token.col = lexer->input.state.col;
 
@@ -235,18 +246,18 @@ static Token readStringLiteral(Lexer* lexer)
 	{
 		token.type = TOKEN_TYPE_STRING_LITERAL_MULTILINE;
 
+		token.str = &lexer->input.state.buffer[lexer->input.state.index];
+
 		InputNext(&lexer->input); // "
 		InputNext(&lexer->input); // "
 		InputNext(&lexer->input); // "
+		token.len += 3; // """
 
 		char c;
 		do
 		{
 			c = InputNext(&lexer->input);
 		} while (c != '\n');
-
-		token.str = &lexer->input.state.buffer[lexer->input.state.index];
-		token.len = 0;
 
 		InputState lastLineState = lexer->input.state;
 		int lastLineTokenLen = 0;
@@ -283,9 +294,10 @@ static Token readStringLiteral(Lexer* lexer)
 	{
 		token.type = TOKEN_TYPE_STRING_LITERAL;
 
-		InputNext(&lexer->input);
 		token.str = &lexer->input.state.buffer[lexer->input.state.index];
-		token.len = 0;
+
+		InputNext(&lexer->input);
+		token.len++; // "
 
 		char c;
 		while ((c = InputNext(&lexer->input)) != '"')
@@ -302,6 +314,8 @@ static Token readStringLiteral(Lexer* lexer)
 				token.len++;
 			}
 		}
+
+		token.len++; // "
 
 		return token;
 	}
@@ -354,8 +368,8 @@ static Token readNumberLiteral(Lexer* lexer)
 	char c = InputPeek(&lexer->input, 0);
 	char c2 = InputPeek(&lexer->input, 1);
 	for (;
-		isdigit(c) ||
-		(!fp && c == '.' && (isalpha(c2) || isdigit(c2))) ||
+		isDigit(c) ||
+		(!fp && c == '.' && (isAlpha(c2) || isDigit(c2))) ||
 		c == 'x' || c == 'b' || c == 'o' ||
 		(c >= 'a' && c <= 'f') ||
 		(c >= 'A' && c <= 'F') ||
@@ -447,7 +461,7 @@ static Token readIdentifier(Lexer* lexer)
 	token.len = 0;
 
 	char c = 0;
-	for (c = InputPeek(&lexer->input, 0); (isalpha(c) || isdigit(c) || c == '_'); c = InputPeek(&lexer->input, 0))
+	for (c = InputPeek(&lexer->input, 0); (isAlpha(c) || isDigit(c) || c == '_'); c = InputPeek(&lexer->input, 0))
 	{
 		InputNext(&lexer->input);
 		token.len++;
@@ -479,6 +493,9 @@ Token LexerNext(Lexer* lexer)
 			return readIdentifier(lexer);
 
 		SnekErrorLoc(lexer->context, lexer->input.state, "Undefined character '%c' (%d)", InputNext(&lexer->input));
+		lexer->failed = true;
+
+		return LexerNext(lexer);
 	}
 
 	return NULL_TOKEN;
@@ -508,10 +525,11 @@ bool LexerNextIsWhitespace(Lexer* lexer)
 	return nextIsWhitespace(lexer);
 }
 
-char* GetTokenString(Token token)
+char* GetTokenString(Token token, int offset, int trim)
 {
-	char* str = new char[token.len + 1];
-	memcpy(str, token.str, token.len);
-	str[token.len] = 0;
+	int len = token.len - offset - trim;
+	char* str = new char[len + 1];
+	memcpy(str, token.str + offset, len);
+	str[len] = 0;
 	return str;
 }

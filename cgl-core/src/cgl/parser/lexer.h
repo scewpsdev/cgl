@@ -81,6 +81,8 @@ enum KeywordType {
 	KEYWORD_TYPE_FALSE,
 	KEYWORD_TYPE_NULL_KEYWORD,
 
+	KEYWORD_TYPE_BUILTIN_TYPES_START,
+
 	KEYWORD_TYPE_VOID,
 
 	KEYWORD_TYPE_INT8,
@@ -109,6 +111,10 @@ enum KeywordType {
 	KEYWORD_TYPE_PTR,
 	KEYWORD_TYPE_ARRAY,
 	KEYWORD_TYPE_FUNC_TYPE,
+
+	KEYWORD_TYPE_BUILTIN_TYPES_END,
+
+	KEYWORD_TYPE_LAST
 };
 
 struct Token
@@ -119,6 +125,8 @@ struct Token
 	int len;
 
 	int line, col;
+
+	inline bool equals(const char* str) { return strlen(str) == len && strncmp(str, this->str, len) == 0; }
 };
 
 class CGLCompiler;
@@ -129,12 +137,16 @@ struct Lexer
 	const char* filename;
 
 	CGLCompiler* context;
+	bool failed = false;
 
 
 	Lexer(CGLCompiler* context, const char* filename, const char* src);
 	~Lexer();
 };
 
+
+bool isAlpha(char c);
+bool isDigit(char c);
 
 KeywordType getKeywordType(const char* str, int len);
 
@@ -143,4 +155,4 @@ Token LexerPeek(Lexer* lexer, int offset = 0);
 bool LexerHasNext(Lexer* lexer);
 bool LexerNextIsWhitespace(Lexer* lexer);
 
-char* GetTokenString(Token token);
+char* GetTokenString(Token token, int offset = 0, int trim = 0);

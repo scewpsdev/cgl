@@ -1,5 +1,7 @@
 #include "Platform.h"
 
+#include <chrono>
+
 #ifdef _WIN32
 #include <windows.h>    //GetModuleFileNameW
 #else
@@ -18,4 +20,9 @@ std::filesystem::path GetExecutablePath()
 	ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
 	return std::string(result, (count > 0) ? count : 0);
 #endif
+}
+
+uint64_t GetTimeNS()
+{
+	return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }

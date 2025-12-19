@@ -16,7 +16,7 @@
 #define KEYWORD_UNION     "union"
 
 #define KEYWORD_PUBLIC    "public"
-#define KEYWORD_PRIVATE   "private"
+#define KEYWORD_PRIVATE   "internal"
 #define KEYWORD_STATIC    "static"
 #define KEYWORD_CONST     "const"
 #define KEYWORD_EXTERN    "externc"

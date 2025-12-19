@@ -537,6 +537,10 @@ class CodegenC
 		{
 			return "&" + expression;
 		}
+		else if (valueType->typeKind == AST::TypeKind::Integer && type->typeKind == AST::TypeKind::Pointer)
+		{
+			return "(" + genType(type) + ")(" + expression + ")";
+		}
 		else if (valueType->typeKind != AST::TypeKind::Optional && type->typeKind == AST::TypeKind::Optional &&
 			CompareTypes(type->optionalType.elementType, valueType))
 		{
@@ -1066,8 +1070,18 @@ class CodegenC
 	{
 		if (expression->isCast)
 		{
-			SnekAssert(expression->arguments.size == 1);
-			return castValue(expression->arguments[0], expression->castDstType);
+			if (expression->castDstType->typeKind == AST::TypeKind::String && expression->arguments.size == 2 &&
+				expression->arguments[0]->valueType->typeKind == AST::TypeKind::Pointer &&
+				expression->arguments[0]->valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
+				expression->arguments[0]->valueType->pointerType.elementType->integerType.bitWidth == 8)
+			{
+				return "(string){" + genExpression(expression->arguments[0]) + "," + genExpression(expression->arguments[1]) + "}";
+			}
+			else
+			{
+				SnekAssert(expression->arguments.size == 1);
+				return castValue(expression->arguments[0], expression->castDstType);
+			}
 		}
 
 		//auto parentStream = currentStream;
@@ -1302,7 +1316,7 @@ class CodegenC
 					if (expression->fieldIndex == 0)
 						return genExpression(expression->operand) + ".length";
 					else if (expression->fieldIndex == 1)
-						return genExpression(expression->operand) + ".buffer";
+						return genExpression(expression->operand) + ".ptr";
 					else
 					{
 						SnekAssert(false);
@@ -1314,7 +1328,7 @@ class CodegenC
 					if (expression->fieldIndex == 0)
 						return std::to_string(expression->operand->valueType->arrayType.length);
 					else if (expression->fieldIndex == 1)
-						return genExpression(expression->operand);
+						return genExpression(expression->operand) + ".buffer";
 					else
 					{
 						SnekAssert(false);
@@ -1465,6 +1479,12 @@ class CodegenC
 			return getFunctionValue(expression->operatorOverload) + "(" + castValue(left, expression->left->valueType, expression->valueType) + "," + castValue(right, expression->right->valueType, expression->valueType) + ")";
 		}
 
+		if (expression->left->valueType->typeKind == AST::TypeKind::Pointer && expression->right->valueType->typeKind == AST::TypeKind::Integer
+			&& (expression->operatorType == AST::BinaryOperatorType::Add || expression->operatorType == AST::BinaryOperatorType::Subtract))
+		{
+			return left + (expression->operatorType == AST::BinaryOperatorType::Add ? "+" : "-") + right;
+		}
+
 		switch (expression->operatorType)
 		{
 		case AST::BinaryOperatorType::Add:
@@ -1568,7 +1588,8 @@ class CodegenC
 		newLocalName(val);
 		*instructionStream << genType(expression->thenValue->valueType) << " " << val << ";";
 		newLine();
-		*instructionStream << "if(" << genExpression(expression->condition) << "){";
+		std::string condition = genExpression(expression->condition);
+		*instructionStream << "if(" << condition << "){";
 		std::string then = genExpression(expression->thenValue);
 		*instructionStream << val << "=" << then << ";}else{";
 		std::string els = genExpression(expression->elseValue);
@@ -1627,21 +1648,21 @@ class CodegenC
 
 	void genStatementCompound(AST::CompoundStatement* statement)
 	{
-		//*instructionStream << "{";
+		*instructionStream << "{";
 		//indentation++;
 		//newLine();
 
-		//pushScope();
+		pushScope();
 		for (int i = 0; i < statement->statements.size; i++)
 		{
 			genStatement(statement->statements[i]);
 		}
-		//popScope();
+		popScope();
 
 		//instructionStream->seekp(-1, instructionStream->cur);
 		//indentation--;
 		//newLine();
-		//*instructionStream << "}";
+		*instructionStream << "}";
 	}
 
 	char getLastNonWhitespaceChar(std::stringstream& stream)

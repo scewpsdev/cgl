@@ -48,6 +48,15 @@ void StringBufferAppend(StringBuffer& buffer, const char* str) {
 	buffer.buffer[buffer.length] = 0;
 }
 
+void StringBufferAppend(StringBuffer& buffer, const char* str, int len) {
+	if (buffer.length + len > buffer.capacity) {
+		StringBufferResize(buffer, buffer.capacity + len + max(buffer.capacity / 2, 1));
+	}
+	memcpy(buffer.buffer + buffer.length, str, len * sizeof(char));
+	buffer.length += len;
+	buffer.buffer[buffer.length] = 0;
+}
+
 void StringBufferAppend(StringBuffer& buffer, char c) {
 	if (buffer.length + 1 > buffer.capacity) {
 		StringBufferResize(buffer, buffer.capacity + max(buffer.capacity / 2, 1));

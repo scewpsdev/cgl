@@ -113,7 +113,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -129,7 +129,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,6 +150,7 @@
     <ClCompile Include="src\cgl\parser\input.cpp" />
     <ClCompile Include="src\cgl\parser\lexer.cpp" />
     <ClCompile Include="src\cgl\parser\Parser.cpp" />
+    <ClCompile Include="src\cgl\Platform.cpp" />
     <ClCompile Include="src\cgl\semantics\Enum.cpp" />
     <ClCompile Include="src\cgl\semantics\Exprdef.cpp" />
     <ClCompile Include="src\cgl\semantics\Function.cpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="src\cgl\parser\Keywords.h" />
     <ClInclude Include="src\cgl\parser\lexer.h" />
     <ClInclude Include="src\cgl\parser\Parser.h" />
+    <ClInclude Include="src\cgl\Platform.h" />
     <ClInclude Include="src\cgl\semantics\Enum.h" />
     <ClInclude Include="src\cgl\semantics\Exprdef.h" />
     <ClInclude Include="src\cgl\semantics\Function.h" />
