@@ -34,6 +34,7 @@ namespace AST
 	struct Statement : Element
 	{
 		StatementType type;
+		SourceLocation end = {};
 
 
 		Statement(File* file, const SourceLocation& location, StatementType type);
@@ -64,7 +65,7 @@ namespace AST
 		List<Statement*> statements;
 
 
-		CompoundStatement(File* file, const SourceLocation& location, const List<Statement*>& statements);
+		CompoundStatement(File* file, const SourceLocation& start, const SourceLocation& end, const List<Statement*>& statements);
 		virtual ~CompoundStatement();
 
 		virtual Element* copy() override;
@@ -120,7 +121,7 @@ namespace AST
 		ControlFlowHandle continueHandle = nullptr;
 
 
-		WhileLoop(File* file, const SourceLocation& location, Expression* condition, Statement* body);
+		WhileLoop(File* file, const SourceLocation& start, const SourceLocation& end, Expression* condition, Statement* body);
 		virtual ~WhileLoop();
 
 		virtual Element* copy() override;
@@ -143,8 +144,8 @@ namespace AST
 		ControlFlowHandle continueHandle = nullptr;
 
 
-		ForLoop(File* file, const SourceLocation& location, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body);
-		ForLoop(File* file, const SourceLocation& location, char* iteratorName, Expression* container, Statement* body);
+		ForLoop(File* file, const SourceLocation& start, const SourceLocation& end, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body);
+		ForLoop(File* file, const SourceLocation& start, const SourceLocation& end, char* iteratorName, Expression* container, Statement* body);
 		virtual ~ForLoop();
 
 		virtual Element* copy() override;

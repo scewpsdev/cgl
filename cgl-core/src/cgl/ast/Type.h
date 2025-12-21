@@ -2,6 +2,7 @@
 
 #include "Element.h"
 
+#include "cgl/parser/lexer.h"
 #include "cgl/utils/List.h"
 
 #include <stdint.h>
@@ -92,6 +93,7 @@ namespace AST
 	struct NamedType : Type
 	{
 		char* name;
+		Token nameToken;
 
 		bool hasGenericArgs;
 		List<Type*> genericArgs;

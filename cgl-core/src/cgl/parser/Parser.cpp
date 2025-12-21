@@ -196,7 +196,9 @@ static AST::Type* ParseElementType(Parser* parser)
 				NextToken(parser); // >
 			}
 
-			return new AST::NamedType(parser->module, inputState, name, hasGenericArgs, genericArgs);
+			AST::NamedType* type = new AST::NamedType(parser->module, inputState, name, hasGenericArgs, genericArgs);
+			type->nameToken = tok;
+			return type;
 		}
 		}
 	}
@@ -557,8 +559,11 @@ static AST::Expression* ParseAtom(Parser* parser)
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
 	{
-		char* name = GetTokenString(NextToken(parser));
-		return new AST::Identifier(parser->module, inputState, name);
+		Token nameToken = NextToken(parser);
+		char* name = GetTokenString(nameToken);
+		AST::Identifier* identifier = new AST::Identifier(parser->module, inputState, name);
+		identifier->nameToken = nameToken;
+		return identifier;
 	}
 	else if (NextTokenIs(parser, '('))
 	{
@@ -1268,7 +1273,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 
 		NextToken(parser); // }
 
-		return new AST::CompoundStatement(parser->module, inputState, statements);
+		AST::SourceLocation end = parser->lexer->input.state;
+
+		return new AST::CompoundStatement(parser->module, inputState, end, statements);
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_IF))
 	{
@@ -1299,7 +1306,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 
 		AST::Statement* body = ParseStatement(parser);
 
-		return new AST::WhileLoop(parser->module, inputState, condition, body);
+		AST::SourceLocation end = parser->lexer->input.state;
+
+		return new AST::WhileLoop(parser->module, inputState, end, condition, body);
 	}
 	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_FOR))
 	{
@@ -1374,7 +1383,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 				}
 				*/
 
-				return new AST::ForLoop(parser->module, inputState, initStatement, conditionExpr, iterateExpr, body);
+				AST::SourceLocation end = parser->lexer->input.state;
+
+				return new AST::ForLoop(parser->module, inputState, end, initStatement, conditionExpr, iterateExpr, body);
 			}
 			else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT) || NextTokenIsKeyword(parser, KEYWORD_TYPE_VARIABLE))
 			{
@@ -1391,7 +1402,9 @@ static AST::Statement* ParseStatement(Parser* parser)
 
 					AST::Statement* body = ParseStatement(parser);
 
-					return new AST::ForLoop(parser->module, inputState, iteratorName, container, body);
+					AST::SourceLocation end = parser->lexer->input.state;
+
+					return new AST::ForLoop(parser->module, inputState, end, iteratorName, container, body);
 				}
 				else
 				{

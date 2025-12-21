@@ -45,9 +45,10 @@ bool CGLCompiler::compile()
 	bool success = true;
 
 	Parser parser(this);
-	for (SourceFile& sourceFile : sourceFiles)
+	for (int i = 0; i < sourceFiles.size; i++)
 	{
 		// TODO multithreading
+		SourceFile& sourceFile = sourceFiles[i];
 		if (AST::File* ast = parser.run(sourceFile))
 			asts.add(ast);
 		else

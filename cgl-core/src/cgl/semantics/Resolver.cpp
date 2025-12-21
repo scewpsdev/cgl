@@ -218,6 +218,8 @@ static bool ResolveAnyType(Resolver* resolver, AST::AnyType* type)
 
 static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 {
+	resolver->namedTypes.add(type);
+
 	if (AST::Struct* structDecl = FindStruct(resolver, type->name))
 	{
 		if (structDecl->isGeneric)
@@ -675,6 +677,8 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 
 static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 {
+	resolver->identifiers.add(expr);
+
 	if (Variable* variable = resolver->findVariable(expr->name))
 	{
 		expr->valueType = variable->type;
@@ -1017,7 +1021,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 					functionOverloads->get(0)->genericInstances.add(function);
 
 					Scope* callerScope = resolver->scope;
-					resolver->scope = nullptr;
+					resolver->scope = resolver->globalScope;
 
 					result = ResolveFunctionHeader(resolver, function) && result;
 					result = ResolveFunction(resolver, function) && result;
@@ -1321,7 +1325,7 @@ static bool ResolveSubscriptOperator(Resolver* resolver, AST::SubscriptOperator*
 							function->genericInstances.add(instance);
 
 							Scope* callerScope = resolver->scope;
-							resolver->scope = nullptr;
+							resolver->scope = resolver->globalScope;
 
 							result = ResolveFunctionHeader(resolver, instance) && result;
 							result = ResolveFunction(resolver, instance) && result;
@@ -1405,13 +1409,16 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 {
 	if (expr->operand->type == AST::ExpressionType::Identifier)
 	{
-		const char* nameSpace = ((AST::Identifier*)expr->operand)->name;
+		AST::Identifier* identifier = (AST::Identifier*)expr->operand;
+		const char* nameSpace = identifier->name;
 
 		//if (AST::File* file = FindFileWithNamespace(resolver, nameSpace, resolver->currentFile))
 		if (!resolver->findVariable(nameSpace))
 		{
 			if (AST::Module* module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile))
 			{
+				identifier->module = module;
+
 				//if (AST::File* file = module->file)
 				for (AST::File* file : module->files)
 				{
@@ -1441,6 +1448,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 			}
 			else if (AST::Enum* en = FindEnum(resolver, nameSpace))
 			{
+				identifier->enumDecl = en;
 				for (int i = 0; i < en->values.size; i++)
 				{
 					if (strcmp(en->values[i]->name, expr->name) == 0)
@@ -1458,6 +1466,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 
 		if (KeywordType keywordType = getKeywordType(nameSpace, (int)strlen(nameSpace)))
 		{
+			identifier->builtinType = true;
+
 			if (keywordType == KEYWORD_TYPE_INT8)
 			{
 				if (strcmp(expr->name, "min") == 0)
@@ -2296,12 +2306,12 @@ static bool ResolveCompoundStatement(Resolver* resolver, AST::CompoundStatement*
 {
 	bool result = true;
 
-	resolver->pushScope("");
+	resolver->pushScope("compound", statement->location);
 	for (int i = 0; i < statement->statements.size; i++)
 	{
 		result = ResolveStatement(resolver, statement->statements[i]) && result;
 	}
-	resolver->popScope();
+	resolver->popScope(statement->end);
 
 	return result;
 }
@@ -2424,13 +2434,13 @@ static bool ResolveWhileLoop(Resolver* resolver, AST::WhileLoop* statement)
 {
 	bool result = true;
 
-	resolver->pushScope("");
+	resolver->pushScope("while", statement->location);
 	resolver->scope->branchDst = statement;
 
 	result = ResolveExpression(resolver, statement->condition) && result;
 	result = ResolveStatement(resolver, statement->body) && result;
 
-	resolver->popScope();
+	resolver->popScope(statement->end);
 
 	return result;
 }
@@ -2439,7 +2449,7 @@ static bool ResolveForLoop(Resolver* resolver, AST::ForLoop* statement)
 {
 	bool result = true;
 
-	resolver->pushScope("");
+	resolver->pushScope("for", statement->location);
 	resolver->scope->branchDst = statement;
 
 	if (!statement->iteratorName)
@@ -2503,7 +2513,7 @@ static bool ResolveForLoop(Resolver* resolver, AST::ForLoop* statement)
 
 	result = ResolveStatement(resolver, statement->body) && result;
 
-	resolver->popScope();
+	resolver->popScope(statement->end);
 
 	return result;
 }
@@ -2834,7 +2844,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 			AST::Function* lastFunction = resolver->currentFunction;
 			resolver->currentFunction = decl;
 
-			resolver->pushScope(decl->name);
+			resolver->pushScope(decl->name, decl->location);
 
 			//decl->paramVariables.resize(decl->paramTypes.size);
 
@@ -2855,7 +2865,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 			result = ResolveStatement(resolver, decl->body) && result;
 
-			resolver->popScope();
+			resolver->popScope(decl->endLocation);
 
 			resolver->currentFunction = lastFunction;
 		}
@@ -3141,7 +3151,7 @@ static bool ResolveClassMethod(Resolver* resolver, AST::Function* decl)
 	AST::Function* lastFunction = resolver->currentFunction;
 	resolver->currentFunction = decl;
 
-	resolver->pushScope(decl->name);
+	resolver->pushScope(decl->name, decl->location);
 
 	//decl->paramVariables.resize(decl->paramTypes.size);
 
@@ -3167,7 +3177,7 @@ static bool ResolveClassMethod(Resolver* resolver, AST::Function* decl)
 
 	result = ResolveStatement(resolver, decl->body) && result;
 
-	resolver->popScope();
+	resolver->popScope(decl->endLocation);
 
 	resolver->currentFunction = lastFunction;
 
@@ -3185,7 +3195,7 @@ static bool ResolveClassConstructor(Resolver* resolver, AST::Constructor* decl)
 	AST::Function* lastFunction = resolver->currentFunction;
 	resolver->currentFunction = decl;
 
-	resolver->pushScope(decl->name);
+	resolver->pushScope(decl->name, decl->location);
 
 	//decl->paramVariables.resize(decl->paramTypes.size);
 
@@ -3210,7 +3220,7 @@ static bool ResolveClassConstructor(Resolver* resolver, AST::Constructor* decl)
 
 	result = ResolveStatement(resolver, decl->body) && result;
 
-	resolver->popScope();
+	resolver->popScope(decl->endLocation);
 
 	resolver->currentFunction = lastFunction;
 
@@ -3751,11 +3761,11 @@ bool Resolver::run()
 	currentFunction = nullptr;
 	currentElement = nullptr;
 
-	scope = nullptr;
+	globalScope = new Scope();
+	scope = globalScope;
 
 	result = ResolveModuleHeaders(this) && result;
-	if (result)
-		result = ResolveModules(this);
+	result = ResolveModules(this) && result;
 
 	if (!entryPoint && !context->staticLibrary && !context->sharedLibrary)
 	{
@@ -3766,20 +3776,23 @@ bool Resolver::run()
 	return result;
 }
 
-Scope* Resolver::pushScope(const char* name)
+Scope* Resolver::pushScope(const char* name, AST::SourceLocation& location)
 {
 	Scope* newScope = new Scope();
 	newScope->parent = scope;
 	newScope->name = name;
+	newScope->start = location;
+	scope->children.add(newScope);
 	scope = newScope;
 	return newScope;
 }
 
-void Resolver::popScope()
+void Resolver::popScope(AST::SourceLocation& location)
 {
+	SnekAssert(location.line != 0 && location.col != 0);
 	Scope* oldScope = scope;
+	oldScope->end = location;
 	scope = oldScope->parent;
-	delete oldScope;
 }
 
 AST::File* Resolver::findFileByName(const char* name)

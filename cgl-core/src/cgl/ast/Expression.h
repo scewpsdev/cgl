@@ -3,6 +3,7 @@
 #include "Element.h"
 #include "Type.h"
 
+#include "cgl/parser/lexer.h"
 #include "cgl/semantics/Type.h"
 
 
@@ -236,12 +237,17 @@ namespace AST
 	struct Identifier : Expression
 	{
 		char* name;
+		Token nameToken;
 
 		Variable* variable = nullptr;
 		Expression* exprdefValue = nullptr;
 		EnumValue* enumValue = nullptr;
 
 		List<Function*> functions;
+
+		struct Module* module = nullptr;
+		struct Enum* enumDecl = nullptr;
+		bool builtinType = false;
 
 
 		Identifier(File* file, const SourceLocation& location, char* name);

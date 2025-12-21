@@ -37,9 +37,10 @@ namespace AST
 		return new ExpressionStatement(file, location, (Expression*)expression->copy());
 	}
 
-	CompoundStatement::CompoundStatement(File* file, const SourceLocation& location, const List<Statement*>& statements)
-		: Statement(file, location, StatementType::Compound), statements(statements)
+	CompoundStatement::CompoundStatement(File* file, const SourceLocation& start, const SourceLocation& end, const List<Statement*>& statements)
+		: Statement(file, start, StatementType::Compound), statements(statements)
 	{
+		this->end = end;
 	}
 
 	CompoundStatement::~CompoundStatement()
@@ -58,7 +59,7 @@ namespace AST
 		for (int i = 0; i < statements.size; i++)
 			statementsCopy.add((Statement*)statements[i]->copy());
 
-		return new CompoundStatement(file, location, statementsCopy);
+		return new CompoundStatement(file, location, end, statementsCopy);
 	}
 
 	VariableDeclarator::VariableDeclarator(File* file, const SourceLocation& location, char* name, Expression* value)
@@ -124,9 +125,10 @@ namespace AST
 		return new IfStatement(file, location, (Expression*)condition->copy(), (Statement*)thenStatement->copy(), elseStatement ? (Statement*)elseStatement->copy() : nullptr);
 	}
 
-	WhileLoop::WhileLoop(File* file, const SourceLocation& location, Expression* condition, Statement* body)
+	WhileLoop::WhileLoop(File* file, const SourceLocation& start, const SourceLocation& end, Expression* condition, Statement* body)
 		: Statement(file, location, StatementType::While), condition(condition), body(body)
 	{
+		this->end = end;
 	}
 
 	WhileLoop::~WhileLoop()
@@ -139,17 +141,19 @@ namespace AST
 
 	Element* WhileLoop::copy()
 	{
-		return new WhileLoop(file, location, (Expression*)condition->copy(), (Statement*)body->copy());
+		return new WhileLoop(file, location, end, (Expression*)condition->copy(), (Statement*)body->copy());
 	}
 
-	ForLoop::ForLoop(File* file, const SourceLocation& location, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body)
-		: Statement(file, location, StatementType::For), initStatement(initStatement), conditionExpr(conditionExpr), iterateExpr(iterateExpr), body(body)
+	ForLoop::ForLoop(File* file, const SourceLocation& start, const SourceLocation& end, Statement* initStatement, Expression* conditionExpr, Expression* iterateExpr, Statement* body)
+		: Statement(file, start, StatementType::For), initStatement(initStatement), conditionExpr(conditionExpr), iterateExpr(iterateExpr), body(body)
 	{
+		this->end = end;
 	}
 
-	ForLoop::ForLoop(File* file, const SourceLocation& location, char* iteratorName, Expression* container, Statement* body)
-		: Statement(file, location, StatementType::For), iteratorName(iteratorName), container(container), body(body)
+	ForLoop::ForLoop(File* file, const SourceLocation& start, const SourceLocation& end, char* iteratorName, Expression* container, Statement* body)
+		: Statement(file, start, StatementType::For), iteratorName(iteratorName), container(container), body(body)
 	{
+		this->end = end;
 	}
 
 	ForLoop::~ForLoop()
@@ -174,7 +178,7 @@ namespace AST
 
 	Element* ForLoop::copy()
 	{
-		return new ForLoop(file, location, initStatement ? (Statement*)initStatement->copy() : nullptr, conditionExpr ? (Expression*)conditionExpr->copy() : nullptr, iterateExpr ? (Expression*)iterateExpr->copy() : nullptr, (Statement*)body->copy());
+		return new ForLoop(file, location, end, initStatement ? (Statement*)initStatement->copy() : nullptr, conditionExpr ? (Expression*)conditionExpr->copy() : nullptr, iterateExpr ? (Expression*)iterateExpr->copy() : nullptr, (Statement*)body->copy());
 	}
 
 	Break::Break(File* file, const SourceLocation& location)

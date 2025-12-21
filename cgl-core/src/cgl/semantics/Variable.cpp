@@ -55,7 +55,7 @@ TypeID Resolver::getGenericTypeArgument(const char* name)
 
 Variable* Resolver::findLocalVariableInScope(const char* name, Scope* scope, bool recursive)
 {
-	if (!scope)
+	if (scope == globalScope)
 		return nullptr;
 	// iterate backwards to improve error messages when shadowing variable names
 	for (int i = scope->localVariables.size - 1; i >= 0; i--)
@@ -66,7 +66,7 @@ Variable* Resolver::findLocalVariableInScope(const char* name, Scope* scope, boo
 			return variable;
 		}
 	}
-	if (recursive && scope->parent)
+	if (recursive && scope->parent != globalScope)
 	{
 		return findLocalVariableInScope(name, scope->parent, recursive);
 	}

@@ -1,9 +1,80 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
+#include "nlohmann/json.hpp"
+
+#include "cgl/parser/Parser.h"
+#include "cgl/semantics/Resolver.h"
+
+
+enum LSPTokenType
+{
+	LSP_TOKEN_NAMESPACE,
+	LSP_TOKEN_TYPE,
+	LSP_TOKEN_CLASS,
+	LSP_TOKEN_ENUM,
+	LSP_TOKEN_STRUCT,
+	LSP_TOKEN_VARIABLE,
+	LSP_TOKEN_ENUM_VALUE,
+	LSP_TOKEN_FUNCTION,
+	LSP_TOKEN_MACRO,
+	LSP_TOKEN_KEYWORD,
+	LSP_TOKEN_COMMENT,
+	LSP_TOKEN_STRING,
+	LSP_TOKEN_NUMBER,
+	LSP_TOKEN_OPERATOR,
+};
+
+struct LSPToken
+{
+	Token token;
+	int type;
+	int modifiers;
+};
+
+enum CompletionItemType
+{
+	COMPLETION_ITEM_TEXT = 1,
+	COMPLETION_ITEM_METHOD = 2,
+	COMPLETION_ITEM_FUNCTION = 3,
+	COMPLETION_ITEM_CONSTRUCTOR = 4,
+	COMPLETION_ITEM_FIELD = 5,
+	COMPLETION_ITEM_VARIABLE = 6,
+	COMPLETION_ITEM_CLASS = 7,
+	COMPLETION_ITEM_INTERFACE = 8,
+	COMPLETION_ITEM_MODULE = 9,
+	COMPLETION_ITEM_PROPERTY = 10,
+	COMPLETION_ITEM_UNIT = 11,
+	COMPLETION_ITEM_VALUE = 12,
+	COMPLETION_ITEM_ENUM = 13,
+	COMPLETION_ITEM_KEYWORD = 14,
+	COMPLETION_ITEM_SNIPPET = 15,
+	COMPLETION_ITEM_COLOR = 16,
+	COMPLETION_ITEM_FILE = 17,
+	COMPLETION_ITEM_REFERENCE = 18,
+	COMPLETION_ITEM_FOLDER = 19,
+	COMPLETION_ITEM_ENUM_MEMBER = 20,
+	COMPLETION_ITEM_CONSTANT = 21,
+	COMPLETION_ITEM_STRUCT = 22,
+	COMPLETION_ITEM_EVENT = 23,
+	COMPLETION_ITEM_OPERATOR = 24,
+	COMPLETION_ITEM_TYPE_PARAMETER = 25,
+};
 
 struct Document
 {
+	std::string uri;
 	std::string text;
+
+	CGLCompiler* compiler;
+	Lexer* lexer;
+	Parser* parser;
+	Resolver* resolver;
+	AST::File* ast;
+
+
+	void reparse(std::vector<int>& data);
+	void autocomplete(nlohmann::json& items, int line, int col);
 };

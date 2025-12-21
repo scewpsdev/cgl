@@ -24,10 +24,13 @@ struct Scope
 {
 	Scope* parent = NULL;
 	const char* name;
+	List<Scope*> children = {};
+	AST::SourceLocation start = {};
+	AST::SourceLocation end = {};
 
 	AST::Statement* branchDst;
 
-	List<Variable*> localVariables;
+	List<Variable*> localVariables = {};
 };
 
 class CGLCompiler;
@@ -49,9 +52,13 @@ struct Resolver
 	//AstStatement* currentStatement;
 	//AstExpression* currentExpression;
 
+	Scope* globalScope;
 	Scope* scope = nullptr;
 
 	TypeID expectedType = nullptr;
+
+	List<AST::Identifier*> identifiers;
+	List<AST::NamedType*> namedTypes;
 
 
 	Resolver(CGLCompiler* context, List<AST::File*>& asts);
@@ -59,8 +66,8 @@ struct Resolver
 
 	bool run();
 
-	Scope* pushScope(const char* name);
-	void popScope();
+	Scope* pushScope(const char* name, AST::SourceLocation& location);
+	void popScope(AST::SourceLocation& location);
 
 	AST::File* findFileByName(const char* name);
 
