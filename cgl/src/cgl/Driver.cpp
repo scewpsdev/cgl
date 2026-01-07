@@ -8,6 +8,47 @@
 #include <filesystem>
 
 
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 7
+#define VERSION_PATCH 1
+#define VERSION_SUFFIX "-alpha"
+
+#define OPT_BUILD_HELP "-help"
+#define OPT_BUILD_OUTPATH "-o"
+#define OPT_BUILD_LINKER_PATH "-L"
+#define OPT_BUILD_LINKER_FILE "-l"
+#define OPT_BUILD_PRINT_IR "-print-ir"
+#define OPT_BUILD_GEN_DEBUG_INFO "-debuginfo"
+#define OPT_BUILD_OPTIMIZE "-optimize"
+#define OPT_BUILD_STATIC_LIBRARY "-library"
+#define OPT_BUILD_SHARED_LIBRARY "-shared"
+#define OPT_BUILD_GEN_RUNTIME_STACKTRACE "-runtime-stacktrace"
+
+
+void printBuildHelp(char linePrefix)
+{
+	printf("%cbuild - Builds source files into a binary file.\n", linePrefix);
+	printf("%c\t%s - The path of the output binary.\n", linePrefix, OPT_BUILD_OUTPATH);
+	printf("%c\t%s - Linker path for static libraries to be linked.\n", linePrefix, OPT_BUILD_LINKER_PATH);
+	printf("%c\t%s - Name of a static library to be linked.\n", linePrefix, OPT_BUILD_LINKER_FILE);
+	printf("%c\t%s - Print the intermediate representation (such as C or LLVM IR) of the used backend to stdout. Useful for debugging code generation.\n", linePrefix, OPT_BUILD_PRINT_IR);
+	printf("%c\t%s - Generate debug information long with the binaries.\n", linePrefix, OPT_BUILD_GEN_DEBUG_INFO);
+	printf("%c\t%s - Optimize the binaries.\n", linePrefix, OPT_BUILD_OPTIMIZE);
+	printf("%c\t%s - Build a static library. This does not invoke the linker.\n", linePrefix, OPT_BUILD_STATIC_LIBRARY);
+	printf("%c\t%s - Build a shared library. This performs a link just like when building an executable.\n", linePrefix, OPT_BUILD_SHARED_LIBRARY);
+	printf("%c\t%s - Generate rudimentary runtime stacktrace information that gets printed to stderr on segfault.\n", linePrefix, OPT_BUILD_GEN_RUNTIME_STACKTRACE);
+}
+
+void printRunHelp(char linePrefix)
+{
+	printf("%c\trun - Runs the main function of the given source files.\n", linePrefix);
+	printf("%c\t%s - Linker path for static libraries to be linked.\n", linePrefix, OPT_BUILD_LINKER_PATH);
+	printf("%c\t%s - Name of a static library to be linked.\n", linePrefix, OPT_BUILD_LINKER_FILE);
+	printf("%c\t%s - Print the intermediate representation (such as C or LLVM IR) of the used backend to stdout. Useful for debugging code generation.\n", linePrefix, OPT_BUILD_PRINT_IR);
+	printf("%c\t%s - Optimize the code before running it.\n", linePrefix, OPT_BUILD_OPTIMIZE);
+	printf("%c\t%s - Generate rudimentary runtime stacktrace information that gets printed to stderr on segfault.\n", linePrefix, OPT_BUILD_GEN_RUNTIME_STACKTRACE);
+}
+
 static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
 {
 	if (context->disableError)
@@ -193,9 +234,8 @@ static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const cha
 	return result;
 }
 
-int main(int argc, char* argv[])
+int build(int argc, char* argv[])
 {
-	bool run = false;
 	const char* outPath = "a.exe";
 
 	CGLCompiler compiler;
@@ -205,12 +245,17 @@ int main(int argc, char* argv[])
 
 	result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
 
-	for (int i = 1; i < argc; i++)
+	for (int i = 0; i < argc; i++)
 	{
 		const char* arg = argv[i];
 		if (strlen(arg) > 0 && arg[0] == '-')
 		{
-			if (strcmp(arg, "-o") == 0)
+			if (strcmp(arg, OPT_BUILD_HELP) == 0)
+			{
+				printBuildHelp(' ');
+				return 0;
+			}
+			else if (strcmp(arg, OPT_BUILD_OUTPATH) == 0)
 			{
 				if (i < argc - 1)
 				{
@@ -222,7 +267,7 @@ int main(int argc, char* argv[])
 					result = false;
 				}
 			}
-			else if (strcmp(arg, "-L") == 0)
+			else if (strcmp(arg, OPT_BUILD_LINKER_PATH) == 0)
 			{
 				if (i < argc - 1)
 					compiler.addLinkerPath(argv[++i]);
@@ -232,7 +277,7 @@ int main(int argc, char* argv[])
 					result = false;
 				}
 			}
-			else if (strcmp(arg, "-l") == 0)
+			else if (strcmp(arg, OPT_BUILD_LINKER_FILE) == 0)
 			{
 				if (i < argc - 1)
 					compiler.addLinkerFile(argv[++i]);
@@ -242,13 +287,11 @@ int main(int argc, char* argv[])
 					result = false;
 				}
 			}
-			else if (strcmp(arg, "-run") == 0)
-				run = true;
-			else if (strcmp(arg, "-print-ir") == 0)
+			else if (strcmp(arg, OPT_BUILD_PRINT_IR) == 0)
 				compiler.printIR = true;
-			else if (strcmp(arg, "-debuginfo") == 0)
+			else if (strcmp(arg, OPT_BUILD_GEN_DEBUG_INFO) == 0)
 				compiler.debugInfo = true;
-			else if (strcmp(arg, "-optimize") == 0)
+			else if (strcmp(arg, OPT_BUILD_OPTIMIZE) == 0)
 				compiler.optimization = 3;
 			else if (strlen(arg) == 3 && arg[0] == '-' && arg[1] == 'O')
 			{
@@ -261,11 +304,11 @@ int main(int argc, char* argv[])
 					SnekError(&compiler, "Invalid optimization level: %d, should be 0-3", arg[2] - '0');
 				}
 			}
-			else if (strcmp(arg, "-library") == 0)
+			else if (strcmp(arg, OPT_BUILD_STATIC_LIBRARY) == 0)
 				compiler.staticLibrary = true;
-			else if (strcmp(arg, "-shared") == 0)
+			else if (strcmp(arg, OPT_BUILD_SHARED_LIBRARY) == 0)
 				compiler.sharedLibrary = true;
-			else if (strcmp(arg, "-runtime-stack-trace") == 0)
+			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
 				compiler.runtimeStackTrace = true;
 			else
 			{
@@ -304,17 +347,8 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Compiling source files\n");
 			if (compiler.compile())
 			{
-				if (run)
-				{
-					fprintf(stderr, "Running code\n");
-					int result = compiler.run(0, nullptr);
-					fprintf(stderr, "Program exited with code %i\n", result);
-				}
-				else
-				{
-					fprintf(stderr, "Generating code\n");
-					compiler.output(outPath);
-				}
+				fprintf(stderr, "Generating code\n");
+				compiler.output(outPath);
 			}
 			else
 			{
@@ -331,4 +365,149 @@ int main(int argc, char* argv[])
 	compiler.terminate();
 
 	return result ? 0 : 1;
+}
+
+int run(int argc, char* argv[])
+{
+	CGLCompiler compiler;
+	compiler.init(OnCompilerMessage);
+
+	bool result = true;
+
+	result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
+
+	for (int i = 0; i < argc; i++)
+	{
+		const char* arg = argv[i];
+		if (strlen(arg) > 0 && arg[0] == '-')
+		{
+			if (strcmp(arg, OPT_BUILD_HELP) == 0)
+			{
+				printRunHelp(' ');
+				return 0;
+			}
+			else if (strcmp(arg, OPT_BUILD_LINKER_PATH) == 0)
+			{
+				if (i < argc - 1)
+					compiler.addLinkerPath(argv[++i]);
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a path", arg);
+					result = false;
+				}
+			}
+			else if (strcmp(arg, OPT_BUILD_LINKER_FILE) == 0)
+			{
+				if (i < argc - 1)
+					compiler.addLinkerFile(argv[++i]);
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a path", arg);
+					result = false;
+				}
+			}
+			else if (strcmp(arg, OPT_BUILD_PRINT_IR) == 0)
+				compiler.printIR = true;
+			else if (strcmp(arg, OPT_BUILD_OPTIMIZE) == 0)
+				compiler.optimization = 3;
+			else if (strlen(arg) == 3 && arg[0] == '-' && arg[1] == 'O')
+			{
+				if (arg[2] >= '0' && arg[2] <= '3')
+				{
+					compiler.optimization = arg[2] - '0';
+				}
+				else
+				{
+					SnekError(&compiler, "Invalid optimization level: %d, should be 0-3", arg[2] - '0');
+				}
+			}
+			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
+				compiler.runtimeStackTrace = true;
+			else
+			{
+				SnekError(&compiler, "Unknown argument %s", arg);
+				result = false;
+			}
+		}
+		else
+		{
+			char* path = _strdup(argv[i]);
+			const char* extension = GetExtensionFromPath(path);
+			char* moduleName = GetModuleNameFromPath(path);
+			if (strcmp(moduleName, "*") == 0)
+			{
+				char* folder = GetFolderFromPath(path);
+				result = AddSourceFolder(compiler, folder, extension, false) && result;
+				delete folder, moduleName;
+			}
+			else if (strcmp(moduleName, "**") == 0)
+			{
+				char* folder = GetFolderFromPath(path);
+				result = AddSourceFolder(compiler, folder, extension, true) && result;
+				delete folder, moduleName;
+			}
+			else
+			{
+				result = AddFile(compiler, path) && result;
+			}
+		}
+	}
+
+	if (result)
+	{
+		if (compiler.sourceFiles.size > 0)
+		{
+			fprintf(stderr, "Compiling source files\n");
+			if (compiler.compile())
+			{
+				fprintf(stderr, "Running code\n");
+				int result = compiler.run(0, nullptr);
+				fprintf(stderr, "Program exited with code %i\n", result);
+			}
+			else
+			{
+				result = false;
+			}
+		}
+		else
+		{
+			SnekError(&compiler, "No input files");
+			result = false;
+		}
+	}
+
+	compiler.terminate();
+
+	return result ? 0 : 1;
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc == 1 || argc >= 2 && strcmp(argv[1], "help") == 0)
+	{
+		printf("=== Sneklang Compiler version %d.%d.%d%s ===\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_SUFFIX);
+		printf("Commands:\n");
+
+		printBuildHelp('\t');
+		printRunHelp('\t');
+
+		printf("===\n");
+	}
+	else
+	{
+		const char* cmd = argv[1];
+		if (strcmp(cmd, "build") == 0)
+		{
+			return build(argc - 2, &argv[2]);
+		}
+		else if (strcmp(cmd, "run") == 0)
+		{
+			return run(argc - 2, &argv[2]);
+		}
+		else
+		{
+			fprintf(stderr, "Unknown command '%s'", cmd);
+			return 1;
+		}
+	}
 }

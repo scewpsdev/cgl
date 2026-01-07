@@ -41,7 +41,8 @@ int CGLCompiler::run(int argc, char* argv[])
 		std::string tmpDir = std::filesystem::temp_directory_path().string();
 
 		char name[256];
-		sprintf(name, "%s%s.c", tmpDir.c_str(), file->name);
+		sprintf(name, "%s%s.c", tmpDir.c_str(), file->getFullName());
+		CreateDirectories(name);
 		WriteText(cSrc.c_str(), name);
 
 		cmd << name << ' ';
