@@ -23,6 +23,8 @@
 #define OPT_BUILD_STATIC_LIBRARY "-library"
 #define OPT_BUILD_SHARED_LIBRARY "-shared"
 #define OPT_BUILD_GEN_RUNTIME_STACKTRACE "-runtime-stacktrace"
+#define OPT_BUILD_BACKEND_CLANG "-clang"
+#define OPT_BUILD_BACKEND_TCC "-tcc"
 
 
 void printBuildHelp(char linePrefix)
@@ -237,6 +239,8 @@ static bool AddSourceFolder(CGLCompiler& compiler, const char* folder, const cha
 int build(int argc, char* argv[])
 {
 	const char* outPath = "a.exe";
+	bool llvm = false;
+	bool tcc = false;
 
 	CGLCompiler compiler;
 	compiler.init(OnCompilerMessage);
@@ -310,6 +314,10 @@ int build(int argc, char* argv[])
 				compiler.sharedLibrary = true;
 			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
 				compiler.runtimeStackTrace = true;
+			else if (strcmp(arg, OPT_BUILD_BACKEND_CLANG) == 0)
+				llvm = true;
+			else if (strcmp(arg, OPT_BUILD_BACKEND_TCC) == 0)
+				tcc = true;
 			else
 			{
 				SnekError(&compiler, "Unknown argument %s", arg);
@@ -348,7 +356,10 @@ int build(int argc, char* argv[])
 			if (compiler.compile())
 			{
 				fprintf(stderr, "Generating code\n");
-				compiler.output(outPath);
+				if (llvm)
+					compiler.outputLLVM(outPath);
+				else
+					compiler.outputTCC(outPath);
 			}
 			else
 			{
@@ -369,6 +380,9 @@ int build(int argc, char* argv[])
 
 int run(int argc, char* argv[])
 {
+	bool llvm = false;
+	bool tcc = false;
+
 	CGLCompiler compiler;
 	compiler.init(OnCompilerMessage);
 
@@ -423,6 +437,10 @@ int run(int argc, char* argv[])
 			}
 			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
 				compiler.runtimeStackTrace = true;
+			else if (strcmp(arg, OPT_BUILD_BACKEND_CLANG) == 0)
+				llvm = true;
+			else if (strcmp(arg, OPT_BUILD_BACKEND_TCC) == 0)
+				tcc = true;
 			else
 			{
 				SnekError(&compiler, "Unknown argument %s", arg);
@@ -461,7 +479,11 @@ int run(int argc, char* argv[])
 			if (compiler.compile())
 			{
 				fprintf(stderr, "Running code\n");
-				int result = compiler.run(0, nullptr);
+				int result;
+				if (llvm)
+					result = compiler.runLLVM(0, nullptr);
+				else
+					result = compiler.runTCC(0, nullptr);
 				fprintf(stderr, "Program exited with code %i\n", result);
 			}
 			else

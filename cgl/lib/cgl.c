@@ -14,12 +14,10 @@
 #define	SIGTRAP	5 // debug break
 
 
-#ifdef __TINYC__
 void __debugbreak()
 {
 	raise(SIGTRAP);
 }
-#endif
 
 void __assertmsg(int x, const char* msg)
 {

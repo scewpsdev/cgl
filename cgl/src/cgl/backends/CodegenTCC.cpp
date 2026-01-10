@@ -8,7 +8,7 @@
 #include "CodegenC.h"
 
 
-int CGLCompiler::run(int argc, char* argv[])
+int CGLCompiler::runTCC(int argc, char* argv[])
 {
 	TCCState* tcc = tcc_new();
 
@@ -92,7 +92,7 @@ int CGLCompiler::run(int argc, char* argv[])
 	return result;
 }
 
-int CGLCompiler::output(const char* path)
+int CGLCompiler::outputTCC(const char* path)
 {
 	TCCState* tcc = tcc_new();
 

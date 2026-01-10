@@ -32,9 +32,7 @@ typedef struct { void* type; void* value; } any;
 #define __UINT64_MIN 0
 #define __UINT64_MAX 0xffffffffffffffff
 
-#ifdef __TINYC__
 void __debugbreak();
-#endif
 
 void __assertmsg(int x, const char* msg);
 #define assert(x, file, line, col) __assertmsg(x, "Assertion failed at " file ":" #line ":" #col ": " #x)

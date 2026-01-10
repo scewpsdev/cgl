@@ -8,7 +8,7 @@
 #include "CodegenC.h"
 
 
-int CGLCompiler::run(int argc, char* argv[])
+int CGLCompiler::runLLVM(int argc, char* argv[])
 {
 	std::stringstream cmd;
 
@@ -67,13 +67,13 @@ int CGLCompiler::run(int argc, char* argv[])
 	return system(cmdStr.c_str());
 }
 
-int CGLCompiler::output(const char* path)
+int CGLCompiler::outputLLVM(const char* path)
 {
 	std::stringstream cmd;
 
 	std::vector<std::string> tmpFiles;
 
-	cmd << "clang ";
+	cmd << "gcc ";
 
 	cmd << "-w ";
 	if (staticLibrary)
@@ -117,7 +117,7 @@ int CGLCompiler::output(const char* path)
 		cmd << "-L " << linkerPath;
 	}
 
-	//CreateDirectories(path);
+	CreateDirectories(path);
 	cmd << "-o " << path;
 
 	fprintf(stderr, "Running clang backend\n");

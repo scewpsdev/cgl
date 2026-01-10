@@ -35,6 +35,10 @@ public:
 	void addLinkerFile(const char* filename);
 	void addLinkerPath(const char* path);
 	bool compile();
-	int run(int argc, char* argv[]);
-	int output(const char* path);
+
+	int runLLVM(int argc, char* argv[]);
+	int outputLLVM(const char* path);
+
+	int runTCC(int argc, char* argv[]);
+	int outputTCC(const char* path);
 };
