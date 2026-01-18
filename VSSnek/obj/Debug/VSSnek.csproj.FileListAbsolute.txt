@@ -1,0 +1,14 @@
+D:\Dev\2023\CGL\VSSnek\bin\Debug\VSSnek.dll
+D:\Dev\2023\CGL\VSSnek\bin\Debug\VSSnek.pdb
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.csproj.AssemblyReference.cache
+D:\Dev\2023\CGL\VSSnek\obj\Debug\_EmptyResource.resources
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.csproj.GenerateResource.cache
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.GeneratedMSBuildEditorConfig.editorconfig
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.csproj.CoreCompileInputs.cache
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.dll
+D:\Dev\2023\CGL\VSSnek\obj\Debug\VSSnek.pdb
+D:\Dev\2023\CGL\VSSnek\bin\Debug\VSSnek.vsix
+D:\Dev\2023\CGL\VSSnek\bin\Debug\extension.vsixmanifest
+D:\Dev\2023\CGL\VSSnek\obj\Debug\extension.vsixmanifest
+D:\Dev\2023\CGL\VSSnek\obj\Debug\files.json
+D:\Dev\2023\CGL\VSSnek\obj\Debug\createTemplateManifests.cache
