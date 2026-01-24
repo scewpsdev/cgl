@@ -11,6 +11,7 @@ namespace AST
 {
 	struct Module;
 	struct Expression;
+	struct Scope;
 
 
 	struct File
@@ -37,6 +38,9 @@ namespace AST
 		List<Import*> imports;
 
 		List<Module*> dependencies;
+
+		List<AST::Identifier*> identifiers;
+		List<AST::NamedType*> namedTypes;
 
 
 		File(const char* name, int moduleID, SourceFile* sourceFile);

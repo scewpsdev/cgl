@@ -145,6 +145,9 @@ struct Lexer
 };
 
 
+extern const std::map<std::string, KeywordType> keywords;
+
+
 bool isAlpha(char c);
 bool isDigit(char c);
 

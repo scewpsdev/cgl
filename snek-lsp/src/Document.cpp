@@ -5,20 +5,9 @@
 
 #include "cgl/semantics/Variable.h"
 
-#include <stdarg.h>
-
 
 using namespace nlohmann;
 
-
-static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
-{
-	va_list args;
-	va_start(args, msg);
-	vfprintf(stderr, msg, args);
-	va_end(args);
-	fprintf(stderr, "\n");
-}
 
 static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 {
@@ -26,39 +15,20 @@ static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 		a->token.line == b->token.line && a->token.col == b->token.col ? 0 : 1;
 }
 
-void Document::reparse(std::vector<int>& data)
+void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>& data)
 {
-	uint64_t beforeParse = GetTimeNS();
-
-	if (compiler)
-		delete compiler;
-	if (lexer)
-		delete lexer;
-	if (parser)
-		delete parser;
-	if (resolver)
-		delete resolver;
-
-	compiler = new CGLCompiler();
-	compiler->init(OnCompilerMessage);
-	SourceFile sourceFile = {};
-	sourceFile.filename = uri.c_str();
-	sourceFile.name = "testfile";
-	sourceFile.source = text.c_str();
-
-	lexer = new Lexer(compiler, sourceFile.filename, sourceFile.source);
-	parser = new Parser(compiler);
-
 	std::vector<LSPToken> tokens;
 
 	auto addToken = [&tokens](Token token, int type, int modifiers)
-		{
-			tokens.push_back({ token, type, modifiers });
-		};
-
-	while (LexerHasNext(lexer))
 	{
-		Token token = LexerNext(lexer);
+		tokens.push_back({ token, type, modifiers });
+	};
+
+	Lexer lexer(compiler, uri.c_str(), text.c_str());
+
+	while (LexerHasNext(&lexer))
+	{
+		Token token = LexerNext(&lexer);
 
 		if (token.keywordType != KEYWORD_TYPE_NULL)
 		{
@@ -106,8 +76,6 @@ void Document::reparse(std::vector<int>& data)
 		}
 	}
 
-	ast = parser->run(sourceFile);
-
 	for (int i = 0; i < ast->functions.size; i++)
 	{
 		AST::Function* function = ast->functions[i];
@@ -119,14 +87,9 @@ void Document::reparse(std::vector<int>& data)
 		addToken(strct->nameToken, LSP_TOKEN_STRUCT, 0);
 	}
 
-	List<AST::File*> asts;
-	asts.add(ast);
-	resolver = new Resolver(compiler, asts);
-	resolver->run();
-
-	for (int i = 0; i < resolver->identifiers.size; i++)
+	for (int i = 0; i < ast->identifiers.size; i++)
 	{
-		AST::Identifier* identifier = resolver->identifiers[i];
+		AST::Identifier* identifier = ast->identifiers[i];
 		int type = identifier->functions.size ? LSP_TOKEN_FUNCTION :
 			//identifier->variable ? LSP_TOKEN_VARIABLE :
 			identifier->enumValue ? LSP_TOKEN_ENUM_VALUE :
@@ -138,9 +101,9 @@ void Document::reparse(std::vector<int>& data)
 		if (type != -1)
 			addToken(identifier->nameToken, type, 0);
 	}
-	for (int i = 0; i < resolver->namedTypes.size; i++)
+	for (int i = 0; i < ast->namedTypes.size; i++)
 	{
-		AST::NamedType* namedType = resolver->namedTypes[i];
+		AST::NamedType* namedType = ast->namedTypes[i];
 		int type = namedType->typeID->typeKind == AST::TypeKind::Struct ? LSP_TOKEN_STRUCT :
 			namedType->typeID->typeKind == AST::TypeKind::Class ? LSP_TOKEN_CLASS :
 			namedType->declaration->type == AST::DeclarationType::Enumeration ? LSP_TOKEN_ENUM :
@@ -169,11 +132,6 @@ void Document::reparse(std::vector<int>& data)
 		lastLine = line;
 		lastCol = col;
 	}
-
-	uint64_t afterParse = GetTimeNS();
-
-	float ms = (afterParse - beforeParse) / 1e6f;
-	fprintf(stderr, "parsed '%s' in %.3fms\n", uri.c_str(), ms);
 }
 
 static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
@@ -212,9 +170,9 @@ static void ProcessCompletionScope(Scope* scope, json& items, Resolver* resolver
 	}
 }
 
-void Document::autocomplete(json& items, int line, int col)
+void Document::autocomplete(AST::File* ast, Resolver* resolver, json& items, int line, int col)
 {
-	if (resolver)
+	if (ast)
 	{
 		if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
 		{

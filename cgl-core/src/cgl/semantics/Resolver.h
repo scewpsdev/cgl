@@ -52,13 +52,10 @@ struct Resolver
 	//AstStatement* currentStatement;
 	//AstExpression* currentExpression;
 
-	Scope* globalScope;
-	Scope* scope = nullptr;
-
 	TypeID expectedType = nullptr;
 
-	List<AST::Identifier*> identifiers;
-	List<AST::NamedType*> namedTypes;
+	Scope* globalScope;
+	Scope* scope = nullptr;
 
 
 	Resolver(CGLCompiler* context, List<AST::File*>& asts);

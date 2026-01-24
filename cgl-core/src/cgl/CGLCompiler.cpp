@@ -15,6 +15,15 @@ void CGLCompiler::terminate()
 	for (AST::File* file : asts)
 		delete file;
 	DestroyList(asts);
+
+	for (SourceFile& sourceFile : sourceFiles)
+	{
+		if (sourceFile.source)
+			delete sourceFile.source;
+	}
+
+	if (parser) delete parser;
+	if (resolver) delete resolver;
 }
 
 void CGLCompiler::addFile(const char* filename, const char* name, const char* src)
@@ -44,20 +53,30 @@ bool CGLCompiler::compile()
 
 	bool success = true;
 
-	Parser parser(this);
+	parser = new Parser(this);
 	for (int i = 0; i < sourceFiles.size; i++)
 	{
 		// TODO multithreading
 		SourceFile& sourceFile = sourceFiles[i];
-		if (AST::File* ast = parser.run(sourceFile))
+		if (AST::File* ast = parser->run(sourceFile))
 			asts.add(ast);
 		else
 			success = false;
-		success = success && !parser.failed;
+		success = success && !parser->failed;
 	}
 
-	Resolver resolver(this, asts);
-	success = resolver.run() && success;
+	resolver = new Resolver(this, asts);
+	success = resolver->run() && success;
 
 	return success;
+}
+
+AST::File* CGLCompiler::getASTByName(const char* name)
+{
+	for (int i = 0; i < asts.size; i++)
+	{
+		if (strcmp(asts[i]->name, name) == 0)
+			return asts[i];
+	}
+	return nullptr;
 }

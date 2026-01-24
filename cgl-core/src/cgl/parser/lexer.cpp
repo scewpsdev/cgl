@@ -12,7 +12,7 @@
 
 static const Token NULL_TOKEN = {};
 
-static const std::map<std::string, KeywordType> keywords =
+const std::map<std::string, KeywordType> keywords =
 {
 	{ KEYWORD_MODULE, KEYWORD_TYPE_MODULE },
 	{ KEYWORD_NAMESPACE, KEYWORD_TYPE_NAMESPACE },

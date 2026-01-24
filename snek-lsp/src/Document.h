@@ -68,13 +68,7 @@ struct Document
 	std::string uri;
 	std::string text;
 
-	CGLCompiler* compiler;
-	Lexer* lexer;
-	Parser* parser;
-	Resolver* resolver;
-	AST::File* ast;
 
-
-	void reparse(std::vector<int>& data);
-	void autocomplete(nlohmann::json& items, int line, int col);
+	void getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>& data);
+	void autocomplete(AST::File* ast, Resolver* resolver, nlohmann::json& items, int line, int col);
 };

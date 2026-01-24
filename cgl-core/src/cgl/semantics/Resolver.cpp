@@ -218,7 +218,7 @@ static bool ResolveAnyType(Resolver* resolver, AST::AnyType* type)
 
 static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 {
-	resolver->namedTypes.add(type);
+	resolver->currentFile->namedTypes.add(type);
 
 	if (AST::Struct* structDecl = FindStruct(resolver, type->name))
 	{
@@ -677,7 +677,7 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 
 static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 {
-	resolver->identifiers.add(expr);
+	resolver->currentFile->identifiers.add(expr);
 
 	if (Variable* variable = resolver->findVariable(expr->name))
 	{
@@ -3742,6 +3742,8 @@ static bool ResolveModules(Resolver* resolver)
 Resolver::Resolver(CGLCompiler* context, List<AST::File*>& asts)
 	: context(context), asts(asts)
 {
+	InitTypeData();
+
 	globalModule = CreateModule(this, "", nullptr);
 }
 
@@ -3753,8 +3755,6 @@ Resolver::~Resolver()
 bool Resolver::run()
 {
 	bool result = true;
-
-	InitTypeData();
 
 	currentFile = nullptr;
 

@@ -4,6 +4,9 @@
 
 #include "SourceFile.h"
 
+#include "cgl/parser/Parser.h"
+#include "cgl/semantics/Resolver.h"
+
 #include "cgl/ast/File.h"
 #include "cgl/utils/Log.h"
 #include "cgl/utils/List.h"
@@ -27,6 +30,9 @@ public:
 	int optimization = 0;
 	bool runtimeStackTrace = false;
 
+	Parser* parser;
+	Resolver* resolver;
+
 
 	void init(MessageCallback_t msgCallback);
 	void terminate();
@@ -41,4 +47,6 @@ public:
 
 	int runTCC(int argc, char* argv[]);
 	int outputTCC(const char* path);
+
+	AST::File* getASTByName(const char* name);
 };
