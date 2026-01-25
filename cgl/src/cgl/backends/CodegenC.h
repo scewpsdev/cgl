@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cgl/CGLCompiler.h"
 
 #include "cgl/File.h"
@@ -5,11 +7,6 @@
 #include "cgl/semantics/Variable.h"
 #include "cgl/semantics/Function.h"
 
-
-struct Scope
-{
-	Scope* parent = nullptr;
-};
 
 class CodegenC
 {
@@ -38,7 +35,6 @@ class CodegenC
 
 	AST::Function* currentFunction = nullptr;
 	AST::Statement* currentStatement = nullptr;
-	Scope* scope = nullptr;
 
 	int unnamedLocalId = 0;
 	int unnamedGlobalId = 0;
@@ -153,22 +149,6 @@ class CodegenC
 		stream << "\n#line " << line << " \"" << filename << "\"";
 		newLine(stream);
 	}*/
-
-	Scope* pushScope()
-	{
-		Scope* newScope = new Scope();
-		newScope->parent = scope;
-		scope = newScope;
-
-		return newScope;
-	}
-
-	void popScope()
-	{
-		Scope* lastScope = scope;
-		scope = lastScope->parent;
-		delete lastScope;
-	}
 
 	std::string fpPrecisionToString(FloatingPointPrecision precision)
 	{
@@ -1652,12 +1632,12 @@ class CodegenC
 		//indentation++;
 		//newLine();
 
-		pushScope();
+		//pushScope();
 		for (int i = 0; i < statement->statements.size; i++)
 		{
 			genStatement(statement->statements[i]);
 		}
-		popScope();
+		//popScope();
 
 		//instructionStream->seekp(-1, instructionStream->cur);
 		//indentation--;
@@ -2416,7 +2396,7 @@ class CodegenC
 
 			indentation++;
 			newLine();
-			pushScope();
+			//pushScope();
 
 			currentFunction = function;
 
@@ -2455,7 +2435,7 @@ class CodegenC
 
 			currentFunction = nullptr;
 
-			popScope();
+			//popScope();
 			stepBackWhitespace();
 			//instructionStream->seekp(-1, instructionStream->cur);
 			indentation--;

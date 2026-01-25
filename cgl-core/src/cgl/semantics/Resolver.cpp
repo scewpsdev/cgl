@@ -237,34 +237,37 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 				result = ResolveType(resolver, type->genericArgs[i]) && result;
 			}
 
-			AST::Struct* instance = structDecl->getGenericInstance(type->genericArgs);
-			if (!instance)
+			if (result)
 			{
-				AST::File* lastFile = resolver->currentFile;
-				resolver->currentFile = structDecl->file;
-
-				instance = (AST::Struct*)structDecl->copy();
-				instance->isGeneric = false;
-				instance->isGenericInstance = true;
-
-				instance->genericTypeArguments.resize(type->genericArgs.size);
-				for (int i = 0; i < type->genericArgs.size; i++)
+				AST::Struct* instance = structDecl->getGenericInstance(type->genericArgs);
+				if (!instance)
 				{
-					instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
+					AST::File* lastFile = resolver->currentFile;
+					resolver->currentFile = structDecl->file;
+
+					instance = (AST::Struct*)structDecl->copy();
+					instance->isGeneric = false;
+					instance->isGenericInstance = true;
+
+					instance->genericTypeArguments.resize(type->genericArgs.size);
+					for (int i = 0; i < type->genericArgs.size; i++)
+					{
+						instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
+					}
+
+					// add instance to list before resolving to avoid stack overflow with circular dependencies
+					structDecl->genericInstances.add(instance);
+
+					result = ResolveStructHeader(resolver, instance) && result;
+					result = ResolveStruct(resolver, instance) && result;
+
+					resolver->currentFile = lastFile;
 				}
 
-				// add instance to list before resolving to avoid stack overflow with circular dependencies
-				structDecl->genericInstances.add(instance);
-
-				result = ResolveStructHeader(resolver, instance) && result;
-				result = ResolveStruct(resolver, instance) && result;
-
-				resolver->currentFile = lastFile;
+				type->typeKind = AST::TypeKind::Struct;
+				type->typeID = instance->type;
+				type->declaration = instance;
 			}
-
-			type->typeKind = AST::TypeKind::Struct;
-			type->typeID = instance->type;
-			type->declaration = instance;
 
 			return result;
 		}
@@ -299,33 +302,36 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 				result = ResolveType(resolver, type->genericArgs[i]) && result;
 			}
 
-			AST::Class* instance = classDecl->getGenericInstance(type->genericArgs);
-			if (!instance)
+			if (result)
 			{
-				AST::File* lastFile = resolver->currentFile;
-				resolver->currentFile = classDecl->file;
-
-				instance = (AST::Class*)classDecl->copy();
-				instance->isGeneric = false;
-				instance->isGenericInstance = true;
-
-				instance->genericTypeArguments.resize(type->genericArgs.size);
-				for (int i = 0; i < type->genericArgs.size; i++)
+				AST::Class* instance = classDecl->getGenericInstance(type->genericArgs);
+				if (!instance)
 				{
-					instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
+					AST::File* lastFile = resolver->currentFile;
+					resolver->currentFile = classDecl->file;
+
+					instance = (AST::Class*)classDecl->copy();
+					instance->isGeneric = false;
+					instance->isGenericInstance = true;
+
+					instance->genericTypeArguments.resize(type->genericArgs.size);
+					for (int i = 0; i < type->genericArgs.size; i++)
+					{
+						instance->genericTypeArguments[i] = type->genericArgs[i]->typeID;
+					}
+
+					classDecl->genericInstances.add(instance);
+
+					result = ResolveClassHeader(resolver, instance) && result;
+					result = ResolveClass(resolver, instance) && result;
+
+					resolver->currentFile = lastFile;
 				}
 
-				classDecl->genericInstances.add(instance);
-
-				result = ResolveClassHeader(resolver, instance) && result;
-				result = ResolveClass(resolver, instance) && result;
-
-				resolver->currentFile = lastFile;
+				type->typeKind = AST::TypeKind::Class;
+				type->typeID = instance->type;
+				type->declaration = instance;
 			}
-
-			type->typeKind = AST::TypeKind::Class;
-			type->typeID = instance->type;
-			type->declaration = instance;
 
 			return result;
 		}

@@ -50,7 +50,10 @@ const char* LocalFilePath(const char* path)
 
 	static char result[512];
 	strcpy(result, localDirStr.c_str());
-	strcat(result, "/../../../cgl/");
+#if _DEBUG
+	strcat(result, "/../../..");
+#endif
+	strcat(result, "/cgl/");
 	strcat(result, path);
 
 	return result;

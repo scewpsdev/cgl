@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\cgl\backends\CodegenC.h">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\cgl\Driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -34,6 +31,9 @@
   <ItemGroup>
     <ClInclude Include="src\cgl\File.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cgl\backends\CodegenC.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

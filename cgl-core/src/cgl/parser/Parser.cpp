@@ -2664,6 +2664,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				SkipToken(parser, TOKEN_TYPE_OP_GREATER_THAN);
 			}
 
+			/*
 			if (NextTokenIs(parser, '('))
 			{
 				SkipToken(parser, '(');
@@ -2788,7 +2789,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 						returnType = ParseType(parser);
 					}
-					*/
+					*
 					returnType = type;
 
 					if (NextTokenIs(parser, ';'))
@@ -2812,10 +2813,11 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 				return function;
 			}
 			else
+			*/
 			{
 				List<AST::VariableDeclarator*> declarators;
 
-				SnekAssert(!isGeneric);
+				//SnekAssert(!isGeneric);
 
 				bool upcomingDeclarator = true;
 				while (HasNext(parser) && upcomingDeclarator)

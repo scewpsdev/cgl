@@ -16,6 +16,7 @@
 #include "cgl/parser/lexer.h"
 #include "cgl/parser/Parser.h"
 #include "cgl/semantics/Resolver.h"
+#include "cgl/semantics/Variable.h"
 
 
 using json = nlohmann::json;
@@ -72,11 +73,29 @@ static json CreateHoverResult(std::string contents)
 
 static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
 {
+	static const char* const MSG_TYPE_NAMES[MESSAGE_TYPE_MAX] = {
+		"<null>",
+		"info",
+		"warning",
+		"error",
+		"fatal error",
+	};
+
+	static char message[4192] = {};
+	message[0] = 0;
+
+	if (filename)
+		sprintf(message + strlen(message), "%s:%d:%d: ", filename, line, col);
+
+	if (msgType != MESSAGE_TYPE_INFO)
+		sprintf(message + strlen(message), "%s: ", MSG_TYPE_NAMES[msgType]);
+
 	va_list args;
 	va_start(args, msg);
-	vfprintf(stderr, msg, args);
+	vsprintf(message + strlen(message), msg, args);
 	va_end(args);
-	fprintf(stderr, "\n");
+
+	fprintf(stderr, "%s\n", message);
 }
 
 char* ReadText(const char* path)
@@ -147,6 +166,140 @@ static void reparse()
 
 	float ms = (afterParse - beforeParse) / 1e6f;
 	fprintf(stderr, "parsed %d files in %.3fms\n", (int)sourceFilesInWorkspace.size(), ms);
+}
+
+static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
+{
+	return (line > a.line || line == a.line && col >= a.col) && (line < b.line || line == b.line && col <= b.col);
+}
+
+static Scope* FindScopeAtSourceLocation(Scope* scope, int line, int col)
+{
+	Scope* result = nullptr;
+	if (IsInRange(scope->start, scope->end, line, col))
+		result = scope;
+
+	for (int i = 0; i < scope->children.size; i++)
+	{
+		if (Scope* childScope = FindScopeAtSourceLocation(scope->children[i], line, col))
+			result = childScope;
+	}
+
+	return result;
+}
+
+static void ProcessCompletionScope(Scope* scope, json& items, Resolver* resolver)
+{
+	for (int i = 0; i < scope->localVariables.size; i++)
+	{
+		items.push_back({
+			{"label", scope->localVariables[i]->name},
+			{"kind", COMPLETION_ITEM_VARIABLE},
+			});
+	}
+
+	if (scope->parent != resolver->globalScope)
+	{
+		ProcessCompletionScope(scope->parent, items, resolver);
+	}
+}
+
+static void autocompleteAST(AST::File* ast, Resolver* resolver, json& items)
+{
+	for (int i = 0; i < ast->globals.size; i++)
+	{
+		bool isConstant = (int)ast->globals[i]->flags & (int)AST::DeclarationFlags::Constant;
+		for (int j = 0; j < ast->globals[i]->declarators.size; j++)
+		{
+			items.push_back({
+				{"label", ast->globals[i]->declarators[j]->name},
+				{"kind", isConstant ? COMPLETION_ITEM_CONSTANT : COMPLETION_ITEM_VARIABLE},
+				});
+		}
+	}
+
+	for (int i = 0; i < ast->functions.size; i++)
+	{
+		items.push_back({
+			{"label", ast->functions[i]->name},
+			{"kind", COMPLETION_ITEM_FUNCTION},
+			});
+	}
+
+	for (int i = 0; i < ast->structs.size; i++)
+	{
+		items.push_back({
+			{"label", ast->structs[i]->name},
+			{"kind", COMPLETION_ITEM_STRUCT},
+			});
+	}
+
+	for (int i = 0; i < ast->classes.size; i++)
+	{
+		items.push_back({
+			{"label", ast->classes[i]->name},
+			{"kind", COMPLETION_ITEM_CLASS},
+			});
+	}
+
+	for (int i = 0; i < ast->typedefs.size; i++)
+	{
+		items.push_back({
+			{"label", ast->typedefs[i]->name},
+			{"kind", COMPLETION_ITEM_STRUCT},
+			});
+	}
+
+	for (int i = 0; i < ast->enums.size; i++)
+	{
+		items.push_back({
+			{"label", ast->enums[i]->name},
+			{"kind", COMPLETION_ITEM_ENUM},
+			});
+	}
+
+	for (int i = 0; i < ast->classes.size; i++)
+	{
+		items.push_back({
+			{"label", ast->classes[i]->name},
+			{"kind", COMPLETION_ITEM_CLASS},
+			});
+	}
+
+	for (int i = 0; i < ast->macros.size; i++)
+	{
+		items.push_back({
+			{"label", ast->macros[i]->name},
+			{"kind", COMPLETION_ITEM_VALUE},
+			});
+	}
+
+	for (int i = 0; i < ast->imports.size; i++)
+	{
+		for (int j = 0; j < ast->imports[i]->imports.size; j++)
+		{
+			items.push_back({
+				{"label", ast->imports[i]->imports[j].namespaces[0]},
+				{"kind", COMPLETION_ITEM_VALUE},
+				});
+		}
+	}
+}
+
+static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items, int line, int col)
+{
+	if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
+	{
+		fprintf(stderr, "Found completion scope at %d, %d\n", scope->start.line, scope->start.col);
+		ProcessCompletionScope(scope, items, resolver);
+	}
+
+	autocompleteAST(currentFile, compiler->resolver, items);
+	for (int i = 0; i < compiler->resolver->asts.size; i++)
+	{
+		if (compiler->resolver->asts[i] != currentFile)
+			autocompleteAST(compiler->resolver->asts[i], compiler->resolver, items);
+	}
 }
 
 int main()
@@ -240,7 +393,9 @@ int main()
 
 			Document& document = documents[uri];
 
-			AST::File* ast = compiler->getASTByName(uri.c_str());
+			std::filesystem::path path = std::filesystem::path(uri);
+			std::string name = path.stem().string();
+			AST::File* ast = compiler->getASTByName(name.c_str());
 
 			json position = params["position"];
 			int line = position["line"] + 1;
@@ -257,7 +412,7 @@ int main()
 			}
 
 			// normal identifier completion
-			if (triggerKind == 0 || triggerKind == 1) // invoke
+			if (triggerKind >= 0 && triggerKind <= 2) // invoke
 			{
 				json items = json::array();
 
@@ -270,29 +425,13 @@ int main()
 						});
 				}
 
-				document.autocomplete(ast, compiler->resolver, items, line, character);
+				// TODO autocomplete using all parsed asts
+				autocomplete(ast, compiler->resolver, items, line, character);
 
-				sendResponse(request["id"], {
-					{"isIncomplete", false},
-					{"items", items}
-					});
-			}
-			else if (triggerKind == 2) // trigger character
-			{
-				json items = json::array();
-
-				for (auto& pair : keywords)
+				if (triggerKind == 2)
 				{
-					std::string keyword = pair.first;
-					items.push_back({
-						{"label", keyword },
-						{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
-						});
+					fprintf(stderr, "trigger character %c\n", triggerCharacter[0]);
 				}
-
-				document.autocomplete(ast, compiler->resolver, items, line, character);
-
-				fprintf(stderr, "trigger character %c\n", triggerCharacter[0]);
 
 				sendResponse(request["id"], {
 					{"isIncomplete", false},

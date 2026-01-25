@@ -247,7 +247,7 @@ int build(int argc, char* argv[])
 
 	bool result = true;
 
-	result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
+	//result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
 
 	for (int i = 0; i < argc; i++)
 	{
@@ -388,7 +388,7 @@ int run(int argc, char* argv[])
 
 	bool result = true;
 
-	result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
+	//result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
 
 	for (int i = 0; i < argc; i++)
 	{

@@ -3,8 +3,6 @@
 #include "cgl/CGLCompiler.h"
 #include "cgl/Platform.h"
 
-#include "cgl/semantics/Variable.h"
-
 
 using namespace nlohmann;
 
@@ -20,9 +18,9 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 	std::vector<LSPToken> tokens;
 
 	auto addToken = [&tokens](Token token, int type, int modifiers)
-	{
-		tokens.push_back({ token, type, modifiers });
-	};
+		{
+			tokens.push_back({ token, type, modifiers });
+		};
 
 	Lexer lexer(compiler, uri.c_str(), text.c_str());
 
@@ -104,12 +102,15 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 	for (int i = 0; i < ast->namedTypes.size; i++)
 	{
 		AST::NamedType* namedType = ast->namedTypes[i];
-		int type = namedType->typeID->typeKind == AST::TypeKind::Struct ? LSP_TOKEN_STRUCT :
-			namedType->typeID->typeKind == AST::TypeKind::Class ? LSP_TOKEN_CLASS :
-			namedType->declaration->type == AST::DeclarationType::Enumeration ? LSP_TOKEN_ENUM :
-			LSP_TOKEN_TYPE;
-		if (type != -1)
-			addToken(namedType->nameToken, type, 0);
+		if (namedType && namedType->typeID)
+		{
+			int type = namedType->typeID->typeKind == AST::TypeKind::Struct ? LSP_TOKEN_STRUCT :
+				namedType->typeID->typeKind == AST::TypeKind::Class ? LSP_TOKEN_CLASS :
+				namedType->declaration->type == AST::DeclarationType::Enumeration ? LSP_TOKEN_ENUM :
+				LSP_TOKEN_TYPE;
+			if (type != -1)
+				addToken(namedType->nameToken, type, 0);
+		}
 	}
 
 	qsort(tokens.data(), tokens.size(), sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
@@ -131,132 +132,5 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 
 		lastLine = line;
 		lastCol = col;
-	}
-}
-
-static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
-{
-	return (line > a.line || line == a.line && col >= a.col) && (line < b.line || line == b.line && col <= b.col);
-}
-
-static Scope* FindScopeAtSourceLocation(Scope* scope, int line, int col)
-{
-	Scope* result = nullptr;
-	if (IsInRange(scope->start, scope->end, line, col))
-		result = scope;
-
-	for (int i = 0; i < scope->children.size; i++)
-	{
-		if (Scope* childScope = FindScopeAtSourceLocation(scope->children[i], line, col))
-			result = childScope;
-	}
-
-	return result;
-}
-
-static void ProcessCompletionScope(Scope* scope, json& items, Resolver* resolver)
-{
-	for (int i = 0; i < scope->localVariables.size; i++)
-	{
-		items.push_back({
-			{"label", scope->localVariables[i]->name},
-			{"kind", COMPLETION_ITEM_VARIABLE},
-			});
-	}
-
-	if (scope->parent != resolver->globalScope)
-	{
-		ProcessCompletionScope(scope->parent, items, resolver);
-	}
-}
-
-void Document::autocomplete(AST::File* ast, Resolver* resolver, json& items, int line, int col)
-{
-	if (ast)
-	{
-		if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
-		{
-			fprintf(stderr, "Found completion scope at %d, %d\n", scope->start.line, scope->start.col);
-			ProcessCompletionScope(scope, items, resolver);
-		}
-
-		for (int i = 0; i < ast->globals.size; i++)
-		{
-			bool isConstant = (int)ast->globals[i]->flags & (int)AST::DeclarationFlags::Constant;
-			for (int j = 0; j < ast->globals[i]->declarators.size; j++)
-			{
-				items.push_back({
-					{"label", ast->globals[i]->declarators[j]->name},
-					{"kind", isConstant ? COMPLETION_ITEM_CONSTANT : COMPLETION_ITEM_VARIABLE},
-					});
-			}
-		}
-
-		for (int i = 0; i < ast->functions.size; i++)
-		{
-			items.push_back({
-				{"label", ast->functions[i]->name},
-				{"kind", COMPLETION_ITEM_FUNCTION},
-				});
-		}
-
-		for (int i = 0; i < ast->structs.size; i++)
-		{
-			items.push_back({
-				{"label", ast->structs[i]->name},
-				{"kind", COMPLETION_ITEM_STRUCT},
-				});
-		}
-
-		for (int i = 0; i < ast->classes.size; i++)
-		{
-			items.push_back({
-				{"label", ast->classes[i]->name},
-				{"kind", COMPLETION_ITEM_CLASS},
-				});
-		}
-
-		for (int i = 0; i < ast->typedefs.size; i++)
-		{
-			items.push_back({
-				{"label", ast->typedefs[i]->name},
-				{"kind", COMPLETION_ITEM_STRUCT},
-				});
-		}
-
-		for (int i = 0; i < ast->enums.size; i++)
-		{
-			items.push_back({
-				{"label", ast->enums[i]->name},
-				{"kind", COMPLETION_ITEM_ENUM},
-				});
-		}
-
-		for (int i = 0; i < ast->classes.size; i++)
-		{
-			items.push_back({
-				{"label", ast->classes[i]->name},
-				{"kind", COMPLETION_ITEM_CLASS},
-				});
-		}
-
-		for (int i = 0; i < ast->macros.size; i++)
-		{
-			items.push_back({
-				{"label", ast->macros[i]->name},
-				{"kind", COMPLETION_ITEM_VALUE},
-				});
-		}
-
-		for (int i = 0; i < ast->imports.size; i++)
-		{
-			for (int j = 0; j < ast->imports[i]->imports.size; j++)
-			{
-				items.push_back({
-					{"label", ast->imports[i]->imports[j].namespaces[0]},
-					{"kind", COMPLETION_ITEM_VALUE},
-					});
-			}
-		}
 	}
 }
