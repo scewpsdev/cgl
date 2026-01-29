@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "snek-lsp", "snek-lsp\snek-l
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSSnek", "VSSnek\VSSnek.csproj", "{3BE138ED-9364-4A3E-AEDB-BDAFB431CD1D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cgl-bindgen", "cgl-bindgen\cgl-bindgen.vcxproj", "{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,22 @@ Global
 		{3BE138ED-9364-4A3E-AEDB-BDAFB431CD1D}.Release|x64.Build.0 = Release|Any CPU
 		{3BE138ED-9364-4A3E-AEDB-BDAFB431CD1D}.Release|x86.ActiveCfg = Release|x86
 		{3BE138ED-9364-4A3E-AEDB-BDAFB431CD1D}.Release|x86.Build.0 = Release|x86
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|Any CPU.Build.0 = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|arm64.ActiveCfg = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|arm64.Build.0 = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|x64.ActiveCfg = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|x64.Build.0 = Debug|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|x86.ActiveCfg = Debug|Win32
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Debug|x86.Build.0 = Debug|Win32
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|Any CPU.ActiveCfg = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|Any CPU.Build.0 = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|arm64.ActiveCfg = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|arm64.Build.0 = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|x64.ActiveCfg = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|x64.Build.0 = Release|x64
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|x86.ActiveCfg = Release|Win32
+		{A847EDE2-089E-41F6-A5D4-FD84F4BABD61}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

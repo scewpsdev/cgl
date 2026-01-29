@@ -4,8 +4,10 @@
 
 #include <filesystem>
 
-
 #include "CodegenC.h"
+
+
+#define BUILD_CMD "gcc"
 
 
 int CGLCompiler::runLLVM(int argc, char* argv[])
@@ -14,7 +16,7 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 
 	std::vector<std::string> tmpFiles;
 
-	cmd << "clang ";
+	cmd << BUILD_CMD << ' ';
 
 	cmd << "-w ";
 	if (debugInfo)
@@ -73,7 +75,7 @@ int CGLCompiler::outputLLVM(const char* path)
 
 	std::vector<std::string> tmpFiles;
 
-	cmd << "gcc ";
+	cmd << BUILD_CMD << ' ';
 
 	cmd << "-w ";
 	if (staticLibrary)
@@ -120,7 +122,7 @@ int CGLCompiler::outputLLVM(const char* path)
 	CreateDirectories(path);
 	cmd << "-o " << path;
 
-	fprintf(stderr, "Running clang backend\n");
+	fprintf(stderr, "Running " BUILD_CMD " backend\n");
 
 	std::string cmdStr = cmd.str();
 	return system(cmdStr.c_str());
