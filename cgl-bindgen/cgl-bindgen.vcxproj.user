@@ -4,12 +4,12 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>SDL3\SDL.h SDL3.src</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>SDL3\SDL.h D:\Dev\2026\SnekSandbox\src\SDL3.src</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>D:\Repositories\SDL3-3.3.2\include</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>SDL3\SDL.h SDL3.src</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>SDL3\SDL.h D:\Dev\2026\SnekSandbox\src\SDL3.src</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>D:\Repositories\SDL3-3.3.2\include</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
