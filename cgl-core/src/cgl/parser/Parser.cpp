@@ -1591,6 +1591,13 @@ static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 
 		SkipToken(parser, '}');
 
+		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+		{
+			char* name = GetTokenString(NextToken(parser));
+			field->name = name;
+			SkipToken(parser, ';');
+		}
+
 		fields.add(field);
 
 		return true;
@@ -1607,6 +1614,13 @@ static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 		field->structFields = ParseStructFields(parser);
 
 		SkipToken(parser, '}');
+
+		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+		{
+			char* name = GetTokenString(NextToken(parser));
+			field->name = name;
+			SkipToken(parser, ';');
+		}
 
 		fields.add(field);
 

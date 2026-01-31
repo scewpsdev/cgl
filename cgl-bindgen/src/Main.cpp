@@ -18,7 +18,7 @@
 static std::unordered_map<uint32_t, TSNode> typedefs;
 
 
-extern "C" const TSLanguage* tree_sitter_c(void);
+extern "C" const TSLanguage * tree_sitter_c(void);
 
 
 static void outputSymbols(TCCState* s1, FILE* file)
@@ -186,11 +186,48 @@ static TSNode unwrapPointer(TSNode node, int* pointers)
 	return pointer;
 }
 
-static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file);
+static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation = 0);
+static void parseField(TSNode field, const char* src, FILE* file, int indentation = 0);
 
-static void parseUnion(TSNode node, const char* src, FILE* file)
+static void parseAnonymousStruct(TSNode node, const char* src, FILE* file, int indentation)
 {
 	TSNode fields = findNode(node, "field_declaration_list");
+
+	fprintf(file, "struct {\n");
+
+	for (int i = 0; i < ts_node_child_count(fields); i++)
+	{
+		TSNode field = ts_node_child(fields, i);
+		const char* fieldType = ts_node_type(field);
+		if (strcmp(fieldType, "field_declaration") == 0)
+		{
+			parseField(field, src, file, indentation + 1);
+			/*
+			int pointers = 0;
+			TSNode identifier = unwrapPointer(field, &pointers);
+			if (ts_node_is_null(identifier))
+				identifier = ts_node_child(field, 1);
+
+			for (int j = 0; j < indentation + 1; j++)
+				fprintf(file, "\t");
+			parseTypeIdentifier(field, pointers, src, file, indentation + 1);
+			fprintf(file, " ");
+			outputNodeValue(identifier, src, file);
+			fprintf(file, ";\n");
+			*/
+		}
+	}
+
+	for (int j = 0; j < indentation; j++)
+		fprintf(file, "\t");
+	fprintf(file, "}");
+}
+
+static void parseUnion(TSNode node, const char* src, FILE* file, int indentation)
+{
+	TSNode fields = findNode(node, "field_declaration_list");
+
+	const char* n = &src[ts_node_start_byte(node)];
 
 	fprintf(file, "union {\n");
 
@@ -200,24 +237,29 @@ static void parseUnion(TSNode node, const char* src, FILE* file)
 		const char* fieldType = ts_node_type(field);
 		if (strcmp(fieldType, "field_declaration") == 0)
 		{
-			//TSNode type = getType(field);
+			parseField(field, src, file, indentation + 1);
+			/*
 			int pointers = 0;
 			TSNode identifier = unwrapPointer(field, &pointers);
 			if (ts_node_is_null(identifier))
 				identifier = ts_node_child(field, 1);
 
-			fprintf(file, "\t");
-			parseTypeIdentifier(field, pointers, src, file);
+			for (int j = 0; j < indentation + 1; j++)
+				fprintf(file, "\t");
+			parseTypeIdentifier(field, pointers, src, file, indentation + 1);
 			fprintf(file, " ");
 			outputNodeValue(identifier, src, file);
 			fprintf(file, ";\n");
+			*/
 		}
 	}
 
-	fprintf(file, "}\n");
+	for (int j = 0; j < indentation; j++)
+		fprintf(file, "\t");
+	fprintf(file, "}");
 }
 
-static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file)
+static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation)
 {
 	TSNode type = findNode(node, "primitive_type");
 
@@ -230,8 +272,15 @@ static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 		TSNode structSpecifier = findNode(node, "struct_specifier");
 		if (!ts_node_is_null(structSpecifier))
 		{
-			if (parseTypeIdentifier(structSpecifier, pointers, src, file))
-				return true;
+			if (!ts_node_is_null(findNode(structSpecifier, "field_declaration_list")))
+			{
+				parseAnonymousStruct(structSpecifier, src, file, indentation);
+				return;
+			}
+			else
+			{
+				type = structSpecifier;
+			}
 		}
 	}
 	if (ts_node_is_null(type))
@@ -239,7 +288,8 @@ static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 		TSNode unionSpecifier = findNode(node, "union_specifier");
 		if (!ts_node_is_null(unionSpecifier))
 		{
-			parseUnion(unionSpecifier, src, file);
+			parseUnion(unionSpecifier, src, file, indentation);
+			return;
 		}
 	}
 
@@ -259,12 +309,21 @@ static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 			fprintf(file, "byte");
 		else if (typedefs.find(nameHash) != typedefs.end())
 		{
-			TSNode value = typedefs[nameHash];
+			TSNode value = {};
+			int nameLength = 0;
+			const char* name = nullptr;
 
-			int nameStart = ts_node_start_byte(value);
-			int nameEnd = ts_node_end_byte(value);
-			int nameLength = nameEnd - nameStart;
-			const char* name = &src[nameStart];
+			while (typedefs.find(nameHash) != typedefs.end())
+			{
+				value = typedefs[nameHash];
+
+				int nameStart = ts_node_start_byte(value);
+				int nameEnd = ts_node_end_byte(value);
+				nameLength = nameEnd - nameStart;
+				name = &src[nameStart];
+
+				nameHash = hashNodeValue(value, src);
+			}
 
 			if (nameLength > 7 && strncmp(name, "struct", 6) == 0)
 			{
@@ -318,11 +377,7 @@ static bool parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 		{
 			fprintf(file, "*");
 		}
-
-		return true;
 	}
-
-	return false;
 }
 
 static TSNode _getType(TSNode node)
@@ -428,12 +483,74 @@ static void parseDeclaration(TSNode node, const char* src, FILE* file)
 	}
 }
 
+static void parseField(TSNode field, const char* src, FILE* file, int indentation)
+{
+	// NOTE this could break if the function returns a pointer since it will be buried inside the pointer declarator node
+	TSNode funcType = findNode(field, "function_declarator");
+
+	int pointers = 0;
+	TSNode identifier = unwrapPointer(field, &pointers);
+	if (ts_node_is_null(identifier))
+		identifier = ts_node_child(field, 1);
+
+	for (int i = 0; i < indentation; i++)
+		fprintf(file, "\t");
+	parseTypeIdentifier(field, pointers, src, file, indentation);
+
+	if (!ts_node_is_null(funcType))
+	{
+		SnekAssert(identifier.id == funcType.id);
+
+		TSNode fieldName = findNode(funcType, "parenthesized_declarator");
+		fieldName = findNode(fieldName, "pointer_declarator");
+		fieldName = findNode(fieldName, "field_identifier");
+		identifier = fieldName;
+
+		TSNode params = findNode(funcType, "parameter_list");
+
+		fprintf(file, "(");
+		parseParameterList(params, src, file);
+		fprintf(file, ")");
+	}
+
+	if (strcmp(ts_node_type(identifier), "array_declarator") == 0)
+	{
+		TSNode arrayLength = findNode(identifier, "number_literal");
+		if (ts_node_is_null(arrayLength))
+			arrayLength = findNode(identifier, "identifier"); // most likely a constant used as array size
+		identifier = findNode(identifier, "field_identifier");
+
+		fprintf(file, "[");
+		outputNodeValue(arrayLength, src, file);
+		fprintf(file, "]");
+	}
+
+	fprintf(file, " ");
+	outputNodeValue(identifier, src, file);
+
+	// additional names
+	if (ts_node_child_count(field) >= 2 && strcmp(ts_node_type(ts_node_child(field, 2)), ",") == 0)
+	{
+		for (int i = 3; i < ts_node_child_count(field); i++)
+		{
+			TSNode child = ts_node_child(field, i);
+			if (strcmp(ts_node_type(child), "field_identifier") == 0)
+			{
+				fprintf(file, ", ");
+				outputNodeValue(child, src, file);
+			}
+		}
+	}
+
+	fprintf(file, ";\n");
+}
+
 static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 {
 	TSNode fields = findNode(node, "field_declaration_list");
 
 	const char* n = &src[ts_node_start_byte(node)];
-	if (strncmp(n, "struct SDL_PixelFormatDetails", strlen("struct SDL_PixelFormatDetails")) == 0)
+	if (strncmp(n, "struct SDL_AssertData", strlen("struct SDL_AssertData")) == 0)
 	{
 		int a = 5;
 	}
@@ -448,43 +565,7 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 		const char* fieldType = ts_node_type(field);
 		if (strcmp(fieldType, "field_declaration") == 0)
 		{
-			// NOTE this could break if the function returns a pointer since it will be buried inside the pointer declarator node
-			TSNode funcType = findNode(field, "function_declarator");
-			if (ts_node_is_null(funcType))
-			{
-				int pointers = 0;
-				TSNode identifier = unwrapPointer(field, &pointers);
-				if (ts_node_is_null(identifier))
-					identifier = ts_node_child(field, 1);
-
-				fprintf(file, "\t");
-				parseTypeIdentifier(field, pointers, src, file);
-				fprintf(file, " ");
-				outputNodeValue(identifier, src, file);
-				fprintf(file, ";\n");
-			}
-			else
-			{
-				int pointers = 0;
-				TSNode identifier = unwrapPointer(field, &pointers);
-				if (ts_node_is_null(identifier))
-					identifier = ts_node_child(field, 1);
-
-				TSNode fieldName = findNode(funcType, "parenthesized_declarator");
-				fieldName = findNode(fieldName, "pointer_declarator");
-				fieldName = findNode(fieldName, "field_identifier");
-
-				TSNode params = findNode(funcType, "parameter_list");
-
-				fprintf(file, "\t");
-				parseTypeIdentifier(field, pointers, src, file); // return type
-				SnekAssert(identifier.id == funcType.id);
-				fprintf(file, "(");
-				parseParameterList(params, src, file);
-				fprintf(file, ") ");
-				outputNodeValue(fieldName, src, file);
-				fprintf(file, ";\n");
-			}
+			parseField(field, src, file, 1);
 		}
 	}
 
@@ -500,6 +581,7 @@ static void parseType(TSNode node, const char* src, FILE* file)
 {
 	if (hasNode(node, "typedef"))
 	{
+		// TODO func types
 		if (ts_node_child_count(node) == 4)
 		{
 			TSNode value = ts_node_child(node, 1);
@@ -522,6 +604,25 @@ static void parseType(TSNode node, const char* src, FILE* file)
 			else if (strcmp(valueType, "enum_specifier") == 0)
 			{
 				parseEnum(value, src, file);
+			}
+			else if (strcmp(valueType, "union_specifier") == 0)
+			{
+				if (hasNode(value, "field_declaration_list"))
+				{
+					fprintf(file, "typedef ");
+					outputNodeValue(name, src, file);
+					fprintf(file, " : ");
+					parseUnion(value, src, file, 0);
+					fprintf(file, ";\n");
+				}
+				else
+				{
+					// opaque union, only used for pointers.
+					// why does this thing even exist? C???
+					fprintf(file, "struct ");
+					parseTypeIdentifier(node, 0, src, file);
+					fprintf(file, ";\n");
+				}
 			}
 			else
 			{

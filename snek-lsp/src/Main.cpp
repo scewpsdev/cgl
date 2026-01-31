@@ -304,7 +304,7 @@ static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items
 
 int main()
 {
-	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	std::cerr << "Starting lsp server" << std::endl;
 
 	while (true)
