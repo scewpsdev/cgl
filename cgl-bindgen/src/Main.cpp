@@ -361,6 +361,24 @@ static void parseParameter(TSNode node, int idx, const char* src, FILE* file)
 	}
 }
 
+static void parseParameterList(TSNode parameters, const char* src, FILE* file)
+{
+	int numParams = 0;
+	for (int i = 0; i < ts_node_child_count(parameters); i++)
+	{
+		TSNode parameter = ts_node_child(parameters, i);
+
+		if (strcmp(ts_node_type(parameter), "parameter_declaration") == 0)
+		{
+			if (numParams > 0)
+				fprintf(file, ", ");
+
+			parseParameter(parameter, numParams, src, file);
+			numParams++;
+		}
+	}
+}
+
 static void parseFunction(TSNode node, const char* src, FILE* file)
 {
 	int pointers = 0;
@@ -380,20 +398,7 @@ static void parseFunction(TSNode node, const char* src, FILE* file)
 		}
 		else
 		{
-			int numParams = 0;
-			for (int i = 0; i < ts_node_child_count(parameters); i++)
-			{
-				TSNode parameter = ts_node_child(parameters, i);
-
-				if (strcmp(ts_node_type(parameter), "parameter_declaration") == 0)
-				{
-					if (numParams > 0)
-						fprintf(file, ", ");
-
-					parseParameter(parameter, numParams, src, file);
-					numParams++;
-				}
-			}
+			parseParameterList(parameters, src, file);
 		}
 
 		fprintf(file, ")");
@@ -427,6 +432,12 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 {
 	TSNode fields = findNode(node, "field_declaration_list");
 
+	const char* n = &src[ts_node_start_byte(node)];
+	if (strncmp(n, "struct SDL_PixelFormatDetails", strlen("struct SDL_PixelFormatDetails")) == 0)
+	{
+		int a = 5;
+	}
+
 	fprintf(file, "struct ");
 	outputNodeValue(name, src, file);
 	fprintf(file, " {\n");
@@ -437,17 +448,43 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 		const char* fieldType = ts_node_type(field);
 		if (strcmp(fieldType, "field_declaration") == 0)
 		{
-			//TSNode type = getType(field);
-			int pointers = 0;
-			TSNode identifier = unwrapPointer(field, &pointers);
-			if (ts_node_is_null(identifier))
-				identifier = ts_node_child(field, 1);
+			// NOTE this could break if the function returns a pointer since it will be buried inside the pointer declarator node
+			TSNode funcType = findNode(field, "function_declarator");
+			if (ts_node_is_null(funcType))
+			{
+				int pointers = 0;
+				TSNode identifier = unwrapPointer(field, &pointers);
+				if (ts_node_is_null(identifier))
+					identifier = ts_node_child(field, 1);
 
-			fprintf(file, "\t");
-			parseTypeIdentifier(field, pointers, src, file);
-			fprintf(file, " ");
-			outputNodeValue(identifier, src, file);
-			fprintf(file, ";\n");
+				fprintf(file, "\t");
+				parseTypeIdentifier(field, pointers, src, file);
+				fprintf(file, " ");
+				outputNodeValue(identifier, src, file);
+				fprintf(file, ";\n");
+			}
+			else
+			{
+				int pointers = 0;
+				TSNode identifier = unwrapPointer(field, &pointers);
+				if (ts_node_is_null(identifier))
+					identifier = ts_node_child(field, 1);
+
+				TSNode fieldName = findNode(funcType, "parenthesized_declarator");
+				fieldName = findNode(fieldName, "pointer_declarator");
+				fieldName = findNode(fieldName, "field_identifier");
+
+				TSNode params = findNode(funcType, "parameter_list");
+
+				fprintf(file, "\t");
+				parseTypeIdentifier(field, pointers, src, file); // return type
+				SnekAssert(identifier.id == funcType.id);
+				fprintf(file, "(");
+				parseParameterList(params, src, file);
+				fprintf(file, ") ");
+				outputNodeValue(fieldName, src, file);
+				fprintf(file, ";\n");
+			}
 		}
 	}
 
@@ -552,7 +589,7 @@ static bool parse(const char* path, const char* out)
 		TSNode node = ts_node_child(rootNode, i);
 		const char* type = ts_node_type(node);
 
-		//printNode(node);
+		printNode(node);
 		if (strcmp(type, "declaration") == 0)
 		{
 			parseDeclaration(node, src, outFile);
