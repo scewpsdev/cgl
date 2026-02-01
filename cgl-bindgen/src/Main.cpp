@@ -574,7 +574,7 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 
 static void parseEnum(TSNode node, const char* src, FILE* file)
 {
-
+	int a = 5;
 }
 
 static void parseType(TSNode node, const char* src, FILE* file)
@@ -583,83 +583,184 @@ static void parseType(TSNode node, const char* src, FILE* file)
 	{
 		// TODO func types
 		// TODO union typedef support
-		if (ts_node_child_count(node) == 4)
+		int pointers = 0;
+		TSNode name = unwrapPointer(node, &pointers);
+		if (ts_node_is_null(name))
+			name = ts_node_child(node, 2 + ts_node_child_count(node) - 4);
+
+		if (hasNode(node, "struct_specifier"))
 		{
-			TSNode value = ts_node_child(node, 1);
-			TSNode name = ts_node_child(node, 2);
+			TSNode value = findNode(node, "struct_specifier");
 
-			if (strcmp(ts_node_type(name), "struct SDL_iconv_t") == 0)
+			if (hasNode(value, "field_declaration_list"))
 			{
-				int a = 5;
+				parseStruct(value, name, src, file);
 			}
-
-			const char* valueType = ts_node_type(value);
-			if (strcmp(valueType, "struct_specifier") == 0)
+			else if (strcmp(ts_node_type(name), "pointer_declarator") != 0)
 			{
-				if (hasNode(value, "field_declaration_list"))
-				{
-					parseStruct(value, name, src, file);
-				}
-				else if (strcmp(ts_node_type(name), "pointer_declarator") != 0)
-				{
-					// opaque struct
-					fprintf(file, "struct ");
-					outputNodeValue(name, src, file);
-					fprintf(file, ";\n");
-				}
+				// opaque struct
+				fprintf(file, "struct ");
+				outputNodeValue(name, src, file);
+				fprintf(file, ";\n");
 			}
-			else if (strcmp(valueType, "enum_specifier") == 0)
-			{
-				parseEnum(value, src, file);
-			}
-			else if (strcmp(valueType, "union_specifier") == 0)
-			{
-				if (hasNode(value, "field_declaration_list"))
-				{
-					fprintf(file, "typedef ");
-					outputNodeValue(name, src, file);
-					fprintf(file, " : ");
-					parseUnion(value, src, file, 0);
-					fprintf(file, ";\n");
-				}
-				else
-				{
-					// opaque union, only used for pointers.
-					// why does this thing even exist? C???
-					fprintf(file, "struct ");
-					parseTypeIdentifier(node, 0, src, file);
-					fprintf(file, ";\n");
-				}
-			}
-			else
-			{
-				uint32_t nameHash = hashNodeValue(name, src);
-				typedefs.emplace(nameHash, value);
-			}
-
-			/*int valueStart = ts_node_start_byte(value);
-			int valueEnd = ts_node_end_byte(value);
-			int valueLength = valueEnd - valueStart;
-			const char* valueStr = &src[valueStart];
-
-			if (valueLength > 7 && strncmp(valueStr, "struct", 6) == 0)
-			{
-				valueStr += 7;
-				valueLength -= 7;
-				fprintf(file, "struct %.*s;\n", valueLength, valueStr);
-			}
-			else if (valueLength > 5 && strncmp(valueStr, "enum", 4) == 0)
-			{
-				valueStr += 5;
-				valueLength -= 5;
-				fprintf(file, "enum %.*s;\n", valueLength, valueStr);
-			}
-			else
-			{
-				uint32_t nameHash = hashNodeValue(name, src);
-				typedefs.emplace(nameHash, value);
-			}*/
 		}
+		else if (hasNode(node, "union_specifier"))
+		{
+			TSNode value = findNode(node, "union_specifier");
+
+			if (hasNode(value, "field_declaration_list"))
+			{
+				fprintf(file, "typedef ");
+				outputNodeValue(name, src, file);
+				fprintf(file, " : ");
+				parseUnion(value, src, file, 0);
+				fprintf(file, ";\n");
+			}
+			else
+			{
+				// opaque union, only used for pointers.
+				// why does this thing even exist? C???
+				fprintf(file, "struct ");
+				parseTypeIdentifier(node, 0, src, file);
+				fprintf(file, ";\n");
+			}
+		}
+		else if (hasNode(node, "enum_specifier"))
+		{
+			TSNode value = findNode(node, "enum_specifier");
+			parseEnum(value, src, file);
+		}
+		else if (hasNode(node, "function_declarator"))
+		{
+			TSNode value = findNode(node, "function_declarator");
+			SnekAssert(value.id == name.id);
+
+			TSNode returnType = ts_node_child(node, 1 + ts_node_child_count(node) - 4);
+
+			TSNode fieldName = findNode(value, "parenthesized_declarator");
+			fieldName = findNode(fieldName, "pointer_declarator");
+			fieldName = findNode(fieldName, "type_identifier");
+			name = fieldName;
+
+			TSNode params = findNode(value, "parameter_list");
+
+			fprintf(file, "typedef ");
+			outputNodeValue(name, src, file);
+			fprintf(file, " : ");
+			parseTypeIdentifier(node, pointers, src, file);
+
+			fprintf(file, "(");
+			parseParameterList(params, src, file);
+			fprintf(file, ");\n");
+		}
+		else
+		{
+			TSNode value = ts_node_child(node, 1 + ts_node_child_count(node) - 4);
+			uint32_t nameHash = hashNodeValue(name, src);
+			typedefs.emplace(nameHash, value);
+		}
+
+		/*
+		TSNode value = ts_node_child(node, 1);
+		TSNode name = ts_node_child(node, 2);
+
+		const char* valueType = ts_node_type(value);
+		if (strcmp(valueType, "struct_specifier") == 0)
+		{
+			if (hasNode(value, "field_declaration_list"))
+			{
+				parseStruct(value, name, src, file);
+			}
+			else if (strcmp(ts_node_type(name), "pointer_declarator") != 0)
+			{
+				// opaque struct
+				fprintf(file, "struct ");
+				outputNodeValue(name, src, file);
+				fprintf(file, ";\n");
+			}
+		}
+		else if (strcmp(valueType, "enum_specifier") == 0)
+		{
+			parseEnum(value, src, file);
+		}
+		else if (strcmp(valueType, "union_specifier") == 0)
+		{
+			if (hasNode(value, "field_declaration_list"))
+			{
+				fprintf(file, "typedef ");
+				outputNodeValue(name, src, file);
+				fprintf(file, " : ");
+				parseUnion(value, src, file, 0);
+				fprintf(file, ";\n");
+			}
+			else
+			{
+				// opaque union, only used for pointers.
+				// why does this thing even exist? C???
+				fprintf(file, "struct ");
+				parseTypeIdentifier(node, 0, src, file);
+				fprintf(file, ";\n");
+			}
+		}
+		else
+		{
+			uint32_t nameHash = hashNodeValue(name, src);
+			typedefs.emplace(nameHash, value);
+		}
+		*/
+
+		/*
+		int valueStart = ts_node_start_byte(value);
+		int valueEnd = ts_node_end_byte(value);
+		int valueLength = valueEnd - valueStart;
+		const char* valueStr = &src[valueStart];
+
+		if (valueLength > 7 && strncmp(valueStr, "struct", 6) == 0)
+		{
+			valueStr += 7;
+			valueLength -= 7;
+			fprintf(file, "struct %.*s;\n", valueLength, valueStr);
+		}
+		else if (valueLength > 5 && strncmp(valueStr, "enum", 4) == 0)
+		{
+			valueStr += 5;
+			valueLength -= 5;
+			fprintf(file, "enum %.*s;\n", valueLength, valueStr);
+		}
+		else
+		{
+			uint32_t nameHash = hashNodeValue(name, src);
+			typedefs.emplace(nameHash, value);
+		}*/
+
+		/*
+		TSNode funcType = findNode(field, "function_declarator");
+
+		int pointers = 0;
+		TSNode identifier = unwrapPointer(field, &pointers);
+		if (ts_node_is_null(identifier))
+			identifier = ts_node_child(field, 1);
+
+		for (int i = 0; i < indentation; i++)
+			fprintf(file, "\t");
+		parseTypeIdentifier(field, pointers, src, file, indentation);
+
+		if (!ts_node_is_null(funcType))
+		{
+			SnekAssert(identifier.id == funcType.id);
+
+			TSNode fieldName = findNode(funcType, "parenthesized_declarator");
+			fieldName = findNode(fieldName, "pointer_declarator");
+			fieldName = findNode(fieldName, "field_identifier");
+			identifier = fieldName;
+
+			TSNode params = findNode(funcType, "parameter_list");
+
+			fprintf(file, "(");
+			parseParameterList(params, src, file);
+			fprintf(file, ")");
+		}
+		*/
 	}
 }
 

@@ -481,6 +481,14 @@ bool CompareTypes(TypeID t1, TypeID t2)
 			return true;
 		}
 		return false;
+	case AST::TypeKind::Union:
+		for (int i = 0; i < t1->unionType.numFields; i++)
+		{
+			if (!CompareTypes(t1->unionType.fieldTypes[i], t2->unionType.fieldTypes[i]))
+				return false;
+		}
+		return true;
+
 	case AST::TypeKind::Class:
 		if (strcmp(t1->classType.name, t2->classType.name) == 0 && t1->classType.numFields == t2->classType.numFields)
 		{

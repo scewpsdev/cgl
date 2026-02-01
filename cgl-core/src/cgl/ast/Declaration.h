@@ -231,6 +231,7 @@ namespace AST
 	struct Typedef : Declaration
 	{
 		char* name;
+		Token nameToken;
 		Type* alias;
 
 		TypeID type = nullptr;

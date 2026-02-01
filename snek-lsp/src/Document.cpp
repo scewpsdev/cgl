@@ -84,6 +84,11 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 		AST::Struct* strct = ast->structs[i];
 		addToken(strct->nameToken, LSP_TOKEN_STRUCT, 0);
 	}
+	for (int i = 0; i < ast->typedefs.size; i++)
+	{
+		AST::Typedef* def = ast->typedefs[i];
+		addToken(def->nameToken, LSP_TOKEN_TYPE, 0);
+	}
 
 	for (int i = 0; i < ast->identifiers.size; i++)
 	{

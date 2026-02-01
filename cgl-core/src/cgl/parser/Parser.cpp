@@ -2145,7 +2145,8 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 	{
 		NextToken(parser); // typedef
 
-		char* name = GetTokenString(NextToken(parser));
+		Token nameToken = NextToken(parser);
+		char* name = GetTokenString(nameToken);
 		if (SkipToken(parser, ':'))
 		{
 			AST::Type* alias = ParseType(parser);
@@ -2153,7 +2154,11 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 			SkipToken(parser, ';');
 
 			if (alias)
-				return new AST::Typedef(parser->module, inputState, flags, name, alias);
+			{
+				AST::Typedef* decl = new AST::Typedef(parser->module, inputState, flags, name, alias);
+				decl->nameToken = nameToken;
+				return decl;
+			}
 		}
 		else
 		{
