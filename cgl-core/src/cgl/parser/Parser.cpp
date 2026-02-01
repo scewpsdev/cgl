@@ -104,6 +104,7 @@ static void SkipPastStatement(Parser* parser)
 
 static AST::Type* ParseType(Parser* parser);
 static AST::Expression* ParseExpression(Parser* parser, int prec = INT32_MAX);
+static List<AST::StructField*> ParseStructFields(Parser* parser);
 
 static AST::Type* ParseElementType(Parser* parser)
 {
@@ -199,6 +200,28 @@ static AST::Type* ParseElementType(Parser* parser)
 			AST::NamedType* type = new AST::NamedType(parser->module, inputState, name, hasGenericArgs, genericArgs);
 			type->nameToken = tok;
 			return type;
+		}
+
+		case KEYWORD_TYPE_STRUCT: {
+			SkipToken(parser, '{');
+
+			AST::StructType* structType = new AST::StructType(parser->module, inputState);
+			structType->fields = ParseStructFields(parser);
+
+			SkipToken(parser, '}');
+
+			return structType;
+		}
+
+		case KEYWORD_TYPE_UNION: {
+			SkipToken(parser, '{');
+
+			AST::UnionType* unionType = new AST::UnionType(parser->module, inputState);
+			unionType->fields = ParseStructFields(parser);
+
+			SkipToken(parser, '}');
+
+			return unionType;
 		}
 		}
 	}
@@ -1572,69 +1595,19 @@ static AST::Statement* ParseStatement(Parser* parser)
 	return nullptr;
 }
 
-static List<AST::StructField*> ParseStructFields(Parser* parser);
-
 static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 {
 	InputState fieldInputState = GetInputState(parser);
 
-	if (NextTokenIsKeyword(parser, KEYWORD_TYPE_UNION))
-	{
-		NextToken(parser); // union
-
-		SkipToken(parser, '{');
-
-		char* name = nullptr;
-		AST::StructField* field = new AST::StructField(parser->module, fieldInputState, nullptr, name, fields.size);
-		field->isUnion = true;
-		field->unionFields = ParseStructFields(parser);
-
-		SkipToken(parser, '}');
-
-		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
-		{
-			char* name = GetTokenString(NextToken(parser));
-			field->name = name;
-			SkipToken(parser, ';');
-		}
-
-		fields.add(field);
-
-		return true;
-	}
-	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_STRUCT))
-	{
-		NextToken(parser); // struct
-
-		SkipToken(parser, '{');
-
-		char* name = nullptr;
-		AST::StructField* field = new AST::StructField(parser->module, fieldInputState, nullptr, name, fields.size);
-		field->isStruct = true;
-		field->structFields = ParseStructFields(parser);
-
-		SkipToken(parser, '}');
-
-		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
-		{
-			char* name = GetTokenString(NextToken(parser));
-			field->name = name;
-			SkipToken(parser, ';');
-		}
-
-		fields.add(field);
-
-		return true;
-	}
-	else if (AST::Type* type = ParseType(parser))
+	if (AST::Type* type = ParseType(parser))
 	{
 		bool upcomingField = true;
 
 		while (upcomingField && HasNext(parser))
 		{
-			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) || type->typeKind == AST::TypeKind::Struct || type->typeKind == AST::TypeKind::Union)
 			{
-				char* name = GetTokenString(NextToken(parser));
+				char* name = NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) ? GetTokenString(NextToken(parser)) : nullptr;
 				AST::StructField* field = new AST::StructField(parser->module, fieldInputState, type, name, fields.size);
 				fields.add(field);
 			}
@@ -2179,7 +2152,8 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 			SkipToken(parser, ';');
 
-			return new AST::Typedef(parser->module, inputState, flags, name, alias);
+			if (alias)
+				return new AST::Typedef(parser->module, inputState, flags, name, alias);
 		}
 		else
 		{

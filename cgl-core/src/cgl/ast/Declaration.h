@@ -141,12 +141,13 @@ namespace AST
 		char* name;
 		int index;
 
+		/*
 		bool isStruct = false;
 		List<StructField*> structFields;
 
 		bool isUnion = false;
 		List<StructField*> unionFields;
-
+		*/
 
 		StructField(File* file, const SourceLocation& location, Type* type, char* name, int index);
 		virtual ~StructField();

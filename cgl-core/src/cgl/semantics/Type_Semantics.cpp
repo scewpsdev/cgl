@@ -47,6 +47,7 @@ struct TypeDataStorage
 	TypeData primitiveTypes[TYPE_DATA_INDEX_COUNT];
 
 	List<TypeData*> structTypes;
+	List<TypeData*> unionTypes;
 	List<TypeData*> classTypes;
 	List<TypeData*> aliasTypes;
 	List<TypeData*> pointerTypes;
@@ -259,7 +260,7 @@ TypeID GetStructType(const char* structName, AST::Struct* declaration)
 	return data;
 }
 
-TypeID GetStructType(int numValues, TypeID* valueTypes)
+TypeID GetStructType(int numValues, TypeID* valueTypes, AST::StructType* declaration)
 {
 	TypeData* data = new TypeData;
 	data->typeKind = AST::TypeKind::Struct;
@@ -268,9 +269,25 @@ TypeID GetStructType(int numValues, TypeID* valueTypes)
 	data->structType.numFields = numValues;
 	data->structType.fieldTypes = valueTypes;
 	data->structType.fieldNames = NULL;
-	data->structType.declaration = NULL;
+	data->structType.anonDeclaration = declaration;
 
 	types.structTypes.add(data);
+
+	return data;
+}
+
+TypeID GetUnionType(int numValues, TypeID* valueTypes, AST::UnionType* declaration)
+{
+	TypeData* data = new TypeData;
+	data->typeKind = AST::TypeKind::Union;
+
+	data->unionType.name = NULL;
+	data->unionType.numFields = numValues;
+	data->unionType.fieldTypes = valueTypes;
+	data->unionType.fieldNames = NULL;
+	data->unionType.anonDeclaration = declaration;
+
+	types.unionTypes.add(data);
 
 	return data;
 }

@@ -59,6 +59,8 @@ static AST::File* FindFileWithNamespace(Resolver* resolver, const char* name, AS
 }
 
 bool ResolveType(Resolver* resolver, AST::Type* type);
+static bool ResolveStructField(Resolver* resolver, AST::StructField* field, TypeID* fieldType, const char** fieldName);
+
 static bool ResolveExpression(Resolver* resolver, AST::Expression* expr);
 static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl);
 static bool ResolveFunction(Resolver* resolver, AST::Function* decl);
@@ -66,6 +68,7 @@ static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl);
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl);
 static bool ResolveClassHeader(Resolver* resolver, AST::Class* decl);
 static bool ResolveClass(Resolver* resolver, AST::Class* decl);
+
 
 static const char* SourceLocationToString(AST::SourceLocation location)
 {
@@ -510,6 +513,32 @@ static bool ResolveStringType(Resolver* resolver, AST::StringType* type)
 	}
 }
 
+static bool ResolveStructType(Resolver* resolver, AST::StructType* type)
+{
+	bool success = true;
+	TypeID* structFieldTypes = new TypeID[type->fields.size];
+	for (int i = 0; i < type->fields.size; i++)
+		success = ResolveStructField(resolver, type->fields[i], &structFieldTypes[i], nullptr) && success;
+
+	if (success)
+		type->typeID = GetStructType(type->fields.size, structFieldTypes, type);
+
+	return success;
+}
+
+static bool ResolveUnionType(Resolver* resolver, AST::UnionType* type)
+{
+	bool success = true;
+	TypeID* structFieldTypes = new TypeID[type->fields.size];
+	for (int i = 0; i < type->fields.size; i++)
+		success = ResolveStructField(resolver, type->fields[i], &structFieldTypes[i], nullptr) && success;
+
+	if (success)
+		type->typeID = GetUnionType(type->fields.size, structFieldTypes, type);
+
+	return success;
+}
+
 bool ResolveType(Resolver* resolver, AST::Type* type)
 {
 	AST::Element* lastElement = resolver->currentElement;
@@ -543,6 +572,11 @@ bool ResolveType(Resolver* resolver, AST::Type* type)
 		return ResolveArrayType(resolver, (AST::ArrayType*)type);
 	case AST::TypeKind::String:
 		return ResolveStringType(resolver, (AST::StringType*)type);
+
+	case AST::TypeKind::Struct:
+		return ResolveStructType(resolver, (AST::StructType*)type);
+	case AST::TypeKind::Union:
+		return ResolveUnionType(resolver, (AST::UnionType*)type);
 
 	default:
 		SnekAssert(false);
@@ -2902,6 +2936,7 @@ static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl)
 
 static bool ResolveStructField(Resolver* resolver, AST::StructField* field, TypeID* fieldType, const char** fieldName)
 {
+	/*
 	if (field->isStruct)
 	{
 		if (field->name && fieldType)
@@ -2928,7 +2963,9 @@ static bool ResolveStructField(Resolver* resolver, AST::StructField* field, Type
 			ResolveStructField(resolver, field->unionFields[i], nullptr, nullptr);
 		}
 	}
-	else if (ResolveType(resolver, field->type))
+	else
+	*/
+	if (ResolveType(resolver, field->type))
 	{
 		if (fieldType)
 			*fieldType = field->type->typeID;

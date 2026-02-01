@@ -18,6 +18,9 @@ namespace AST
 	struct Declaration;
 	struct Expression;
 
+	struct StructType;
+	struct UnionType;
+
 	enum class TypeKind : uint8_t;
 }
 
@@ -52,7 +55,16 @@ struct TypeData
 			const char** fieldNames;
 
 			AST::Struct* declaration;
+			AST::StructType* anonDeclaration;
 		} structType;
+		struct {
+			const char* name;
+			int numFields;
+			TypeID* fieldTypes;
+			const char** fieldNames;
+
+			AST::UnionType* anonDeclaration;
+		} unionType;
 		struct {
 			const char* name;
 			int numFields;
@@ -109,7 +121,8 @@ TypeID GetBoolType();
 TypeID GetStringType();
 TypeID GetAnyType();
 TypeID GetStructType(const char* structName, AST::Struct* declaration);
-TypeID GetStructType(int numValues, TypeID* valueTypes);
+TypeID GetStructType(int numValues, TypeID* valueTypes, AST::StructType* declaration);
+TypeID GetUnionType(int numValues, TypeID* valueTypes, AST::UnionType* declaration);
 TypeID GetClassType(const char* className, AST::Class* declaration);
 TypeID GetAliasType(const char* name, AST::Declaration* declaration);
 

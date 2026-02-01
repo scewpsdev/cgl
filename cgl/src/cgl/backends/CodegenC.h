@@ -294,16 +294,72 @@ class CodegenC
 
 	std::string genTypeStruct(TypeID type)
 	{
-		if (type->structType.declaration && type->structType.declaration->file != file)
+		if (type->structType.anonDeclaration)
 		{
-			if (!importedStructs.contains(type->structType.declaration))
+			std::stringstream* parentStream = instructionStream;
+
+			std::stringstream structStream;
+			instructionStream = &structStream;
+
+			*instructionStream << "struct{";
+			indentation++;
+			newLine();
+
+			for (int i = 0; i < type->structType.anonDeclaration->fields.size; i++)
 			{
-				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
-				importedStructs.add(type->structType.declaration);
-				importStruct(type->structType.declaration);
+				genStructField(type->structType.anonDeclaration->fields[i]);
+				newLine();
 			}
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "}";
+
+			instructionStream = parentStream;
+
+			return structStream.str();
 		}
-		return "struct " + std::string(type->structType.name);
+		else
+		{
+			if (type->structType.declaration && type->structType.declaration->file != file)
+			{
+				if (!importedStructs.contains(type->structType.declaration))
+				{
+					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+					importedStructs.add(type->structType.declaration);
+					importStruct(type->structType.declaration);
+				}
+			}
+			return "struct " + std::string(type->structType.name);
+		}
+	}
+
+	std::string genTypeUnion(TypeID type)
+	{
+		SnekAssert(type->unionType.anonDeclaration);
+
+		std::stringstream* parentStream = instructionStream;
+
+		std::stringstream structStream;
+		instructionStream = &structStream;
+
+		*instructionStream << "union{";
+		indentation++;
+		newLine();
+
+		for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
+		{
+			genStructField(type->unionType.anonDeclaration->fields[i]);
+			newLine();
+		}
+
+		stepBackWhitespace();
+		indentation--;
+		*instructionStream << "}";
+
+		instructionStream = parentStream;
+
+		return structStream.str();
 	}
 
 	std::string genTypeClass(TypeID type)
@@ -436,6 +492,8 @@ class CodegenC
 			return "";
 		case AST::TypeKind::Struct:
 			return genTypeStruct(type);
+		case AST::TypeKind::Union:
+			return genTypeUnion(type);
 		case AST::TypeKind::Class:
 			return genTypeClass(type);
 		case AST::TypeKind::Alias:
@@ -2079,6 +2137,7 @@ class CodegenC
 
 	void genStructField(AST::StructField* field)
 	{
+		/*
 		if (field->isStruct)
 		{
 			*instructionStream << "struct {";
@@ -2111,7 +2170,9 @@ class CodegenC
 			indentation--;
 			*instructionStream << "};";
 		}
-		else if (field->type)
+		else
+		*/
+		if (field->type)
 		{
 			*instructionStream << genType(field->type) << ' ' << field->name << ';';
 		}

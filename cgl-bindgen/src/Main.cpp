@@ -18,7 +18,7 @@
 static std::unordered_map<uint32_t, TSNode> typedefs;
 
 
-extern "C" const TSLanguage * tree_sitter_c(void);
+extern "C" const TSLanguage* tree_sitter_c(void);
 
 
 static void outputSymbols(TCCState* s1, FILE* file)
@@ -582,24 +582,31 @@ static void parseType(TSNode node, const char* src, FILE* file)
 	if (hasNode(node, "typedef"))
 	{
 		// TODO func types
+		// TODO union typedef support
 		if (ts_node_child_count(node) == 4)
 		{
 			TSNode value = ts_node_child(node, 1);
 			TSNode name = ts_node_child(node, 2);
 
-			const char* valueType = ts_node_type(value);
-			if (strcmp(valueType, "struct_specifier") == 0 && hasNode(value, "field_declaration_list"))
+			if (strcmp(ts_node_type(name), "struct SDL_iconv_t") == 0)
 			{
-				parseStruct(value, name, src, file);
+				int a = 5;
+			}
 
-				/*
+			const char* valueType = ts_node_type(value);
+			if (strcmp(valueType, "struct_specifier") == 0)
+			{
+				if (hasNode(value, "field_declaration_list"))
+				{
+					parseStruct(value, name, src, file);
+				}
+				else if (strcmp(ts_node_type(name), "pointer_declarator") != 0)
 				{
 					// opaque struct
 					fprintf(file, "struct ");
 					outputNodeValue(name, src, file);
 					fprintf(file, ";\n");
 				}
-				*/
 			}
 			else if (strcmp(valueType, "enum_specifier") == 0)
 			{
@@ -690,7 +697,9 @@ static bool parse(const char* path, const char* out)
 		TSNode node = ts_node_child(rootNode, i);
 		const char* type = ts_node_type(node);
 
-		printNode(node);
+		if (strcmp(type, "preproc_call") != 0)
+			printNode(node);
+
 		if (strcmp(type, "declaration") == 0)
 		{
 			parseDeclaration(node, src, outFile);

@@ -26,6 +26,7 @@ namespace AST
 		Any,
 		NamedType,
 		Struct,
+		Union,
 		Class,
 		Alias,
 		Pointer,
@@ -172,6 +173,28 @@ namespace AST
 
 
 		StringType(File* file, const SourceLocation& location, Expression* length);
+
+		virtual Element* copy() override;
+	};
+
+	struct StructField;
+
+	struct StructType : Type
+	{
+		List<StructField*> fields;
+
+
+		StructType(File* file, const SourceLocation& location);
+
+		virtual Element* copy() override;
+	};
+
+	struct UnionType : Type
+	{
+		List<StructField*> fields;
+
+
+		UnionType(File* file, const SourceLocation& location);
 
 		virtual Element* copy() override;
 	};

@@ -228,6 +228,7 @@ namespace AST
 	Element* StructField::copy()
 	{
 		StructField* field = new StructField(file, location, (Type*)type->copy(), _strdup(name), index);
+		/*
 		if (isStruct)
 		{
 			field->isStruct = true;
@@ -238,6 +239,7 @@ namespace AST
 			field->isUnion = true;
 			field->unionFields = CopyList(unionFields);
 		}
+		*/
 		return field;
 	}
 
@@ -289,19 +291,21 @@ namespace AST
 	{
 		if (field->name && strcmp(field->name, name) == 0)
 			return field;
-		if (field->isStruct && !field->name)
+		if (field->type->typeKind == AST::TypeKind::Struct && !field->name)
 		{
-			for (int i = 0; i < field->structFields.size; i++)
+			AST::StructType* structType = (AST::StructType*)field->type->typeID->structType.anonDeclaration;
+			for (int i = 0; i < structType->fields.size; i++)
 			{
-				if (StructField* structField = CheckStructField(field->structFields[i], name))
+				if (StructField* structField = CheckStructField(structType->fields[i], name))
 					return structField;
 			}
 		}
-		if (field->isUnion && !field->name)
+		if (field->type->typeKind == AST::TypeKind::Union && !field->name)
 		{
-			for (int i = 0; i < field->unionFields.size; i++)
+			AST::UnionType* unionType = (AST::UnionType*)field->type->typeID->unionType.anonDeclaration;
+			for (int i = 0; i < unionType->fields.size; i++)
 			{
-				if (StructField* unionField = CheckStructField(field->unionFields[i], name))
+				if (StructField* unionField = CheckStructField(unionType->fields[i], name))
 					return unionField;
 			}
 		}

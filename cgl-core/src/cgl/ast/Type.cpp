@@ -206,4 +206,32 @@ namespace AST
 	{
 		return new StringType(file, location, length ? (Expression*)length->copy() : nullptr);
 	}
+
+	StructType::StructType(File* file, const SourceLocation& location)
+		: Type(file, location, TypeKind::Struct)
+	{
+	}
+
+	Element* StructType::copy()
+	{
+		StructType* copy = new StructType(file, location);
+		copy->fields = CopyList(fields);
+		for (int i = 0; i < copy->fields.size; i++)
+			copy->fields[i] = (StructField*)copy->fields[i]->copy();
+		return copy;
+	}
+
+	UnionType::UnionType(File* file, const SourceLocation& location)
+		: Type(file, location, TypeKind::Union)
+	{
+	}
+
+	Element* UnionType::copy()
+	{
+		StructType* copy = new StructType(file, location);
+		copy->fields = CopyList(fields);
+		for (int i = 0; i < copy->fields.size; i++)
+			copy->fields[i] = (StructField*)copy->fields[i]->copy();
+		return copy;
+	}
 }
