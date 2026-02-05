@@ -249,7 +249,7 @@ TypeID GetAnyType()
 
 TypeID GetStructType(const char* structName, AST::Struct* declaration)
 {
-	TypeData* data = new TypeData;
+	TypeData* data = new TypeData{};
 	data->typeKind = AST::TypeKind::Struct;
 
 	data->structType.name = structName;
@@ -262,7 +262,7 @@ TypeID GetStructType(const char* structName, AST::Struct* declaration)
 
 TypeID GetStructType(int numValues, TypeID* valueTypes, AST::StructType* declaration)
 {
-	TypeData* data = new TypeData;
+	TypeData* data = new TypeData{};
 	data->typeKind = AST::TypeKind::Struct;
 
 	data->structType.name = NULL;
@@ -421,7 +421,12 @@ TypeID GetArrayType(TypeID elementType, int length)
 TypeID UnwrapType(TypeID type)
 {
 	while (type->typeKind == AST::TypeKind::Alias)
-		type = type->aliasType.alias;
+	{
+		if (type->aliasType.alias != type)
+			type = type->aliasType.alias;
+		else
+			return type;
+	}
 	return type;
 }
 
@@ -429,6 +434,9 @@ bool CompareTypes(TypeID t1, TypeID t2)
 {
 	t1 = UnwrapType(t1);
 	t2 = UnwrapType(t2);
+
+	if (t1 == t2)
+		return true;
 
 	if (t1->typeKind != t2->typeKind)
 		return false;

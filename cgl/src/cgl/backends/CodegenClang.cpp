@@ -52,14 +52,14 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 		tmpFiles.push_back(name);
 	}
 
-	for (const LinkerFile& linkerFile : linkerFiles)
-	{
-		cmd << linkerFile.filename << ' ';
-	}
-
 	for (const char* linkerPath : linkerPaths)
 	{
 		cmd << "-L " << linkerPath;
+	}
+
+	for (const LinkerFile& linkerFile : linkerFiles)
+	{
+		cmd << "-l" << linkerFile.filename << ' ';
 	}
 
 	//CreateDirectories(path);

@@ -182,7 +182,26 @@ class CodegenC
 		case AST::TypeKind::Any:
 			return "y";
 		case AST::TypeKind::Struct:
-			return "x" + std::string(type->structType.name);
+			if (type->structType.name)
+			{
+				return "x" + std::string(type->structType.name);
+			}
+			else
+			{
+				std::stringstream result;
+				result << "x";
+				for (int i = 0; i < type->structType.numFields; i++)
+					result << mangleType(type->structType.fieldTypes[i]);
+				return result.str();
+			}
+		case AST::TypeKind::Union:
+		{
+			std::stringstream result;
+			result << "u";
+			for (int i = 0; i < type->unionType.numFields; i++)
+				result << mangleType(type->unionType.fieldTypes[i]);
+			return result.str();
+		}
 		case AST::TypeKind::Class:
 			return "X" + std::string(type->classType.name);
 		case AST::TypeKind::Alias:
@@ -912,6 +931,15 @@ class CodegenC
 		instructionStream = &functionDeclarations;
 
 		*instructionStream << "extern " << genType(function->functionType->functionType.returnType);
+
+		if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
+			*instructionStream << " __attribute__((dllexport))";
+			//*instructionStream << " __declspec(dllexport)";
+
+		if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
+			*instructionStream << " __attribute__((dllimport))";
+			//*instructionStream << " __declspec(dllimport)";
+
 		if (function->dllImport)
 		{
 			*instructionStream << "(*" << function->mangledName << ")(";
@@ -1572,13 +1600,19 @@ class CodegenC
 		case AST::BinaryOperatorType::LogicalOr:
 			return left + "||" + right;
 		case AST::BinaryOperatorType::BitwiseAnd:
+			return left + "&" + right;
 		case AST::BinaryOperatorType::BitwiseOr:
+			return left + "|" + right;
 		case AST::BinaryOperatorType::BitwiseXor:
+			return left + "^" + right;
 		case AST::BinaryOperatorType::BitshiftLeft:
+			return left + "<<" + right;
 		case AST::BinaryOperatorType::BitshiftRight:
+			return left + ">>" + right;
 		case AST::BinaryOperatorType::Assignment:
 		{
-			*instructionStream << left << "=" << castValue(right, expression->right->valueType, expression->left->valueType) << ";";
+			std::string value = castValue(right, expression->right->valueType, expression->left->valueType);
+			*instructionStream << left << "=" << value << ";";
 			newLine();
 			return "";
 		}
@@ -1784,8 +1818,9 @@ class CodegenC
 		instructionStream = &stream;
 
 		auto condition = genExpression(statement->condition);
+		condition = castValue(condition, statement->condition->valueType, GetBoolType());
 
-		stream << "if(" << castValue(condition, statement->condition->valueType, GetBoolType()) << "){";
+		stream << "if(" << condition << "){";
 
 		indentation++;
 		newLine();
@@ -2315,10 +2350,16 @@ class CodegenC
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::Extern))
 			*instructionStream << "extern ";
-		else if (HasFlag(function->flags, AST::DeclarationFlags::Private))
+
+		if (HasFlag(function->flags, AST::DeclarationFlags::Private))
 			*instructionStream << "static ";
 		else if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
 			*instructionStream << "__attribute__((dllexport)) ";
+			//*instructionStream << "__declspec(dllexport) ";
+
+		if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
+			*instructionStream << "__attribute__((dllimport)) ";
+			//*instructionStream << "__declspec(dllimport) ";
 
 		*instructionStream << genType(function->functionType->functionType.returnType) << ' ';
 

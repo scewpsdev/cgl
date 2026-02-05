@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 
-static std::unordered_map<uint32_t, TSNode> typedefs;
+static std::unordered_map<uint32_t, std::pair<TSNode, int>> typedefs;
 
 
 extern "C" const TSLanguage* tree_sitter_c(void);
@@ -55,6 +55,9 @@ static bool preprocess(const char* path, const char* out)
 	tcc_add_include_path(tcc, "D:\\Dev\\2023\\CGL\\cgl\\lib\\libtcc\\include\\winapi");
 
 	*/
+
+	//tcc_define_symbol(tcc, "_WIN32", nullptr);
+	tcc_define_symbol(tcc, "SDL_DECLSPEC", "__declspec(dllimport)");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_PREPROCESS);
 	tcc->ppfp = fopen(out, "wb");
@@ -170,23 +173,52 @@ static void outputNodeValue(TSNode node, const char* src, FILE* file)
 	int nameLength = nameEnd - nameStart;
 	const char* name = &src[nameStart];
 	fprintf(file, "%.*s", nameLength, name);
+
+	if (nameLength == 8 && strncmp(name, "SDL_Quit", 8) == 0)
+	{
+		int a = 5;
+	}
 }
 
-static TSNode unwrapPointer(TSNode node, int* pointers)
+static TSNode unwrapPointer(TSNode node, const char* type, int* pointers)
 {
+	*pointers = 0;
+
 	TSNode pointer = findNode(node, "pointer_declarator");
 
-	*pointers = 0;
 	while (!ts_node_is_null(pointer) && strcmp(ts_node_type(pointer), "pointer_declarator") == 0)
 	{
 		(*pointers)++;
-		pointer = ts_node_child(pointer, 1);
+		TSNode newPointer = findNode(pointer, "pointer_declarator");
+		if (ts_node_is_null(newPointer))
+			return findNode(pointer, type); //ts_node_child(pointer, 1);
+		else
+			pointer = newPointer;
 	}
 
 	return pointer;
 }
 
-static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation = 0);
+static TSNode unwrapPointer(TSNode node, int* pointers)
+{
+	*pointers = 0;
+
+	TSNode pointer = findNode(node, "pointer_declarator");
+
+	while (!ts_node_is_null(pointer) && strcmp(ts_node_type(pointer), "pointer_declarator") == 0)
+	{
+		(*pointers)++;
+		TSNode newPointer = findNode(pointer, "pointer_declarator");
+		if (ts_node_is_null(newPointer))
+			return ts_node_child(pointer, 1);
+		else
+			pointer = newPointer;
+	}
+
+	return pointer;
+}
+
+static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation = 0, bool returnType = false);
 static void parseField(TSNode field, const char* src, FILE* file, int indentation = 0);
 
 static void parseAnonymousStruct(TSNode node, const char* src, FILE* file, int indentation)
@@ -259,11 +291,13 @@ static void parseUnion(TSNode node, const char* src, FILE* file, int indentation
 	fprintf(file, "}");
 }
 
-static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation)
+static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE* file, int indentation, bool returnType)
 {
 	TSNode type = findNode(node, "primitive_type");
 
 	TSNode sizedType = findNode(node, "sized_type_specifier");
+	if (ts_node_is_null(type) && !ts_node_is_null(sizedType) && (nodeIsValue(ts_node_child(sizedType, 0), "short", src) || nodeIsValue(ts_node_child(sizedType, 0), "long", src)))
+		type = sizedType;
 
 	if (ts_node_is_null(type))
 		type = findNode(node, "type_identifier");
@@ -307,6 +341,8 @@ static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 
 		if (nameLength == 4 && strncmp(name, "void", 4) == 0 && pointers)
 			fprintf(file, "byte");
+		else if (nameLength == 4 && strncmp(name, "void", 4) == 0 && !pointers && returnType)
+			;
 		else if (typedefs.find(nameHash) != typedefs.end())
 		{
 			TSNode value = {};
@@ -315,7 +351,9 @@ static void parseTypeIdentifier(TSNode node, int pointers, const char* src, FILE
 
 			while (typedefs.find(nameHash) != typedefs.end())
 			{
-				value = typedefs[nameHash];
+				std::pair pair = typedefs[nameHash];
+				value = pair.first;
+				pointers += pair.second;
 
 				int nameStart = ts_node_start_byte(value);
 				int nameEnd = ts_node_end_byte(value);
@@ -403,6 +441,12 @@ static void parseParameter(TSNode node, int idx, const char* src, FILE* file)
 	if (ts_node_is_null(identifier))
 		identifier = ts_node_child(node, 1);
 
+	if (!ts_node_is_null(identifier) && strcmp(ts_node_type(identifier), "array_declarator") == 0)
+	{
+		pointers++;
+		identifier = findNode(identifier, "identifier");
+	}
+
 	parseTypeIdentifier(node, pointers, src, file);
 
 	if (!ts_node_is_null(identifier))
@@ -437,13 +481,39 @@ static void parseParameterList(TSNode parameters, const char* src, FILE* file)
 static void parseFunction(TSNode node, const char* src, FILE* file)
 {
 	int pointers = 0;
-	TSNode declarator = unwrapPointer(node, &pointers);
+	TSNode declarator = unwrapPointer(node, "function_declarator", &pointers);
+	if (ts_node_is_null(declarator))
+		declarator = findNode(node, "function_declarator");
+
+	bool dllimport = false;
+
+	TSNode attribute = findNode(node, "attribute_specifier");
+	if (!ts_node_is_null(attribute))
+	{
+		TSNode attributeArgs = findNode(attribute, "argument_list");
+		if (!ts_node_is_null(attributeArgs))
+		{
+			for (int i = 0; i < ts_node_child_count(attributeArgs); i++)
+			{
+				TSNode attributeArg = ts_node_child(attributeArgs, i);
+				if (strcmp(ts_node_type(attributeArg), "identifier") == 0)
+				{
+					if (nodeIsValue(attributeArg, "dllimport", src))
+					{
+						dllimport = true;
+					}
+				}
+			}
+		}
+	}
 
 	if (!ts_node_is_null(declarator))
 	{
 		TSNode name = findNode(declarator, "identifier");
 		TSNode parameters = findNode(declarator, "parameter_list");
 
+		if (dllimport)
+			fprintf(file, "dllimport ");
 		fprintf(file, "externc func ");
 		outputNodeValue(name, src, file);
 		fprintf(file, "(");
@@ -456,9 +526,9 @@ static void parseFunction(TSNode node, const char* src, FILE* file)
 			parseParameterList(parameters, src, file);
 		}
 
-		fprintf(file, ")");
+		fprintf(file, ") ");
 
-		parseTypeIdentifier(node, pointers, src, file);
+		parseTypeIdentifier(node, pointers, src, file, 0, true);
 		/*
 		if (!(nodeIsValue(returnType, "void", src) && !pointers))
 		{
@@ -550,7 +620,7 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 	TSNode fields = findNode(node, "field_declaration_list");
 
 	const char* n = &src[ts_node_start_byte(node)];
-	if (strncmp(n, "struct SDL_AssertData", strlen("struct SDL_AssertData")) == 0)
+	if (strncmp(n, "struct SDL_TextEditingCandidatesEvent", strlen("struct SDL_TextEditingCandidatesEvent")) == 0)
 	{
 		int a = 5;
 	}
@@ -572,21 +642,53 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 	fprintf(file, "}\n");
 }
 
-static void parseEnum(TSNode node, const char* src, FILE* file)
+static void parseEnum(TSNode node, TSNode name, const char* src, FILE* file)
 {
-	int a = 5;
+	TSNode values = findNode(node, "enumerator_list");
+
+	fprintf(file, "enum ");
+	outputNodeValue(name, src, file);
+	fprintf(file, " {\n");
+
+	for (int i = 0; i < ts_node_child_count(values); i++)
+	{
+		TSNode field = ts_node_child(values, i);
+		const char* fieldType = ts_node_type(field);
+		if (strcmp(fieldType, "enumerator") == 0)
+		{
+			TSNode name = findNode(field, "identifier");
+			TSNode value = findNode(field, "number_literal");
+
+			fprintf(file, "\t");
+			outputNodeValue(name, src, file);
+			if (!ts_node_is_null(value))
+			{
+				fprintf(file, " = ");
+				outputNodeValue(value, src, file);
+			}
+
+			fprintf(file, ",\n");
+		}
+	}
+
+	fprintf(file, "}\n");
 }
 
 static void parseType(TSNode node, const char* src, FILE* file)
 {
 	if (hasNode(node, "typedef"))
 	{
-		// TODO func types
-		// TODO union typedef support
 		int pointers = 0;
 		TSNode name = unwrapPointer(node, &pointers);
 		if (ts_node_is_null(name))
 			name = ts_node_child(node, 2 + ts_node_child_count(node) - 4);
+
+		if (strcmp(ts_node_type(name), "array_declarator") == 0)
+		{
+			// array typedef, might be a static assert hack (SDL3 uses this)
+			// not supported for now
+			return;
+		}
 
 		if (hasNode(node, "struct_specifier"))
 		{
@@ -628,12 +730,13 @@ static void parseType(TSNode node, const char* src, FILE* file)
 		else if (hasNode(node, "enum_specifier"))
 		{
 			TSNode value = findNode(node, "enum_specifier");
-			parseEnum(value, src, file);
+			parseEnum(value, name, src, file);
 		}
-		else if (hasNode(node, "function_declarator"))
+		else if (/*hasNode(node, "function_declarator")*/ strcmp(ts_node_type(name), "function_declarator") == 0)
 		{
-			TSNode value = findNode(node, "function_declarator");
-			SnekAssert(value.id == name.id);
+			//TSNode value = findNode(node, "function_declarator");
+			//SnekAssert(value.id == name.id);
+			TSNode value = name;
 
 			TSNode returnType = ts_node_child(node, 1 + ts_node_child_count(node) - 4);
 
@@ -641,6 +744,13 @@ static void parseType(TSNode node, const char* src, FILE* file)
 			fieldName = findNode(fieldName, "pointer_declarator");
 			fieldName = findNode(fieldName, "type_identifier");
 			name = fieldName;
+
+			const char* n = &src[ts_node_start_byte(name)];
+			const char* t = ts_node_type(name);
+			if (strncmp(n, "SDL_malloc_func", strlen("SDL_malloc_func")) == 0)
+			{
+				int a = 5;
+			}
 
 			TSNode params = findNode(value, "parameter_list");
 
@@ -656,8 +766,18 @@ static void parseType(TSNode node, const char* src, FILE* file)
 		else
 		{
 			TSNode value = ts_node_child(node, 1 + ts_node_child_count(node) - 4);
+
+			fprintf(file, "typedef ");
+			outputNodeValue(name, src, file);
+			fprintf(file, " : ");
+			parseTypeIdentifier(node, pointers, src, file);
+			fprintf(file, ";\n");
+
+			/*
+			TSNode value = ts_node_child(node, 1 + ts_node_child_count(node) - 4);
 			uint32_t nameHash = hashNodeValue(name, src);
-			typedefs.emplace(nameHash, value);
+			typedefs.emplace(nameHash, std::make_pair(value, pointers));
+			*/
 		}
 
 		/*
@@ -808,6 +928,19 @@ static bool parse(const char* path, const char* out)
 		else if (strcmp(type, "type_definition") == 0)
 		{
 			parseType(node, src, outFile);
+		}
+		else if (strcmp(type, "preproc_call") == 0)
+		{
+
+		}
+		else if (strcmp(type, "function_definition") == 0)
+		{
+
+		}
+		else
+		{
+			const char* n = &src[ts_node_start_byte(node)];
+			int a = 5;
 		}
 	}
 

@@ -23,7 +23,7 @@
 #define OPT_BUILD_STATIC_LIBRARY "-library"
 #define OPT_BUILD_SHARED_LIBRARY "-shared"
 #define OPT_BUILD_GEN_RUNTIME_STACKTRACE "-runtime-stacktrace"
-#define OPT_BUILD_BACKEND_CLANG "-clang"
+#define OPT_BUILD_BACKEND_CLANG "-gcc"
 #define OPT_BUILD_BACKEND_TCC "-tcc"
 
 
@@ -357,9 +357,9 @@ int build(int argc, char* argv[])
 			{
 				fprintf(stderr, "Generating code\n");
 				if (llvm)
-					compiler.outputLLVM(outPath);
+					result = compiler.outputLLVM(outPath) == 0;
 				else
-					compiler.outputTCC(outPath);
+					result = compiler.outputTCC(outPath) == 0;
 			}
 			else
 			{
@@ -374,6 +374,11 @@ int build(int argc, char* argv[])
 	}
 
 	compiler.terminate();
+
+	if (result)
+		fprintf(stderr, "Build complete.\n");
+	else
+		fprintf(stderr, "Build finished with errors.\n");
 
 	return result ? 0 : 1;
 }
@@ -479,12 +484,13 @@ int run(int argc, char* argv[])
 			if (compiler.compile())
 			{
 				fprintf(stderr, "Running code\n");
-				int result;
+				int invokeResult = 0;
 				if (llvm)
-					result = compiler.runLLVM(0, nullptr);
+					invokeResult = compiler.runLLVM(0, nullptr);
 				else
-					result = compiler.runTCC(0, nullptr);
-				fprintf(stderr, "Program exited with code %i\n", result);
+					invokeResult = compiler.runTCC(0, nullptr);
+				fprintf(stderr, "Program exited with code %i\n", invokeResult);
+				result = invokeResult == 0;
 			}
 			else
 			{

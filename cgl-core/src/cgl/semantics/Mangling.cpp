@@ -49,6 +49,11 @@ static void MangleType(TypeID type, StringBuffer& buffer)
 			StringBufferAppend(buffer, 'x');
 			StringBufferAppend(buffer, (uint16_t)hash(type->structType.name));
 			break;
+		case AST::TypeKind::Union:
+			StringBufferAppend(buffer, 'u');
+			for (int i = 0; i < type->unionType.numFields; i++)
+				MangleType(type->unionType.fieldTypes[i], buffer);
+			break;
 		case AST::TypeKind::Class:
 			StringBufferAppend(buffer, 'X');
 			StringBufferAppend(buffer, (uint16_t)hash(type->classType.name));

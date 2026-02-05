@@ -89,6 +89,11 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 		AST::Typedef* def = ast->typedefs[i];
 		addToken(def->nameToken, LSP_TOKEN_TYPE, 0);
 	}
+	for (int i = 0; i < ast->enums.size; i++)
+	{
+		AST::Enum* en = ast->enums[i];
+		addToken(en->nameToken, LSP_TOKEN_ENUM, 0);
+	}
 
 	for (int i = 0; i < ast->identifiers.size; i++)
 	{

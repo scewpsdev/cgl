@@ -147,9 +147,10 @@ namespace AST
 	struct IntegerLiteral : Expression
 	{
 		int64_t value = 0;
+		bool isUnsigned = false;
 
 
-		IntegerLiteral(File* file, const SourceLocation& location, int64_t value);
+		IntegerLiteral(File* file, const SourceLocation& location, int64_t value, bool isUnsigned);
 
 		virtual Element* copy() override;
 		virtual bool isConstant() override;

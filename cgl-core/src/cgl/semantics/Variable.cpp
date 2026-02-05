@@ -341,7 +341,7 @@ static AST::Typedef* FindTypedefInFile(Resolver* resolver, AST::File* module, co
 	for (int i = 0; i < module->typedefs.size; i++)
 	{
 		AST::Typedef* td = module->typedefs[i];
-		if (strcmp(td->name, name) == 0)
+		if (strcmp(td->name, name) == 0 && td->type)
 		{
 			return td;
 		}

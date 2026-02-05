@@ -339,6 +339,13 @@ static AST::Type* ParseFunctionType(Parser* parser, AST::Type* elementType)
 
 		if (!NextTokenIs(parser, ')'))
 		{
+			/*
+			AST::SourceLocation loc = parser->lexer->input.state;
+			Token tok = NextToken(parser);
+			SnekErrorLoc(parser->context, loc, "Unexpected token: %.*s", tok.len, tok.str);
+			parser->failed = true;
+			*/
+
 			DestroyList(paramTypes);
 			SetInputState(parser, inputState);
 			return nullptr;
@@ -416,6 +423,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 
 		int64_t value = 0;
 		bool isNegative = false;
+		bool isUnsigned = false;
 		int base = 10;
 
 		for (int i = 0; i < (int)strlen(str); i++)
@@ -459,6 +467,10 @@ static AST::Expression* ParseAtom(Parser* parser)
 				SnekAssert(i == 1 || i == 2 && isNegative);
 				base = 16;
 			}
+			else if (str[i] == 'u')
+			{
+				isUnsigned = true;
+			}
 			else
 			{
 				SnekAssert(false);
@@ -470,7 +482,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 
 		delete str;
 
-		return new AST::IntegerLiteral(parser->module, inputState, value);
+		return new AST::IntegerLiteral(parser->module, inputState, value, isUnsigned);
 	}
 	else if (NextTokenIs(parser, TOKEN_TYPE_FLOAT_LITERAL) || NextTokenIs(parser, TOKEN_TYPE_DOUBLE_LITERAL))
 	{
@@ -1675,13 +1687,11 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 			NextToken(parser); // dllexport
 			flags = flags | AST::DeclarationFlags::DllExport;
 		}
-		/*
-		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT))
+		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT) && !NextTokenIs(parser, '(', 1))
 		{
 			NextToken(parser); // dllimport
 			flags = flags | AST::DeclarationFlags::DllImport;
 		}
-		*/
 		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_CONSTANT))
 		{
 			NextToken(parser); // const
@@ -2170,7 +2180,8 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 	{
 		NextToken(parser); // enum
 
-		char* name = GetTokenString(NextToken(parser));
+		Token nameToken = NextToken(parser);
+		char* name = GetTokenString(nameToken);
 		AST::Type* alias = NULL;
 		List<AST::EnumValue*> values;
 
@@ -2211,9 +2222,11 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 		SkipToken(parser, '}');
 
-		return new AST::Enum(parser->module, inputState, flags, name, alias, values);
+		AST::Enum* decl = new AST::Enum(parser->module, inputState, flags, name, alias, values);
+		decl->nameToken = nameToken;
+		return decl;
 	}
-	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT))
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_DLLIMPORT) && NextTokenIs(parser, '(', 1))
 	{
 		NextToken(parser); // dllimport
 
@@ -2843,7 +2856,7 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 		}
 	}
 
-	AST::SourceLocation loc = inputState;
+	AST::SourceLocation loc = GetInputState(parser);
 	Token token = NextToken(parser);
 	SnekErrorLoc(parser->context, loc, "Unexpected token '%.*s'", token.len, token.str);
 	parser->failed = true;

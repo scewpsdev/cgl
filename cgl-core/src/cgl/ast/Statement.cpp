@@ -126,7 +126,7 @@ namespace AST
 	}
 
 	WhileLoop::WhileLoop(File* file, const SourceLocation& start, const SourceLocation& end, Expression* condition, Statement* body)
-		: Statement(file, location, StatementType::While), condition(condition), body(body)
+		: Statement(file, start, StatementType::While), condition(condition), body(body)
 	{
 		this->end = end;
 	}

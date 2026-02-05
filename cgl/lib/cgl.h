@@ -11,7 +11,6 @@ typedef unsigned int u32;
 typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
-typedef _Bool bool;
 typedef struct { char* ptr; long length; } string;
 typedef struct { void* type; void* value; } any;
 

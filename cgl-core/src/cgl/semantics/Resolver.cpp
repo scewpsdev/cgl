@@ -586,6 +586,28 @@ bool ResolveType(Resolver* resolver, AST::Type* type)
 
 static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 {
+	int bitWidth = 32;
+	bool isSigned = false;
+	if (expr->value < 0)
+	{
+		if (expr->isUnsigned)
+		{
+			SnekErrorLoc(resolver->context, expr->location, "Integer value with 'u' suffix cannot be negative");
+			return nullptr;
+		}
+
+		isSigned = true;
+		if (expr->value > INT32_MAX || expr->value < INT32_MIN)
+			bitWidth = 64;
+	}
+	else
+	{
+		if (expr->value > UINT32_MAX)
+			bitWidth = 64;
+	}
+	return GetIntegerType(bitWidth, isSigned);
+
+	/*
 	if (expr->value > INT64_MAX)
 	{
 		if (expr->value >= 0 && expr->value <= UINT64_MAX)
@@ -600,6 +622,7 @@ static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLi
 		return GetIntegerType(64, true);
 	else
 		return GetIntegerType(32, true);
+		*/
 }
 
 static bool ResolveIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
@@ -2865,7 +2888,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 
 	bool result = true;
 
-	if (HasFlag(decl->flags, AST::DeclarationFlags::Extern))
+	if (HasFlag(decl->flags, AST::DeclarationFlags::Extern) || HasFlag(decl->flags, AST::DeclarationFlags::DllImport))
 	{
 		if (decl->body)
 		{
@@ -3300,12 +3323,13 @@ static bool ResolveTypedefHeader(Resolver* resolver, AST::Typedef* decl)
 	defer _(nullptr, [=](...) { resolver->currentElement = lastElement; });
 
 	decl->visibility = GetVisibilityFromFlags(decl->flags);
-	decl->type = GetAliasType(decl->name, decl);
 
 	bool result = true;
 
+	TypeID typeID = GetAliasType(decl->name, decl);
 	result = ResolveType(resolver, decl->alias) && result;
-	decl->type->aliasType.alias = decl->alias->typeID;
+	typeID->aliasType.alias = decl->alias->typeID;
+	decl->type = typeID;
 
 	return true;
 }
@@ -3414,7 +3438,7 @@ static bool ResolveGlobal(Resolver* resolver, AST::GlobalVariable* decl)
 					SnekErrorLoc(resolver->context, decl->location, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
 					result = false;
 				}
-				if (HasFlag(decl->flags, AST::DeclarationFlags::Extern))
+				if (HasFlag(decl->flags, AST::DeclarationFlags::Extern) || HasFlag(decl->flags, AST::DeclarationFlags::DllImport))
 				{
 					SnekErrorLoc(resolver->context, decl->location, "Extern global variable '%s' cannot have an initializer", declarator->name);
 					result = false;

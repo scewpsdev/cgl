@@ -42,7 +42,7 @@ namespace AST
 		Constant = 1 << 0,
 		Extern = 1 << 1,
 		DllExport = 1 << 2,
-		//DllImport = 1 << 3,
+		DllImport = 1 << 3,
 		Public = 1 << 4,
 		Private = 1 << 5,
 		Internal = 1 << 6,
@@ -78,7 +78,7 @@ namespace AST
 		TypeID varArgsType = nullptr;
 		char* varArgsName = nullptr;
 
-		char* dllImport = nullptr;
+		char* dllImport = nullptr; // this is for when you don't have an import library available
 
 		Statement* body = nullptr;
 		Expression* bodyExpression = nullptr;
@@ -266,6 +266,7 @@ namespace AST
 	struct Enum : Declaration
 	{
 		char* name;
+		Token nameToken;
 		Type* alias;
 		List<EnumValue*> values;
 

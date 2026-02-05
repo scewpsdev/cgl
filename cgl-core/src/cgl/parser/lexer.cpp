@@ -373,7 +373,8 @@ static Token readNumberLiteral(Lexer* lexer)
 		c == 'x' || c == 'b' || c == 'o' ||
 		(c >= 'a' && c <= 'f') ||
 		(c >= 'A' && c <= 'F') ||
-		c == '_';
+		c == '_' ||
+		c == 'u';
 		)
 	{
 		InputNext(&lexer->input);

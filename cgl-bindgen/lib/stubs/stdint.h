@@ -8,4 +8,9 @@
 #define uint64_t ulong
 
 #define size_t uint64
+#define ptrdiff_t int64
+#define intptr_t int64
+
 #define wchar_t int16
+
+#define va_list byte*

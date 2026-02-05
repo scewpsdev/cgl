@@ -26,14 +26,14 @@ namespace AST
 		return false;
 	}
 
-	IntegerLiteral::IntegerLiteral(File* file, const SourceLocation& location, int64_t value)
-		: Expression(file, location, ExpressionType::IntegerLiteral), value(value)
+	IntegerLiteral::IntegerLiteral(File* file, const SourceLocation& location, int64_t value, bool isUnsigned)
+		: Expression(file, location, ExpressionType::IntegerLiteral), value(value), isUnsigned(isUnsigned)
 	{
 	}
 
 	Element* IntegerLiteral::copy()
 	{
-		return new IntegerLiteral(file, location, value);
+		return new IntegerLiteral(file, location, value, isUnsigned);
 	}
 
 	bool IntegerLiteral::isConstant()
