@@ -197,5 +197,7 @@ namespace AST
 		UnionType(File* file, const SourceLocation& location);
 
 		virtual Element* copy() override;
+
+		StructField* getFieldWithName(const char* name, int* index = nullptr);
 	};
 }

@@ -117,7 +117,7 @@ char* ReadText(const char* path)
 	return nullptr;
 }
 
-static void reparse()
+static void reparse(const std::string& uri, const std::string& text)
 {
 	uint64_t beforeParse = GetTimeNS();
 
@@ -132,24 +132,33 @@ static void reparse()
 
 	std::vector<std::filesystem::path> sourceFilesInWorkspace;
 
-	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(rootPath))
+	if (rootPath != "")
 	{
-		if (dirEntry.is_regular_file())
+		for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(rootPath))
 		{
-			std::filesystem::path file = dirEntry.path();
-			if (file.extension().string() == ".src")
+			if (dirEntry.is_regular_file())
 			{
-				sourceFilesInWorkspace.push_back(file);
+				std::filesystem::path file = dirEntry.path();
+				if (file.extension().string() == ".src")
+				{
+					sourceFilesInWorkspace.push_back(file);
+				}
 			}
 		}
-	}
 
-	for (auto& file : sourceFilesInWorkspace)
+		for (auto& file : sourceFilesInWorkspace)
+		{
+			std::string filepath = file.string();
+			std::string name = file.stem().string();
+			char* src = ReadText(filepath.c_str());
+			compiler->addFile(_strdup(filepath.c_str()), _strdup(name.c_str()), src);
+		}
+	}
+	else
 	{
-		std::string filepath = file.string();
-		std::string name = file.stem().string();
-		char* src = ReadText(filepath.c_str());
-		compiler->addFile(_strdup(filepath.c_str()), _strdup(name.c_str()), src);
+		std::filesystem::path p = uri;
+		std::string name = p.stem().string();
+		compiler->addFile(_strdup(uri.c_str()), _strdup(name.c_str()), _strdup(text.c_str()));
 	}
 
 	/*
@@ -256,6 +265,14 @@ static void autocompleteAST(AST::File* ast, Resolver* resolver, json& items)
 			{"label", ast->enums[i]->name},
 			{"kind", COMPLETION_ITEM_ENUM},
 			});
+
+		for (int j = 0; j < ast->enums[i]->values.size; j++)
+		{
+			items.push_back({
+				{"label", ast->enums[i]->values[j]->name},
+				{"kind", COMPLETION_ITEM_ENUM_MEMBER},
+				});
+		}
 	}
 
 	for (int i = 0; i < ast->classes.size; i++)
@@ -304,7 +321,7 @@ static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items
 
 int main()
 {
-	//std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	std::cerr << "Starting lsp server" << std::endl;
 
 	while (true)
@@ -318,8 +335,12 @@ int main()
 
 		if (method == "initialize")
 		{
-			rootPath = request["params"]["rootPath"];
-			fprintf(stderr, "Root path: %s\n", rootPath.c_str());
+			json root = request["params"]["rootPath"];
+			if (strcmp(root.type_name(), "string") == 0)
+			{
+				rootPath = request["params"]["rootPath"];
+				fprintf(stderr, "Root path: %s\n", rootPath.c_str());
+			}
 
 			json tokenTypes = json::array();
 			tokenTypes[LSP_TOKEN_NAMESPACE] = "namespace";
@@ -351,6 +372,14 @@ int main()
 						}},
 						{"full", true},
 					}},
+					/*
+					{"workspace", {
+						{"workspaceFolders", {
+							{"supported", true},
+							{"changeNotifications", true}
+						}}
+					}},
+					*/
 				}},
 				{"serverInfo", {
 					{"name", "Snek Language Server"},
@@ -458,7 +487,7 @@ int main()
 
 			documents.emplace(uri, Document{ uri, text });
 
-			reparse();
+			reparse(uri, text);
 
 			//fprintf(stderr, "Opened text document %s\n", uri.c_str());
 			//fprintf(stderr, "%s\n", text.c_str());
@@ -483,7 +512,11 @@ int main()
 				//fprintf(stderr, "%s\n", text.c_str());
 			}
 
-			reparse();
+			reparse(uri, documents[uri].text);
+		}
+		else if (method == "workspace/didChangeWorkspaceFolders")
+		{
+			int a = 5;
 		}
 	}
 }

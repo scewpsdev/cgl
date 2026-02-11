@@ -36,6 +36,7 @@ const std::map<std::string, KeywordType> keywords =
 	{ KEYWORD_DLLEXPORT, KEYWORD_TYPE_DLLEXPORT },
 	{ KEYWORD_DLLIMPORT, KEYWORD_TYPE_DLLIMPORT },
 	{ KEYWORD_PACKED, KEYWORD_TYPE_PACKED },
+	{ KEYWORD_NOMANGLE, KEYWORD_TYPE_NOMANGLE },
 
 	{ KEYWORD_IF, KEYWORD_TYPE_IF },
 	{ KEYWORD_ELSE, KEYWORD_TYPE_ELSE },
@@ -373,14 +374,16 @@ static Token readNumberLiteral(Lexer* lexer)
 		c == 'x' || c == 'b' || c == 'o' ||
 		(c >= 'a' && c <= 'f') ||
 		(c >= 'A' && c <= 'F') ||
+		c == 'e' || c == 'E' || c == '-' ||
 		c == '_' ||
-		c == 'u';
+		c == 'u' || c == 'U' ||
+		c == 'l' || c == 'L';
 		)
 	{
 		InputNext(&lexer->input);
 		if (c == '.')
 			fp = true;
-		if (c == 'f' && fp)
+		else if (c == 'f' && fp)
 			isDouble = false;
 		token.len++;
 

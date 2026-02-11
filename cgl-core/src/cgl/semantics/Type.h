@@ -63,6 +63,7 @@ struct TypeData
 			TypeID* fieldTypes;
 			const char** fieldNames;
 
+			AST::Struct* declaration;
 			AST::UnionType* anonDeclaration;
 		} unionType;
 		struct {

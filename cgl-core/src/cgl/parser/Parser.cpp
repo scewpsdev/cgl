@@ -428,48 +428,53 @@ static AST::Expression* ParseAtom(Parser* parser)
 
 		for (int i = 0; i < (int)strlen(str); i++)
 		{
-			if (str[i] == '-')
+			char c = tolower(str[i]);
+			if (c == '-')
 			{
 				SnekAssert(i == 0);
 				isNegative = true;
 			}
-			else if (str[i] == '_')
+			else if (c == '_')
 			{
 				;
 			}
-			else if (isDigit(str[i]))
+			else if (isDigit(c))
 			{
-				value = value * base + (str[i] - '0');
+				value = value * base + (c - '0');
 			}
-			else if (isAlpha(str[i]) && str[i] >= 'a' && str[i] <= 'f' && base == 16)
+			else if (isAlpha(c) && c >= 'a' && c <= 'f' && base == 16)
 			{
-				value = value * base + (str[i] - 'a' + 10);
+				value = value * base + (c - 'a' + 10);
 			}
-			else if (isAlpha(str[i]) && str[i] >= 'A' && str[i] <= 'F' && base == 16)
+			else if (isAlpha(c) && c >= 'A' && c <= 'F' && base == 16)
 			{
-				value = value * base + (str[i] - 'A' + 10);
+				value = value * base + (c - 'A' + 10);
 			}
-			else if (base == 10 && str[i] == 'b')
+			else if (base == 10 && c == 'b')
 			{
 				SnekAssert(value == 0);
 				SnekAssert(i == 1 || i == 2 && isNegative);
 				base = 2;
 			}
-			else if (base == 10 && str[i] == 'o')
+			else if (base == 10 && c == 'o')
 			{
 				SnekAssert(value == 0);
 				SnekAssert(i == 1 || i == 2 && isNegative);
 				base = 8;
 			}
-			else if (base == 10 && str[i] == 'x')
+			else if (base == 10 && c == 'x')
 			{
 				SnekAssert(value == 0);
 				SnekAssert(i == 1 || i == 2 && isNegative);
 				base = 16;
 			}
-			else if (str[i] == 'u')
+			else if (c == 'u')
 			{
 				isUnsigned = true;
+			}
+			else if (c == 'l')
+			{
+
 			}
 			else
 			{
@@ -1712,6 +1717,11 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 			NextToken(parser); // packed
 			flags = flags | AST::DeclarationFlags::Packed;
 		}
+		else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_NOMANGLE))
+		{
+			NextToken(parser); // nomangle
+			flags = flags | AST::DeclarationFlags::NoMangle;
+		}
 		else
 		{
 			break;
@@ -1818,6 +1828,68 @@ static AST::Declaration* ParseDeclaration(Parser* parser)
 
 			AST::Struct* strct = new AST::Struct(parser->module, inputState, flags, name, hasBody, fields, isGeneric, genericParams);
 			strct->nameToken = nameToken;
+			return strct;
+		}
+	}
+	else if (NextTokenIsKeyword(parser, KEYWORD_TYPE_UNION))
+	{
+		NextToken(parser); // union
+		if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+		{
+			Token nameToken = NextToken(parser);
+			char* name = GetTokenString(nameToken);
+			bool hasBody = false;
+
+			List<AST::StructField*> fields;
+
+			bool isGeneric = false;
+			List<char*> genericParams;
+
+			if (NextTokenIs(parser, TOKEN_TYPE_OP_LESS_THAN)) // Generic types
+			{
+				NextToken(parser); // <
+
+				isGeneric = true;
+				genericParams = CreateList<char*>();
+
+				bool hasNext = !NextTokenIs(parser, TOKEN_TYPE_OP_GREATER_THAN);
+				while (hasNext)
+				{
+					if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER))
+					{
+						char* genericParamName = GetTokenString(NextToken(parser));
+						genericParams.add(genericParamName);
+
+						hasNext = NextTokenIs(parser, ',');
+						if (hasNext)
+							NextToken(parser); // ,
+					}
+					else
+					{
+						SnekAssert(false); // TODO ERROR
+					}
+				}
+
+				SkipToken(parser, TOKEN_TYPE_OP_GREATER_THAN);
+			}
+
+			if (NextTokenIs(parser, '{'))
+			{
+				NextToken(parser); // {
+
+				hasBody = true;
+				fields = ParseStructFields(parser);
+
+				SkipToken(parser, '}');
+			}
+			else
+			{
+				SkipToken(parser, ';');
+			}
+
+			AST::Struct* strct = new AST::Struct(parser->module, inputState, flags, name, hasBody, fields, isGeneric, genericParams);
+			strct->nameToken = nameToken;
+			strct->isUnion = true;
 			return strct;
 		}
 	}

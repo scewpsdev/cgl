@@ -188,6 +188,7 @@ i32 __cstrl(const char* str)
 	return (i32)strlen(str);
 }
 
+#ifdef _WIN32
 void* __loadDllFunc(const char* dllName, const char* funcName)
 {
 	void* library = LoadLibraryA(dllName);
@@ -208,6 +209,13 @@ void* __loadDllFunc(const char* dllName, const char* funcName)
 
 	return func;
 }
+#else
+void* __loadDllFunc(const char* dllName, const char* funcName)
+{
+	// not implemented
+	return 0;
+}
+#endif
 
 // DEBUGGING
 #ifdef RUNTIME_STACK_TRACE

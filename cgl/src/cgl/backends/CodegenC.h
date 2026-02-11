@@ -355,30 +355,44 @@ class CodegenC
 
 	std::string genTypeUnion(TypeID type)
 	{
-		SnekAssert(type->unionType.anonDeclaration);
-
-		std::stringstream* parentStream = instructionStream;
-
-		std::stringstream structStream;
-		instructionStream = &structStream;
-
-		*instructionStream << "union{";
-		indentation++;
-		newLine();
-
-		for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
+		if (type->unionType.anonDeclaration)
 		{
-			genStructField(type->unionType.anonDeclaration->fields[i]);
+			std::stringstream* parentStream = instructionStream;
+
+			std::stringstream structStream;
+			instructionStream = &structStream;
+
+			*instructionStream << "union{";
+			indentation++;
 			newLine();
+
+			for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
+			{
+				genStructField(type->unionType.anonDeclaration->fields[i]);
+				newLine();
+			}
+
+			stepBackWhitespace();
+			indentation--;
+			*instructionStream << "}";
+
+			instructionStream = parentStream;
+
+			return structStream.str();
 		}
-
-		stepBackWhitespace();
-		indentation--;
-		*instructionStream << "}";
-
-		instructionStream = parentStream;
-
-		return structStream.str();
+		else
+		{
+			if (type->unionType.declaration && type->unionType.declaration->file != file)
+			{
+				if (!importedStructs.contains(type->unionType.declaration))
+				{
+					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+					importedStructs.add(type->unionType.declaration);
+					importStruct(type->unionType.declaration);
+				}
+			}
+			return "union " + std::string(type->unionType.name);
+		}
 	}
 
 	std::string genTypeClass(TypeID type)
@@ -934,11 +948,11 @@ class CodegenC
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
 			*instructionStream << " __attribute__((dllexport))";
-			//*instructionStream << " __declspec(dllexport)";
+		//*instructionStream << " __declspec(dllexport)";
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
 			*instructionStream << " __attribute__((dllimport))";
-			//*instructionStream << " __declspec(dllimport)";
+		//*instructionStream << " __declspec(dllimport)";
 
 		if (function->dllImport)
 		{
@@ -1104,6 +1118,10 @@ class CodegenC
 		{
 			//SnekAssert(expression->functions.size == 1);
 			return getFunctionValue(expression->functions[0]);
+		}
+		else if (expression->enumValue)
+		{
+			return getEnumValue(expression->enumValue);
 		}
 		else
 		{
@@ -1342,15 +1360,35 @@ class CodegenC
 		}
 		else if (expression->structField)
 		{
-			if (expression->operand->valueType->typeKind == AST::TypeKind::Pointer && expression->operand->valueType->pointerType.elementType->typeKind == AST::TypeKind::Struct)
-				return genExpression(expression->operand) + "->" + expression->structField->name;
-			else if (expression->operand->valueType->typeKind == AST::TypeKind::Struct)
-				return genExpression(expression->operand) + "." + expression->structField->name;
-			else
+			TypeID operandType = expression->operand->valueType;
+			bool pointer = false;
+			operandType = UnwrapType(operandType);
+			if (operandType->typeKind == AST::TypeKind::Pointer)
 			{
-				SnekAssert(false);
-				return "";
+				operandType = UnwrapType(operandType->pointerType.elementType);
+				pointer = true;
 			}
+			if (operandType->typeKind == AST::TypeKind::Struct)
+				return genExpression(expression->operand) + (pointer ? "->" : ".") + expression->structField->name;
+
+			SnekAssert(false);
+			return "";
+		}
+		else if (expression->unionField)
+		{
+			TypeID operandType = expression->operand->valueType;
+			bool pointer = false;
+			operandType = UnwrapType(operandType);
+			if (operandType->typeKind == AST::TypeKind::Pointer)
+			{
+				operandType = UnwrapType(operandType->pointerType.elementType);
+				pointer = true;
+			}
+			if (operandType->typeKind == AST::TypeKind::Union)
+				return genExpression(expression->operand) + (pointer ? "->" : ".") + expression->unionField->name;
+
+			SnekAssert(false);
+			return "";
 		}
 		else if (expression->classMethod)
 			return expression->classMethod->mangledName;
@@ -2315,9 +2353,10 @@ class CodegenC
 					if (en->values[j]->value)
 					{
 						if (en->values[j]->value->type == AST::ExpressionType::IntegerLiteral)
-							value->valueStr = castValue(std::to_string(((AST::IntegerLiteral*)en->values[j]->value)->value + (value->idx - j)), GetIntegerType(32, true), en->type);
+							value->valueStr = castValue(std::to_string(((AST::IntegerLiteral*)en->values[j]->value)->value + (value->idx - j)), en->values[j]->value->valueType, en->type);
 						else
 							value->valueStr = castValue(en->values[j]->value, en->type) + "+" + castValue(std::to_string(value->idx - j), GetIntegerType(32, true), en->type);
+						break;
 					}
 					else if (j == 0)
 					{
@@ -2355,11 +2394,11 @@ class CodegenC
 			*instructionStream << "static ";
 		else if (HasFlag(function->flags, AST::DeclarationFlags::DllExport))
 			*instructionStream << "__attribute__((dllexport)) ";
-			//*instructionStream << "__declspec(dllexport) ";
+		//*instructionStream << "__declspec(dllexport) ";
 
 		if (HasFlag(function->flags, AST::DeclarationFlags::DllImport))
 			*instructionStream << "__attribute__((dllimport)) ";
-			//*instructionStream << "__declspec(dllimport) ";
+		//*instructionStream << "__declspec(dllimport) ";
 
 		*instructionStream << genType(function->functionType->functionType.returnType) << ' ';
 

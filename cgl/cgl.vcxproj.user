@@ -4,13 +4,13 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>build -gcc src/**.src -l lib/libSDL3.dll.a -o bin/a.exe -debuginfo</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>build -gcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -l lib/libSDL3.a -o bin/a.exe -debuginfo</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\Dev\2026\SnekSandbox</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArgumentsHistory>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo|**.src|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>build -gcc src/**.src -l lib/libSDL3.dll.a -o bin/a.exe -debuginfo</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>build -gcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -l lib/libSDL3.a -o bin/a.exe -debuginfo</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\Dev\2026\SnekSandbox</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArgumentsHistory>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo|</LocalDebuggerCommandArgumentsHistory>

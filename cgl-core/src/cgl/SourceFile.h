@@ -11,4 +11,5 @@ struct SourceFile
 struct LinkerFile
 {
 	const char* filename = nullptr;
+	bool shorthandName = false;
 };

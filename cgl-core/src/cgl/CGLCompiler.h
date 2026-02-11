@@ -38,7 +38,7 @@ public:
 	void terminate();
 
 	void addFile(const char* filename, const char* name, const char* src);
-	void addLinkerFile(const char* filename);
+	void addLinkerFile(const char* filename, bool shorthandName);
 	void addLinkerPath(const char* path);
 	bool compile();
 
@@ -47,6 +47,8 @@ public:
 
 	int runTCC(int argc, char* argv[]);
 	int outputTCC(const char* path);
+
+	int outputEmscripten(const char* path);
 
 	AST::File* getASTByName(const char* name);
 };

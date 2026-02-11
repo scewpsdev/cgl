@@ -35,10 +35,11 @@ void CGLCompiler::addFile(const char* filename, const char* name, const char* sr
 	sourceFiles.add(sourceFile);
 }
 
-void CGLCompiler::addLinkerFile(const char* filename)
+void CGLCompiler::addLinkerFile(const char* filename, bool shorthandName)
 {
 	LinkerFile linkerFile;
 	linkerFile.filename = filename;
+	linkerFile.shorthandName = shorthandName;
 	linkerFiles.add(linkerFile);
 }
 

@@ -334,6 +334,7 @@ namespace AST
 
 		// structs
 		StructField* structField = nullptr;
+		StructField* unionField = nullptr;
 		Function* classMethod = nullptr;
 		ValueHandle methodInstance = nullptr;
 

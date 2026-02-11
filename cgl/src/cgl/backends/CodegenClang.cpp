@@ -83,11 +83,16 @@ int CGLCompiler::outputLLVM(const char* path)
 	if (sharedLibrary)
 		cmd << "-shared ";
 	if (debugInfo)
+	{
 		cmd << "-g ";
+		//cmd << "-Wl,/DEBUG ";
+	}
 	if (optimization > 0)
 		cmd << "-O" << optimization << ' ';
 	cmd << "-I " << LocalFilePath("lib") << ' ';
 	cmd << LocalFilePath("lib/cgl.c") << ' ';
+
+	//cmd << "--target=x86_64-w64-windows-gnu ";
 
 	for (AST::File* file : asts)
 	{
@@ -111,6 +116,8 @@ int CGLCompiler::outputLLVM(const char* path)
 
 	for (const LinkerFile& linkerFile : linkerFiles)
 	{
+		if (linkerFile.shorthandName)
+			cmd << "-l";
 		cmd << linkerFile.filename << ' ';
 	}
 
@@ -125,5 +132,12 @@ int CGLCompiler::outputLLVM(const char* path)
 	fprintf(stderr, "Running " BUILD_CMD " backend\n");
 
 	std::string cmdStr = cmd.str();
-	return system(cmdStr.c_str());
+	int result = system(cmdStr.c_str());
+
+	fprintf(stderr, "Running cv2pdb\n");
+
+	std::string pdbStr = std::string("cv2pdb ") + path;
+	system(pdbStr.c_str());
+
+	return result;
 }

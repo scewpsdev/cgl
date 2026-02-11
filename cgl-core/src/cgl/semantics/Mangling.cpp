@@ -95,13 +95,11 @@ static void AppendModuleName(AST::Module* module, StringBuffer& buffer)
 
 char* MangleFunctionName(AST::Function* function)
 {
-	bool isExtern = HasFlag(function->flags, AST::DeclarationFlags::Extern);
-
 	if (function->isEntryPoint)
 	{
 		return _strdup("main");
 	}
-	else if (isExtern || function->dllImport || HasFlag(function->flags, AST::DeclarationFlags::DllExport))
+	else if (function->dllImport || HasFlag(function->flags, AST::DeclarationFlags::Extern) || HasFlag(function->flags, AST::DeclarationFlags::DllExport) || HasFlag(function->flags, AST::DeclarationFlags::NoMangle))
 	{
 		return _strdup(function->name);
 	}

@@ -276,6 +276,19 @@ TypeID GetStructType(int numValues, TypeID* valueTypes, AST::StructType* declara
 	return data;
 }
 
+TypeID GetUnionType(const char* unionName, AST::Struct* declaration)
+{
+	TypeData* data = new TypeData{};
+	data->typeKind = AST::TypeKind::Union;
+
+	data->unionType.name = unionName;
+	data->unionType.declaration = declaration;
+
+	types.unionTypes.add(data);
+
+	return data;
+}
+
 TypeID GetUnionType(int numValues, TypeID* valueTypes, AST::UnionType* declaration)
 {
 	TypeData* data = new TypeData;

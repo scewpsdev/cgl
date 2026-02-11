@@ -1733,7 +1733,21 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved struct member %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved struct field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			return false;
+		}
+		else if (operandType->typeKind == AST::TypeKind::Union)
+		{
+			if (AST::StructField* field = operandType->unionType.anonDeclaration->getFieldWithName(expr->name))
+			{
+				SnekAssert(field->type);
+				expr->valueType = field->type->typeID;
+				expr->lvalue = true;
+				expr->unionField = field;
+				return true;
+			}
+
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved union field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Class)
@@ -1762,7 +1776,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved class member %s.%s", GetTypeString(operandType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved class field %s.%s", GetTypeString(operandType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Optional)
@@ -1784,12 +1798,12 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 					return true;
 				}
 
-				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional property %s.%s", GetTypeString(operandType), expr->name);
+				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%s", GetTypeString(operandType), expr->name);
 				return false;
 			}
 			else if (expr->fieldIndex != -1)
 			{
-				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional property %s.%d", GetTypeString(operandType), expr->fieldIndex);
+				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%d", GetTypeString(operandType), expr->fieldIndex);
 				return false;
 			}
 			else
@@ -1827,7 +1841,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved array property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved array field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::String)
@@ -1848,7 +1862,7 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved string property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved string field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Any)
@@ -1868,12 +1882,12 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved any type property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved any type field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 		else
 		{
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved property %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			SnekErrorLoc(resolver->context, expr->location, "Unresolved field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
 			return false;
 		}
 	}
@@ -2629,7 +2643,8 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 {
 	if (statement->value)
 	{
-		resolver->expectedType = resolver->currentFunction->returnType->typeID;
+		if (resolver->currentFunction->returnType)
+			resolver->expectedType = resolver->currentFunction->returnType->typeID;
 		if (ResolveExpression(resolver, statement->value))
 		{
 			resolver->expectedType = nullptr;

@@ -234,4 +234,18 @@ namespace AST
 			copy->fields[i] = (StructField*)copy->fields[i]->copy();
 		return copy;
 	}
+
+	StructField* UnionType::getFieldWithName(const char* name, int* index)
+	{
+		for (int i = 0; i < fields.size; i++)
+		{
+			if (StructField* field = CheckStructField(fields[i], name))
+			{
+				if (index)
+					*index = i;
+				return field;
+			}
+		}
+		return nullptr;
+	}
 }

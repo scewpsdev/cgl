@@ -47,6 +47,7 @@ namespace AST
 		Private = 1 << 5,
 		Internal = 1 << 6,
 		Packed = 1 << 7,
+		NoMangle = 1 << 8,
 	};
 
 	DeclarationFlags operator|(DeclarationFlags flag0, DeclarationFlags flag1);
@@ -161,6 +162,7 @@ namespace AST
 		Token nameToken;
 		bool hasBody;
 		List<StructField*> fields;
+		bool isUnion = false;
 
 		bool isGeneric = false;
 		bool isGenericInstance = false;
@@ -344,4 +346,7 @@ namespace AST
 
 		virtual Element* copy() override;
 	};
+
+
+	StructField* CheckStructField(StructField* field, const char* name);
 }

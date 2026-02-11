@@ -23,6 +23,7 @@
 #define KEYWORD_DLLEXPORT "dllexport"
 #define KEYWORD_DLLIMPORT "dllimport"
 #define KEYWORD_PACKED    "packed"
+#define KEYWORD_NOMANGLE  "nomangle"
 
 #define KEYWORD_IF        "if"
 #define KEYWORD_ELSE      "else"

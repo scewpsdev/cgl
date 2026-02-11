@@ -10,7 +10,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 7
-#define VERSION_PATCH 1
+#define VERSION_PATCH 2
 #define VERSION_SUFFIX "-alpha"
 
 #define OPT_BUILD_HELP "-help"
@@ -25,6 +25,7 @@
 #define OPT_BUILD_GEN_RUNTIME_STACKTRACE "-runtime-stacktrace"
 #define OPT_BUILD_BACKEND_CLANG "-gcc"
 #define OPT_BUILD_BACKEND_TCC "-tcc"
+#define OPT_BUILD_BACKEND_EMSCRIPTEN "-emcc"
 
 
 void printBuildHelp(char linePrefix)
@@ -178,7 +179,7 @@ static void AddSourceFile(CGLCompiler& compiler, char* src, char* path, char* mo
 
 static void AddLinkerFile(CGLCompiler& compiler, const char* path)
 {
-	compiler.addLinkerFile(path);
+	compiler.addLinkerFile(path, false);
 	//SnekAddLinkerFile(context, path);
 }
 
@@ -241,6 +242,7 @@ int build(int argc, char* argv[])
 	const char* outPath = "a.exe";
 	bool llvm = false;
 	bool tcc = false;
+	bool emcc = false;
 
 	CGLCompiler compiler;
 	compiler.init(OnCompilerMessage);
@@ -284,7 +286,7 @@ int build(int argc, char* argv[])
 			else if (strcmp(arg, OPT_BUILD_LINKER_FILE) == 0)
 			{
 				if (i < argc - 1)
-					compiler.addLinkerFile(argv[++i]);
+					compiler.addLinkerFile(argv[++i], true);
 				else
 				{
 					SnekError(&compiler, "%s must be followed by a path", arg);
@@ -318,6 +320,8 @@ int build(int argc, char* argv[])
 				llvm = true;
 			else if (strcmp(arg, OPT_BUILD_BACKEND_TCC) == 0)
 				tcc = true;
+			else if (strcmp(arg, OPT_BUILD_BACKEND_EMSCRIPTEN) == 0)
+				emcc = true;
 			else
 			{
 				SnekError(&compiler, "Unknown argument %s", arg);
@@ -358,6 +362,8 @@ int build(int argc, char* argv[])
 				fprintf(stderr, "Generating code\n");
 				if (llvm)
 					result = compiler.outputLLVM(outPath) == 0;
+				else if (emcc)
+					result = compiler.outputEmscripten(outPath) == 0;
 				else
 					result = compiler.outputTCC(outPath) == 0;
 			}
@@ -418,7 +424,7 @@ int run(int argc, char* argv[])
 			else if (strcmp(arg, OPT_BUILD_LINKER_FILE) == 0)
 			{
 				if (i < argc - 1)
-					compiler.addLinkerFile(argv[++i]);
+					compiler.addLinkerFile(argv[++i], true);
 				else
 				{
 					SnekError(&compiler, "%s must be followed by a path", arg);

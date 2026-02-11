@@ -9,25 +9,315 @@
 
 #include "tcc/libtcc.h"
 #include "tcc/tcc.h"
+#undef free
 
 #include <tree_sitter/api.h>
 
 #include <unordered_map>
+#include <string>
+#include <iostream>
+#include <istream>
+#include <fstream>
+#include <set>
 
 
 static std::unordered_map<uint32_t, std::pair<TSNode, int>> typedefs;
+static std::set<uint32_t> defines;
 
 
 extern "C" const TSLanguage* tree_sitter_c(void);
 
 
-static void outputSymbols(TCCState* s1, FILE* file)
+static bool isHeaderIncluded(const char* header, const List<char*>& headers)
 {
-	for (int i = 0; i < total_idents; i++)
+	for (int i = 0; i < headers.size; i++)
 	{
-		TokenSym* tok = table_ident[i];
+		if (strcmp(headers[i], header) == 0)
+			return true;
+	}
+	return false;
+}
 
-		continue;
+static bool isStandardHeader(const char* header)
+{
+	static const char* standardHeaders[] = {
+		"assert.h",
+		"conio.h",
+		"ctype.h",
+		"dir.h",
+		"direct.h",
+		"dirent.h",
+		"dos.h",
+		"errno.h",
+		"excpt.h",
+		"fcntl.h",
+		"fenv.h",
+		"float.h",
+		"inttypes.h",
+		"io.h",
+		"limits.h",
+		"locale.h",
+		"malloc.h",
+		"math.h",
+		"mem.h",
+		"memory.h",
+		"process.h",
+		"setjmp.h",
+		"share.h",
+		"signal.h",
+		"stdarg.h",
+		"stdbool.h",
+		"stddef.h",
+		"stdint.h",
+		"stdio.h",
+		"stdlib.h",
+		"string.h",
+		"tchar.h",
+		"time.h",
+		"vadefs.h",
+		"values.h",
+		"varargs.h",
+		"wchar.h",
+		"wctype.h",
+	};
+
+	int numStandardHeaders = sizeof(standardHeaders) / sizeof(standardHeaders[0]);
+	for (int i = 0; i < numStandardHeaders; i++)
+	{
+		if (strcmp(header, standardHeaders[i]) == 0)
+			return true;
+	}
+	return false;
+}
+
+static std::string trim(std::string& str)
+{
+	str.erase(str.find_last_not_of(' ') + 1);  // Suffixing spaces
+	str.erase(0, str.find_first_not_of(' '));  // Prefixing spaces
+	return str;
+}
+
+static uint32_t hashString(const std::string& str)
+{
+	uint32_t hash = 7;
+	for (int i = 0; i < (int)str.length(); i++)
+	{
+		char c = str[i];
+		hash = hash * 31 + c;
+	}
+
+	return hash;
+}
+
+static bool parseInt(const char* str, int64_t* result, bool* isUnsigned)
+{
+	int64_t value = 0;
+	bool isNegative = false;
+	*isUnsigned = true;
+	int base = 10;
+
+	for (int i = 0; i < (int)strlen(str); i++)
+	{
+		char c = tolower(str[i]);
+		if (c == '-')
+		{
+			SnekAssert(i == 0);
+			isNegative = true;
+		}
+		else if (c == '_')
+		{
+			;
+		}
+		else if (isDigit(c))
+		{
+			value = value * base + (c - '0');
+		}
+		else if (isAlpha(c) && c >= 'a' && c <= 'f' && base == 16)
+		{
+			value = value * base + (c - 'a' + 10);
+		}
+		else if (isAlpha(c) && c >= 'A' && c <= 'F' && base == 16)
+		{
+			value = value * base + (c - 'A' + 10);
+		}
+		else if (base == 10 && c == 'b')
+		{
+			if (value == 0 && (i == 1 || i == 2 && isNegative))
+				base = 2;
+			else
+				return false;
+		}
+		else if (base == 10 && c == 'o')
+		{
+			if (value == 0 && (i == 1 || i == 2 && isNegative))
+				base = 8;
+			else
+				return false;
+		}
+		else if (base == 10 && c == 'x')
+		{
+			if (value == 0 && (i == 1 || i == 2 && isNegative))
+				base = 16;
+			else
+				return false;
+		}
+		else if (c == 'u')
+		{
+			*isUnsigned = true;
+		}
+		else if (c == 'l')
+		{
+
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	if (isNegative)
+	{
+		value *= -1;
+		*isUnsigned = false;
+	}
+
+	*result = value;
+	return true;
+}
+
+static bool parseFloat(const char* str, double* result, bool* isDouble)
+{
+	char processed[32] = {};
+	int len = 0;
+
+	*isDouble = true;
+
+	auto min = [](int a, int b) { return  a < b ? a : b; };
+
+	for (int i = 0; i < min((int)strlen(str), 31); i++)
+	{
+		char c = str[i];
+		if (c != '_' && (c != 'f' && c != 'F'))
+			processed[len++] = c;
+		if (c == 'f' || c == 'F')
+			*isDouble = false;
+	}
+	processed[len] = 0;
+
+	double value = atof(processed);
+
+	if (value != 0)
+	{
+		*result = value;
+		return true;
+	}
+
+	return false;
+}
+
+static std::string parseValue(std::string str, std::string* type)
+{
+	auto lineComment = str.find("//");
+	if (lineComment != std::string::npos)
+		str = str.substr(0, lineComment);
+
+	auto comment = str.find("/*");
+	if (comment != std::string::npos)
+	{
+		auto commentEnd = str.find("*/", comment + 2);
+		if (commentEnd != std::string::npos)
+		{
+			str = str.substr(0, comment) + str.substr(commentEnd + 2);
+		}
+	}
+
+	str = trim(str);
+
+	int64_t i;
+	bool isUnsigned;
+	if (parseInt(str.c_str(), &i, &isUnsigned))
+	{
+		int bitWidth = 32;
+		bool isSigned = !isUnsigned;
+		if (i < 0)
+		{
+			isSigned = true;
+			if (i > INT32_MAX || i < INT32_MIN)
+				bitWidth = 64;
+		}
+		else
+		{
+			if (i > UINT32_MAX)
+				bitWidth = 64;
+		}
+
+		*type = (isSigned ? "int" : "uint") + std::to_string(bitWidth);
+
+		return str;
+	}
+
+	double f;
+	bool isDouble;
+	if (parseFloat(str.c_str(), &f, &isDouble))
+	{
+		*type = isDouble ? "double" : "float";
+
+		return str;
+	}
+
+	return "";
+}
+
+static void parseConstants(const char* path, FILE* file)
+{
+	List<char*> headers;
+	headers.add(_strdup(path));
+
+	while (headers.size > 0)
+	{
+		std::ifstream stream(headers[0]);
+		free(headers[0]);
+		headers.removeAt(0);
+
+		std::string line;
+
+		for (std::string line; std::getline(stream, line);)
+		{
+			if (line.starts_with("#define "))
+			{
+				line = line.substr(8);
+				auto space = line.find(' ');
+				if (space != std::string::npos)
+				{
+					std::string name = line.substr(0, space);
+					uint32_t nameHash = hashString(name);
+					if (defines.find(nameHash) == defines.end())
+					{
+						KeywordType keywordType = getKeywordType(name.c_str(), (int)name.length());
+						auto paren = name.find('(');
+						if (keywordType == KeywordType::KEYWORD_TYPE_NULL && paren == std::string::npos)
+						{
+							std::string valueStr = line.substr(space + 1);
+							std::string type;
+							std::string value = parseValue(valueStr, &type);
+							if (value != "")
+							{
+								fprintf(file, "const %s %s = %s;\n", type.c_str(), name.c_str(), value.c_str());
+							}
+						}
+						defines.emplace(nameHash);
+					}
+				}
+			}
+			else if (line.starts_with("#include "))
+			{
+				line = line.substr(9);
+				line = line.substr(1, line.size() - 2);
+
+				if (!isHeaderIncluded(line.c_str(), headers) && !isStandardHeader(line.c_str()))
+					headers.add(_strdup(line.c_str()));
+			}
+		}
 	}
 }
 
@@ -57,7 +347,7 @@ static bool preprocess(const char* path, const char* out)
 	*/
 
 	//tcc_define_symbol(tcc, "_WIN32", nullptr);
-	tcc_define_symbol(tcc, "SDL_DECLSPEC", "__declspec(dllimport)");
+	//tcc_define_symbol(tcc, "SDL_DECLSPEC", "__declspec(dllimport)");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_PREPROCESS);
 	tcc->ppfp = fopen(out, "wb");
@@ -642,6 +932,33 @@ static void parseStruct(TSNode node, TSNode name, const char* src, FILE* file)
 	fprintf(file, "}\n");
 }
 
+static void parseUnion(TSNode node, TSNode name, const char* src, FILE* file)
+{
+	TSNode fields = findNode(node, "field_declaration_list");
+
+	const char* n = &src[ts_node_start_byte(node)];
+	if (strncmp(n, "struct SDL_TextEditingCandidatesEvent", strlen("struct SDL_TextEditingCandidatesEvent")) == 0)
+	{
+		int a = 5;
+	}
+
+	fprintf(file, "union ");
+	outputNodeValue(name, src, file);
+	fprintf(file, " {\n");
+
+	for (int i = 0; i < ts_node_child_count(fields); i++)
+	{
+		TSNode field = ts_node_child(fields, i);
+		const char* fieldType = ts_node_type(field);
+		if (strcmp(fieldType, "field_declaration") == 0)
+		{
+			parseField(field, src, file, 1);
+		}
+	}
+
+	fprintf(file, "}\n");
+}
+
 static void parseEnum(TSNode node, TSNode name, const char* src, FILE* file)
 {
 	TSNode values = findNode(node, "enumerator_list");
@@ -712,11 +1029,14 @@ static void parseType(TSNode node, const char* src, FILE* file)
 
 			if (hasNode(value, "field_declaration_list"))
 			{
+				parseUnion(value, name, src, file);
+				/*
 				fprintf(file, "typedef ");
 				outputNodeValue(name, src, file);
 				fprintf(file, " : ");
 				parseUnion(value, src, file, 0);
 				fprintf(file, ";\n");
+				*/
 			}
 			else
 			{
@@ -884,7 +1204,7 @@ static void parseType(TSNode node, const char* src, FILE* file)
 	}
 }
 
-static bool parse(const char* path, const char* out)
+static bool parse(const char* path, FILE* outFile)
 {
 	TSParser* parser = ts_parser_new();
 	ts_parser_set_language(parser, tree_sitter_c());
@@ -896,8 +1216,6 @@ static bool parse(const char* path, const char* out)
 		src,
 		strlen(src)
 	);
-
-	FILE* outFile = fopen(out, "w");
 
 	TSNode rootNode = ts_tree_root_node(tree);
 
@@ -944,8 +1262,6 @@ static bool parse(const char* path, const char* out)
 		}
 	}
 
-	fclose(outFile);
-
 	delete src;
 
 	ts_tree_delete(tree);
@@ -966,13 +1282,20 @@ int main(int argc, char* argv[])
 		char* dot = strrchr(intermediate, '.');
 		sprintf(dot, ".i");
 
+		FILE* outFile = fopen(out, "w");
+
+		parseConstants(path, outFile);
+
 		if (preprocess(path, intermediate))
 		{
-			if (parse(intermediate, out))
+			if (parse(intermediate, outFile))
 			{
+				fclose(outFile);
 				return 0;
 			}
 		}
+
+		fclose(outFile);
 	}
 	return 1;
 }
