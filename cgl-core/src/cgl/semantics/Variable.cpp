@@ -116,8 +116,39 @@ Variable* Resolver::findVariable(const char* name)
 	if (Variable* variable = findGlobalVariableInFile(name, currentFile))
 		return variable;
 
-	AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
-	if (Variable* variable = findGlobalVariableInModule(name, module, module))
+	AST::Module* currentModule = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
+
+	if (currentFile->moduleDecl)
+	{
+		if (Variable* variable = findGlobalVariableInModule(name, currentFile->moduleDecl->module, currentModule))
+			return variable;
+	}
+
+	for (int i = 0; i < currentFile->dependencies.size; i++)
+	{
+		AST::Module* dependency = currentFile->dependencies[i];
+		if (Variable* variable = findGlobalVariableInModule(name, dependency, currentModule))
+			return variable;
+
+		/*
+		//if (AST::File* file = dependency->file)
+		for (AST::File* file : dependency->files)
+		{
+			if (Variable* variable = findGlobalVariableInFile(name, file))
+			{
+				if (variable->visibility >= AST::Visibility::Public)
+					return variable;
+				else
+				{
+					SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
+					return nullptr;
+				}
+			}
+		}
+		*/
+	}
+
+	if (Variable* variable = findGlobalVariableInModule(name, globalModule, currentModule))
 		return variable;
 
 	/*
@@ -140,29 +171,6 @@ Variable* Resolver::findVariable(const char* name)
 	}
 	*/
 
-	for (int i = 0; i < currentFile->dependencies.size; i++)
-	{
-		AST::Module* dependency = currentFile->dependencies[i];
-		if (Variable* variable = findGlobalVariableInModule(name, dependency, module))
-			return variable;
-
-		/*
-		//if (AST::File* file = dependency->file)
-		for (AST::File* file : dependency->files)
-		{
-			if (Variable* variable = findGlobalVariableInFile(name, file))
-			{
-				if (variable->visibility >= AST::Visibility::Public)
-					return variable;
-				else
-				{
-					SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
-					return nullptr;
-				}
-			}
-		}
-		*/
-	}
 	return nullptr;
 }
 
@@ -208,20 +216,30 @@ AST::EnumValue* FindEnumValue(Resolver* resolver, const char* name)
 		return enumValue;
 	}
 
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
-	if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, module, name, module))
+	AST::Module* currentModule = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
+
+	if (resolver->currentFile->moduleDecl)
 	{
-		return enumValue;
-	}
-	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
-	{
-		AST::Module* dependency = resolver->currentFile->dependencies[i];
-		if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, dependency, name, module))
+		if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, resolver->currentFile->moduleDecl->module, name, currentModule))
 		{
 			return enumValue;
 		}
 	}
-	return NULL;
+	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
+	{
+		AST::Module* dependency = resolver->currentFile->dependencies[i];
+		if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, dependency, name, currentModule))
+		{
+			return enumValue;
+		}
+	}
+
+	if (AST::EnumValue* enumValue = FindEnumValueInNamespace(resolver, resolver->globalModule, name, currentModule))
+	{
+		return enumValue;
+	}
+
+	return nullptr;
 }
 
 static AST::Struct* FindStructInFile(Resolver* resolver, AST::File* module, const char* name)
@@ -237,15 +255,8 @@ static AST::Struct* FindStructInFile(Resolver* resolver, AST::File* module, cons
 	return nullptr;
 }
 
-AST::Struct* FindStruct(Resolver* resolver, const char* name)
+static AST::Struct* FindStructInModule(Resolver* resolver, AST::Module* module, const char* name)
 {
-	if (AST::Struct* str = FindStructInFile(resolver, resolver->currentFile, name))
-	{
-		return str;
-	}
-
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (AST::Struct* str = FindStructInFile(resolver, file, name))
@@ -259,24 +270,38 @@ AST::Struct* FindStruct(Resolver* resolver, const char* name)
 			}
 		}
 	}
+	return nullptr;
+}
+
+AST::Struct* FindStruct(Resolver* resolver, const char* name)
+{
+	if (AST::Struct* str = FindStructInFile(resolver, resolver->currentFile, name))
+	{
+		return str;
+	}
+
+	if (resolver->currentFile->moduleDecl)
+	{
+		if (AST::Struct* str = FindStructInModule(resolver, resolver->currentFile->moduleDecl->module, name))
+		{
+			return str;
+		}
+	}
+
 	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
-		//if (AST::File* file = dependency->file)
-		for (AST::File* file : dependency->files)
+		if (AST::Struct* str = FindStructInModule(resolver, dependency, name))
 		{
-			if (AST::Struct* str = FindStructInFile(resolver, file, name))
-			{
-				if (str->visibility >= AST::Visibility::Public)
-					return str;
-				else
-				{
-					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Struct '%s' is not visible", str->name);
-					return nullptr;
-				}
-			}
+			return str;
 		}
 	}
+
+	if (AST::Struct* str = FindStructInModule(resolver, resolver->globalModule, name))
+	{
+		return str;
+	}
+
 	return nullptr;
 }
 
@@ -293,15 +318,8 @@ static AST::Class* FindClassInFile(Resolver* resolver, AST::File* module, const 
 	return nullptr;
 }
 
-AST::Class* FindClass(Resolver* resolver, const char* name)
+static AST::Class* FindClassInModule(Resolver* resolver, AST::Module* module, const char* name)
 {
-	if (AST::Class* clss = FindClassInFile(resolver, resolver->currentFile, name))
-	{
-		return clss;
-	}
-
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (AST::Class* clss = FindClassInFile(resolver, file, name))
@@ -315,24 +333,38 @@ AST::Class* FindClass(Resolver* resolver, const char* name)
 			}
 		}
 	}
+	return nullptr;
+}
+
+AST::Class* FindClass(Resolver* resolver, const char* name)
+{
+	if (AST::Class* clss = FindClassInFile(resolver, resolver->currentFile, name))
+	{
+		return clss;
+	}
+
+	if (resolver->currentFile->moduleDecl)
+	{
+		if (AST::Class* str = FindClassInModule(resolver, resolver->currentFile->moduleDecl->module, name))
+		{
+			return str;
+		}
+	}
+
 	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
-		//if (AST::File* file = module->file)
-		for (AST::File* file : dependency->files)
+		if (AST::Class* str = FindClassInModule(resolver, dependency, name))
 		{
-			if (AST::Class* clss = FindClassInFile(resolver, file, name))
-			{
-				if (clss->visibility >= AST::Visibility::Public)
-					return clss;
-				else
-				{
-					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Class '%s' is not visible", clss->name);
-					return nullptr;
-				}
-			}
+			return str;
 		}
 	}
+
+	if (AST::Class* str = FindClassInModule(resolver, resolver->globalModule, name))
+	{
+		return str;
+	}
+
 	return nullptr;
 }
 
@@ -349,15 +381,8 @@ static AST::Typedef* FindTypedefInFile(Resolver* resolver, AST::File* module, co
 	return nullptr;
 }
 
-AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
+static AST::Typedef* FindTypedefInModule(Resolver* resolver, AST::Module* module, const char* name)
 {
-	if (AST::Typedef* td = FindTypedefInFile(resolver, resolver->currentFile, name))
-	{
-		return td;
-	}
-
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (AST::Typedef* td = FindTypedefInFile(resolver, file, name))
@@ -371,24 +396,38 @@ AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
 			}
 		}
 	}
+	return nullptr;
+}
+
+AST::Typedef* FindTypedef(Resolver* resolver, const char* name)
+{
+	if (AST::Typedef* td = FindTypedefInFile(resolver, resolver->currentFile, name))
+	{
+		return td;
+	}
+
+	if (resolver->currentFile->moduleDecl)
+	{
+		if (AST::Typedef* str = FindTypedefInModule(resolver, resolver->currentFile->moduleDecl->module, name))
+		{
+			return str;
+		}
+	}
+
 	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
-		//if (AST::File* file = dependency->file)
-		for (AST::File* file : dependency->files)
+		if (AST::Typedef* str = FindTypedefInModule(resolver, dependency, name))
 		{
-			if (AST::Typedef* td = FindTypedefInFile(resolver, file, name))
-			{
-				if (td->visibility >= AST::Visibility::Public)
-					return td;
-				else
-				{
-					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Typedef '%s' is not visible", td->name);
-					return nullptr;
-				}
-			}
+			return str;
 		}
 	}
+
+	if (AST::Typedef* str = FindTypedefInModule(resolver, resolver->globalModule, name))
+	{
+		return str;
+	}
+
 	return nullptr;
 }
 
@@ -405,15 +444,8 @@ static AST::Enum* FindEnumInFile(Resolver* resolver, AST::File* module, const ch
 	return nullptr;
 }
 
-AST::Enum* FindEnum(Resolver* resolver, const char* name)
+static AST::Enum* FindEnumInModule(Resolver* resolver, AST::Module* module, const char* name)
 {
-	if (AST::Enum* en = FindEnumInFile(resolver, resolver->currentFile, name))
-	{
-		return en;
-	}
-
-	AST::Module* module = resolver->currentFile->moduleDecl ? resolver->currentFile->moduleDecl->module : resolver->globalModule;
-	//if (AST::File* file = module->file)
 	for (AST::File* file : module->files)
 	{
 		if (AST::Enum* en = FindEnumInFile(resolver, file, name))
@@ -427,24 +459,38 @@ AST::Enum* FindEnum(Resolver* resolver, const char* name)
 			}
 		}
 	}
+	return nullptr;
+}
+
+AST::Enum* FindEnum(Resolver* resolver, const char* name)
+{
+	if (AST::Enum* en = FindEnumInFile(resolver, resolver->currentFile, name))
+	{
+		return en;
+	}
+
+	if (resolver->currentFile->moduleDecl)
+	{
+		if (AST::Enum* str = FindEnumInModule(resolver, resolver->currentFile->moduleDecl->module, name))
+		{
+			return str;
+		}
+	}
+
 	for (int i = 0; i < resolver->currentFile->dependencies.size; i++)
 	{
 		AST::Module* dependency = resolver->currentFile->dependencies[i];
-		//if (AST::File* file = dependency->file)
-		for (AST::File* file : dependency->files)
+		if (AST::Enum* str = FindEnumInModule(resolver, dependency, name))
 		{
-			if (AST::Enum* en = FindEnumInFile(resolver, file, name))
-			{
-				if (en->visibility >= AST::Visibility::Public)
-					return en;
-				else
-				{
-					SnekErrorLoc(resolver->context, resolver->currentElement->location, "Enum '%s' is not visible", en->name);
-					return nullptr;
-				}
-			}
+			return str;
 		}
 	}
+
+	if (AST::Enum* str = FindEnumInModule(resolver, resolver->globalModule, name))
+	{
+		return str;
+	}
+
 	return nullptr;
 }
 

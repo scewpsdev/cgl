@@ -99,14 +99,16 @@ bool Resolver::findFunctions(const char* name, List<AST::Function*>& functions)
 
 	if (!found)
 	{
-		AST::Module* module = currentFile->moduleDecl ? currentFile->moduleDecl->module : globalModule;
-		found = findFunctionsInModule(name, module, functions) || found;
+		if (currentFile->moduleDecl)
+			found = findFunctionsInModule(name, currentFile->moduleDecl->module, functions) || found;
 
 		for (int i = 0; i < currentFile->dependencies.size; i++)
 		{
 			AST::Module* dependency = currentFile->dependencies[i];
 			found = findFunctionsInModule(name, dependency, functions) || found;
 		}
+
+		found = findFunctionsInModule(name, globalModule, functions) || found;
 	}
 
 	return found;
