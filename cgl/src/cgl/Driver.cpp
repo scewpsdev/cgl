@@ -490,11 +490,16 @@ int run(int argc, char* argv[])
 			if (compiler.compile())
 			{
 				fprintf(stderr, "Running code\n");
+
+				int argc = 0;
+				char** argv = nullptr;
 				int invokeResult = 0;
+
 				if (llvm)
-					invokeResult = compiler.runLLVM(0, nullptr);
+					invokeResult = compiler.runLLVM(argc, argv);
 				else
-					invokeResult = compiler.runTCC(0, nullptr);
+					invokeResult = compiler.runTCC(argc, argv);
+
 				fprintf(stderr, "Program exited with code %i\n", invokeResult);
 				result = invokeResult == 0;
 			}

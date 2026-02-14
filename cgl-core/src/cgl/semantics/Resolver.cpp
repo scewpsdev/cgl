@@ -691,7 +691,7 @@ static bool ResolveBoolLiteral(Resolver* resolver, AST::BooleanLiteral* expr)
 
 static bool ResolveCharacterLiteral(Resolver* resolver, AST::CharacterLiteral* expr)
 {
-	expr->valueType = GetIntegerType(8, false);
+	expr->valueType = GetIntegerType(8, true);
 	expr->lvalue = false;
 	return true;
 }
@@ -1173,6 +1173,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 				}
 
 				SnekErrorLoc(resolver->context, expr->callee->location, "Ambiguous function call %s(%s): %i possible overloads: %s", functionName, argumentTypesString, functionOverloads->size, functionList);
+				resolver->chooseFunctionOverload(*functionOverloads, arguments, methodInstance);
 				return false;
 			}
 		}

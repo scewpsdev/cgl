@@ -12,6 +12,8 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 {
 	TCCState* tcc = tcc_new();
 
+	tcc_set_lib_path(tcc, LocalFilePath("lib\\libtcc"));
+
 	tcc_add_library_path(tcc, LocalFilePath("lib\\libtcc"));
 	tcc_add_include_path(tcc, LocalFilePath("lib"));
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include"));
@@ -99,8 +101,13 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 	if (runtimeStackTrace)
 		tcc_define_symbol(tcc, "RUNTIME_STACK_TRACE", nullptr);
 
+
+	tcc_relocate(tcc);
+
+	int(*entrypoint)(int, char**) = (int(*)(int, char**))tcc_get_symbol(tcc, "main");
+	int result = entrypoint(argc, argv);
+
 	//int result = tcc_run(tcc, argc, argv);
-	int result = tcc_output_file(tcc, "a.exe");
 
 	tcc_delete(tcc);
 
@@ -110,6 +117,8 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 int CGLCompiler::outputTCC(const char* path)
 {
 	TCCState* tcc = tcc_new();
+
+	tcc_set_lib_path(tcc, LocalFilePath("lib\\libtcc"));
 
 	tcc_add_library_path(tcc, LocalFilePath("lib\\libtcc"));
 	tcc_add_include_path(tcc, LocalFilePath("lib"));
