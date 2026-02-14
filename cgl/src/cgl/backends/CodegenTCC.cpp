@@ -17,6 +17,8 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include"));
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include\\winapi"));
 
+	tcc_add_library_path(tcc, ".");
+
 	//tcc_add_library(tcc, ".\\lib\\libtcc1-64.a");
 	//tcc_add_include_path(tcc, "D:\\Repositories\\tcc\\include\\");
 	//tcc_add_library_path(tcc, "D:\\Repositories\\tcc\\lib\\");
@@ -66,14 +68,6 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 		}
 	}
 
-	for (const LinkerFile& linkerFile : linkerFiles)
-	{
-		if (tcc_add_file(tcc, linkerFile.filename))
-		{
-			SnekError(this, "Failed to add file %s", linkerFile.filename);
-		}
-	}
-
 	for (const char* linkerPath : linkerPaths)
 	{
 		if (tcc_add_library_path(tcc, linkerPath))
@@ -82,10 +76,31 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 		}
 	}
 
+	for (const LinkerFile& linkerFile : linkerFiles)
+	{
+		const char* name = linkerFile.filename;
+		if (strncmp(name + strlen(name) - 4, ".dll", 4) == 0)
+		{
+			if (tcc_add_file(tcc, linkerFile.filename))
+			{
+				SnekError(this, "Failed to add DLL %s", linkerFile.filename);
+			}
+		}
+		else
+		{
+			if (tcc_add_library(tcc, linkerFile.filename))
+			{
+				SnekError(this, "Failed to add library %s", linkerFile.filename);
+			}
+		}
+	}
+
+	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
 	if (runtimeStackTrace)
 		tcc_define_symbol(tcc, "RUNTIME_STACK_TRACE", nullptr);
 
-	int result = tcc_run(tcc, argc, argv);
+	//int result = tcc_run(tcc, argc, argv);
+	int result = tcc_output_file(tcc, "a.exe");
 
 	tcc_delete(tcc);
 
@@ -100,6 +115,8 @@ int CGLCompiler::outputTCC(const char* path)
 	tcc_add_include_path(tcc, LocalFilePath("lib"));
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include"));
 	tcc_add_include_path(tcc, LocalFilePath("lib\\libtcc\\include\\winapi"));
+
+	tcc_add_library_path(tcc, ".");
 
 	if (staticLibrary)
 		tcc_set_output_type(tcc, TCC_OUTPUT_OBJ);

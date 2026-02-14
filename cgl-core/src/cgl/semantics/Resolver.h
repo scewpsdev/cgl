@@ -53,6 +53,7 @@ struct Resolver
 	//AstExpression* currentExpression;
 
 	TypeID expectedType = nullptr;
+	AST::Expression* expectedTypeExpression = nullptr;
 
 	Scope* globalScope;
 	Scope* scope = nullptr;

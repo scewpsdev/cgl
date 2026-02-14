@@ -36,6 +36,8 @@ class CodegenC
 	AST::Function* currentFunction = nullptr;
 	AST::Statement* currentStatement = nullptr;
 
+	AST::VariableDeclarator* globalDeclarator = nullptr;
+
 	int unnamedLocalId = 0;
 	int unnamedGlobalId = 0;
 
@@ -899,9 +901,18 @@ class CodegenC
 		char globalName[8];
 		newGlobalName(globalName);
 
-		constants << "static const string " << globalName << "={";
-		writeStringLiteral(expression->value, expression->length, constants);
-		constants << "," << std::to_string(expression->length) << "};\n";
+		if (globalDeclarator)
+		{
+			constants << "#define " << globalName << " {";
+			writeStringLiteral(expression->value, expression->length, constants);
+			constants << "," << std::to_string(expression->length) << "}\n";
+		}
+		else
+		{
+			constants << "static const string " << globalName << "={";
+			writeStringLiteral(expression->value, expression->length, constants);
+			constants << "," << std::to_string(expression->length) << "};\n";
+		}
 
 		return std::string(globalName);
 	}
@@ -2652,9 +2663,15 @@ class CodegenC
 					AST::VariableDeclarator* declarator = global->declarators[i];
 					*instructionStream << " " << declarator->variable->mangledName;
 					if (declarator->value)
+					{
+						globalDeclarator = declarator;
 						*instructionStream << "=" << castValue(declarator->value, global->varType->typeID);
+						globalDeclarator = nullptr;
+					}
 					else
+					{
 						*instructionStream << "={0}";
+					}
 					if (i < global->declarators.size - 1)
 						*instructionStream << ",";
 				}

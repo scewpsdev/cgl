@@ -12,7 +12,7 @@ typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
 
-#ifdef __EMSCRIPTEN__
+#if defined __EMSCRIPTEN__ || defined __TINYC__
 typedef _Bool bool;
 #endif
 

@@ -94,14 +94,17 @@ Variable* Resolver::findGlobalVariableInModule(const char* name, AST::Module* mo
 {
 	for (AST::File* file : module->files)
 	{
-		if (Variable* variable = findGlobalVariableInFile(name, file))
+		if (current == module || !file->moduleDecl)
 		{
-			if (variable->visibility >= AST::Visibility::Public || current == module)
-				return variable;
-			else
+			if (Variable* variable = findGlobalVariableInFile(name, file))
 			{
-				SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
-				return nullptr;
+				if (variable->visibility >= AST::Visibility::Public || current == module)
+					return variable;
+				else
+				{
+					SnekErrorLoc(context, currentElement->location, "Variable '%s' is not visible", variable->name);
+					return nullptr;
+				}
 			}
 		}
 	}

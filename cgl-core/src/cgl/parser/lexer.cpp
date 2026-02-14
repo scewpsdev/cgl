@@ -359,6 +359,7 @@ static Token readNumberLiteral(Lexer* lexer)
 
 	bool fp = false;
 	bool isDouble = true;
+	bool hex = false;
 
 	if (InputPeek(&lexer->input, 0) == '-')
 	{
@@ -366,29 +367,30 @@ static Token readNumberLiteral(Lexer* lexer)
 		token.len++;
 	}
 
-	char c = InputPeek(&lexer->input, 0);
-	char c2 = InputPeek(&lexer->input, 1);
+	char c = tolower(InputPeek(&lexer->input, 0));
+	char c2 = tolower(InputPeek(&lexer->input, 1));
 	for (;
 		isDigit(c) ||
 		(!fp && c == '.' && (isAlpha(c2) || isDigit(c2))) ||
 		c == 'x' || c == 'b' || c == 'o' ||
 		(c >= 'a' && c <= 'f') ||
-		(c >= 'A' && c <= 'F') ||
-		c == 'e' || c == 'E' || c == '-' ||
+		c == 'e' || c == '-' ||
 		c == '_' ||
-		c == 'u' || c == 'U' ||
-		c == 'l' || c == 'L';
+		c == 'u' ||
+		c == 'l';
 		)
 	{
 		InputNext(&lexer->input);
-		if (c == '.')
+		if (c == 'x')
+			hex = true;
+		if (c == '.' || (!hex && c == 'f'))
 			fp = true;
-		else if (c == 'f' && fp)
+		if (!hex && c == 'f')
 			isDouble = false;
 		token.len++;
 
-		c = InputPeek(&lexer->input, 0);
-		c2 = InputPeek(&lexer->input, 1);
+		c = tolower(InputPeek(&lexer->input, 0));
+		c2 = tolower(InputPeek(&lexer->input, 1));
 	}
 
 	token.type = fp ? isDouble ? TOKEN_TYPE_DOUBLE_LITERAL : TOKEN_TYPE_FLOAT_LITERAL : TOKEN_TYPE_INT_LITERAL;

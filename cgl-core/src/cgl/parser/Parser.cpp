@@ -425,6 +425,7 @@ static AST::Expression* ParseAtom(Parser* parser)
 		bool isNegative = false;
 		bool isUnsigned = false;
 		int base = 10;
+		int exponent = 1;
 
 		for (int i = 0; i < (int)strlen(str); i++)
 		{
@@ -476,6 +477,19 @@ static AST::Expression* ParseAtom(Parser* parser)
 			{
 
 			}
+			else if (c == 'e')
+			{
+				exponent = 0;
+				for (int j = i + 1; j < (int)strlen(str); j++)
+				{
+					char cc = str[j];
+					if (isDigit(cc))
+						exponent = exponent * 10 + (cc - '0');
+					else
+						break;
+					i = j;
+				}
+			}
 			else
 			{
 				SnekAssert(false);
@@ -484,6 +498,11 @@ static AST::Expression* ParseAtom(Parser* parser)
 
 		if (isNegative)
 			value *= -1;
+
+		if (exponent != 1)
+		{
+			value *= (int64_t)(pow(10, exponent) + 0.0001f);
+		}
 
 		delete str;
 

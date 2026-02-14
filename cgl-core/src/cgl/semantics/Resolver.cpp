@@ -625,9 +625,52 @@ static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLi
 		*/
 }
 
+static bool IsFittingTypeForIntegerLiteral(Resolver* resolver, TypeID type, uint64_t value)
+{
+	int64_t signedValue = value;
+	if (type->integerType.isSigned)
+	{
+		if (type->integerType.bitWidth == 64 && signedValue <= INT64_MAX && signedValue >= INT64_MIN)
+			return true;
+		if (type->integerType.bitWidth == 32 && signedValue <= INT32_MAX && signedValue >= INT32_MIN)
+			return true;
+		if (type->integerType.bitWidth == 16 && signedValue <= INT16_MAX && signedValue >= INT16_MIN)
+			return true;
+		if (type->integerType.bitWidth == 8 && signedValue <= INT8_MAX && signedValue >= INT8_MIN)
+			return true;
+		return false;
+	}
+	else
+	{
+		if (type->integerType.bitWidth == 64 && value <= UINT64_MAX)
+			return true;
+		if (type->integerType.bitWidth == 32 && value <= UINT32_MAX)
+			return true;
+		if (type->integerType.bitWidth == 16 && value <= UINT16_MAX)
+			return true;
+		if (type->integerType.bitWidth == 8 && value <= UINT8_MAX)
+			return true;
+		return false;
+	}
+}
+
 static bool ResolveIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 {
-	expr->valueType = GetFittingTypeForIntegerLiteral(resolver, expr);
+	if (resolver->expectedType && resolver->expectedType->typeKind == AST::TypeKind::Integer && resolver->expectedTypeExpression == expr)
+	{
+		if (IsFittingTypeForIntegerLiteral(resolver, resolver->expectedType, expr->value))
+			expr->valueType = resolver->expectedType;
+		else
+		{
+			const char* typeStr = GetTypeString(resolver->expectedType);
+			SnekErrorLoc(resolver->context, expr->location, "Integer value does not fit into type '%s'", typeStr);
+			return false;
+		}
+	}
+	else
+	{
+		expr->valueType = GetFittingTypeForIntegerLiteral(resolver, expr);
+	}
 	expr->lvalue = false;
 	return true;
 }
@@ -672,7 +715,7 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 {
 	bool result = true;
 
-	if (!expr->initializerTypeAST && resolver->expectedType)
+	if (!expr->initializerTypeAST && resolver->expectedType && resolver->expectedTypeExpression == expr)
 		expr->initializerType = resolver->expectedType;
 
 	//if (ResolveType(resolver, expr->structType))
@@ -714,7 +757,7 @@ static bool ResolveInitializerList(Resolver* resolver, AST::InitializerList* exp
 		}
 
 		//if (expr->initializerTypeAST)
-		if (resolver->expectedType)
+		if (resolver->expectedType && resolver->expectedTypeExpression == expr)
 		{
 			//result = ResolveType(resolver, expr->initializerTypeAST) && result;
 			//expr->initializerType = expr->initializerTypeAST->typeID;
@@ -2434,9 +2477,11 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 		if (declarator->value)
 		{
 			resolver->expectedType = statement->varType;
+			resolver->expectedTypeExpression = declarator->value;
 			if (ResolveExpression(resolver, declarator->value))
 			{
 				resolver->expectedType = nullptr;
+				resolver->expectedTypeExpression = nullptr;
 
 				if (!statement->varType)
 					statement->varType = declarator->value->valueType;
@@ -2461,6 +2506,7 @@ static bool ResolveVarDeclStatement(Resolver* resolver, AST::VariableDeclaration
 			else
 			{
 				resolver->expectedType = nullptr;
+				resolver->expectedTypeExpression = nullptr;
 
 				result = false;
 			}
@@ -2644,10 +2690,14 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 	if (statement->value)
 	{
 		if (resolver->currentFunction->returnType)
+		{
 			resolver->expectedType = resolver->currentFunction->returnType->typeID;
+			resolver->expectedTypeExpression = statement->value;
+		}
 		if (ResolveExpression(resolver, statement->value))
 		{
 			resolver->expectedType = nullptr;
+			resolver->expectedTypeExpression = nullptr;
 
 			AST::Function* currentFunction = resolver->currentFunction;
 			TypeID returnType = currentFunction->returnType ? currentFunction->returnType->typeID : GetVoidType();
@@ -2665,6 +2715,7 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 		else
 		{
 			resolver->expectedType = nullptr;
+			resolver->expectedTypeExpression = nullptr;
 			return false;
 		}
 	}
@@ -3446,33 +3497,42 @@ static bool ResolveGlobal(Resolver* resolver, AST::GlobalVariable* decl)
 		AST::VariableDeclarator* declarator = decl->declarators[i];
 		if (declarator->value)
 		{
+			resolver->expectedType = decl->varType->typeID;
+			resolver->expectedTypeExpression = declarator->value;
 			if (ResolveExpression(resolver, declarator->value))
 			{
-				if (!CanConvertImplicit(declarator->value->valueType, decl->varType->typeID, declarator->value->isConstant()))
+				resolver->expectedType = nullptr;
+				resolver->expectedTypeExpression = nullptr;
+				if (declarator->value->isConstant())
 				{
-					SnekErrorLoc(resolver->context, decl->location, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
-					result = false;
+					if (!CanConvertImplicit(declarator->value->valueType, decl->varType->typeID, declarator->value->isConstant()))
+					{
+						SnekErrorLoc(resolver->context, decl->location, "Can't initialize global variable '%s' of type %s with value of type %s", declarator->name, GetTypeString(decl->varType->typeID), GetTypeString(declarator->value->valueType));
+						result = false;
+					}
+					if (HasFlag(decl->flags, AST::DeclarationFlags::Extern) || HasFlag(decl->flags, AST::DeclarationFlags::DllImport))
+					{
+						SnekErrorLoc(resolver->context, decl->location, "Extern global variable '%s' cannot have an initializer", declarator->name);
+						result = false;
+					}
+					if (declarator->value->type == AST::ExpressionType::InitializerList)
+					{
+						AST::InitializerList* initializerList = (AST::InitializerList*)declarator->value;
+						initializerList->initializerType = decl->varType->typeID;
+						initializerList->valueType = decl->varType->typeID;
+					}
 				}
-				if (HasFlag(decl->flags, AST::DeclarationFlags::Extern) || HasFlag(decl->flags, AST::DeclarationFlags::DllImport))
+				else
 				{
-					SnekErrorLoc(resolver->context, decl->location, "Extern global variable '%s' cannot have an initializer", declarator->name);
+					SnekErrorLoc(resolver->context, decl->location, "Initializer of global variable '%s' has to be constant", declarator->name);
 					result = false;
-				}
-				else if (!declarator->value->isConstant())
-				{
-					SnekErrorLoc(resolver->context, decl->location, "Initializer of global variable '%s' must be a constant value", declarator->name);
-					result = false;
-				}
-				if (declarator->value->type == AST::ExpressionType::InitializerList)
-				{
-					AST::InitializerList* initializerList = (AST::InitializerList*)declarator->value;
-					initializerList->initializerType = decl->varType->typeID;
-					initializerList->valueType = decl->varType->typeID;
 				}
 			}
 			else
 			{
 				result = false;
+				resolver->expectedType = nullptr;
+				resolver->expectedTypeExpression = nullptr;
 			}
 		}
 	}

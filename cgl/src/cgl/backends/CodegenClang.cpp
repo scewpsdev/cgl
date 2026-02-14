@@ -21,8 +21,8 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 	cmd << "-w ";
 	if (debugInfo)
 		cmd << "-g ";
-	if (optimization > 0)
-		cmd << "-O" << optimization << ' ';
+	//if (optimization > 0)
+	cmd << "-O" << optimization << ' ';
 	cmd << "-D DLLEXPORT=__declspec(dllexport) ";
 	if (runtimeStackTrace)
 		cmd << "-D RUNTIME_STACK_TRACE ";
@@ -134,10 +134,13 @@ int CGLCompiler::outputLLVM(const char* path)
 	std::string cmdStr = cmd.str();
 	int result = system(cmdStr.c_str());
 
-	fprintf(stderr, "Running cv2pdb\n");
+	if (debugInfo)
+	{
+		fprintf(stderr, "Running cv2pdb\n");
 
-	std::string pdbStr = std::string("cv2pdb ") + path;
-	system(pdbStr.c_str());
+		std::string pdbStr = std::string("cv2pdb ") + path;
+		system(pdbStr.c_str());
+	}
 
 	return result;
 }

@@ -186,7 +186,7 @@ static void AddLinkerFile(CGLCompiler& compiler, const char* path)
 static bool AddFile(CGLCompiler& compiler, const char* path)
 {
 	const char* fileExtension = GetExtensionFromPath(path);
-	if (strcmp(fileExtension, "obj") == 0 || strcmp(fileExtension, "o") == 0 || strcmp(fileExtension, "lib") == 0 || strcmp(fileExtension, "a") == 0 || strcmp(fileExtension, "def") == 0)
+	if (strcmp(fileExtension, "obj") == 0 || strcmp(fileExtension, "o") == 0 || strcmp(fileExtension, "lib") == 0 || strcmp(fileExtension, "a") == 0 || strcmp(fileExtension, "def") == 0 || strcmp(fileExtension, "dll") == 0)
 	{
 		AddLinkerFile(compiler, path);
 		return true;

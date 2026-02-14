@@ -762,10 +762,16 @@ bool CanConvertImplicit(TypeID argType, TypeID paramType, bool argIsConstant)
 
 	if (argType->typeKind == AST::TypeKind::Integer && paramType->typeKind == AST::TypeKind::Integer)
 	{
+		if (argIsConstant)
+			return true;
 		if (argType->integerType.bitWidth == paramType->integerType.bitWidth)
-			return true;
+		{
+			return argType->integerType.isSigned == paramType->integerType.isSigned;
+		}
 		else if (argType->integerType.bitWidth < paramType->integerType.bitWidth)
+		{
 			return true;
+		}
 		else if (argType->integerType.bitWidth > paramType->integerType.bitWidth)
 		{
 			if (argIsConstant && argType->integerType.bitWidth <= 32)

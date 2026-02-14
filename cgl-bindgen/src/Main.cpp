@@ -347,7 +347,7 @@ static bool preprocess(const char* path, const char* out)
 	*/
 
 	//tcc_define_symbol(tcc, "_WIN32", nullptr);
-	//tcc_define_symbol(tcc, "SDL_DECLSPEC", "__declspec(dllimport)");
+	tcc_define_symbol(tcc, "SDL_DECLSPEC", "__declspec(dllimport)");
 
 	tcc_set_output_type(tcc, TCC_OUTPUT_PREPROCESS);
 	tcc->ppfp = fopen(out, "wb");
