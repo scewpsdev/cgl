@@ -1883,7 +1883,7 @@ class CodegenC
 				indentation--;
 
 				stream << "}else{";
-				
+
 				indentation++;
 				newLine();
 
@@ -2267,7 +2267,10 @@ class CodegenC
 		*/
 		if (field->type)
 		{
-			*instructionStream << genType(field->type) << ' ' << field->name << ';';
+			*instructionStream << genType(field->type);
+			if (field->name)
+				*instructionStream << ' ' << field->name;
+			*instructionStream << ';';
 		}
 	}
 

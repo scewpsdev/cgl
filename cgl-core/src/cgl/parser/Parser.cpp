@@ -1638,12 +1638,15 @@ static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 	if (AST::Type* type = ParseType(parser))
 	{
 		bool upcomingField = true;
+		bool anonymousField = false;
 
 		while (upcomingField && HasNext(parser))
 		{
 			if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) || type->typeKind == AST::TypeKind::Struct || type->typeKind == AST::TypeKind::Union)
 			{
-				char* name = NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) ? GetTokenString(NextToken(parser)) : nullptr;
+				if ((type->typeKind == AST::TypeKind::Struct || type->typeKind == AST::TypeKind::Union) && !(NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) && NextTokenIs(parser, ';', 1)))
+					anonymousField = true;
+				char* name = anonymousField ? nullptr : GetTokenString(NextToken(parser));
 				AST::StructField* field = new AST::StructField(parser->module, fieldInputState, type, name, fields.size);
 				fields.add(field);
 			}
@@ -1656,7 +1659,7 @@ static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 				break;
 			}
 
-			upcomingField = NextTokenIs(parser, ',');
+			upcomingField = !anonymousField && NextTokenIs(parser, ',');
 			if (upcomingField)
 			{
 				NextToken(parser); // ,
@@ -1664,7 +1667,8 @@ static bool ParseStructField(Parser* parser, List<AST::StructField*>& fields)
 			}
 		}
 
-		SkipToken(parser, ';');
+		if (!anonymousField)
+			SkipToken(parser, ';');
 
 		return !parser->failed;
 	}

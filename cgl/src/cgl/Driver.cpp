@@ -52,6 +52,11 @@ void printRunHelp(char linePrefix)
 	printf("%c\t%s - Generate rudimentary runtime stacktrace information that gets printed to stderr on segfault.\n", linePrefix, OPT_BUILD_GEN_RUNTIME_STACKTRACE);
 }
 
+void printAnalyzeHelp(char linePrefix)
+{
+	printf("%canalyze - Analyzes source code without producing a binary.\n", linePrefix);
+}
+
 static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
 {
 	if (context->disableError)
@@ -520,6 +525,80 @@ int run(int argc, char* argv[])
 	return result ? 0 : 1;
 }
 
+int analyze(int argc, char* argv[])
+{
+	CGLCompiler compiler;
+	compiler.init(OnCompilerMessage);
+
+	bool result = true;
+
+	//result = AddSourceFolder(compiler, LocalFilePath("cgl/"), "src", true) && result;
+
+	for (int i = 0; i < argc; i++)
+	{
+		const char* arg = argv[i];
+		if (strlen(arg) > 0 && arg[0] == '-')
+		{
+			if (strcmp(arg, OPT_BUILD_HELP) == 0)
+			{
+				printBuildHelp(' ');
+				return 0;
+			}
+			else
+			{
+				SnekError(&compiler, "Unknown argument %s", arg);
+				result = false;
+			}
+		}
+		else
+		{
+			char* path = _strdup(argv[i]);
+			const char* extension = GetExtensionFromPath(path);
+			char* moduleName = GetModuleNameFromPath(path);
+			if (strcmp(moduleName, "*") == 0)
+			{
+				char* folder = GetFolderFromPath(path);
+				result = AddSourceFolder(compiler, folder, extension, false) && result;
+				delete folder, moduleName;
+			}
+			else if (strcmp(moduleName, "**") == 0)
+			{
+				char* folder = GetFolderFromPath(path);
+				result = AddSourceFolder(compiler, folder, extension, true) && result;
+				delete folder, moduleName;
+			}
+			else
+			{
+				result = AddFile(compiler, path) && result;
+			}
+		}
+	}
+
+	if (result)
+	{
+		if (compiler.sourceFiles.size > 0)
+		{
+			fprintf(stderr, "Compiling source files\n");
+			if (!compiler.compile())
+				result = false;
+		}
+		else
+		{
+			SnekError(&compiler, "No input files");
+			result = false;
+		}
+	}
+
+	compiler.terminate();
+
+	if (result)
+		fprintf(stderr, "Analysis complete.\n");
+	else
+		fprintf(stderr, "Analysis finished with errors.\n");
+
+	return result ? 0 : 1;
+}
+
 int main(int argc, char* argv[])
 {
 	if (argc == 1 || argc >= 2 && strcmp(argv[1], "help") == 0)
@@ -542,6 +621,10 @@ int main(int argc, char* argv[])
 		else if (strcmp(cmd, "run") == 0)
 		{
 			return run(argc - 2, &argv[2]);
+		}
+		else if (strcmp(cmd, "analyze") == 0)
+		{
+			return analyze(argc - 2, &argv[2]);
 		}
 		else
 		{
