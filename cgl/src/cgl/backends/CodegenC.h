@@ -1882,8 +1882,17 @@ class CodegenC
 				stepBackWhitespace();
 				indentation--;
 
-				stream << "}else ";
+				stream << "}else{";
+				
+				indentation++;
+				newLine();
+
 				genStatement(statement->elseStatement);
+
+				stepBackWhitespace();
+				indentation--;
+
+				stream << "}";
 			}
 			else
 			{
