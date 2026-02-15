@@ -255,7 +255,8 @@ namespace AST
 
 		Enum* declaration = nullptr;
 
-		std::string valueStr;
+		int64_t constantValue;
+		//std::string valueStr;
 		ValueHandle valueHandle = nullptr;
 
 

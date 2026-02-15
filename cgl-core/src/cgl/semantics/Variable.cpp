@@ -80,10 +80,12 @@ Variable* Resolver::findGlobalVariableInFile(const char* name, AST::File* file)
 	{
 		for (int j = 0; j < file->globals[i]->declarators.size; j++)
 		{
-			Variable* variable = file->globals[i]->declarators[j]->variable;
-			if (strcmp(variable->name, name) == 0)
+			if (Variable* variable = file->globals[i]->declarators[j]->variable)
 			{
-				return variable;
+				if (strcmp(variable->name, name) == 0)
+				{
+					return variable;
+				}
 			}
 		}
 	}

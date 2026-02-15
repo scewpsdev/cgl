@@ -92,17 +92,20 @@ static int64_t ConstantFoldInt(Resolver* resolver, AST::Expression* expr, bool& 
 		return ((AST::IntegerLiteral*)expr)->value;
 	case AST::ExpressionType::Identifier:
 	{
-		Variable* variable = ((AST::Identifier*)expr)->variable;
-		if (!variable)
+		if (Variable* variable = ((AST::Identifier*)expr)->variable)
+		{
+			SnekAssert(variable->isConstant);
+			return ConstantFoldInt(resolver, variable->value, success);
+		}
+		else if (AST::EnumValue* enumValue = ((AST::Identifier*)expr)->enumValue)
+		{
+			return enumValue->constantValue;
+		}
+		else
 		{
 			SnekErrorLoc(resolver->context, expr->location, "Variable '%s' must be defined before using it to initialize a constant", ((AST::Identifier*)expr)->name);
 			success = false;
 			return 0;
-		}
-		else
-		{
-			SnekAssert(variable->isConstant);
-			return ConstantFoldInt(resolver, variable->value, success);
 		}
 	}
 	case AST::ExpressionType::Compound:
@@ -449,7 +452,8 @@ static bool ResolveArrayType(Resolver* resolver, AST::ArrayType* type)
 		{
 			if (ResolveExpression(resolver, type->length))
 			{
-				if (type->length->valueType->typeKind == AST::TypeKind::Integer && type->length->isConstant())
+				TypeID lengthType = UnwrapType(type->length->valueType);
+				if (lengthType->typeKind == AST::TypeKind::Integer && type->length->isConstant())
 				{
 					bool success = true;
 					type->typeID = GetArrayType(type->elementType->typeID, (int)ConstantFoldInt(resolver, type->length, success));
@@ -587,7 +591,21 @@ bool ResolveType(Resolver* resolver, AST::Type* type)
 static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLiteral* expr)
 {
 	int bitWidth = 32;
-	bool isSigned = false;
+	bool isSigned = true;
+
+	if (expr->isUnsigned)
+	{
+		isSigned = false;
+		if (expr->value > UINT32_MAX)
+			bitWidth = 64;
+	}
+	else
+	{
+		if (expr->value > INT32_MAX || expr->value < INT32_MIN)
+			bitWidth = 64;
+	}
+
+	/*
 	if (expr->value < 0)
 	{
 		if (expr->isUnsigned)
@@ -602,9 +620,18 @@ static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLi
 	}
 	else
 	{
-		if (expr->value > UINT32_MAX)
+		if (expr->value > INT64_MAX)
+		{
 			bitWidth = 64;
+			isSigned = false;
+		}
+		else if (expr->value > INT32_MAX)
+		{
+			bitWidth = 64;
+		}
 	}
+	*/
+
 	return GetIntegerType(bitWidth, isSigned);
 
 	/*
@@ -1289,7 +1316,8 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 			if (i == 0 && expr->isMethodCall)
 			{
 				TypeID instanceType = functionType->functionType.paramTypes[0];
-				if (instanceType->typeKind == AST::TypeKind::Pointer && CompareTypes(instanceType->pointerType.elementType, argType))
+				if (CompareTypes(instanceType->pointerType.elementType, argType) && arguments[i]->lvalue ||
+					CompareTypes(instanceType, argType))
 					;
 				else
 				{
@@ -1529,6 +1557,17 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				//if (AST::File* file = module->file)
 				for (AST::File* file : module->files)
 				{
+					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
+					{
+						expr->namespacedVariable = variable;
+						expr->valueType = variable->type;
+						expr->lvalue = true;
+						return true;
+					}
+
+					resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions);
+
+					/*
 					if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
 					{
 						//if (function->visibility >= AST::Visibility::Public || file->module == resolver->currentFile->module)
@@ -1551,6 +1590,14 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 						expr->lvalue = true;
 						return true;
 					}
+					*/
+				}
+
+				if (expr->namespacedFunctions.size > 0)
+				{
+					expr->valueType = expr->namespacedFunctions[0]->functionType;
+					expr->lvalue = false;
+					return true;
 				}
 			}
 			else if (AST::Enum* en = FindEnum(resolver, nameSpace))
@@ -3096,7 +3143,7 @@ static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 			const char** fieldNames = new const char* [numFields];
 			for (int i = 0; i < numFields; i++)
 			{
-				ResolveStructField(resolver, decl->fields[i], &fieldTypes[i], &fieldNames[i]);
+				result = ResolveStructField(resolver, decl->fields[i], &fieldTypes[i], &fieldNames[i]) && result;
 			}
 			decl->type->structType.numFields = numFields;
 			decl->type->structType.fieldTypes = fieldTypes;
@@ -3435,9 +3482,29 @@ static bool ResolveEnumHeader(Resolver* resolver, AST::Enum* decl)
 		decl->values[i]->declaration = decl;
 		if (decl->values[i]->value)
 		{
-			if (!ResolveExpression(resolver, decl->values[i]->value))
+			if (ResolveExpression(resolver, decl->values[i]->value))
+			{
+				decl->values[i]->constantValue = ConstantFoldInt(resolver, decl->values[i]->value, result);
+			}
+			else
 			{
 				result = false;
+			}
+		}
+		else
+		{
+			for (int j = decl->values[i]->idx == 0 ? 0 : decl->values[i]->idx - 1; j >= 0; j--)
+			{
+				if (decl->values[j]->value)
+				{
+					if (decl->values[j]->value->type == AST::ExpressionType::IntegerLiteral)
+						decl->values[i]->constantValue = ((AST::IntegerLiteral*)decl->values[j]->value)->value + (decl->values[i]->idx - j);
+					break;
+				}
+				else if (j == 0)
+				{
+					decl->values[i]->constantValue = decl->values[i]->idx;
+				}
 			}
 		}
 	}

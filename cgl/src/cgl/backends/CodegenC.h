@@ -1019,7 +1019,7 @@ class CodegenC
 				importedEnums.add(value->declaration);
 			}
 		}
-		return value->valueStr;
+		return std::to_string(value->constantValue);
 	}
 
 	std::string genExpressionInitializerList(AST::InitializerList* expression)
@@ -2350,6 +2350,7 @@ class CodegenC
 		{
 			AST::EnumValue* value = en->values[i];
 
+			/*
 			if (value->valueStr != "")
 				continue;
 
@@ -2376,6 +2377,7 @@ class CodegenC
 				}
 			}
 			SnekAssert(value->valueStr != "");
+			*/
 		}
 	}
 
