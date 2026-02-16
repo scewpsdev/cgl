@@ -712,6 +712,10 @@ class CodegenC
 		{
 			return expression + ".hasValue";
 		}
+		else if (type->typeKind == AST::TypeKind::Function && valueType->typeKind == AST::TypeKind::Function)
+		{
+			return "(" + genType(type) + ")(" + expression + ")";
+		}
 		else if (type->typeKind == AST::TypeKind::Any)
 		{
 			TypeID valueTypeExtended = valueType;
@@ -803,7 +807,7 @@ class CodegenC
 			valueType->arrayType.elementType->integerType.bitWidth == 8 &&
 			type->typeKind == AST::TypeKind::String)
 		{
-			return "(string){" + expression + (valueType->arrayType.length != -1 ? ".buffer" : ".ptr") + "," + (valueType->arrayType.length != -1 ? std::to_string(valueType->arrayType.length) : expression + ".length") + "}";
+			return "(string){" + expression + (valueType->arrayType.length != -1 ? ".buffer" : ".ptr") + "," + (valueType->arrayType.length != -1 ? std::to_string(valueType->arrayType.length) : "__cstrl(" + expression + ".ptr)") + "}";
 		}
 		// Conversions
 		else if (valueType->typeKind == AST::TypeKind::String &&
@@ -1168,7 +1172,8 @@ class CodegenC
 			if (expression->castDstType->typeKind == AST::TypeKind::String && expression->arguments.size == 2 &&
 				expression->arguments[0]->valueType->typeKind == AST::TypeKind::Pointer &&
 				expression->arguments[0]->valueType->pointerType.elementType->typeKind == AST::TypeKind::Integer &&
-				expression->arguments[0]->valueType->pointerType.elementType->integerType.bitWidth == 8)
+				expression->arguments[0]->valueType->pointerType.elementType->integerType.bitWidth == 8 &&
+				expression->arguments[1]->valueType->typeKind == AST::TypeKind::Integer)
 			{
 				return "(string){" + genExpression(expression->arguments[0]) + "," + genExpression(expression->arguments[1]) + "}";
 			}
@@ -1190,31 +1195,32 @@ class CodegenC
 		if (expression->methodInstance)
 			arguments.insert(0, expression->methodInstance);
 
-		SnekAssert(expression->callee->valueType->typeKind == AST::TypeKind::Function);
-		if (expression->callee->valueType->functionType.returnType->typeKind != AST::TypeKind::Void)
+		TypeID calleeType = UnwrapType(expression->callee->valueType);
+		SnekAssert(calleeType->typeKind == AST::TypeKind::Function);
+		if (calleeType->functionType.returnType->typeKind != AST::TypeKind::Void)
 		{
 			char localName[8];
 			newLocalName(localName);
-			callStream << genType(expression->callee->valueType->functionType.returnType) << " " << localName << "=";
+			callStream << genType(calleeType->functionType.returnType) << " " << localName << "=";
 			returnValue = localName;
 		}
 
 		std::string callee = expression->function ? getFunctionValue(expression->function) : genExpression(expression->callee);
 		callStream << callee << "(";
-		int numParams = expression->callee->valueType->functionType.numParams;
+		int numParams = calleeType->functionType.numParams;
 		for (int i = 0; i < numParams; i++)
 		{
-			callStream << castValue(arguments[i], expression->callee->valueType->functionType.paramTypes[i]);;
+			callStream << castValue(arguments[i], calleeType->functionType.paramTypes[i]);;
 
 			if (i < numParams - 1)
 				callStream << ",";
 		}
 
-		if (expression->callee->valueType->functionType.varArgs)
+		if (calleeType->functionType.varArgs)
 		{
 			int numVarArgs = arguments.size - numParams;
 
-			TypeID varArgsType = expression->callee->valueType->functionType.varArgsType;
+			TypeID varArgsType = calleeType->functionType.varArgsType;
 			TypeID arrayType = GetArrayType(varArgsType, -1);
 
 			if (numVarArgs)

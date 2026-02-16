@@ -579,8 +579,14 @@ int analyze(int argc, char* argv[])
 		if (compiler.sourceFiles.size > 0)
 		{
 			fprintf(stderr, "Compiling source files\n");
-			if (!compiler.compile())
+			if (compiler.compile())
+			{
+				compiler.outputIR();
+			}
+			else
+			{
 				result = false;
+			}
 		}
 		else
 		{

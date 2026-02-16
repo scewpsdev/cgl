@@ -367,6 +367,36 @@ TypeID GetOptionalType(TypeID elementType)
 
 TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, bool varArgs, TypeID varArgsType, bool isMethod, TypeID instanceType, AST::Function* declaration)
 {
+	for (TypeID t : types.functionTypes)
+	{
+		if (t->functionType.numParams != numParams)
+			continue;
+		if (t->functionType.varArgs != varArgs)
+			continue;
+		if (t->functionType.varArgs == varArgs && t->functionType.varArgsType != varArgsType)
+			continue;
+		if (!CompareTypes(t->functionType.returnType, returnType))
+			continue;
+		if (t->functionType.isMethod != isMethod)
+			continue;
+		if (t->functionType.instanceType != instanceType)
+			continue;
+		if (t->functionType.declaration != declaration)
+			continue;
+
+		bool found = true;
+		for (int i = 0; i < t->functionType.numParams; i++)
+		{
+			if (!CompareTypes(t->functionType.paramTypes[i], paramTypes[i]))
+			{
+				found = false;
+				break;
+			}
+		}
+		if (found)
+			return t;
+	}
+
 	TypeData* data = new TypeData;
 	data->typeKind = AST::TypeKind::Function;
 	data->functionType.returnType = returnType;
@@ -388,7 +418,7 @@ TypeID GetTupleType(int numValues, TypeID* valueTypes)
 	for (TypeID t : types.tupleTypes)
 	{
 		if (t->tupleType.numValues != numValues)
-			break;
+			continue;
 		bool found = true;
 		for (int i = 0; i < t->tupleType.numValues; i++)
 		{

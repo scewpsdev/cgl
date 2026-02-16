@@ -42,6 +42,8 @@ public:
 	void addLinkerPath(const char* path);
 	bool compile();
 
+	void outputIR();
+
 	int runLLVM(int argc, char* argv[]);
 	int outputLLVM(const char* path);
 

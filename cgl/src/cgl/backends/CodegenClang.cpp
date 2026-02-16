@@ -10,11 +10,23 @@
 #define BUILD_CMD "gcc"
 
 
+void CGLCompiler::outputIR()
+{
+	for (AST::File* file : asts)
+	{
+		CodegenC codegen(this, file);
+		std::string cSrc = codegen.genFile(file);
+
+		char name[256];
+		sprintf(name, "%s%s.c", "tmp/", file->getFullName());
+		CreateDirectories(name);
+		WriteText(cSrc.c_str(), name);
+	}
+}
+
 int CGLCompiler::runLLVM(int argc, char* argv[])
 {
 	std::stringstream cmd;
-
-	std::vector<std::string> tmpFiles;
 
 	cmd << BUILD_CMD << ' ';
 
@@ -48,8 +60,6 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 		WriteText(cSrc.c_str(), name);
 
 		cmd << name << ' ';
-
-		tmpFiles.push_back(name);
 	}
 
 	for (const char* linkerPath : linkerPaths)
@@ -72,8 +82,6 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 int CGLCompiler::outputLLVM(const char* path)
 {
 	std::stringstream cmd;
-
-	std::vector<std::string> tmpFiles;
 
 	cmd << BUILD_CMD << ' ';
 
@@ -110,8 +118,6 @@ int CGLCompiler::outputLLVM(const char* path)
 		WriteText(cSrc.c_str(), name);
 
 		cmd << name << ' ';
-
-		tmpFiles.push_back(name);
 	}
 
 	for (const LinkerFile& linkerFile : linkerFiles)
