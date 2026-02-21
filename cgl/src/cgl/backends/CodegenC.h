@@ -15,6 +15,7 @@ class CodegenC
 
 	List<Variable*> importedGlobals;
 	List<AST::Function*> importedFunctions;
+	List<AST::Struct*> importedStructHeaders;
 	List<AST::Struct*> importedStructs;
 	List<AST::Class*> importedClasses;
 	List<AST::Enum*> importedEnums;
@@ -277,9 +278,21 @@ class CodegenC
 		return "any";
 	}
 
-	void importStruct(AST::Struct* strct)
+	void importStruct(AST::Struct* strct, bool decl)
 	{
-		genStruct(strct);
+		if (decl)
+		{
+			std::stringstream* parentStream = instructionStream;
+			instructionStream = &types;
+
+			*instructionStream << "struct " << strct->mangledName << ";\n\n";
+
+			instructionStream = parentStream;
+		}
+		else
+		{
+			genStruct(strct);
+		}
 		return;
 
 		std::stringstream* parentStream = instructionStream;
@@ -313,7 +326,7 @@ class CodegenC
 		return;
 	}
 
-	std::string genTypeStruct(TypeID type)
+	std::string genTypeStruct(TypeID type, bool isElementType)
 	{
 		if (type->structType.anonDeclaration)
 		{
@@ -344,11 +357,20 @@ class CodegenC
 		{
 			if (type->structType.declaration && type->structType.declaration->file != file)
 			{
-				if (!importedStructs.contains(type->structType.declaration))
+				if (isElementType && !currentFunction)
+				{
+					if (!importedStructHeaders.contains(type->structType.declaration))
+					{
+						// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+						importedStructHeaders.add(type->structType.declaration);
+						importStruct(type->structType.declaration, isElementType);
+					}
+				}
+				else if (!importedStructs.contains(type->structType.declaration))
 				{
 					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 					importedStructs.add(type->structType.declaration);
-					importStruct(type->structType.declaration);
+					importStruct(type->structType.declaration, isElementType);
 				}
 			}
 			return "struct " + std::string(type->structType.name);
@@ -390,7 +412,7 @@ class CodegenC
 				{
 					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 					importedStructs.add(type->unionType.declaration);
-					importStruct(type->unionType.declaration);
+					importStruct(type->unionType.declaration, false);
 				}
 			}
 			return "union " + std::string(type->unionType.name);
@@ -418,7 +440,7 @@ class CodegenC
 
 	std::string genTypePointer(TypeID type)
 	{
-		return genType(type->pointerType.elementType) + "*";
+		return genType(type->pointerType.elementType, true) + "*";
 	}
 
 	std::string genTypeOptional(TypeID type)
@@ -508,7 +530,7 @@ class CodegenC
 		return "string";
 	}
 
-	std::string genType(TypeID type)
+	std::string genType(TypeID type, bool isElementType = false)
 	{
 		switch (type->typeKind)
 		{
@@ -526,7 +548,7 @@ class CodegenC
 			SnekAssert(false);
 			return "";
 		case AST::TypeKind::Struct:
-			return genTypeStruct(type);
+			return genTypeStruct(type, isElementType);
 		case AST::TypeKind::Union:
 			return genTypeUnion(type);
 		case AST::TypeKind::Class:
@@ -2280,6 +2302,29 @@ class CodegenC
 		}
 	}
 
+	void genStructHeader(AST::Struct* strct)
+	{
+		if (strct->isGeneric)
+		{
+			for (int i = 0; i < strct->genericInstances.size; i++)
+			{
+				genStructHeader(strct->genericInstances[i]);
+			}
+			return;
+		}
+
+		std::stringstream* parentStream = instructionStream;
+
+		std::stringstream structStream;
+		instructionStream = &structStream;
+
+		*instructionStream << "struct " << strct->mangledName << ";\n";
+
+		instructionStream = parentStream;
+
+		types << structStream.str();
+	}
+
 	void genStruct(AST::Struct* strct)
 	{
 		if (strct->isGeneric)
@@ -2758,6 +2803,10 @@ public:
 
 		genFileInitializer(functions);
 
+		for (AST::Struct* strct : file->structs)
+		{
+			genStructHeader(strct);
+		}
 		for (AST::Struct* strct : file->structs)
 		{
 			genStruct(strct);

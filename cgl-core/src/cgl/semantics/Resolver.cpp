@@ -596,13 +596,25 @@ static TypeID GetFittingTypeForIntegerLiteral(Resolver* resolver, AST::IntegerLi
 	if (expr->isUnsigned)
 	{
 		isSigned = false;
+
 		if (expr->value > UINT32_MAX)
 			bitWidth = 64;
 	}
 	else
 	{
-		if (expr->value > INT32_MAX || expr->value < INT32_MIN)
+		if (expr->value > INT32_MAX && expr->value <= UINT32_MAX)
+		{
+			isSigned = false;
+		}
+		else if (expr->value > UINT32_MAX && expr->value < INT64_MAX)
+		{
 			bitWidth = 64;
+		}
+		else if (expr->value > INT64_MAX)
+		{
+			bitWidth = 64;
+			isSigned = false;
+		}
 	}
 
 	/*
@@ -2748,7 +2760,7 @@ static bool ResolveReturn(Resolver* resolver, AST::Return* statement)
 			resolver->expectedTypeExpression = nullptr;
 
 			AST::Function* currentFunction = resolver->currentFunction;
-			TypeID returnType = currentFunction->returnType ? currentFunction->returnType->typeID : GetVoidType();
+			TypeID returnType = currentFunction->functionType->functionType.returnType; // returnType ? currentFunction->returnType->typeID : GetVoidType();
 
 			if (CanConvertImplicit(statement->value->valueType, returnType, statement->value->isLiteral()))
 			{
@@ -2952,12 +2964,33 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 			paramTypes[i] = decl->paramTypes[i]->typeID;
 		}
 
-		if (decl->returnType)
-			returnType = decl->returnType->typeID;
-		else if (decl->bodyExpression)
+		decl->scope = resolver->pushScope(decl->name, decl->location);
+
+		//decl->paramVariables.resize(decl->paramTypes.size);
+
+		for (int i = 0; i < decl->paramTypes.size; i++)
+		{
+			Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
+			//decl->paramVariables[i] = variable;
+			resolver->registerLocalVariable(variable, decl->paramTypes[i]);
+			//RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
+		}
+
+		if (decl->varArgs)
+		{
+			TypeID varArgsArrayType = GetArrayType(decl->varArgsType, -1);
+			Variable* varArgsVariable = new Variable(decl->file, _strdup(decl->varArgsName), _strdup(decl->varArgsName), varArgsArrayType, nullptr, false, AST::Visibility::Null);
+			resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
+		}
+
+		if (decl->bodyExpression)
 		{
 			result = ResolveExpression(resolver, decl->bodyExpression) && result;
 			returnType = decl->bodyExpression->valueType;
+		}
+		else if (decl->returnType)
+		{
+			returnType = decl->returnType->typeID;
 		}
 		else
 		{
@@ -2965,6 +2998,8 @@ static bool ResolveFunctionHeader(Resolver* resolver, AST::Function* decl)
 		}
 
 		decl->functionType = GetFunctionType(returnType, numParams, paramTypes, decl->varArgs, decl->varArgsType, false, nullptr, decl);
+
+		resolver->popScope(decl->endLocation);
 
 		if (decl->isEntryPoint)
 		{
@@ -3016,21 +3051,18 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 	}
 	else
 	{
-		if (decl->body)
+		if (decl->body && !decl->bodyExpression)
 		{
 			AST::Function* lastFunction = resolver->currentFunction;
 			resolver->currentFunction = decl;
 
-			resolver->pushScope(decl->name, decl->location);
+			resolver->pushScope(decl->scope);
 
-			//decl->paramVariables.resize(decl->paramTypes.size);
-
+			/*
 			for (int i = 0; i < decl->paramTypes.size; i++)
 			{
 				Variable* variable = new Variable(decl->file, _strdup(decl->paramNames[i]), _strdup(decl->paramNames[i]), decl->paramTypes[i]->typeID, nullptr, false, AST::Visibility::Null);
-				//decl->paramVariables[i] = variable;
 				resolver->registerLocalVariable(variable, decl->paramTypes[i]);
-				//RegisterLocalVariable(resolver, decl->paramTypes[i]->typeID, NULL, decl->paramNames[i], false, resolver->file, decl->paramTypes[i]->location);
 			}
 
 			if (decl->varArgs)
@@ -3039,6 +3071,7 @@ static bool ResolveFunction(Resolver* resolver, AST::Function* decl)
 				Variable* varArgsVariable = new Variable(decl->file, _strdup(decl->varArgsName), _strdup(decl->varArgsName), varArgsArrayType, nullptr, false, AST::Visibility::Null);
 				resolver->registerLocalVariable(varArgsVariable, decl->varArgsTypeAST);
 			}
+			*/
 
 			result = ResolveStatement(resolver, decl->body) && result;
 
@@ -3995,6 +4028,11 @@ Scope* Resolver::pushScope(const char* name, AST::SourceLocation& location)
 	scope->children.add(newScope);
 	scope = newScope;
 	return newScope;
+}
+
+void Resolver::pushScope(Scope* newScope)
+{
+	scope = newScope;
 }
 
 void Resolver::popScope(AST::SourceLocation& location)

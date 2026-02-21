@@ -14,6 +14,7 @@
 
 
 struct Variable;
+struct Scope;
 
 namespace AST
 {
@@ -98,6 +99,8 @@ namespace AST
 		bool isEntryPoint = false;
 		char* mangledName = nullptr;
 		TypeID functionType = nullptr;
+
+		Scope* scope = nullptr;
 
 		//List<Variable*> paramVariables = {};
 		Variable* instanceVariable = nullptr;

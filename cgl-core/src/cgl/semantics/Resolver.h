@@ -65,6 +65,7 @@ struct Resolver
 	bool run();
 
 	Scope* pushScope(const char* name, AST::SourceLocation& location);
+	void pushScope(Scope* scope);
 	void popScope(AST::SourceLocation& location);
 
 	AST::File* findFileByName(const char* name);

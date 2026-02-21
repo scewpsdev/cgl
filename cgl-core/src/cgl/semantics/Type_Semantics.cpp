@@ -375,7 +375,7 @@ TypeID GetFunctionType(TypeID returnType, int numParams, TypeID* paramTypes, boo
 			continue;
 		if (t->functionType.varArgs == varArgs && t->functionType.varArgsType != varArgsType)
 			continue;
-		if (!CompareTypes(t->functionType.returnType, returnType))
+		if ((t->functionType.returnType != nullptr) != (returnType != nullptr) || t->functionType.returnType && returnType && !CompareTypes(t->functionType.returnType, returnType))
 			continue;
 		if (t->functionType.isMethod != isMethod)
 			continue;
