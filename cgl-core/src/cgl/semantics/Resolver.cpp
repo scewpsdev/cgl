@@ -228,6 +228,11 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 
 	if (AST::Struct* structDecl = FindStruct(resolver, type->name))
 	{
+		if (resolver->currentFunction)
+		{
+			resolver->currentFunction->typeDependencies.add({ structDecl, true });
+		}
+
 		if (structDecl->isGeneric)
 		{
 			if (!type->hasGenericArgs)
@@ -3151,6 +3156,84 @@ static bool ResolveStructField(Resolver* resolver, AST::StructField* field, Type
 	return true;
 }
 
+static void ScanTypeDependency(TypeID type, List<AST::TypeDependency>& dependencies)
+{
+	AST::Struct* declaration = nullptr;
+	bool needsFullDecl = false;
+
+	if (type->typeKind == AST::TypeKind::Struct)
+	{
+		if (type->structType.declaration)
+		{
+			declaration = type->structType.declaration;
+			needsFullDecl = true;
+		}
+		else if (type->structType.anonDeclaration)
+		{
+			for (int i = 0; i < type->structType.anonDeclaration->fields.size; i++)
+			{
+				AST::StructField* field = type->structType.anonDeclaration->fields[i];
+				ScanTypeDependency(field->type->typeID, dependencies);
+			}
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Union)
+	{
+		if (type->unionType.anonDeclaration)
+		{
+			for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
+			{
+				AST::StructField* field = type->unionType.anonDeclaration->fields[i];
+				ScanTypeDependency(field->type->typeID, dependencies);
+			}
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Function)
+	{
+		if (type->functionType.returnType)
+			ScanTypeDependency(type->functionType.returnType, dependencies);
+
+		for (int i = 0; i < type->functionType.numParams; i++)
+		{
+			ScanTypeDependency(type->functionType.paramTypes[i], dependencies);
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Pointer)
+	{
+		if (type->pointerType.elementType->typeKind == AST::TypeKind::Struct)
+		{
+			declaration = type->pointerType.elementType->structType.declaration;
+			needsFullDecl = false;
+		}
+		else if (type->pointerType.elementType->typeKind == AST::TypeKind::Union)
+		{
+			declaration = type->pointerType.elementType->unionType.declaration;
+			needsFullDecl = false;
+		}
+	}
+
+	if (declaration)
+	{
+		bool found = false;
+		for (int j = 0; j < dependencies.size; j++)
+		{
+			AST::TypeDependency* dependency = &dependencies[j];
+			if (dependency->declaration == declaration)
+				found = true;
+
+			dependency->needsFullDecl = dependency->needsFullDecl || needsFullDecl;
+
+			if (found)
+				break;
+		}
+
+		if (!found)
+		{
+			dependencies.add({ declaration, needsFullDecl });
+		}
+	}
+}
+
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 {
 	AST::Element* lastElement = resolver->currentElement;
@@ -3181,6 +3264,13 @@ static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 			decl->type->structType.numFields = numFields;
 			decl->type->structType.fieldTypes = fieldTypes;
 			decl->type->structType.fieldNames = fieldNames;
+
+			for (int i = 0; i < numFields; i++)
+			{
+				AST::StructField* field = decl->fields[i];
+				if (field->type->typeID)
+					ScanTypeDependency(field->type->typeID, decl->typeDependencies);
+			}
 
 			resolver->currentStruct = lastStruct;
 		}
@@ -3478,6 +3568,8 @@ static bool ResolveTypedefHeader(Resolver* resolver, AST::Typedef* decl)
 	typeID->aliasType.alias = decl->alias->typeID;
 	decl->type = typeID;
 
+	ScanTypeDependency(decl->alias->typeID, decl->typeDependencies);
+
 	return true;
 }
 
@@ -3573,13 +3665,19 @@ static bool ResolveGlobalHeader(Resolver* resolver, AST::GlobalVariable* decl)
 
 	AST::Visibility visibility = GetVisibilityFromFlags(decl->flags);
 	decl->visibility = visibility;
-	for (int i = 0; i < decl->declarators.size; i++)
+
+	if (result)
 	{
-		AST::VariableDeclarator* declarator = decl->declarators[i];
-		//decl->variable = RegisterGlobalVariable(resolver, decl->type->typeID, decl->value, decl->name, decl->flags & DECL_FLAG_CONSTANT, visibility, resolver->file, decl);
-		Variable* variable = new Variable(decl->file, _strdup(declarator->name), MangleGlobalName(decl, declarator), decl->varType->typeID, declarator->value, HasFlag(decl->flags, AST::DeclarationFlags::Constant), visibility);
-		resolver->registerGlobalVariable(variable, decl);
-		declarator->variable = variable;
+		for (int i = 0; i < decl->declarators.size; i++)
+		{
+			AST::VariableDeclarator* declarator = decl->declarators[i];
+			//decl->variable = RegisterGlobalVariable(resolver, decl->type->typeID, decl->value, decl->name, decl->flags & DECL_FLAG_CONSTANT, visibility, resolver->file, decl);
+			Variable* variable = new Variable(decl->file, _strdup(declarator->name), MangleGlobalName(decl, declarator), decl->varType->typeID, declarator->value, HasFlag(decl->flags, AST::DeclarationFlags::Constant), visibility);
+			resolver->registerGlobalVariable(variable, decl);
+			declarator->variable = variable;
+		}
+
+		ScanTypeDependency(decl->varType->typeID, decl->typeDependencies);
 	}
 
 	return result;

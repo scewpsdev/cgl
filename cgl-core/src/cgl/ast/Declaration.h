@@ -67,6 +67,12 @@ namespace AST
 		virtual Element* copy() override = 0;
 	};
 
+	struct TypeDependency
+	{
+		Struct* declaration;
+		bool needsFullDecl;
+	};
+
 	struct Function : Declaration
 	{
 		char* name;
@@ -105,7 +111,7 @@ namespace AST
 		//List<Variable*> paramVariables = {};
 		Variable* instanceVariable = nullptr;
 
-		ValueHandle valueHandle = nullptr;
+		List<TypeDependency> typeDependencies;
 
 
 		Function(File* file, const SourceLocation& location, DeclarationFlags flags, const SourceLocation& endLocation, char* name, Type* returnType, const List<Type*>& paramTypes, const List<char*>& paramNames, const List<Expression*>& paramValues, bool varArgs, Type* varArgsTypeAST, char* varArgsName, Statement* body, bool isGeneric, const List<char*>& genericParams);
@@ -177,7 +183,7 @@ namespace AST
 		char* mangledName = nullptr;
 		TypeID type = nullptr;
 
-		TypeHandle typeHandle = nullptr;
+		List<TypeDependency> typeDependencies;
 
 
 		Struct(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, bool hasBody, const List<StructField*>& fields, bool isGeneric, const List<char*>& genericParams);
@@ -241,6 +247,8 @@ namespace AST
 
 		TypeID type = nullptr;
 
+		List<TypeDependency> typeDependencies;
+
 
 		Typedef(File* file, const SourceLocation& location, DeclarationFlags flags, char* name, Type* alias);
 		virtual ~Typedef();
@@ -303,6 +311,8 @@ namespace AST
 		List<VariableDeclarator*> declarators;
 
 		char* dllImport = nullptr;
+
+		List<TypeDependency> typeDependencies;
 
 
 		GlobalVariable(File* file, const SourceLocation& location, DeclarationFlags flags, Type* varType, List<VariableDeclarator*>& declarators);

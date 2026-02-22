@@ -326,7 +326,7 @@ class CodegenC
 		return;
 	}
 
-	std::string genTypeStruct(TypeID type, bool isElementType)
+	std::string genTypeStruct(TypeID type)
 	{
 		if (type->structType.anonDeclaration)
 		{
@@ -357,6 +357,7 @@ class CodegenC
 		{
 			if (type->structType.declaration && type->structType.declaration->file != file)
 			{
+				/*
 				if (isElementType && !currentFunction)
 				{
 					if (!importedStructHeaders.contains(type->structType.declaration))
@@ -366,11 +367,13 @@ class CodegenC
 						importStruct(type->structType.declaration, isElementType);
 					}
 				}
-				else if (!importedStructs.contains(type->structType.declaration))
+				else
+				*/
+				if (!importedStructs.contains(type->structType.declaration))
 				{
 					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 					importedStructs.add(type->structType.declaration);
-					importStruct(type->structType.declaration, isElementType);
+					importStruct(type->structType.declaration, false);
 				}
 			}
 			return "struct " + std::string(type->structType.name);
@@ -440,7 +443,7 @@ class CodegenC
 
 	std::string genTypePointer(TypeID type)
 	{
-		return genType(type->pointerType.elementType, true) + "*";
+		return genType(type->pointerType.elementType) + "*";
 	}
 
 	std::string genTypeOptional(TypeID type)
@@ -530,7 +533,7 @@ class CodegenC
 		return "string";
 	}
 
-	std::string genType(TypeID type, bool isElementType = false)
+	std::string genType(TypeID type)
 	{
 		switch (type->typeKind)
 		{
@@ -548,7 +551,7 @@ class CodegenC
 			SnekAssert(false);
 			return "";
 		case AST::TypeKind::Struct:
-			return genTypeStruct(type, isElementType);
+			return genTypeStruct(type);
 		case AST::TypeKind::Union:
 			return genTypeUnion(type);
 		case AST::TypeKind::Class:
@@ -742,7 +745,7 @@ class CodegenC
 		{
 			TypeID valueTypeExtended = valueType;
 			if (valueType->typeKind == AST::TypeKind::Integer)
-				valueTypeExtended = GetIntegerType(64, true);
+				valueTypeExtended = GetIntegerType(64, valueType->integerType.isSigned);
 			else if (valueType->typeKind == AST::TypeKind::FloatingPoint)
 				valueTypeExtended = GetFloatingPointType(FloatingPointPrecision::Double);
 			else if (valueType->typeKind == AST::TypeKind::Boolean)
@@ -2331,9 +2334,21 @@ class CodegenC
 		{
 			for (int i = 0; i < strct->genericInstances.size; i++)
 			{
+				// TODO resolve type dependencies when generating generic instance
 				genStruct(strct->genericInstances[i]);
 			}
 			return;
+		}
+
+		for (int i = 0; i < strct->typeDependencies.size; i++)
+		{
+			AST::TypeDependency* dependency = &strct->typeDependencies[i];
+			if (!importedStructs.contains(dependency->declaration))
+			{
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+				importedStructs.add(dependency->declaration);
+				importStruct(dependency->declaration, !dependency->needsFullDecl);
+			}
 		}
 
 		std::stringstream* parentStream = instructionStream;
@@ -2456,6 +2471,17 @@ class CodegenC
 				genFunctionHeader(function->genericInstances[i]);
 			}
 			return;
+		}
+
+		for (int i = 0; i < function->typeDependencies.size; i++)
+		{
+			AST::TypeDependency* dependency = &function->typeDependencies[i];
+			if (!importedStructs.contains(dependency->declaration))
+			{
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+				importedStructs.add(dependency->declaration);
+				importStruct(dependency->declaration, !dependency->needsFullDecl);
+			}
 		}
 
 		std::stringstream* parentStream = instructionStream;
@@ -2680,6 +2706,17 @@ class CodegenC
 
 	void genTypedef(AST::Typedef* td)
 	{
+		for (int i = 0; i < td->typeDependencies.size; i++)
+		{
+			AST::TypeDependency* dependency = &td->typeDependencies[i];
+			if (!importedStructs.contains(dependency->declaration))
+			{
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+				importedStructs.add(dependency->declaration);
+				importStruct(dependency->declaration, !dependency->needsFullDecl);
+			}
+		}
+
 		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream typedefStream;
@@ -2695,6 +2732,17 @@ class CodegenC
 
 	void genGlobal(AST::GlobalVariable* global)
 	{
+		for (int i = 0; i < global->typeDependencies.size; i++)
+		{
+			AST::TypeDependency* dependency = &global->typeDependencies[i];
+			if (!importedStructs.contains(dependency->declaration))
+			{
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+				importedStructs.add(dependency->declaration);
+				importStruct(dependency->declaration, !dependency->needsFullDecl);
+			}
+		}
+
 		std::stringstream* parentStream = instructionStream;
 
 		std::stringstream globalStream;
@@ -2803,6 +2851,7 @@ public:
 
 		genFileInitializer(functions);
 
+		/*
 		for (AST::Struct* strct : file->structs)
 		{
 			genStructHeader(strct);
@@ -2811,6 +2860,7 @@ public:
 		{
 			genStruct(strct);
 		}
+		*/
 		for (AST::Class* clss : file->classes)
 		{
 			genClass(clss);
