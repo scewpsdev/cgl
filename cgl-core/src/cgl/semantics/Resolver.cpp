@@ -1564,77 +1564,6 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		AST::Identifier* identifier = (AST::Identifier*)expr->operand;
 		const char* nameSpace = identifier->name;
 
-		//if (AST::File* file = FindFileWithNamespace(resolver, nameSpace, resolver->currentFile))
-		if (!resolver->findVariable(nameSpace))
-		{
-			if (AST::Module* module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile))
-			{
-				identifier->module = module;
-
-				//if (AST::File* file = module->file)
-				for (AST::File* file : module->files)
-				{
-					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
-					{
-						expr->namespacedVariable = variable;
-						expr->valueType = variable->type;
-						expr->lvalue = true;
-						return true;
-					}
-
-					resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions);
-
-					/*
-					if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
-					{
-						//if (function->visibility >= AST::Visibility::Public || file->module == resolver->currentFile->module)
-						//{
-							//expr->namespacedFunction = function;
-						expr->valueType = expr->namespacedFunctions[0]->functionType;
-						expr->lvalue = false;
-						return true;
-						//}
-						//else
-						//{
-						//	SnekError(resolver->context, expr->location, ERROR_CODE_NON_VISIBLE_DECLARATION, "Function '%s' is not visible", function->name);
-						//	return false;
-						//}
-					}
-					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
-					{
-						expr->namespacedVariable = variable;
-						expr->valueType = variable->type;
-						expr->lvalue = true;
-						return true;
-					}
-					*/
-				}
-
-				if (expr->namespacedFunctions.size > 0)
-				{
-					expr->valueType = expr->namespacedFunctions[0]->functionType;
-					expr->lvalue = false;
-					return true;
-				}
-			}
-			else if (AST::Enum* en = FindEnum(resolver, nameSpace))
-			{
-				identifier->enumDecl = en;
-				for (int i = 0; i < en->values.size; i++)
-				{
-					if (strcmp(en->values[i]->name, expr->name) == 0)
-					{
-						expr->enumValue = en->values[i];
-						expr->valueType = en->type;
-						return true;
-					}
-				}
-			}
-
-			SnekErrorLoc(resolver->context, expr->location, "No property '%s.%s'", nameSpace, expr->name);
-			return false;
-		}
-
 		if (KeywordType keywordType = getKeywordType(nameSpace, (int)strlen(nameSpace)))
 		{
 			identifier->builtinType = true;
@@ -1721,45 +1650,71 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 			}
 		}
 
-		/*
-		else
+		//if (!resolver->findVariable(nameSpace))
 		{
-			AstModule* ns = NULL;
-
-			if (!ns) ns = FindModuleInDependencies(resolver, nameSpace, resolver->file); // Search in imported namespaces
-			if (!ns) ns = FindModule(resolver, nameSpace, NULL); // Search in global namespace
-
-			if (ns)
+			if (AST::Module* module = FindModuleInDependencies(resolver, nameSpace, resolver->currentFile))
 			{
-				if (AstFunction* function = FindFunctionInNamespace(resolver, ns, expr->name, resolver->file->module))
-				{
-					expr->namespacedFunction = function;
-					expr->valueType = function->type;
-					expr->lvalue = false;
-					return true;
-				}
-				if (AstVariable* variable = FindGlobalVariableInNamespace(resolver, ns, expr->name, resolver->file->module))
-				{
-					expr->namespacedVariable = variable;
-					expr->valueType = variable->type;
-					expr->lvalue = true;
-					return true;
-				}
-				if (AstModule* nestedNs = FindModule(resolver, expr->name, ns))
-				{
-					expr->ns = nestedNs;
-					expr->valueType = NULL;
-					return true;
-				}
+				identifier->module = module;
 
-				SnekError(resolver->context, expr->location, ERROR_CODE_UNRESOLVED_IDENTIFIER, "Unresolved identifier '%s' in module %s", expr->name, ns->name);
-				return false;
+				//if (AST::File* file = module->file)
+				for (AST::File* file : module->files)
+				{
+					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
+					{
+						expr->namespacedVariable = variable;
+					}
+
+					resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions);
+
+					/*
+					if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
+					{
+						//if (function->visibility >= AST::Visibility::Public || file->module == resolver->currentFile->module)
+						//{
+							//expr->namespacedFunction = function;
+						expr->valueType = expr->namespacedFunctions[0]->functionType;
+						expr->lvalue = false;
+						return true;
+						//}
+						//else
+						//{
+						//	SnekError(resolver->context, expr->location, ERROR_CODE_NON_VISIBLE_DECLARATION, "Function '%s' is not visible", function->name);
+						//	return false;
+						//}
+					}
+					if (Variable* variable = resolver->findGlobalVariableInFile(expr->name, file))
+					{
+						expr->namespacedVariable = variable;
+						expr->valueType = variable->type;
+						expr->lvalue = true;
+						return true;
+					}
+					*/
+				}
 			}
+			else if (AST::Enum* en = FindEnum(resolver, nameSpace))
+			{
+				identifier->enumDecl = en;
+				for (int i = 0; i < en->values.size; i++)
+				{
+					if (strcmp(en->values[i]->name, expr->name) == 0)
+					{
+						expr->enumValue = en->values[i];
+						break;
+					}
+				}
+			}
+
+			//SnekErrorLoc(resolver->context, expr->location, "No property '%s.%s'", nameSpace, expr->name);
+			//return false;
 		}
-		*/
 	}
+
+	resolver->context->disableError = true; // try resolving the expression, if unsuccessful fall back to other possibilities
 	if (ResolveExpression(resolver, expr->operand))
 	{
+		resolver->context->disableError = false;
+
 		if (expr->operand->type == AST::ExpressionType::DotOperator)
 		{
 			if (AST::Module* module = ((AST::DotOperator*)expr->operand)->module)
@@ -1767,6 +1722,9 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				//if (AST::File* file = module->file)
 				for (AST::File* file : module->files)
 				{
+					resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions);
+
+					/*
 					if (resolver->findFunctionsInFile(expr->name, file, expr->namespacedFunctions))
 					{
 						//expr->namespacedFunction = function;
@@ -1774,16 +1732,17 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 						expr->lvalue = false;
 						return true;
 					}
+					*/
 				}
 				if (AST::Module* nestedNs = FindModule(resolver, expr->name, module))
 				{
 					expr->module = nestedNs;
-					expr->valueType = NULL;
-					return true;
+					//expr->valueType = NULL;
+					//return true;
 				}
 
-				SnekErrorLoc(resolver->context, expr->location, "Unresolved identifier '%s' in namespace %s", expr->name, module->name);
-				return false;
+				//SnekErrorLoc(resolver->context, expr->location, "Unresolved identifier '%s' in namespace %s", expr->name, module->name);
+				//return false;
 			}
 		}
 
@@ -1841,8 +1800,9 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved struct field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved struct field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//ResolveDotOperator(resolver, expr);
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Union)
 		{
@@ -1855,8 +1815,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved union field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved union field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Class)
 		{
@@ -1884,8 +1844,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				}
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved class field %s.%s", GetTypeString(operandType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved class field %s.%s", GetTypeString(operandType), expr->name);
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Optional)
 		{
@@ -1906,17 +1866,17 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 					return true;
 				}
 
-				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%s", GetTypeString(operandType), expr->name);
-				return false;
+				//SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%s", GetTypeString(operandType), expr->name);
+				//return false;
 			}
 			else if (expr->fieldIndex != -1)
 			{
-				SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%d", GetTypeString(operandType), expr->fieldIndex);
-				return false;
+				//SnekErrorLoc(resolver->context, expr->location, "Unresolved optional field %s.%d", GetTypeString(operandType), expr->fieldIndex);
+				//return false;
 			}
 			else
 			{
-				SnekAssert(false);
+				//SnekAssert(false);
 			}
 		}
 		else if (operandType->typeKind == AST::TypeKind::Tuple)
@@ -1928,8 +1888,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Tuple index %d out of range for type %s", expr->fieldIndex, GetTypeString(operandType));
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Tuple index %d out of range for type %s", expr->fieldIndex, GetTypeString(operandType));
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Array)
 		{
@@ -1949,8 +1909,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved array field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved array field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::String)
 		{
@@ -1970,8 +1930,8 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved string field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved string field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//return false;
 		}
 		else if (operandType->typeKind == AST::TypeKind::Any)
 		{
@@ -1990,21 +1950,58 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				return true;
 			}
 
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved any type field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved any type field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//return false;
 		}
 		else
 		{
-			SnekErrorLoc(resolver->context, expr->location, "Unresolved field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
-			return false;
+			//SnekErrorLoc(resolver->context, expr->location, "Unresolved field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+			//return false;
 		}
 	}
+	resolver->context->disableError = false;
+
+	/*
 	else
 	{
 		return false;
 	}
+	*/
 
-	SnekAssert(false);
+	if (expr->namespacedVariable)
+	{
+		expr->valueType = expr->namespacedVariable->type;
+		expr->lvalue = true;
+		return true;
+	}
+
+	if (expr->namespacedFunctions.size > 0)
+	{
+		expr->valueType = expr->namespacedFunctions[0]->functionType;
+		expr->lvalue = false;
+		return true;
+	}
+
+	if (expr->enumValue)
+	{
+		expr->valueType = expr->enumValue->declaration->type;
+		return true;
+	}
+
+	if (expr->module)
+	{
+		expr->valueType = nullptr;
+		return true;
+	}
+
+	//SnekAssert(false);
+	if (expr->operand->valueType)
+		SnekErrorLoc(resolver->context, expr->location, "Unresolved field %s.%s", GetTypeString(expr->operand->valueType), expr->name);
+	else if (expr->operand->type == AST::ExpressionType::Identifier)
+		SnekErrorLoc(resolver->context, expr->location, "Unresolved field %s.%s", ((AST::Identifier*)expr->operand)->name, expr->name);
+	else
+		SnekErrorLoc(resolver->context, expr->location, "Unresolved field .%s", expr->name);
+
 	return false;
 }
 
@@ -3211,6 +3208,10 @@ static void ScanTypeDependency(TypeID type, List<AST::TypeDependency>& dependenc
 			needsFullDecl = false;
 		}
 	}
+	else if (type->typeKind == AST::TypeKind::Array)
+	{
+		ScanTypeDependency(type->arrayType.elementType, dependencies);
+	}
 
 	if (declaration)
 	{
@@ -3219,12 +3220,11 @@ static void ScanTypeDependency(TypeID type, List<AST::TypeDependency>& dependenc
 		{
 			AST::TypeDependency* dependency = &dependencies[j];
 			if (dependency->declaration == declaration)
+			{
 				found = true;
-
-			dependency->needsFullDecl = dependency->needsFullDecl || needsFullDecl;
-
-			if (found)
+				dependency->needsFullDecl = dependency->needsFullDecl || needsFullDecl;
 				break;
+			}
 		}
 
 		if (!found)

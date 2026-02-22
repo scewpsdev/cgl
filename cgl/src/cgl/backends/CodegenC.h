@@ -280,8 +280,10 @@ class CodegenC
 
 	void importStruct(AST::Struct* strct, bool decl)
 	{
-		if (decl)
+		if (decl && !importedStructHeaders.contains(strct))
 		{
+			importedStructHeaders.add(strct);
+
 			std::stringstream* parentStream = instructionStream;
 			instructionStream = &types;
 
@@ -289,8 +291,10 @@ class CodegenC
 
 			instructionStream = parentStream;
 		}
-		else
+		else if (!importedStructs.contains(strct))
 		{
+			// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+			importedStructs.add(strct);
 			genStruct(strct);
 		}
 		return;
@@ -2343,12 +2347,15 @@ class CodegenC
 		for (int i = 0; i < strct->typeDependencies.size; i++)
 		{
 			AST::TypeDependency* dependency = &strct->typeDependencies[i];
+			importStruct(dependency->declaration, !dependency->needsFullDecl);
+
+			/*
 			if (!importedStructs.contains(dependency->declaration))
 			{
 				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 				importedStructs.add(dependency->declaration);
-				importStruct(dependency->declaration, !dependency->needsFullDecl);
 			}
+			*/
 		}
 
 		std::stringstream* parentStream = instructionStream;
@@ -2476,12 +2483,15 @@ class CodegenC
 		for (int i = 0; i < function->typeDependencies.size; i++)
 		{
 			AST::TypeDependency* dependency = &function->typeDependencies[i];
+			importStruct(dependency->declaration, !dependency->needsFullDecl);
+
+			/*
 			if (!importedStructs.contains(dependency->declaration))
 			{
 				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 				importedStructs.add(dependency->declaration);
-				importStruct(dependency->declaration, !dependency->needsFullDecl);
 			}
+			*/
 		}
 
 		std::stringstream* parentStream = instructionStream;
