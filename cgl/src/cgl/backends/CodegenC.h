@@ -280,22 +280,28 @@ class CodegenC
 
 	void importStruct(AST::Struct* strct, bool decl)
 	{
-		if (decl && !importedStructHeaders.contains(strct))
+		if (decl)
 		{
-			importedStructHeaders.add(strct);
+			if (!importedStructHeaders.contains(strct) && !importedStructs.contains(strct))
+			{
+				importedStructHeaders.add(strct);
 
-			std::stringstream* parentStream = instructionStream;
-			instructionStream = &types;
+				std::stringstream* parentStream = instructionStream;
+				instructionStream = &types;
 
-			*instructionStream << "struct " << strct->mangledName << ";\n\n";
+				*instructionStream << "struct " << strct->mangledName << ";\n\n";
 
-			instructionStream = parentStream;
+				instructionStream = parentStream;
+			}
 		}
-		else if (!importedStructs.contains(strct))
+		else
 		{
-			// add to list before importing to avoid stack overflow during importStruct with circular dependencies
-			importedStructs.add(strct);
-			genStruct(strct);
+			if (!importedStructs.contains(strct))
+			{
+				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
+				importedStructs.add(strct);
+				genStruct(strct);
+			}
 		}
 		return;
 
@@ -373,12 +379,16 @@ class CodegenC
 				}
 				else
 				*/
+
+				importStruct(type->structType.declaration, false);
+
+				/*
 				if (!importedStructs.contains(type->structType.declaration))
 				{
 					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 					importedStructs.add(type->structType.declaration);
-					importStruct(type->structType.declaration, false);
 				}
+				*/
 			}
 			return "struct " + std::string(type->structType.name);
 		}
@@ -415,12 +425,15 @@ class CodegenC
 		{
 			if (type->unionType.declaration && type->unionType.declaration->file != file)
 			{
+				importStruct(type->unionType.declaration, false);
+
+				/*
 				if (!importedStructs.contains(type->unionType.declaration))
 				{
 					// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 					importedStructs.add(type->unionType.declaration);
-					importStruct(type->unionType.declaration, false);
 				}
+				*/
 			}
 			return "union " + std::string(type->unionType.name);
 		}
@@ -2719,12 +2732,15 @@ class CodegenC
 		for (int i = 0; i < td->typeDependencies.size; i++)
 		{
 			AST::TypeDependency* dependency = &td->typeDependencies[i];
+			importStruct(dependency->declaration, !dependency->needsFullDecl);
+
+			/*
 			if (!importedStructs.contains(dependency->declaration))
 			{
 				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 				importedStructs.add(dependency->declaration);
-				importStruct(dependency->declaration, !dependency->needsFullDecl);
 			}
+			*/
 		}
 
 		std::stringstream* parentStream = instructionStream;
@@ -2745,12 +2761,15 @@ class CodegenC
 		for (int i = 0; i < global->typeDependencies.size; i++)
 		{
 			AST::TypeDependency* dependency = &global->typeDependencies[i];
+			importStruct(dependency->declaration, !dependency->needsFullDecl);
+
+			/*
 			if (!importedStructs.contains(dependency->declaration))
 			{
 				// add to list before importing to avoid stack overflow during importStruct with circular dependencies
 				importedStructs.add(dependency->declaration);
-				importStruct(dependency->declaration, !dependency->needsFullDecl);
 			}
+			*/
 		}
 
 		std::stringstream* parentStream = instructionStream;
