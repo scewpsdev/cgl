@@ -110,6 +110,13 @@ Variable* Resolver::findGlobalVariableInModule(const char* name, AST::Module* mo
 			}
 		}
 	}
+	if (module->parent)
+	{
+		if (Variable* variable = findGlobalVariableInModule(name, module->parent, current))
+		{
+			return variable;
+		}
+	}
 	return nullptr;
 }
 
@@ -275,6 +282,11 @@ static AST::Struct* FindStructInModule(Resolver* resolver, AST::Module* module, 
 			}
 		}
 	}
+	if (module->parent)
+	{
+		if (AST::Struct* str = FindStructInModule(resolver, module->parent, name))
+			return str;
+	}
 	return nullptr;
 }
 
@@ -401,6 +413,11 @@ static AST::Typedef* FindTypedefInModule(Resolver* resolver, AST::Module* module
 			}
 		}
 	}
+	if (module->parent)
+	{
+		if (AST::Typedef* td = FindTypedefInModule(resolver, module->parent, name))
+			return td;
+	}
 	return nullptr;
 }
 
@@ -463,6 +480,11 @@ static AST::Enum* FindEnumInModule(Resolver* resolver, AST::Module* module, cons
 				return nullptr;
 			}
 		}
+	}
+	if (module->parent)
+	{
+		if (AST::Enum* en = FindEnumInModule(resolver, module->parent, name))
+			return en;
 	}
 	return nullptr;
 }

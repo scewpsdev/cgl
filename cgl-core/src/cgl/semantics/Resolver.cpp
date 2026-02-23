@@ -163,6 +163,86 @@ static int64_t ConstantFoldInt(Resolver* resolver, AST::Expression* expr, bool& 
 	}
 }
 
+static void AddTypeDependency(TypeID type, List<AST::TypeDependency>& dependencies, bool needsFullDecl = false)
+{
+	AST::Struct* declaration = nullptr;
+
+	if (type->typeKind == AST::TypeKind::Struct)
+	{
+		if (type->structType.declaration)
+		{
+			declaration = type->structType.declaration;
+			needsFullDecl = true;
+		}
+		else if (type->structType.anonDeclaration)
+		{
+			for (int i = 0; i < type->structType.anonDeclaration->fields.size; i++)
+			{
+				AST::StructField* field = type->structType.anonDeclaration->fields[i];
+				AddTypeDependency(field->type->typeID, dependencies);
+			}
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Union)
+	{
+		if (type->unionType.anonDeclaration)
+		{
+			for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
+			{
+				AST::StructField* field = type->unionType.anonDeclaration->fields[i];
+				AddTypeDependency(field->type->typeID, dependencies);
+			}
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Function)
+	{
+		if (type->functionType.returnType)
+			AddTypeDependency(type->functionType.returnType, dependencies);
+
+		for (int i = 0; i < type->functionType.numParams; i++)
+		{
+			AddTypeDependency(type->functionType.paramTypes[i], dependencies);
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Pointer)
+	{
+		if (type->pointerType.elementType->typeKind == AST::TypeKind::Struct)
+		{
+			declaration = type->pointerType.elementType->structType.declaration;
+			//needsFullDecl = false;
+		}
+		else if (type->pointerType.elementType->typeKind == AST::TypeKind::Union)
+		{
+			declaration = type->pointerType.elementType->unionType.declaration;
+			//needsFullDecl = false;
+		}
+	}
+	else if (type->typeKind == AST::TypeKind::Array)
+	{
+		AddTypeDependency(type->arrayType.elementType, dependencies);
+	}
+
+	if (declaration)
+	{
+		bool found = false;
+		for (int j = 0; j < dependencies.size; j++)
+		{
+			AST::TypeDependency* dependency = &dependencies[j];
+			if (dependency->declaration == declaration)
+			{
+				found = true;
+				dependency->needsFullDecl = dependency->needsFullDecl || needsFullDecl;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			dependencies.add({ declaration, needsFullDecl });
+		}
+	}
+}
+
 static bool ResolveVoidType(Resolver* resolver, AST::VoidType* type)
 {
 	if (type->typeID = GetVoidType())
@@ -230,7 +310,8 @@ static bool ResolveNamedType(Resolver* resolver, AST::NamedType* type)
 	{
 		if (resolver->currentFunction)
 		{
-			resolver->currentFunction->typeDependencies.add({ structDecl, true });
+			AddTypeDependency(structDecl->type, resolver->currentFunction->typeDependencies, true);
+			//resolver->currentFunction->typeDependencies.add({ structDecl, true });
 		}
 
 		if (structDecl->isGeneric)
@@ -834,6 +915,12 @@ static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 		expr->valueType = variable->type;
 		expr->lvalue = true; // !variable->isConstant;
 		expr->variable = variable;
+
+		if (resolver->currentFunction)
+		{
+			AddTypeDependency(variable->type, resolver->currentFunction->typeDependencies, true);
+		}
+
 		return variable->type != nullptr;
 	}
 	if (resolver->findFunctions(expr->name, expr->functions))
@@ -1775,6 +1862,12 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 				expr->valueType = field->type->typeID;
 				expr->lvalue = true;
 				expr->structField = field;
+
+				if (resolver->currentFunction)
+				{
+					AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
+				}
+
 				return true;
 			}
 			/*
@@ -3153,87 +3246,6 @@ static bool ResolveStructField(Resolver* resolver, AST::StructField* field, Type
 	return true;
 }
 
-static void ScanTypeDependency(TypeID type, List<AST::TypeDependency>& dependencies)
-{
-	AST::Struct* declaration = nullptr;
-	bool needsFullDecl = false;
-
-	if (type->typeKind == AST::TypeKind::Struct)
-	{
-		if (type->structType.declaration)
-		{
-			declaration = type->structType.declaration;
-			needsFullDecl = true;
-		}
-		else if (type->structType.anonDeclaration)
-		{
-			for (int i = 0; i < type->structType.anonDeclaration->fields.size; i++)
-			{
-				AST::StructField* field = type->structType.anonDeclaration->fields[i];
-				ScanTypeDependency(field->type->typeID, dependencies);
-			}
-		}
-	}
-	else if (type->typeKind == AST::TypeKind::Union)
-	{
-		if (type->unionType.anonDeclaration)
-		{
-			for (int i = 0; i < type->unionType.anonDeclaration->fields.size; i++)
-			{
-				AST::StructField* field = type->unionType.anonDeclaration->fields[i];
-				ScanTypeDependency(field->type->typeID, dependencies);
-			}
-		}
-	}
-	else if (type->typeKind == AST::TypeKind::Function)
-	{
-		if (type->functionType.returnType)
-			ScanTypeDependency(type->functionType.returnType, dependencies);
-
-		for (int i = 0; i < type->functionType.numParams; i++)
-		{
-			ScanTypeDependency(type->functionType.paramTypes[i], dependencies);
-		}
-	}
-	else if (type->typeKind == AST::TypeKind::Pointer)
-	{
-		if (type->pointerType.elementType->typeKind == AST::TypeKind::Struct)
-		{
-			declaration = type->pointerType.elementType->structType.declaration;
-			needsFullDecl = false;
-		}
-		else if (type->pointerType.elementType->typeKind == AST::TypeKind::Union)
-		{
-			declaration = type->pointerType.elementType->unionType.declaration;
-			needsFullDecl = false;
-		}
-	}
-	else if (type->typeKind == AST::TypeKind::Array)
-	{
-		ScanTypeDependency(type->arrayType.elementType, dependencies);
-	}
-
-	if (declaration)
-	{
-		bool found = false;
-		for (int j = 0; j < dependencies.size; j++)
-		{
-			AST::TypeDependency* dependency = &dependencies[j];
-			if (dependency->declaration == declaration)
-			{
-				found = true;
-				dependency->needsFullDecl = dependency->needsFullDecl || needsFullDecl;
-				break;
-			}
-		}
-
-		if (!found)
-		{
-			dependencies.add({ declaration, needsFullDecl });
-		}
-	}
-}
-
 static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 {
 	AST::Element* lastElement = resolver->currentElement;
@@ -3269,7 +3281,7 @@ static bool ResolveStruct(Resolver* resolver, AST::Struct* decl)
 			{
 				AST::StructField* field = decl->fields[i];
 				if (field->type->typeID)
-					ScanTypeDependency(field->type->typeID, decl->typeDependencies);
+					AddTypeDependency(field->type->typeID, decl->typeDependencies);
 			}
 
 			resolver->currentStruct = lastStruct;
@@ -3568,7 +3580,7 @@ static bool ResolveTypedefHeader(Resolver* resolver, AST::Typedef* decl)
 	typeID->aliasType.alias = decl->alias->typeID;
 	decl->type = typeID;
 
-	ScanTypeDependency(decl->alias->typeID, decl->typeDependencies);
+	AddTypeDependency(decl->alias->typeID, decl->typeDependencies);
 
 	return true;
 }
@@ -3677,7 +3689,7 @@ static bool ResolveGlobalHeader(Resolver* resolver, AST::GlobalVariable* decl)
 			declarator->variable = variable;
 		}
 
-		ScanTypeDependency(decl->varType->typeID, decl->typeDependencies);
+		AddTypeDependency(decl->varType->typeID, decl->typeDependencies);
 	}
 
 	return result;

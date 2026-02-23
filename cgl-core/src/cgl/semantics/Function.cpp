@@ -31,6 +31,11 @@ AST::Function* Resolver::findFunctionInModule(const char* name, AST::Module* mod
 		if (AST::Function* function = findFunctionInFile(name, file, instanceType))
 			return function;
 	}
+	if (module->parent)
+	{
+		if (AST::Function* function = findFunctionInModule(name, module->parent, instanceType))
+			return function;
+	}
 	return nullptr;
 }
 
@@ -70,7 +75,8 @@ bool Resolver::findFunctionsInFile(const char* name, AST::File* file, List<AST::
 		{
 			if (strcmp(function->name, name) == 0)
 			{
-				functions.add(function);
+				if (!functions.contains(function))
+					functions.add(function);
 				found = true;
 			}
 		}
@@ -86,6 +92,11 @@ bool Resolver::findFunctionsInModule(const char* name, AST::Module* module, List
 	for (AST::File* file : module->files)
 	{
 		if (findFunctionsInFile(name, file, functions))
+			found = true;
+	}
+	if (module->parent)
+	{
+		if (findFunctionsInModule(name, module->parent, functions))
 			found = true;
 	}
 	return found;

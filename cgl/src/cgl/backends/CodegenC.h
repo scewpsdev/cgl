@@ -380,7 +380,10 @@ class CodegenC
 				else
 				*/
 
-				importStruct(type->structType.declaration, false);
+				if (currentFunction)
+				{
+					importStruct(type->structType.declaration, false);
+				}
 
 				/*
 				if (!importedStructs.contains(type->structType.declaration))
@@ -425,7 +428,7 @@ class CodegenC
 		{
 			if (type->unionType.declaration && type->unionType.declaration->file != file)
 			{
-				importStruct(type->unionType.declaration, false);
+				//importStruct(type->unionType.declaration, false);
 
 				/*
 				if (!importedStructs.contains(type->unionType.declaration))
@@ -760,6 +763,7 @@ class CodegenC
 		}
 		else if (type->typeKind == AST::TypeKind::Any)
 		{
+			// Extend to 8 bytes
 			TypeID valueTypeExtended = valueType;
 			if (valueType->typeKind == AST::TypeKind::Integer)
 				valueTypeExtended = GetIntegerType(64, valueType->integerType.isSigned);
@@ -805,7 +809,8 @@ class CodegenC
 				return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",(void*)&" + value + "}";
 			}
 			default:
-				return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",*(void**)&" + value + "}";
+				std::string extendedValue = castValue(value, valueType, valueTypeExtended);
+				return "(any){(void*)" + std::to_string((int)valueType->typeKind) + ",(void*)" + extendedValue + "}";
 			}
 		}
 		else if (valueType->typeKind == AST::TypeKind::Any)
@@ -2681,8 +2686,8 @@ class CodegenC
 					*instructionStream << "__setup_crash_handler();";
 					newLine();
 				}
-				*instructionStream << "__init_" << file->getFullIdentifier() << "();";
-				newLine();
+				//*instructionStream << "__init_" << file->getFullIdentifier() << "();";
+				//newLine();
 			}
 
 			genStatement(function->body);
@@ -2878,7 +2883,7 @@ public:
 		builtinDefinitionStream << "// " << file->getFullName() << "\n";
 		builtinDefinitionStream << "#include <cgl.h>\n";
 
-		genFileInitializer(functions);
+		//genFileInitializer(functions);
 
 		/*
 		for (AST::Struct* strct : file->structs)
