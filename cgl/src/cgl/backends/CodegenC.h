@@ -289,7 +289,10 @@ class CodegenC
 				std::stringstream* parentStream = instructionStream;
 				instructionStream = &types;
 
-				*instructionStream << "struct " << strct->mangledName << ";\n\n";
+				if (strct->isUnion)
+					*instructionStream << "union " << strct->mangledName << ";\n";
+				else
+					*instructionStream << "struct " << strct->mangledName << ";\n";
 
 				instructionStream = parentStream;
 			}
@@ -2343,7 +2346,10 @@ class CodegenC
 		std::stringstream structStream;
 		instructionStream = &structStream;
 
-		*instructionStream << "struct " << strct->mangledName << ";\n";
+		if (strct->isUnion)
+			*instructionStream << "union " << strct->mangledName << ";\n";
+		else
+			*instructionStream << "struct " << strct->mangledName << ";\n";
 
 		instructionStream = parentStream;
 
@@ -2381,7 +2387,11 @@ class CodegenC
 		std::stringstream structStream;
 		instructionStream = &structStream;
 
-		*instructionStream << "struct " << strct->mangledName;
+		if (strct->isUnion)
+			*instructionStream << "union " << strct->mangledName;
+		else
+			*instructionStream << "struct " << strct->mangledName;
+
 		if (strct->hasBody)
 		{
 			*instructionStream << "{";

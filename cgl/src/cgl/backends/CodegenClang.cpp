@@ -75,6 +75,9 @@ int CGLCompiler::runLLVM(int argc, char* argv[])
 	//CreateDirectories(path);
 	cmd << "-o a.exe && \"./a.exe\"";
 
+	if (cmdArgs)
+		cmd << ' ' << cmdArgs;
+
 	std::string cmdStr = cmd.str();
 	return system(cmdStr.c_str());
 }
@@ -134,6 +137,9 @@ int CGLCompiler::outputLLVM(const char* path)
 
 	CreateDirectories(path);
 	cmd << "-o " << path;
+
+	if (cmdArgs)
+		cmd << ' ' << cmdArgs;
 
 	fprintf(stderr, "Running " BUILD_CMD " backend\n");
 

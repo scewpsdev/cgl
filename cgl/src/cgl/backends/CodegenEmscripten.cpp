@@ -18,6 +18,10 @@ int CGLCompiler::outputEmscripten(const char* path)
 
 	cmd << BUILD_CMD << ' ';
 
+	if (debugInfo)
+		cmd << "-g ";
+	cmd << "-w ";
+
 	cmd << "-I " << LocalFilePath("lib") << ' ';
 	cmd << LocalFilePath("lib/cgl.c") << ' ';
 
@@ -46,10 +50,11 @@ int CGLCompiler::outputEmscripten(const char* path)
 		cmd << linkerFile.filename << ' ';
 	}
 
-	cmd << "-sUSE_SDL=3 ";
-
 	CreateDirectories(path);
 	cmd << "-o " << path;
+
+	if (cmdArgs)
+		cmd << ' ' << cmdArgs;
 
 	fprintf(stderr, "Running " BUILD_CMD " backend\n");
 

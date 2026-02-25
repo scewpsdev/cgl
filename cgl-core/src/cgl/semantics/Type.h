@@ -123,6 +123,7 @@ TypeID GetStringType();
 TypeID GetAnyType();
 TypeID GetStructType(const char* structName, AST::Struct* declaration);
 TypeID GetStructType(int numValues, TypeID* valueTypes, AST::StructType* declaration);
+TypeID GetUnionType(const char* unionName, AST::Struct* declaration);
 TypeID GetUnionType(int numValues, TypeID* valueTypes, AST::UnionType* declaration);
 TypeID GetClassType(const char* className, AST::Class* declaration);
 TypeID GetAliasType(const char* name, AST::Declaration* declaration);

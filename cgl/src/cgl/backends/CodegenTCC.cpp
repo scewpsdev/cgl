@@ -101,6 +101,9 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 	if (runtimeStackTrace)
 		tcc_define_symbol(tcc, "RUNTIME_STACK_TRACE", nullptr);
 
+	if (cmdArgs)
+		tcc_set_options(tcc, cmdArgs);
+
 
 	tcc_relocate(tcc);
 
@@ -188,6 +191,9 @@ int CGLCompiler::outputTCC(const char* path)
 	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
 	if (runtimeStackTrace)
 		tcc_define_symbol(tcc, "RUNTIME_STACK_TRACE", nullptr);
+
+	if (cmdArgs)
+		tcc_set_options(tcc, cmdArgs);
 
 	fprintf(stderr, "Running TCC backend\n");
 

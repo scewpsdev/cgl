@@ -221,6 +221,20 @@ namespace AST
 		return copy;
 	}
 
+	StructField* StructType::getFieldWithName(const char* name, int* index)
+	{
+		for (int i = 0; i < fields.size; i++)
+		{
+			if (StructField* field = CheckStructField(fields[i], name))
+			{
+				if (index)
+					*index = i;
+				return field;
+			}
+		}
+		return nullptr;
+	}
+
 	UnionType::UnionType(File* file, const SourceLocation& location)
 		: Type(file, location, TypeKind::Union)
 	{

@@ -23,6 +23,7 @@
 #define OPT_BUILD_STATIC_LIBRARY "-library"
 #define OPT_BUILD_SHARED_LIBRARY "-shared"
 #define OPT_BUILD_GEN_RUNTIME_STACKTRACE "-runtime-stacktrace"
+#define OPT_BUILD_CUSTOM_CMD_ARGS "-cmdargs"
 #define OPT_BUILD_BACKEND_CLANG "-gcc"
 #define OPT_BUILD_BACKEND_TCC "-tcc"
 #define OPT_BUILD_BACKEND_EMSCRIPTEN "-emcc"
@@ -40,6 +41,7 @@ void printBuildHelp(char linePrefix)
 	printf("%c\t%s - Build a static library. This does not invoke the linker.\n", linePrefix, OPT_BUILD_STATIC_LIBRARY);
 	printf("%c\t%s - Build a shared library. This performs a link just like when building an executable.\n", linePrefix, OPT_BUILD_SHARED_LIBRARY);
 	printf("%c\t%s - Generate rudimentary runtime stacktrace information that gets printed to stderr on segfault.\n", linePrefix, OPT_BUILD_GEN_RUNTIME_STACKTRACE);
+	printf("%c\t%s - Pass custom command line arguments to the build command.\n", linePrefix, OPT_BUILD_CUSTOM_CMD_ARGS);
 }
 
 void printRunHelp(char linePrefix)
@@ -50,6 +52,7 @@ void printRunHelp(char linePrefix)
 	printf("%c\t%s - Print the intermediate representation (such as C or LLVM IR) of the used backend to stdout. Useful for debugging code generation.\n", linePrefix, OPT_BUILD_PRINT_IR);
 	printf("%c\t%s - Optimize the code before running it.\n", linePrefix, OPT_BUILD_OPTIMIZE);
 	printf("%c\t%s - Generate rudimentary runtime stacktrace information that gets printed to stderr on segfault.\n", linePrefix, OPT_BUILD_GEN_RUNTIME_STACKTRACE);
+	printf("%c\t%s - Pass custom command line arguments to the build command.\n", linePrefix, OPT_BUILD_CUSTOM_CMD_ARGS);
 }
 
 void printAnalyzeHelp(char linePrefix)
@@ -321,6 +324,16 @@ int build(int argc, char* argv[])
 				compiler.sharedLibrary = true;
 			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
 				compiler.runtimeStackTrace = true;
+			else if (strcmp(arg, OPT_BUILD_CUSTOM_CMD_ARGS) == 0)
+			{
+				if (i < argc - 1)
+					compiler.cmdArgs = argv[++i];
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a string", arg);
+					result = false;
+				}
+			}
 			else if (strcmp(arg, OPT_BUILD_BACKEND_CLANG) == 0)
 				llvm = true;
 			else if (strcmp(arg, OPT_BUILD_BACKEND_TCC) == 0)
@@ -453,6 +466,16 @@ int run(int argc, char* argv[])
 			}
 			else if (strcmp(arg, OPT_BUILD_GEN_RUNTIME_STACKTRACE) == 0)
 				compiler.runtimeStackTrace = true;
+			else if (strcmp(arg, OPT_BUILD_CUSTOM_CMD_ARGS) == 0)
+			{
+				if (i < argc - 1)
+					compiler.cmdArgs = argv[++i];
+				else
+				{
+					SnekError(&compiler, "%s must be followed by a string", arg);
+					result = false;
+				}
+			}
 			else if (strcmp(arg, OPT_BUILD_BACKEND_CLANG) == 0)
 				llvm = true;
 			else if (strcmp(arg, OPT_BUILD_BACKEND_TCC) == 0)

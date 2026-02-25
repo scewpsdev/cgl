@@ -1856,19 +1856,39 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 
 		if (operandType->typeKind == AST::TypeKind::Struct)
 		{
-			if (AST::StructField* field = operandType->structType.declaration->getFieldWithName(expr->name))
+			if (operandType->structType.declaration)
 			{
-				SnekAssert(field->type);
-				expr->valueType = field->type->typeID;
-				expr->lvalue = true;
-				expr->structField = field;
-
-				if (resolver->currentFunction)
+				if (AST::StructField* field = operandType->structType.declaration->getFieldWithName(expr->name))
 				{
-					AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
-				}
+					SnekAssert(field->type);
+					expr->valueType = field->type->typeID;
+					expr->lvalue = true;
+					expr->structField = field;
 
-				return true;
+					if (resolver->currentFunction)
+					{
+						AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
+					}
+
+					return true;
+				}
+			}
+			else if (operandType->structType.anonDeclaration)
+			{
+				if (AST::StructField* field = operandType->structType.anonDeclaration->getFieldWithName(expr->name))
+				{
+					SnekAssert(field->type);
+					expr->valueType = field->type->typeID;
+					expr->lvalue = true;
+					expr->structField = field;
+
+					if (resolver->currentFunction)
+					{
+						AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
+					}
+
+					return true;
+				}
 			}
 			/*
 			for (int i = 0; i < operandType->structType.declaration->fields.size; i++)
@@ -1899,12 +1919,46 @@ static bool ResolveDotOperator(Resolver* resolver, AST::DotOperator* expr)
 		}
 		else if (operandType->typeKind == AST::TypeKind::Union)
 		{
-			if (AST::StructField* field = operandType->unionType.anonDeclaration->getFieldWithName(expr->name))
+			if (operandType->unionType.declaration)
 			{
-				SnekAssert(field->type);
-				expr->valueType = field->type->typeID;
-				expr->lvalue = true;
-				expr->unionField = field;
+				if (AST::StructField* field = operandType->unionType.declaration->getFieldWithName(expr->name))
+				{
+					SnekAssert(field->type);
+					expr->valueType = field->type->typeID;
+					expr->lvalue = true;
+					expr->unionField = field;
+
+					if (resolver->currentFunction)
+					{
+						AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
+					}
+
+					return true;
+				}
+			}
+			else if (operandType->unionType.anonDeclaration)
+			{
+				if (AST::StructField* field = operandType->unionType.anonDeclaration->getFieldWithName(expr->name))
+				{
+					SnekAssert(field->type);
+					expr->valueType = field->type->typeID;
+					expr->lvalue = true;
+					expr->unionField = field;
+
+					if (resolver->currentFunction)
+					{
+						AddTypeDependency(field->type->typeID, resolver->currentFunction->typeDependencies, true);
+					}
+
+					return true;
+				}
+			}
+
+			if (AST::Function* method = resolver->findFunction(expr->name, operandType))
+			{
+				expr->valueType = method->functionType;
+				expr->lvalue = false;
+				expr->methods.add(method);
 				return true;
 			}
 
@@ -3193,7 +3247,11 @@ static bool ResolveStructHeader(Resolver* resolver, AST::Struct* decl)
 	else
 	{
 		decl->mangledName = MangleStructName(decl);
-		decl->type = GetStructType(decl->mangledName, decl);
+
+		if (decl->isUnion)
+			decl->type = GetUnionType(decl->mangledName, decl);
+		else
+			decl->type = GetStructType(decl->mangledName, decl);
 	}
 
 	return true;

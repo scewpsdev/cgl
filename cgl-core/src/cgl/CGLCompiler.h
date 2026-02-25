@@ -29,6 +29,7 @@ public:
 	bool debugInfo = false;
 	int optimization = 0;
 	bool runtimeStackTrace = false;
+	const char* cmdArgs = nullptr;
 
 	Parser* parser;
 	Resolver* resolver;
