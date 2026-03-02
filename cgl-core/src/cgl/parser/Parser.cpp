@@ -949,6 +949,41 @@ static AST::Expression* ParseBasicExpression(Parser* parser)
 			if (NextTokenIs(parser, ')'))
 			{
 				NextToken(parser); // )
+
+				/*
+				if (NextTokenIs(parser, '{'))
+				{
+					NextToken(parser); // {
+
+					List<AST::Expression*> values;
+					List<char*> labels;
+
+					bool upcomingValue = !NextTokenIs(parser, '}');
+					while (upcomingValue && HasNext(parser))
+					{
+						char* label = nullptr;
+
+						if (NextTokenIs(parser, TOKEN_TYPE_IDENTIFIER) && NextTokenIs(parser, TOKEN_TYPE_OP_EQUALS, 1))
+						{
+							label = GetTokenString(NextToken(parser));
+							NextToken(parser); // =
+						}
+
+						AST::Expression* value = ParseExpression(parser);
+						values.add(value);
+						labels.add(label);
+
+						upcomingValue = NextTokenIs(parser, ',');
+						if (upcomingValue)
+							NextToken(parser); // ,
+					}
+
+					SkipToken(parser, '}');
+
+					return new AST::InitializerList(parser->module, inputState, dstType, values, labels);
+				}
+				else
+				*/
 				if (AST::Expression* value = ParsePrefixOperator(parser))
 				{
 					if (value = ParsePostfixOperator(parser, value))

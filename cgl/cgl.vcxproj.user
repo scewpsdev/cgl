@@ -4,14 +4,14 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>build -tcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -L lib -l SDL3 lib/SDL3.dll -o bin/a.exe -options="-sMEMORY64 -sTOTAL_MEMORY=1500MB -sUSE_SDL=3"</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2026\SnekSandbox</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>build -tcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -L lib -l SDL3 lib/SDL3.dll -o bin/Platformer.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2026\Platformer</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArgumentsHistory>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo|**.src|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>build -tcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -L lib -l SDL3 lib/SDL3.dll -o bin/a.exe -options="-sMEMORY64 -sTOTAL_MEMORY=1500MB -sUSE_SDL=3"</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2026\SnekSandbox</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>build -tcc src/platform_windows.src src/main.src src/snek/**.src src/vendor/**.src src/game/**.src -L lib -l SDL3 lib/SDL3.dll -o bin/Platformer.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2026\Platformer</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArgumentsHistory>src/game/**.cc lib/libSDL3.dll.a -o bin/x64/Debug/Wildcard.dll -library -debuginfo|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>

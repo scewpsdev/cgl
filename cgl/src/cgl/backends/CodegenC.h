@@ -1647,7 +1647,7 @@ class CodegenC
 
 		if (expression->operatorOverload)
 		{
-			return getFunctionValue(expression->operatorOverload) + "(" + castValue(left, expression->left->valueType, expression->valueType) + "," + castValue(right, expression->right->valueType, expression->valueType) + ")";
+			return getFunctionValue(expression->operatorOverload) + "(" + left + "," + right + ")";
 		}
 
 		if (expression->left->valueType->typeKind == AST::TypeKind::Pointer && expression->right->valueType->typeKind == AST::TypeKind::Integer

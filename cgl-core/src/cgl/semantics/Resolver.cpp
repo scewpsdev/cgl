@@ -1365,7 +1365,7 @@ static bool ResolveFunctionCall(Resolver* resolver, AST::FunctionCall* expr)
 
 
 		expr->function = function;
-		expr->valueType = functionType->functionType.returnType;
+		expr->valueType = functionType->functionType.returnType ? functionType->functionType.returnType : GetVoidType();
 		expr->lvalue = false;
 		expr->methodInstance = methodInstance;
 
@@ -2483,6 +2483,7 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 							else
 							{
 								SnekErrorLoc(resolver->context, expr->left->location, "Can't assign value of type '%s' to variable of type '%s'", GetTypeString(expr->right->valueType), GetTypeString(expr->left->valueType));
+								//ResolveExpression(resolver, expr->right);
 								return false;
 							}
 						}
@@ -2546,6 +2547,7 @@ static bool ResolveBinaryOperator(Resolver* resolver, AST::BinaryOperator* expr)
 		}
 		else
 		{
+			//ResolveExpression(resolver, expr->right);
 			SnekErrorLoc(resolver->context, resolver->currentElement->location, "Incompatible operands: '%s' and '%s'", GetTypeString(expr->left->valueType), GetTypeString(expr->right->valueType));
 			return false;
 		}

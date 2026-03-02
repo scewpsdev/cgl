@@ -205,6 +205,11 @@ AST::Function* Resolver::findBinaryOperatorOverloadInModule(TypeID left, TypeID 
 		if (AST::Function* overload = findBinaryOperatorOverloadInFile(left, right, operatorOverload, file))
 			return overload;
 	}
+	if (module->parent)
+	{
+		if (AST::Function* overload = findBinaryOperatorOverloadInModule(left, right, operatorOverload, module->parent))
+			return overload;
+	}
 	return nullptr;
 }
 
