@@ -17,9 +17,11 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 	// The server is implemented in node
-	const serverModule = context.asAbsolutePath(
-		path.join('../', 'bin', 'x64', 'Debug', 'snek-lsp.exe')
-	);
+	//const serverModule = context.asAbsolutePath(
+	//	path.join('../', 'bin', 'x64', 'Debug', 'snek-lsp.exe')
+	//);
+
+	const serverModule = "snek-lsp";
 
 	// If the extension is launched in debug mode then the debug server options are used
 	// Otherwise the run options are used
