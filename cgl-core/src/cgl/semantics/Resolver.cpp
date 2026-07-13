@@ -916,7 +916,7 @@ static bool ResolveIdentifier(Resolver* resolver, AST::Identifier* expr)
 		expr->lvalue = true; // !variable->isConstant;
 		expr->variable = variable;
 
-		if (resolver->currentFunction)
+		if (resolver->currentFunction && variable->type)
 		{
 			AddTypeDependency(variable->type, resolver->currentFunction->typeDependencies, true);
 		}

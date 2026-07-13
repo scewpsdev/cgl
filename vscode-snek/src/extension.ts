@@ -4,13 +4,14 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, window } from 'vscode';
 
 import {
 	LanguageClient,
 	LanguageClientOptions,
 	ServerOptions,
-	TransportKind
+	TransportKind,
+    RevealOutputChannelOn
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
@@ -40,7 +41,9 @@ export function activate(context: ExtensionContext) {
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/*.src')
-		}
+		},
+        traceOutputChannel: window.createOutputChannel("LSP Trace"),
+        revealOutputChannelOn: RevealOutputChannelOn.Never
 	};
 
 	// Create the language client and start the client.

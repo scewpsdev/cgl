@@ -4,6 +4,11 @@
 #include "parser/Parser.h"
 #include "semantics/Resolver.h"
 
+#include "cgl/Platform.h"
+
+#include <thread>
+#include <chrono>
+
 
 void CGLCompiler::init(MessageCallback_t msgCallback)
 {
@@ -54,6 +59,8 @@ bool CGLCompiler::compile()
 
 	bool success = true;
 
+	uint64_t beforeParse = GetTimeNS();
+
 	parser = new Parser(this);
 	for (int i = 0; i < sourceFiles.size; i++)
 	{
@@ -66,8 +73,14 @@ bool CGLCompiler::compile()
 		success = success && !parser->failed;
 	}
 
+	uint64_t afterParse = GetTimeNS();
+	fprintf(stderr, "parse %.3fms\n", (afterParse - beforeParse) / 1e6f);
+
 	resolver = new Resolver(this, asts);
 	success = resolver->run() && success;
+
+	uint64_t afterAnalyze = GetTimeNS();
+	fprintf(stderr, "analyze %.3fms\n", (afterAnalyze - afterParse) / 1e6f);
 
 	return success;
 }

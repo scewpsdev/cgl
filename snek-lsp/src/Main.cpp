@@ -23,9 +23,10 @@ using json = nlohmann::json;
 
 
 std::string rootPath;
-std::unordered_map<std::string, Document> documents;
+List<Document*> documents;
+std::map<std::string, int> uriMap;
 
-CGLCompiler* compiler;
+//CGLCompiler* compiler;
 
 
 void send(json msg)
@@ -34,6 +35,7 @@ void send(json msg)
 	//fprintf(stdout, "Content-Length: %d\r\n\r\n%s", (int)body.size(), body.c_str());
 	// had to get rid of the \r for some reason, it would print 4 newlines and not accept the message
 	fprintf(stdout, "Content-Length: %d\n\n%s", (int)body.size(), body.c_str());
+	fflush(stdout);
 	//fprintf(stderr, "Content-Length: %d\n\n%s\n", (int)body.size(), body.c_str());
 }
 
@@ -44,6 +46,19 @@ void sendResponse(int id, json result)
 		{"id", id},
 		{"result", result}
 		});
+}
+
+int requestIdCounter = 1;
+int sendRequest(std::string method, json params)
+{
+	int id = requestIdCounter++;
+	send({
+		{"jsonrpc", "2.0"},
+		{"id", id},
+		{"method", method},
+		{"params", params}
+		});
+	return id;
 }
 
 json readMessage()
@@ -61,7 +76,7 @@ json readMessage()
 	std::string content(length, '\0');
 	std::cin.read((char*)content.data(), length);
 
-	return json::parse(content);
+	return content != "" ? json::parse(content) : json{};
 }
 
 static json CreateHoverResult(std::string contents)
@@ -115,66 +130,6 @@ char* ReadText(const char* path)
 		return buffer;
 	}
 	return nullptr;
-}
-
-static void reparse(const std::string& uri, const std::string& text)
-{
-	uint64_t beforeParse = GetTimeNS();
-
-	if (compiler)
-	{
-		compiler->terminate();
-		delete compiler;
-	}
-
-	compiler = new CGLCompiler();
-	compiler->init(OnCompilerMessage);
-
-	std::vector<std::filesystem::path> sourceFilesInWorkspace;
-
-	if (rootPath != "")
-	{
-		for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(rootPath))
-		{
-			if (dirEntry.is_regular_file())
-			{
-				std::filesystem::path file = dirEntry.path();
-				if (file.extension().string() == ".src")
-				{
-					sourceFilesInWorkspace.push_back(file);
-				}
-			}
-		}
-
-		for (auto& file : sourceFilesInWorkspace)
-		{
-			std::string filepath = file.string();
-			std::string name = file.stem().string();
-			char* src = ReadText(filepath.c_str());
-			compiler->addFile(_strdup(filepath.c_str()), _strdup(name.c_str()), src);
-		}
-	}
-	else
-	{
-		std::filesystem::path p = uri;
-		std::string name = p.stem().string();
-		compiler->addFile(_strdup(uri.c_str()), _strdup(name.c_str()), _strdup(text.c_str()));
-	}
-
-	/*
-	for (auto& pair : documents)
-	{
-		Document* document = &pair.second;
-		compiler->addFile(document->uri.c_str(), document->uri.c_str(), document->text.c_str());
-	}
-	*/
-
-	compiler->compile();
-
-	uint64_t afterParse = GetTimeNS();
-
-	float ms = (afterParse - beforeParse) / 1e6f;
-	fprintf(stderr, "parsed %d files in %.3fms\n", (int)sourceFilesInWorkspace.size(), ms);
 }
 
 static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
@@ -305,6 +260,7 @@ static void autocompleteAST(AST::File* ast, Resolver* resolver, json& items)
 
 static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items, int line, int col)
 {
+	/*
 	if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
 	{
 		fprintf(stderr, "Found completion scope at %d, %d\n", scope->start.line, scope->start.col);
@@ -317,28 +273,128 @@ static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items
 		if (compiler->resolver->asts[i] != currentFile)
 			autocompleteAST(compiler->resolver->asts[i], compiler->resolver, items);
 	}
+	*/
+}
+
+void printCapabilities(const json& j, const std::string& prefix = "") {
+	// Handle nested objects
+	if (j.is_object()) {
+		for (auto& [key, value] : j.items()) {
+			printCapabilities(value, prefix + (prefix.empty() ? "" : ".") + key);
+		}
+	}
+	// Handle arrays
+	else if (j.is_array()) {
+		std::cerr << prefix << ": [ ";
+		for (const auto& item : j) {
+			if (item.is_primitive()) {
+				std::cerr << item << " ";
+			}
+			else {
+				std::cerr << "{...} "; // Simplify nested objects inside arrays
+			}
+		}
+		std::cerr << "]\n";
+	}
+	// Handle primitive values (bool, string, number, null)
+	else {
+		std::cerr << prefix << ": " << j << "\n";
+	}
+}
+
+void Parse(Document* document)
+{
+	std::ostringstream stream;
+
+	document->linesMutex.lock();
+
+	for (int i = 0; i < document->lines.size; i++)
+	{
+		stream << document->lines[i];
+		if (i < document->lines.size - 1)
+			stream << '\n';
+	}
+
+	document->linesMutex.unlock();
+
+	document->text = stream.str();
+
+	uint64_t beforeParse = GetTimeNS();
+
+	document->tokensMutex.lock();
+	document->tokens.clear();
+
+	Lexer lexer = Lexer(nullptr, nullptr, document->text.c_str());
+
+	while (LexerHasNext(&lexer))
+	{
+		Token token = LexerNext(&lexer);
+		document->tokens.add(token);
+	}
+
+	// parse here
+
+	document->tokensMutex.unlock();
+
+	uint64_t afterParse = GetTimeNS();
+	float ms = (afterParse - beforeParse) / 1e6f;
+	fprintf(stderr, "parsed in %.3fms\n", ms);
+
+	sendRequest("workspace/semanticTokens/refresh", nullptr);
+}
+
+void ParserThread()
+{
+	bool running = true;
+	while (running)
+	{
+		uint64_t now = GetTimeNS();
+
+		for (int i = 0; i < documents.size; i++)
+		{
+			Document* document = documents[i];
+
+			const int parseDelay = 500;
+
+			if (document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
+			{
+				Parse(document);
+				document->lastChange = 0;
+			}
+		}
+
+		SleepMS(10);
+	}
 }
 
 int main()
 {
-	//std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+	SleepMS(5000);
 	std::cerr << "Starting lsp server" << std::endl;
+
+	std::thread parserThread(ParserThread);
+	parserThread.detach();
 
 	while (true)
 	{
 		json request = readMessage();
+		if (request.is_null())
+			break;
+
 		std::string method = request.value("method", "");
 
 		std::cerr << "Received message of type " << method << std::endl;
 
-		// Requests
-
 		if (method == "initialize")
 		{
-			json root = request["params"]["rootPath"];
+			json params = request["params"];
+
+			//printCapabilities(params["capabilities"]);
+
+			json root = params["rootPath"];
 			if (strcmp(root.type_name(), "string") == 0)
 			{
-				rootPath = request["params"]["rootPath"];
+				rootPath = params["rootPath"];
 				fprintf(stderr, "Root path: %s\n", rootPath.c_str());
 			}
 
@@ -347,20 +403,35 @@ int main()
 			tokenTypes[LSP_TOKEN_TYPE] = "type";
 			tokenTypes[LSP_TOKEN_CLASS] = "class";
 			tokenTypes[LSP_TOKEN_ENUM] = "enum";
+			tokenTypes[LSP_TOKEN_INTERFACE] = "interface";
 			tokenTypes[LSP_TOKEN_STRUCT] = "struct";
+			tokenTypes[LSP_TOKEN_TYPE_PARAMETER] = "typeParameter";
+			tokenTypes[LSP_TOKEN_PARAMETER] = "parameter";
 			tokenTypes[LSP_TOKEN_VARIABLE] = "variable";
+			tokenTypes[LSP_TOKEN_PROPERTY] = "property";
 			tokenTypes[LSP_TOKEN_ENUM_VALUE] = "enumMember";
+			tokenTypes[LSP_TOKEN_EVENT] = "event";
 			tokenTypes[LSP_TOKEN_FUNCTION] = "function";
+			tokenTypes[LSP_TOKEN_METHOD] = "method";
 			tokenTypes[LSP_TOKEN_MACRO] = "macro";
 			tokenTypes[LSP_TOKEN_KEYWORD] = "keyword";
+			tokenTypes[LSP_TOKEN_MODIFIER] = "modifier";
 			tokenTypes[LSP_TOKEN_COMMENT] = "comment";
 			tokenTypes[LSP_TOKEN_STRING] = "string";
 			tokenTypes[LSP_TOKEN_NUMBER] = "number";
+			tokenTypes[LSP_TOKEN_REGEXP] = "regexp";
 			tokenTypes[LSP_TOKEN_OPERATOR] = "operator";
+
+			json tokenModifiers = json::array();
+			tokenModifiers[LSP_TOKEN_MODIFIER_DECLARATION] = "declaration";
+			tokenModifiers[LSP_TOKEN_MODIFIER_DEFINITION] = "definition";
+			tokenModifiers[LSP_TOKEN_MODIFIER_READONLY] = "readonly";
+			tokenModifiers[LSP_TOKEN_MODIFIER_STATIC] = "static";
+			tokenModifiers[LSP_TOKEN_MODIFIER_DEPRECATED] = "deprecated";
 
 			json result = {
 				{"capabilities", {
-					{"textDocumentSync", 1},
+					{"textDocumentSync", 2},
 					{"hoverProvider", true},
 					{"completionProvider", {
 						{"resolveProvider", false}
@@ -368,7 +439,7 @@ int main()
 					{"semanticTokensProvider", {
 						{"legend", {
 							{"tokenTypes", tokenTypes},
-							{"tokenModifiers", json::array()},
+							{"tokenModifiers", tokenModifiers},
 						}},
 						{"full", true},
 					}},
@@ -389,22 +460,63 @@ int main()
 
 			sendResponse(request["id"], result);
 		}
+
+		// Notifications
+
+		else if (method == "textDocument/didOpen")
+		{
+			auto params = request["params"];
+			auto textDocument = params["textDocument"];
+			std::string uri = textDocument["uri"];
+			std::string text = textDocument["text"];
+
+			Document* document = new Document();
+			document->uri = uri;
+			documents.add(document);
+			uriMap.emplace(uri, documents.size - 1);
+
+			document->init(text);
+		}
+		else if (method == "textDocument/didChange")
+		{
+			auto params = request["params"];
+			auto textDocument = params["textDocument"];
+			std::string uri = textDocument["uri"];
+			int version = textDocument["version"];
+
+			Document* document = documents[uriMap[uri]];
+
+			json contentChanges = params["contentChanges"];
+			for (int i = 0; i < (int)contentChanges.size(); i++)
+			{
+				json changeEvent = contentChanges[i];
+
+				json range = changeEvent["range"];
+				json rangeStart = range["start"];
+				json rangeEnd = range["end"];
+
+				int startLine = rangeStart["line"];
+				int startCol = rangeStart["character"];
+
+				int endLine = rangeEnd["line"];
+				int endCol = rangeEnd["character"];
+
+				std::string text = changeEvent["text"];
+
+				document->onChange(startLine, startCol, endLine, endCol, text);
+			}
+		}
+
+		// Requests
+
 		else if (method == "textDocument/semanticTokens/full")
 		{
 			std::string uri = request["params"]["textDocument"]["uri"];
-			Document& document = documents[uri];
+			Document* document = documents[uriMap[uri]];
 
 			std::vector<int> data;
 
-			if (compiler)
-			{
-				std::filesystem::path path = std::filesystem::path(uri);
-				std::string name = path.stem().string();
-				if (AST::File* ast = compiler->getASTByName(name.c_str()))
-				{
-					document.getTokens(ast, compiler, data);
-				}
-			}
+			document->getTokens(data);
 
 			sendResponse(request["id"], {
 				{"data", data}
@@ -420,11 +532,7 @@ int main()
 			json params = request["params"];
 			std::string uri = params["textDocument"]["uri"];
 
-			Document& document = documents[uri];
-
-			std::filesystem::path path = std::filesystem::path(uri);
-			std::string name = path.stem().string();
-			AST::File* ast = compiler->getASTByName(name.c_str());
+			Document* document = documents[uriMap[uri]];
 
 			json position = params["position"];
 			int line = position["line"] + 1;
@@ -455,7 +563,10 @@ int main()
 				}
 
 				// TODO autocomplete using all parsed asts
-				autocomplete(ast, compiler->resolver, items, line, character);
+				//std::filesystem::path path = std::filesystem::path(uri);
+				//std::string name = path.stem().string();
+				//AST::File* ast = compiler->getASTByName(name.c_str());
+				//autocomplete(ast, compiler->resolver, items, line, character);
 
 				if (triggerKind == 2)
 				{
@@ -474,49 +585,6 @@ int main()
 					{"items", json::array()}
 					});
 			}
-		}
-
-		// Notifications
-
-		else if (method == "textDocument/didOpen")
-		{
-			auto params = request["params"];
-			auto textDocument = params["textDocument"];
-			std::string uri = textDocument["uri"];
-			std::string text = textDocument["text"];
-
-			documents.emplace(uri, Document{ uri, text });
-
-			reparse(uri, text);
-
-			//fprintf(stderr, "Opened text document %s\n", uri.c_str());
-			//fprintf(stderr, "%s\n", text.c_str());
-		}
-		else if (method == "textDocument/didChange")
-		{
-			auto params = request["params"];
-			auto textDocument = params["textDocument"];
-			std::string uri = textDocument["uri"];
-			int version = textDocument["version"];
-
-			json contentChanges = params["contentChanges"];
-			for (int i = 0; i < (int)contentChanges.size(); i++)
-			{
-				json changeEvent = contentChanges[i];
-				std::string text = changeEvent["text"];
-
-				Document& document = documents[uri];
-				document.text = text;
-
-				//fprintf(stderr, "Changed text document %s\n", uri.c_str());
-				//fprintf(stderr, "%s\n", text.c_str());
-			}
-
-			reparse(uri, documents[uri].text);
-		}
-		else if (method == "workspace/didChangeWorkspaceFolders")
-		{
-			int a = 5;
 		}
 	}
 }

@@ -111,6 +111,7 @@ Lexer::Lexer(CGLCompiler* context, const char* filename, const char* src)
 	: context(context), filename(filename)
 {
 	input = CreateInput(src, filename);
+	skipComments = true;
 }
 
 Lexer::~Lexer()
@@ -217,12 +218,62 @@ static void skipComment(Lexer* lexer)
 		}
 	}
 	else
-		assert(false && "SkipComment error");
+	{
+		SnekAssertMsg(false, "SkipComment error");
+	}
+}
+
+static Token readComment(Lexer* lexer)
+{
+	Token token = {};
+	token.type = TOKEN_TYPE_COMMENT;
+	token.line = lexer->input.state.line;
+	token.col = lexer->input.state.col;
+	token.str = &lexer->input.state.buffer[lexer->input.state.index];
+
+	InputNext(&lexer->input);
+	char c2 = InputNext(&lexer->input);
+
+	token.len = 2;
+
+	if (c2 == '/')
+		while (InputNext(&lexer->input) != '\n' && InputHasNext(&lexer->input))
+			token.len++;
+	else if (c2 == '*')
+	{
+		int level = 1;
+		while (level > 0 && InputHasNext(&lexer->input))
+		{
+			char c = InputNext(&lexer->input);
+			token.len++;
+
+			if (c == '/')
+			{
+				if (InputNext(&lexer->input) == '*')
+					level++;
+
+				token.len++;
+			}
+			else if (c == '*')
+			{
+				if (InputNext(&lexer->input) == '/')
+					level--;
+
+				token.len++;
+			}
+		}
+	}
+	else
+	{
+		SnekAssertMsg(false, "ReadComment error");
+	}
+
+	return token;
 }
 
 static void skipWhitespace(Lexer* lexer)
 {
-	while (nextIsWhitespace(lexer) || nextIsComment(lexer))
+	while (nextIsWhitespace(lexer) || nextIsComment(lexer) && lexer->skipComments)
 	{
 		if (nextIsComment(lexer))
 			skipComment(lexer);
@@ -485,6 +536,8 @@ Token LexerNext(Lexer* lexer)
 
 	if (InputHasNext(&lexer->input))
 	{
+		if (!lexer->skipComments && nextIsComment(lexer))
+			return readComment(lexer);
 		if (nextIsStringLiteral(lexer))
 			return readStringLiteral(lexer);
 		if (nextIsCharLiteral(lexer))
@@ -538,4 +591,11 @@ char* GetTokenString(Token token, int offset, int trim)
 	memcpy(str, token.str + offset, len);
 	str[len] = 0;
 	return str;
+}
+
+bool CompareTokenString(Token token, const char* str)
+{
+	if (strlen(str) != token.len)
+		return false;
+	return strncmp(token.str, str, token.len) == 0;
 }

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "My Custom Language",
+  "scopeName": "source.snek",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords-control"
+    },
+    {
+      "include": "#keywords-storage"
+    },
+    {
+      "include": "#keywords-operators"
+    },
+    {
+      "include": "#types-built-in"
+    },
+    {
+      "include": "#constants-built-in"
+    },
+    {
+      "include": "#function-declarations"
+    },
+    {
+      "include": "#function-calls"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.sneklang",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.sneklang",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.sneklang",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.sneklang",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.scientific.sneklang",
+          "match": "\\b\\d+(\\.\\d+)?[eE][+-]?\\d+[fFdD]?\\b"
+        },
+        {
+          "name": "constant.numeric.float.sneklang",
+          "match": "\\b\\d+\\.\\d+[fFdD]?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.sneklang",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "keywords-control": {
+      "patterns": [
+        {
+          "name": "keyword.control.sneklang",
+          "match": "\\b(if|else|for|while|return|break|continue|defer|assert)\\b"
+        }
+      ]
+    },
+    "keywords-storage": {
+      "patterns": [
+        {
+          "name": "storage.modifier.sneklang",
+          "match": "\\b(public|internal|static|const|externc|dllexport|dllimport|packed|nomangle)\\b"
+        },
+        {
+          "name": "storage.type.sneklang",
+          "match": "\\b(package|namespace|import|var|let|func|struct|class|typedef|macro|method|enum|union)\\b"
+        }
+      ]
+    },
+    "keywords-operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.expression.sneklang",
+          "match": "\\b(as|sizeof|alloca|new|snew|delete)\\b"
+        }
+      ]
+    },
+    "types-built-in": {
+      "patterns": [
+        {
+          "name": "storage.type.built-in.sneklang",
+          "match": "\\b(void|int8|int16|int32|int64|int128|char|short|int|long|uint8|uint16|uint32|uint64|uint128|byte|uchar|ushort|uint|ulong|bool|string|float16|float32|float64|float80|float128|half|float|double|decimal|quad|any)\\b"
+        }
+      ]
+    },
+    "constants-built-in": {
+      "patterns": [
+        {
+          "name": "constant.language.sneklang",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+    "function-declarations": {
+      "patterns": [
+        {
+          "match": "\\b(func)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "storage.type.sneklang" },
+            "2": { "name": "entity.name.function.sneklang" }
+          }
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "entity.name.function.call.sneklang",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\()"
+        }
+      ]
+    }
+  }
+}

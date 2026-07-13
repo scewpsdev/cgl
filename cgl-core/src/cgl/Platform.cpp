@@ -1,6 +1,7 @@
 #include "Platform.h"
 
 #include <chrono>
+#include <thread>
 
 #ifdef _WIN32
 #include <windows.h>    //GetModuleFileNameW
@@ -25,4 +26,9 @@ std::filesystem::path GetExecutablePath()
 uint64_t GetTimeNS()
 {
 	return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
+
+void SleepMS(uint64_t ms)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }

@@ -1,6 +1,7 @@
 #include "cgl/CGLCompiler.h"
 
 #include "cgl/File.h"
+#include "cgl/Platform.h"
 
 #include "lib/libtcc/libtcc.h"
 
@@ -49,6 +50,8 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 		}
 	}
 
+	uint64_t beforeCodegen = GetTimeNS();
+
 	for (AST::File* file : asts)
 	{
 		CodegenC codegen(this, file);
@@ -69,6 +72,9 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 			SnekAssert(false);
 		}
 	}
+
+	uint64_t afterCodegen = GetTimeNS();
+	fprintf(stderr, "codegen %.3fms\n", (afterCodegen - beforeCodegen) / 1e6f);
 
 	for (const char* linkerPath : linkerPaths)
 	{
@@ -105,7 +111,12 @@ int CGLCompiler::runTCC(int argc, char* argv[])
 		tcc_set_options(tcc, cmdArgs);
 
 
+	uint64_t beforeOutput = GetTimeNS();
+
 	tcc_relocate(tcc);
+
+	uint64_t afterOutput = GetTimeNS();
+	fprintf(stderr, "output %.3fms\n", (afterOutput - beforeOutput) / 1e6f);
 
 	int(*entrypoint)(int, char**) = (int(*)(int, char**))tcc_get_symbol(tcc, "main");
 	int result = entrypoint(argc, argv);
@@ -151,6 +162,8 @@ int CGLCompiler::outputTCC(const char* path)
 		}
 	}
 
+	uint64_t beforeCodegen = GetTimeNS();
+
 	for (AST::File* file : asts)
 	{
 		CodegenC codegen(this, file);
@@ -171,6 +184,9 @@ int CGLCompiler::outputTCC(const char* path)
 			SnekAssert(false);
 		}
 	}
+
+	uint64_t afterCodegen = GetTimeNS();
+	fprintf(stderr, "codegen %.3fms\n", (afterCodegen - beforeCodegen) / 1e6f);
 
 	for (const char* linkerPath : linkerPaths)
 	{
@@ -195,10 +211,15 @@ int CGLCompiler::outputTCC(const char* path)
 	if (cmdArgs)
 		tcc_set_options(tcc, cmdArgs);
 
-	fprintf(stderr, "Running TCC backend\n");
+	//fprintf(stderr, "Running TCC backend\n");
+
+	uint64_t beforeOutput = GetTimeNS();
 
 	CreateDirectories(path);
 	int result = tcc_output_file(tcc, path);
+
+	uint64_t afterOutput = GetTimeNS();
+	fprintf(stderr, "output %.3fms\n", (afterOutput - beforeOutput) / 1e6f);
 
 	tcc_delete(tcc);
 

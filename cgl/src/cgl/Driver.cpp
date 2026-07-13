@@ -10,7 +10,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 7
-#define VERSION_PATCH 2
+#define VERSION_PATCH 3
 #define VERSION_SUFFIX "-alpha"
 
 #define OPT_BUILD_HELP "-help"
@@ -374,10 +374,11 @@ int build(int argc, char* argv[])
 	{
 		if (compiler.sourceFiles.size > 0)
 		{
-			fprintf(stderr, "Compiling source files\n");
+			//fprintf(stderr, "Compiling source files\n");
+
 			if (compiler.compile())
 			{
-				fprintf(stderr, "Generating code\n");
+				//fprintf(stderr, "Generating code\n");
 				if (llvm)
 					result = compiler.outputLLVM(outPath) == 0;
 				else if (emcc)
@@ -514,10 +515,10 @@ int run(int argc, char* argv[])
 	{
 		if (compiler.sourceFiles.size > 0)
 		{
-			fprintf(stderr, "Compiling source files\n");
+			//fprintf(stderr, "Compiling source files\n");
 			if (compiler.compile())
 			{
-				fprintf(stderr, "Running code\n");
+				//fprintf(stderr, "Running code\n");
 
 				int argc = 0;
 				char** argv = nullptr;
@@ -601,7 +602,7 @@ int analyze(int argc, char* argv[])
 	{
 		if (compiler.sourceFiles.size > 0)
 		{
-			fprintf(stderr, "Compiling source files\n");
+			//fprintf(stderr, "Compiling source files\n");
 			if (compiler.compile())
 			{
 				compiler.outputIR();

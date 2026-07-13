@@ -13,28 +13,106 @@ static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 		a->token.line == b->token.line && a->token.col == b->token.col ? 0 : 1;
 }
 
-void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>& data)
+void Document::init(const std::string& text)
 {
-	std::vector<LSPToken> tokens;
+	std::istringstream stream(text);
+	std::string line;
+	while (std::getline(stream, line))
+	{
+		lines.add(_strdup(line.c_str()));
+	}
 
-	auto addToken = [&tokens](Token token, int type, int modifiers)
+	lastChange = GetTimeNS();
+}
+
+void Document::onChange(int startLine, int startCol, int endLine, int endCol, std::string& text)
+{
+	List<std::string> changeLines;
+
+	if (text == "")
+	{
+		changeLines.add("");
+	}
+	else
+	{
+		std::istringstream stream(text);
+		std::string line;
+		while (std::getline(stream, line))
 		{
-			tokens.push_back({ token, type, modifiers });
+			changeLines.add(line);
+		}
+	}
+
+	std::string prefix = std::string(lines[startLine]).substr(0, startCol);
+	std::string suffix = std::string(lines[endLine]).substr(endCol);
+
+	changeLines[0] = prefix + changeLines[0];
+	changeLines.back() = changeLines.back() + suffix;
+
+	linesMutex.lock();
+
+	int linesToRemove = endLine - startLine + 1;
+	for (int i = 0; i < linesToRemove; i++)
+	{
+		free(lines[startLine]);
+		lines.removeAt(startLine);
+	}
+
+	for (int i = 0; i < changeLines.size; i++)
+	{
+		lines.insert(startLine + i, _strdup(changeLines[i].c_str()));
+	}
+
+	linesMutex.unlock();
+
+	DestroyList(changeLines);
+
+	lastChange = GetTimeNS();
+}
+
+void Document::getTokens(std::vector<int>& data)
+{
+	std::vector<LSPToken> lspTokens;
+
+	auto addToken = [&lspTokens](Token token, int type, int modifiers)
+		{
+			lspTokens.push_back({ token, type, modifiers });
 		};
 
-	Lexer lexer(compiler, uri.c_str(), text.c_str());
 
-	while (LexerHasNext(&lexer))
+	std::set<std::string> functionNames;
+	std::set<std::string> structNames;
+	std::set<std::string> enumNames;
+
+	tokensMutex.lock();
+
+	for (int i = 0; i < tokens.size; i++)
 	{
-		Token token = LexerNext(&lexer);
+		Token token = tokens[i];
 
 		if (token.keywordType != KEYWORD_TYPE_NULL)
 		{
 			if (token.keywordType > KEYWORD_TYPE_BUILTIN_TYPES_START && token.keywordType < KEYWORD_TYPE_BUILTIN_TYPES_END)
-				addToken(token, LSP_TOKEN_TYPE, 0);
+				;//addToken(token, LSP_TOKEN_KEYWORD, 0);
 			else
-				addToken(token, LSP_TOKEN_KEYWORD, 0);
+			{
+				if (token.keywordType == KEYWORD_TYPE_FUNCTION)
+				{
+					functionNames.insert(GetTokenString(tokens[++i]));
+				}
+				else if (token.keywordType == KEYWORD_TYPE_STRUCT)
+				{
+					structNames.insert(GetTokenString(tokens[++i]));
+				}
+				else if (token.keywordType == KEYWORD_TYPE_ENUM)
+				{
+					enumNames.insert(GetTokenString(tokens[++i]));
+				}
+
+				//addToken(token, LSP_TOKEN_KEYWORD, 0);
+			}
 		}
+		/*
 		else
 		{
 			switch (token.type)
@@ -68,12 +146,38 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 				break;
 			case TOKEN_TYPE_IDENTIFIER:
 				break;
+			case TOKEN_TYPE_COMMENT:
+				addToken(token, LSP_TOKEN_COMMENT, 0);
+				break;
 			default:
 				break;
 			}
 		}
+		*/
 	}
 
+	for (int i = 0; i < tokens.size; i++)
+	{
+		Token token = tokens[i];
+		std::string tokenStr = GetTokenString(token);
+
+		if (functionNames.find(tokenStr) != functionNames.end())
+		{
+			addToken(token, LSP_TOKEN_FUNCTION, 0);
+		}
+		else if (structNames.find(tokenStr) != structNames.end())
+		{
+			addToken(token, LSP_TOKEN_STRUCT, 0);
+		}
+		else if (enumNames.find(tokenStr) != enumNames.end())
+		{
+			addToken(token, LSP_TOKEN_ENUM, 0);
+		}
+	}
+
+	tokensMutex.unlock();
+
+	/*
 	for (int i = 0; i < ast->functions.size; i++)
 	{
 		AST::Function* function = ast->functions[i];
@@ -122,13 +226,14 @@ void Document::getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>
 				addToken(namedType->nameToken, type, 0);
 		}
 	}
+	*/
 
-	qsort(tokens.data(), tokens.size(), sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
+	qsort(lspTokens.data(), lspTokens.size(), sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
 
 	int lastLine = 0, lastCol = 0;
-	for (int i = 0; i < (int)tokens.size(); i++)
+	for (int i = 0; i < (int)lspTokens.size(); i++)
 	{
-		LSPToken token = tokens[i];
+		LSPToken token = lspTokens[i];
 		int line = token.token.line - 1;
 		int col = token.token.col - 1;
 		int len = token.token.len;

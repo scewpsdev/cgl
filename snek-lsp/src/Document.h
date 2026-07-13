@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "nlohmann/json.hpp"
 
@@ -15,16 +16,33 @@ enum LSPTokenType
 	LSP_TOKEN_TYPE,
 	LSP_TOKEN_CLASS,
 	LSP_TOKEN_ENUM,
+	LSP_TOKEN_INTERFACE,
 	LSP_TOKEN_STRUCT,
+	LSP_TOKEN_TYPE_PARAMETER,
+	LSP_TOKEN_PARAMETER,
 	LSP_TOKEN_VARIABLE,
+	LSP_TOKEN_PROPERTY,
 	LSP_TOKEN_ENUM_VALUE,
+	LSP_TOKEN_EVENT,
 	LSP_TOKEN_FUNCTION,
+	LSP_TOKEN_METHOD,
 	LSP_TOKEN_MACRO,
 	LSP_TOKEN_KEYWORD,
+	LSP_TOKEN_MODIFIER,
 	LSP_TOKEN_COMMENT,
 	LSP_TOKEN_STRING,
 	LSP_TOKEN_NUMBER,
+	LSP_TOKEN_REGEXP,
 	LSP_TOKEN_OPERATOR,
+};
+
+enum LSPTokenModifier
+{
+	LSP_TOKEN_MODIFIER_DECLARATION,
+	LSP_TOKEN_MODIFIER_DEFINITION,
+	LSP_TOKEN_MODIFIER_READONLY,
+	LSP_TOKEN_MODIFIER_STATIC,
+	LSP_TOKEN_MODIFIER_DEPRECATED,
 };
 
 struct LSPToken
@@ -63,12 +81,26 @@ enum CompletionItemType
 	COMPLETION_ITEM_TYPE_PARAMETER = 25,
 };
 
+struct DocumentPiece
+{
+	int start, length;
+	std::string text;
+};
+
 struct Document
 {
 	std::string uri;
+	List<char*> lines;
+	std::mutex linesMutex;
+	uint64_t lastChange = 0;
+
 	std::string text;
+	List<Token> tokens;
+	std::mutex tokensMutex;
+	AST::File* ast = nullptr;
 
 
-	void getTokens(AST::File* ast, CGLCompiler* compiler, std::vector<int>& data);
-	void autocomplete(AST::File* ast, Resolver* resolver, nlohmann::json& items, int line, int col);
+	void init(const std::string& text);
+	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
+	void getTokens(std::vector<int>& data);
 };

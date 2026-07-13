@@ -17,6 +17,8 @@ enum TokenType : int
 
 	TOKEN_TYPE_IDENTIFIER,
 
+	TOKEN_TYPE_COMMENT,
+
 	TOKEN_TYPE_OP_BEGIN,
 	TOKEN_TYPE_OP_PLUS,
 	TOKEN_TYPE_OP_MINUS,
@@ -136,6 +138,7 @@ struct Lexer
 {
 	Input input;
 	const char* filename;
+	bool skipComments;
 
 	CGLCompiler* context;
 	bool failed = false;
@@ -160,3 +163,4 @@ bool LexerHasNext(Lexer* lexer);
 bool LexerNextIsWhitespace(Lexer* lexer);
 
 char* GetTokenString(Token token, int offset = 0, int trim = 0);
+bool CompareTokenString(Token token, const char* str);
