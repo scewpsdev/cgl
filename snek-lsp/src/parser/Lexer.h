@@ -1,0 +1,152 @@
+#pragma once
+
+#include "utils/StringView.h"
+
+#include <string.h>
+
+
+enum TokenType : int
+{
+	TOKEN_NULL = 0,
+
+	TOKEN_FIRST = 256,
+	TOKEN_STRING_LITERAL,
+	TOKEN_STRING_LITERAL_MULTILINE,
+	TOKEN_CHAR_LITERAL,
+	TOKEN_FLOAT_LITERAL,
+	TOKEN_DOUBLE_LITERAL,
+	TOKEN_INT_LITERAL,
+
+
+	TOKEN_OP_BEGIN,
+
+	TOKEN_OP_PLUS,
+	TOKEN_OP_MINUS,
+	TOKEN_OP_ASTERISK,
+	TOKEN_OP_SLASH,
+	TOKEN_OP_PERCENT,
+	TOKEN_OP_AMPERSAND,
+	TOKEN_OP_OR,
+	TOKEN_OP_CARET,
+	TOKEN_OP_QUESTION,
+	TOKEN_OP_EXCLAMATION,
+	TOKEN_OP_EQUALS,
+	TOKEN_OP_LESS_THAN,
+	TOKEN_OP_GREATER_THAN,
+
+	TOKEN_OP_END,
+
+
+	TOKEN_KEYWORD_BEGIN,
+
+	TOKEN_MODULE,
+	TOKEN_NAMESPACE,
+	TOKEN_IMPORT,
+	TOKEN_VARIABLE,
+	TOKEN_LET,
+	TOKEN_FUNCTION,
+	TOKEN_STRUCT,
+	TOKEN_CLASS,
+	TOKEN_TYPEDEF,
+	TOKEN_MACRO,
+	TOKEN_METHOD,
+	TOKEN_ENUM,
+	TOKEN_UNION,
+
+	TOKEN_PUBLIC,
+	TOKEN_PRIVATE,
+	TOKEN_STATIC,
+	TOKEN_CONSTANT,
+	TOKEN_EXTERN,
+	TOKEN_DLLEXPORT,
+	TOKEN_DLLIMPORT,
+	TOKEN_PACKED,
+	TOKEN_NOMANGLE,
+
+	TOKEN_IF,
+	TOKEN_ELSE,
+	TOKEN_FOR,
+	TOKEN_WHILE,
+	TOKEN_RETURN,
+	TOKEN_BREAK,
+	TOKEN_CONTINUE,
+	TOKEN_DEFER,
+	TOKEN_ASSERT,
+
+	TOKEN_AS,
+	TOKEN_SIZEOF,
+	TOKEN_ALLOCA,
+	TOKEN_MALLOC,
+	TOKEN_STACKNEW,
+	TOKEN_FREE,
+
+	TOKEN_TRUE,
+	TOKEN_FALSE,
+	TOKEN_NULL_KEYWORD,
+
+	TOKEN_VOID,
+
+	TOKEN_INT8,
+	TOKEN_INT16,
+	TOKEN_INT32,
+	TOKEN_INT64,
+	TOKEN_INT128,
+
+	TOKEN_UINT8,
+	TOKEN_UINT16,
+	TOKEN_UINT32,
+	TOKEN_UINT64,
+	TOKEN_UINT128,
+
+	TOKEN_BOOL,
+	TOKEN_STRING,
+
+	TOKEN_FLOAT16,
+	TOKEN_FLOAT32,
+	TOKEN_FLOAT64,
+	TOKEN_FLOAT80,
+	TOKEN_FLOAT128,
+
+	TOKEN_ANY,
+
+	TOKEN_KEYWORD_END,
+
+
+	TOKEN_IDENTIFIER,
+
+
+	TOKEN_COUNT,
+};
+
+struct Token
+{
+	TokenType type;
+	StringView text;
+	int line, col;
+};
+
+struct LexerState
+{
+	const char* cursor;
+	int line, col;
+};
+
+struct SourceLocation
+{
+	const char* filename;
+	int line, col;
+};
+
+struct Lexer
+{
+	const char* filename;
+	const char* src;
+	int length;
+	LexerState state;
+};
+
+
+void initLexer(Lexer* lexer, const char* filename, const char* src, int length);
+
+Token nextToken(Lexer* lexer);
+Token peekToken(Lexer* lexer, int offset = 0);

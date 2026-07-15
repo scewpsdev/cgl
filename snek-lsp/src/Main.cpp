@@ -10,13 +10,9 @@
 #include <nlohmann/json.hpp>
 
 #include "Document.h"
+#include "Platform.h"
 
-#include "cgl/Platform.h"
-#include "cgl/CGLCompiler.h"
-#include "cgl/parser/lexer.h"
-#include "cgl/parser/Parser.h"
-#include "cgl/semantics/Resolver.h"
-#include "cgl/semantics/Variable.h"
+#include "utils/List.h"
 
 
 using json = nlohmann::json;
@@ -86,33 +82,6 @@ static json CreateHoverResult(std::string contents)
 	};
 }
 
-static void OnCompilerMessage(CGLCompiler* context, MessageType msgType, const char* filename, int line, int col, const char* msg, ...)
-{
-	static const char* const MSG_TYPE_NAMES[MESSAGE_TYPE_MAX] = {
-		"<null>",
-		"info",
-		"warning",
-		"error",
-		"fatal error",
-	};
-
-	static char message[4192] = {};
-	message[0] = 0;
-
-	if (filename)
-		sprintf(message + strlen(message), "%s:%d:%d: ", filename, line, col);
-
-	if (msgType != MESSAGE_TYPE_INFO)
-		sprintf(message + strlen(message), "%s: ", MSG_TYPE_NAMES[msgType]);
-
-	va_list args;
-	va_start(args, msg);
-	vsprintf(message + strlen(message), msg, args);
-	va_end(args);
-
-	fprintf(stderr, "%s\n", message);
-}
-
 char* ReadText(const char* path)
 {
 	if (FILE* file = fopen(path, "rb"))
@@ -132,6 +101,7 @@ char* ReadText(const char* path)
 	return nullptr;
 }
 
+/*
 static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
 {
 	return (line > a.line || line == a.line && col >= a.col) && (line < b.line || line == b.line && col <= b.col);
@@ -260,7 +230,6 @@ static void autocompleteAST(AST::File* ast, Resolver* resolver, json& items)
 
 static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items, int line, int col)
 {
-	/*
 	if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
 	{
 		fprintf(stderr, "Found completion scope at %d, %d\n", scope->start.line, scope->start.col);
@@ -273,8 +242,8 @@ static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items
 		if (compiler->resolver->asts[i] != currentFile)
 			autocompleteAST(compiler->resolver->asts[i], compiler->resolver, items);
 	}
-	*/
 }
+*/
 
 void printCapabilities(const json& j, const std::string& prefix = "") {
 	// Handle nested objects
@@ -553,6 +522,7 @@ int main()
 			{
 				json items = json::array();
 
+				/*
 				for (auto& pair : keywords)
 				{
 					std::string keyword = pair.first;
@@ -561,6 +531,7 @@ int main()
 						{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
 						});
 				}
+				*/
 
 				// TODO autocomplete using all parsed asts
 				//std::filesystem::path path = std::filesystem::path(uri);

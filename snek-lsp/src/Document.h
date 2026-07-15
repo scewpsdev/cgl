@@ -6,8 +6,8 @@
 
 #include "nlohmann/json.hpp"
 
-#include "cgl/parser/Parser.h"
-#include "cgl/semantics/Resolver.h"
+#include "parser/Lexer.h"
+#include "utils/List.h"
 
 
 enum LSPTokenType
@@ -97,7 +97,7 @@ struct Document
 	std::string text;
 	List<Token> tokens;
 	std::mutex tokensMutex;
-	AST::File* ast = nullptr;
+	//AST::File* ast = nullptr;
 
 
 	void init(const std::string& text);

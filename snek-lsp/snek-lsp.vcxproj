@@ -110,7 +110,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\;$(SolutionDir)cgl-core\src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -127,7 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\;$(SolutionDir)cgl-core\src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -137,10 +137,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\parser\Lexer.cpp" />
     <ClCompile Include="src\Document.cpp" />
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\Platform.cpp" />
+    <ClCompile Include="src\utils\Hash.cpp" />
+    <ClCompile Include="src\utils\Log.cpp" />
+    <ClCompile Include="src\utils\StringBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\parser\Keywords.h" />
+    <ClInclude Include="src\parser\Lexer.h" />
     <ClInclude Include="src\Document.h" />
     <ClInclude Include="src\nlohmann\adl_serializer.hpp" />
     <ClInclude Include="src\nlohmann\byte_container_with_subtype.hpp" />
@@ -188,6 +195,13 @@
     <ClInclude Include="src\nlohmann\ordered_map.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley_undef.hpp" />
+    <ClInclude Include="src\Platform.h" />
+    <ClInclude Include="src\utils\Defer.h" />
+    <ClInclude Include="src\utils\Hash.h" />
+    <ClInclude Include="src\utils\List.h" />
+    <ClInclude Include="src\utils\Log.h" />
+    <ClInclude Include="src\utils\StringBuffer.h" />
+    <ClInclude Include="src\utils\StringView.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cgl-core\cgl-core.vcxproj">

@@ -1,7 +1,11 @@
 #include "Document.h"
 
-#include "cgl/CGLCompiler.h"
-#include "cgl/Platform.h"
+#include "Platform.h"
+#include "utils/Hash.h"
+
+#include <iostream>
+#include <sstream>
+#include <set>
 
 
 using namespace nlohmann;
@@ -47,7 +51,7 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 	std::string suffix = std::string(lines[endLine]).substr(endCol);
 
 	changeLines[0] = prefix + changeLines[0];
-	changeLines.back() = changeLines.back() + suffix;
+	changeLines[changeLines.size - 1] = changeLines[changeLines.size - 1] + suffix;
 
 	linesMutex.lock();
 
@@ -65,7 +69,7 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 
 	linesMutex.unlock();
 
-	DestroyList(changeLines);
+	FreeList(&changeLines);
 
 	lastChange = GetTimeNS();
 }
@@ -80,9 +84,9 @@ void Document::getTokens(std::vector<int>& data)
 		};
 
 
-	std::set<std::string> functionNames;
-	std::set<std::string> structNames;
-	std::set<std::string> enumNames;
+	std::set<uint32_t> functionNames;
+	std::set<uint32_t> structNames;
+	std::set<uint32_t> enumNames;
 
 	tokensMutex.lock();
 
@@ -90,27 +94,17 @@ void Document::getTokens(std::vector<int>& data)
 	{
 		Token token = tokens[i];
 
-		if (token.keywordType != KEYWORD_TYPE_NULL)
+		if (token.type == TOKEN_FUNCTION)
 		{
-			if (token.keywordType > KEYWORD_TYPE_BUILTIN_TYPES_START && token.keywordType < KEYWORD_TYPE_BUILTIN_TYPES_END)
-				;//addToken(token, LSP_TOKEN_KEYWORD, 0);
-			else
-			{
-				if (token.keywordType == KEYWORD_TYPE_FUNCTION)
-				{
-					functionNames.insert(GetTokenString(tokens[++i]));
-				}
-				else if (token.keywordType == KEYWORD_TYPE_STRUCT)
-				{
-					structNames.insert(GetTokenString(tokens[++i]));
-				}
-				else if (token.keywordType == KEYWORD_TYPE_ENUM)
-				{
-					enumNames.insert(GetTokenString(tokens[++i]));
-				}
-
-				//addToken(token, LSP_TOKEN_KEYWORD, 0);
-			}
+			functionNames.insert(hash(tokens[++i].text));
+		}
+		else if (token.type = TOKEN_STRUCT)
+		{
+			structNames.insert(hash(tokens[++i].text));
+		}
+		else if (token.type = TOKEN_ENUM)
+		{
+			enumNames.insert(hash(tokens[++i].text));
 		}
 		/*
 		else
@@ -159,17 +153,17 @@ void Document::getTokens(std::vector<int>& data)
 	for (int i = 0; i < tokens.size; i++)
 	{
 		Token token = tokens[i];
-		std::string tokenStr = GetTokenString(token);
+		uint32_t h = hash(token.text);
 
-		if (functionNames.find(tokenStr) != functionNames.end())
+		if (functionNames.find(h) != functionNames.end())
 		{
 			addToken(token, LSP_TOKEN_FUNCTION, 0);
 		}
-		else if (structNames.find(tokenStr) != structNames.end())
+		else if (structNames.find(h) != structNames.end())
 		{
 			addToken(token, LSP_TOKEN_STRUCT, 0);
 		}
-		else if (enumNames.find(tokenStr) != enumNames.end())
+		else if (enumNames.find(h) != enumNames.end())
 		{
 			addToken(token, LSP_TOKEN_ENUM, 0);
 		}
@@ -236,7 +230,7 @@ void Document::getTokens(std::vector<int>& data)
 		LSPToken token = lspTokens[i];
 		int line = token.token.line - 1;
 		int col = token.token.col - 1;
-		int len = token.token.len;
+		int len = token.token.text.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
 		data.push_back(line - lastLine);
