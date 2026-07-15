@@ -12,6 +12,8 @@
 #include "Document.h"
 #include "Platform.h"
 
+#include "parser/Parser.h"
+
 #include "utils/List.h"
 
 
@@ -290,20 +292,17 @@ void Parse(Document* document)
 
 	uint64_t beforeParse = GetTimeNS();
 
-	document->tokensMutex.lock();
-	document->tokens.clear();
+	document->astMutex.lock();
 
-	Lexer lexer = Lexer(nullptr, nullptr, document->text.c_str());
+	if (document->hasAST)
+		destroyAST(&document->ast);
 
-	while (LexerHasNext(&lexer))
-	{
-		Token token = LexerNext(&lexer);
-		document->tokens.add(token);
-	}
+	document->ast = {};
+	parse(&document->ast, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
 
-	// parse here
+	document->hasAST = true;
 
-	document->tokensMutex.unlock();
+	document->astMutex.unlock();
 
 	uint64_t afterParse = GetTimeNS();
 	float ms = (afterParse - beforeParse) / 1e6f;

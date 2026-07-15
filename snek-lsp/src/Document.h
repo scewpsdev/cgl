@@ -7,6 +7,7 @@
 #include "nlohmann/json.hpp"
 
 #include "parser/Lexer.h"
+#include "parser/AST.h"
 #include "utils/List.h"
 
 
@@ -95,9 +96,9 @@ struct Document
 	uint64_t lastChange = 0;
 
 	std::string text;
-	List<Token> tokens;
-	std::mutex tokensMutex;
-	//AST::File* ast = nullptr;
+	std::mutex astMutex;
+	bool hasAST;
+	AST ast;
 
 
 	void init(const std::string& text);

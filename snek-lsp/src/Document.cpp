@@ -27,15 +27,17 @@ void Document::init(const std::string& text)
 	}
 
 	lastChange = GetTimeNS();
+
+	hasAST = false;
 }
 
 void Document::onChange(int startLine, int startCol, int endLine, int endCol, std::string& text)
 {
-	List<std::string> changeLines;
+	List<char*> changeLines;
 
 	if (text == "")
 	{
-		changeLines.add("");
+		changeLines.add(_strdup(""));
 	}
 	else
 	{
@@ -43,15 +45,15 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 		std::string line;
 		while (std::getline(stream, line))
 		{
-			changeLines.add(line);
+			changeLines.add(_strdup(line.c_str()));
 		}
 	}
 
-	std::string prefix = std::string(lines[startLine]).substr(0, startCol);
-	std::string suffix = std::string(lines[endLine]).substr(endCol);
+	char* prefix = substring(lines[startLine], 0, startCol);
+	char* suffix = substring(lines[endLine], endCol);
 
-	changeLines[0] = prefix + changeLines[0];
-	changeLines[changeLines.size - 1] = changeLines[changeLines.size - 1] + suffix;
+	changeLines[0] = concatDelete(prefix, changeLines[0]);
+	changeLines[changeLines.size - 1] = concatDelete(changeLines[changeLines.size - 1], suffix);
 
 	linesMutex.lock();
 
@@ -64,7 +66,7 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 
 	for (int i = 0; i < changeLines.size; i++)
 	{
-		lines.insert(startLine + i, _strdup(changeLines[i].c_str()));
+		lines.insert(startLine + i, changeLines[i]);
 	}
 
 	linesMutex.unlock();
@@ -88,139 +90,11 @@ void Document::getTokens(std::vector<int>& data)
 	std::set<uint32_t> structNames;
 	std::set<uint32_t> enumNames;
 
-	tokensMutex.lock();
+	astMutex.lock();
 
-	for (int i = 0; i < tokens.size; i++)
-	{
-		Token token = tokens[i];
+	// create tokens
 
-		if (token.type == TOKEN_FUNCTION)
-		{
-			functionNames.insert(hash(tokens[++i].text));
-		}
-		else if (token.type = TOKEN_STRUCT)
-		{
-			structNames.insert(hash(tokens[++i].text));
-		}
-		else if (token.type = TOKEN_ENUM)
-		{
-			enumNames.insert(hash(tokens[++i].text));
-		}
-		/*
-		else
-		{
-			switch (token.type)
-			{
-			case TOKEN_TYPE_STRING_LITERAL:
-			case TOKEN_TYPE_CHAR_LITERAL:
-				addToken(token, LSP_TOKEN_STRING, 0);
-				break;
-			case TOKEN_TYPE_STRING_LITERAL_MULTILINE:
-				break;
-			case TOKEN_TYPE_FLOAT_LITERAL:
-			case TOKEN_TYPE_DOUBLE_LITERAL:
-			case TOKEN_TYPE_INT_LITERAL:
-				addToken(token, LSP_TOKEN_NUMBER, 0);
-				break;
-			case TOKEN_TYPE_OP_BEGIN:
-			case TOKEN_TYPE_OP_PLUS:
-			case TOKEN_TYPE_OP_MINUS:
-			case TOKEN_TYPE_OP_ASTERISK:
-			case TOKEN_TYPE_OP_SLASH:
-			case TOKEN_TYPE_OP_PERCENT:
-			case TOKEN_TYPE_OP_AMPERSAND:
-			case TOKEN_TYPE_OP_OR:
-			case TOKEN_TYPE_OP_CARET:
-			case TOKEN_TYPE_OP_QUESTION:
-			case TOKEN_TYPE_OP_EXCLAMATION:
-			case TOKEN_TYPE_OP_EQUALS:
-			case TOKEN_TYPE_OP_LESS_THAN:
-			case TOKEN_TYPE_OP_GREATER_THAN:
-				addToken(token, LSP_TOKEN_OPERATOR, 0);
-				break;
-			case TOKEN_TYPE_IDENTIFIER:
-				break;
-			case TOKEN_TYPE_COMMENT:
-				addToken(token, LSP_TOKEN_COMMENT, 0);
-				break;
-			default:
-				break;
-			}
-		}
-		*/
-	}
-
-	for (int i = 0; i < tokens.size; i++)
-	{
-		Token token = tokens[i];
-		uint32_t h = hash(token.text);
-
-		if (functionNames.find(h) != functionNames.end())
-		{
-			addToken(token, LSP_TOKEN_FUNCTION, 0);
-		}
-		else if (structNames.find(h) != structNames.end())
-		{
-			addToken(token, LSP_TOKEN_STRUCT, 0);
-		}
-		else if (enumNames.find(h) != enumNames.end())
-		{
-			addToken(token, LSP_TOKEN_ENUM, 0);
-		}
-	}
-
-	tokensMutex.unlock();
-
-	/*
-	for (int i = 0; i < ast->functions.size; i++)
-	{
-		AST::Function* function = ast->functions[i];
-		addToken(function->nameToken, LSP_TOKEN_FUNCTION, 0);
-	}
-	for (int i = 0; i < ast->structs.size; i++)
-	{
-		AST::Struct* strct = ast->structs[i];
-		addToken(strct->nameToken, LSP_TOKEN_STRUCT, 0);
-	}
-	for (int i = 0; i < ast->typedefs.size; i++)
-	{
-		AST::Typedef* def = ast->typedefs[i];
-		addToken(def->nameToken, LSP_TOKEN_TYPE, 0);
-	}
-	for (int i = 0; i < ast->enums.size; i++)
-	{
-		AST::Enum* en = ast->enums[i];
-		addToken(en->nameToken, LSP_TOKEN_ENUM, 0);
-	}
-
-	for (int i = 0; i < ast->identifiers.size; i++)
-	{
-		AST::Identifier* identifier = ast->identifiers[i];
-		int type = identifier->functions.size ? LSP_TOKEN_FUNCTION :
-			//identifier->variable ? LSP_TOKEN_VARIABLE :
-			identifier->enumValue ? LSP_TOKEN_ENUM_VALUE :
-			identifier->exprdefValue ? LSP_TOKEN_MACRO :
-			identifier->enumDecl ? LSP_TOKEN_ENUM :
-			identifier->module ? LSP_TOKEN_NAMESPACE :
-			identifier->builtinType ? LSP_TOKEN_TYPE :
-			-1;
-		if (type != -1)
-			addToken(identifier->nameToken, type, 0);
-	}
-	for (int i = 0; i < ast->namedTypes.size; i++)
-	{
-		AST::NamedType* namedType = ast->namedTypes[i];
-		if (namedType && namedType->typeID)
-		{
-			int type = namedType->typeID->typeKind == AST::TypeKind::Struct ? LSP_TOKEN_STRUCT :
-				namedType->typeID->typeKind == AST::TypeKind::Class ? LSP_TOKEN_CLASS :
-				namedType->declaration->type == AST::DeclarationType::Enumeration ? LSP_TOKEN_ENUM :
-				LSP_TOKEN_TYPE;
-			if (type != -1)
-				addToken(namedType->nameToken, type, 0);
-		}
-	}
-	*/
+	astMutex.unlock();
 
 	qsort(lspTokens.data(), lspTokens.size(), sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
 

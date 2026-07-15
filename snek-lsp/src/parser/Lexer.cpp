@@ -9,6 +9,16 @@
 #include <string>
 
 
+void initLexer(Lexer* lexer, const char* filename, const char* src, int length)
+{
+	lexer->src = src;
+	lexer->length = length;
+	lexer->state = {};
+	lexer->state.cursor = src;
+	lexer->state.line = 1;
+	lexer->state.col = 1;
+}
+
 static char peekCharacter(Lexer* lexer, int offset = 0)
 {
 	if (lexer->state.cursor >= lexer->src + lexer->length)
@@ -20,20 +30,23 @@ static char nextCharacter(Lexer* lexer)
 {
 	if (lexer->state.cursor >= lexer->src + lexer->length)
 		return 0;
-	return lexer->state.cursor++[0];
+	char c = lexer->state.cursor[0];
+	lexer->state.cursor++;
+	if (c == '\n')
+	{
+		lexer->state.line++;
+		lexer->state.col = 1;
+	}
+	else
+	{
+		lexer->state.col++;
+	}
+	return c;
 }
 
-SourceLocation getSourceLocation(Lexer* lexer)
+static SourceLocation getSourceLocation(Lexer* lexer)
 {
 	return { lexer->filename, lexer->state.line, lexer->state.col };
-}
-
-void initLexer(Lexer* lexer, const char* filename, const char* src, int length)
-{
-	lexer->src = src;
-	lexer->length = length;
-	lexer->state = {};
-	lexer->state.cursor = src;
 }
 
 // replacement for isalpha because that one crashes when passing ö
@@ -95,7 +108,7 @@ static void skipWhitespace(Lexer* lexer)
 
 static bool readStringLiteral(Lexer* lexer, Token* token)
 {
-	if (!peekCharacter(lexer, 0) == '"')
+	if (peekCharacter(lexer, 0) != '"')
 		return false;
 
 	token->line = lexer->state.line;
@@ -170,7 +183,7 @@ static bool readStringLiteral(Lexer* lexer, Token* token)
 
 static bool readCharLiteral(Lexer* lexer, Token* token)
 {
-	if (!peekCharacter(lexer, 0) == '\'')
+	if (peekCharacter(lexer, 0) != '\'')
 		return false;
 
 	token->type = TOKEN_CHAR_LITERAL;
@@ -572,16 +585,17 @@ static bool readIdentifier(Lexer* lexer, Token* token)
 
 	const char* start = lexer->state.cursor;
 
-	char c = 0;
-	for (c = peekCharacter(lexer, 0); (isAlpha(c) || isDigit(c) || c == '_'); c = peekCharacter(lexer, 0))
+	while (isAlpha(c) || isDigit(c) || c == '_')
 	{
 		nextCharacter(lexer);
+		c = peekCharacter(lexer);
 	}
 
 	const char* end = lexer->state.cursor;
 	int len = (int)(end - start);
 
 	token->type = getKeywordType(start, len);
+	token->text = CreateString(start, end);
 
 	return true;
 }
@@ -589,6 +603,9 @@ static bool readIdentifier(Lexer* lexer, Token* token)
 Token nextToken(Lexer* lexer)
 {
 	skipWhitespace(lexer);
+
+	if (lexer->state.cursor >= lexer->src + lexer->length)
+		return {};
 
 	Token token = {};
 	if (readStringLiteral(lexer, &token))
@@ -607,18 +624,4 @@ Token nextToken(Lexer* lexer)
 	SnekErrorLoc(lexer->context, getSourceLocation(lexer), "Undefined character '%c' (%d)", nextCharacter(lexer));
 
 	return nextToken(lexer);
-}
-
-Token peekToken(Lexer* lexer, int offset = 0)
-{
-	skipWhitespace(lexer);
-	LexerState state = lexer->state;
-
-	for (int i = 0; i < offset; i++)
-		nextToken(lexer);
-
-	Token token = nextToken(lexer);
-	lexer->state = state;
-
-	return token;
 }

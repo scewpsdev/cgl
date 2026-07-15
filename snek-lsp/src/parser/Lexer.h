@@ -149,4 +149,3 @@ struct Lexer
 void initLexer(Lexer* lexer, const char* filename, const char* src, int length);
 
 Token nextToken(Lexer* lexer);
-Token peekToken(Lexer* lexer, int offset = 0);

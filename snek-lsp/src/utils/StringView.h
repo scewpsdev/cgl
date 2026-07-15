@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Log.h"
-
 
 struct StringView
 {
@@ -9,17 +7,12 @@ struct StringView
 	int length;
 
 
-	char& operator[](int idx)
-	{
-		SnekAssert(idx < length);
-		return ptr[idx];
-	}
+	char& operator[](int idx);
 };
 
 
-StringView CreateString(const char* start, const char* end)
-{
-	StringView str = {};
-	str.ptr = (char*)start;
-	str.length = (int)(end - start);
-}
+StringView CreateString(const char* start, const char* end);
+
+char* substring(const char* str, int offset, int length = -1);
+char* concat(const char* str1, const char* str2);
+char* concatDelete(const char* str1, const char* str2);

@@ -21,5 +21,5 @@ void LogMessage(MessageType msgType, const char* file, int line, int col, const 
 		"fatal"
 	};
 
-	fprintf(stderr, "%s %s:%d:%d: %s", msgTypeStr[msgType], file, line, col, txt);
+	fprintf(stderr, "%s %s:%d:%d: %s\n", msgTypeStr[msgType], file, line, col, txt);
 }

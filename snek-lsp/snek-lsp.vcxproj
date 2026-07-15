@@ -137,15 +137,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\parser\AST.cpp" />
     <ClCompile Include="src\parser\Lexer.cpp" />
     <ClCompile Include="src\Document.cpp" />
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\parser\Parser.cpp" />
     <ClCompile Include="src\Platform.cpp" />
+    <ClCompile Include="src\utils\Arena.cpp" />
     <ClCompile Include="src\utils\Hash.cpp" />
     <ClCompile Include="src\utils\Log.cpp" />
     <ClCompile Include="src\utils\StringBuffer.cpp" />
+    <ClCompile Include="src\utils\StringView.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\parser\AST.h" />
     <ClInclude Include="src\parser\Keywords.h" />
     <ClInclude Include="src\parser\Lexer.h" />
     <ClInclude Include="src\Document.h" />
@@ -195,7 +200,9 @@
     <ClInclude Include="src\nlohmann\ordered_map.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley.hpp" />
     <ClInclude Include="src\nlohmann\thirdparty\hedley\hedley_undef.hpp" />
+    <ClInclude Include="src\parser\Parser.h" />
     <ClInclude Include="src\Platform.h" />
+    <ClInclude Include="src\utils\Arena.h" />
     <ClInclude Include="src\utils\Defer.h" />
     <ClInclude Include="src\utils\Hash.h" />
     <ClInclude Include="src\utils\List.h" />
