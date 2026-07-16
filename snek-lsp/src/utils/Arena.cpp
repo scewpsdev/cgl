@@ -10,6 +10,7 @@
 void initArena(Arena* arena, int capacity)
 {
 	arena->capacity = capacity;
+	arena->committed = 0;
 	arena->offset = 0;
 
 #ifdef _WIN32
@@ -40,6 +41,23 @@ void* Arena::alloc(int size)
 	int alignedSize = (size + 7) & ~7;
 	if (offset + alignedSize > capacity)
 		return nullptr;
+
+#ifdef _WIN32
+	if (offset + alignedSize > committed)
+	{
+		const int pageSize = 4096;
+		int neededCommit = offset + alignedSize;
+		int alignedCommit = (neededCommit + (pageSize - 1)) & ~(pageSize - 1);
+
+		int sizeToCommit = alignedCommit - committed;
+		void* commitAddress = &buffer[committed];
+
+		void* result = VirtualAlloc(commitAddress, sizeToCommit, MEM_COMMIT, PAGE_READWRITE);
+
+		committed = alignedCommit;
+	}
+#endif
+
 	void* ptr = &buffer[offset];
 	offset += alignedSize;
 	return ptr;

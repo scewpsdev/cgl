@@ -10,3 +10,9 @@ void destroyAST(AST* ast)
 {
 	destroyArena(&ast->arena);
 }
+
+void initNode(Node* node, NodeType type, SourceLocation start)
+{
+	node->type = type;
+	node->start = start;
+}

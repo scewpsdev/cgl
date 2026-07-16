@@ -5,6 +5,7 @@ struct Arena
 {
 	char* buffer;
 	int capacity;
+	int committed;
 	int offset;
 
 	void reset();

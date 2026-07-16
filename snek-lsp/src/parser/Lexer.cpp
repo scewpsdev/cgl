@@ -11,6 +11,7 @@
 
 void initLexer(Lexer* lexer, const char* filename, const char* src, int length)
 {
+	lexer->filename = filename;
 	lexer->src = src;
 	lexer->length = length;
 	lexer->state = {};
@@ -44,7 +45,7 @@ static char nextCharacter(Lexer* lexer)
 	return c;
 }
 
-static SourceLocation getSourceLocation(Lexer* lexer)
+SourceLocation getSourceLocation(Lexer* lexer)
 {
 	return { lexer->filename, lexer->state.line, lexer->state.col };
 }
@@ -148,13 +149,14 @@ static bool readStringLiteral(Lexer* lexer, Token* token)
 				nextCharacter(lexer); // "
 
 				token->text = CreateString(start, end);
+				skipWhitespace(lexer);
 				return true;
 			}
 		}
 
 
-		SnekErrorLoc(lexer->context, getSourceLocation(lexer), "Unterminated multiline string literal");
-		return false;
+		SnekErrorLoc(getSourceLocation(lexer), "Unterminated multiline string literal");
+		return true;
 	}
 	else
 	{
@@ -172,12 +174,13 @@ static bool readStringLiteral(Lexer* lexer, Token* token)
 			{
 				const char* end = lexer->state.cursor;
 				token->text = CreateString(start, end);
+				skipWhitespace(lexer);
 				return true;
 			}
 		}
 
-		SnekErrorLoc(lexer->context, getSourceLocation(lexer), "Unterminated string literal");
-		return false;
+		SnekErrorLoc(getSourceLocation(lexer), "Unterminated string literal");
+		return true;
 	}
 }
 
@@ -202,12 +205,13 @@ static bool readCharLiteral(Lexer* lexer, Token* token)
 		{
 			const char* end = lexer->state.cursor;
 			token->text = CreateString(start, end);
+			skipWhitespace(lexer);
 			return true;
 		}
 	}
 
-	SnekErrorLoc(lexer->context, getSourceLocation(lexer), "Unterminated character literal");
-	return false;
+	SnekErrorLoc(getSourceLocation(lexer), "Unterminated character literal");
+	return true;
 }
 
 static bool readNumberLiteral(Lexer* lexer, Token* token)
@@ -256,6 +260,8 @@ static bool readNumberLiteral(Lexer* lexer, Token* token)
 	token->type = fp ? isDouble ? TOKEN_DOUBLE_LITERAL : TOKEN_FLOAT_LITERAL : TOKEN_INT_LITERAL;
 	token->text = CreateString(start, lexer->state.cursor);
 
+	skipWhitespace(lexer);
+
 	return true;
 }
 
@@ -284,6 +290,8 @@ static bool readPunctuation(Lexer* lexer, Token* token)
 	token->line = state.line;
 	token->col = state.col;
 	token->text = CreateString(start, lexer->state.cursor);
+
+	skipWhitespace(lexer);
 
 	return true;
 }
@@ -338,6 +346,8 @@ static bool readOperator(Lexer* lexer, Token* token)
 	}
 
 	token->text = CreateString(start, lexer->state.cursor);
+
+	skipWhitespace(lexer);
 
 	return true;
 }
@@ -597,6 +607,8 @@ static bool readIdentifier(Lexer* lexer, Token* token)
 	token->type = getKeywordType(start, len);
 	token->text = CreateString(start, end);
 
+	skipWhitespace(lexer);
+
 	return true;
 }
 
@@ -621,7 +633,7 @@ Token nextToken(Lexer* lexer)
 	if (readIdentifier(lexer, &token))
 		return token;
 
-	SnekErrorLoc(lexer->context, getSourceLocation(lexer), "Undefined character '%c' (%d)", nextCharacter(lexer));
+	SnekErrorLoc(getSourceLocation(lexer), "Undefined character '%c' (%d)", nextCharacter(lexer));
 
 	return nextToken(lexer);
 }

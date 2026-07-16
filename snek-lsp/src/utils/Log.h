@@ -11,11 +11,11 @@
 #define SnekAssertMsg(condition, message)
 #endif
 
-#define SnekTrace(context, msg, ...) LogMessage(MESSAGE_TYPE_INFO, NULL, 0, 0, msg, ##__VA_ARGS__)
-#define SnekWarnLoc(context, location, msg, ...) LogMessage(MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
-#define SnekErrorLoc(context, location, msg, ...) LogMessage(MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
-#define SnekError(context, msg, ...) LogMessage(MESSAGE_TYPE_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
-#define SnekFatal(context, msg, ...) LogMessage(MESSAGE_TYPE_FATAL_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekTrace(msg, ...) LogMessage(MESSAGE_TYPE_INFO, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekWarnLoc(location, msg, ...) LogMessage(MESSAGE_TYPE_WARNING, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekErrorLoc(location, msg, ...) LogMessage(MESSAGE_TYPE_ERROR, (location).filename, (location).line, (location).col, msg, ##__VA_ARGS__)
+#define SnekError(msg, ...) LogMessage(MESSAGE_TYPE_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
+#define SnekFatal(msg, ...) LogMessage(MESSAGE_TYPE_FATAL_ERROR, NULL, 0, 0, msg, ##__VA_ARGS__)
 
 
 enum MessageType

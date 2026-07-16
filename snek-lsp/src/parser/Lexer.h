@@ -147,5 +147,6 @@ struct Lexer
 
 
 void initLexer(Lexer* lexer, const char* filename, const char* src, int length);
+SourceLocation getSourceLocation(Lexer* lexer);
 
 Token nextToken(Lexer* lexer);
