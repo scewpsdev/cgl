@@ -382,4 +382,27 @@ void parse(AST* ast, const char* filename, const char* src, int length)
 	parser.arena = &ast->arena;
 
 	parseFile(&parser, ast);
+
+	initSymbolTable(&ast->symbols, ast->numDeclarations, &ast->arena);
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		Node* declaration = ast->declarations[i];
+
+		StringView identifier = {};
+		if (declaration->type == NODE_STRUCT)
+			identifier = declaration->struct_.name;
+		else if (declaration->type == NODE_ENUM)
+			identifier = declaration->enum_.name;
+		else if (declaration->type == NODE_UNION)
+			identifier = declaration->union_.name;
+		else if (declaration->type == NODE_TYPEDEF)
+			identifier = declaration->typedef_.name;
+		else if (declaration->type == NODE_FUNCTION)
+			identifier = declaration->function.name;
+		else if (declaration->type == NODE_MACRO)
+			identifier = declaration->macro.name;
+
+		if (identifier.ptr)
+			insertSymbol(&ast->symbols, identifier, declaration);
+	}
 }

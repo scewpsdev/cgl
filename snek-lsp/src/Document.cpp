@@ -86,13 +86,23 @@ void Document::getTokens(std::vector<int>& data)
 		};
 
 
-	std::set<uint32_t> functionNames;
-	std::set<uint32_t> structNames;
-	std::set<uint32_t> enumNames;
+	std::map<uint32_t, Node*> nameMap;
 
 	astMutex.lock();
 
-	// create tokens
+	if (hasAST)
+	{
+		
+
+		for (int i = 0; i < ast.numDeclarations; i++)
+		{
+			Node* declaration = ast.declarations[i];
+			if (declaration)
+			{
+
+			}
+		}
+	}
 
 	astMutex.unlock();
 

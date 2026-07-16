@@ -99,6 +99,7 @@ struct Document
 	std::mutex astMutex;
 	bool hasAST;
 	AST ast;
+	List<Token> tokens;
 
 
 	void init(const std::string& text);

@@ -92,12 +92,27 @@ struct Node
 	};
 };
 
+struct SymbolEntry
+{
+	uint32_t key;
+	Node* value;
+};
+
+struct SymbolTable
+{
+	SymbolEntry* slots;
+	int capacity;
+	int count;
+};
+
 struct AST
 {
 	Arena arena;
 
 	Node** declarations;
 	int numDeclarations;
+
+	SymbolTable symbols;
 };
 
 
@@ -105,3 +120,7 @@ void initAST(AST* ast);
 void destroyAST(AST* ast);
 
 void initNode(Node* node, NodeType type, SourceLocation start);
+
+void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
+bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);
+Node* lookupSymbol(SymbolTable* symbols, const char* identifier);

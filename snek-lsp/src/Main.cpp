@@ -295,12 +295,21 @@ void Parse(Document* document)
 	document->astMutex.lock();
 
 	if (document->hasAST)
+	{
 		destroyAST(&document->ast);
+		document->tokens.clear();
+	}
 
 	document->ast = {};
 	parse(&document->ast, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
-
 	document->hasAST = true;
+
+	Lexer lexer = {};
+	initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+	while (lexer.state.cursor < lexer.src + lexer.length)
+	{
+		document->tokens.add(nextToken(&lexer));
+	}
 
 	document->astMutex.unlock();
 

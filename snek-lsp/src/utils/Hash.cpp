@@ -18,26 +18,26 @@ uint32_t hash(float f)
 	return hash(*(uint32_t*)&f);
 }
 
-// https://stackoverflow.com/questions/2624192/good-hash-function-for-strings
+// FNV-1a
 uint32_t hash(const char* str)
 {
-	uint32_t hash = 7;
+	uint32_t hash = 2166136261u;
 	int i = 0;
 	while (char c = str[i++])
 	{
-		hash = hash * 31 + c;
+		hash ^= (uint8_t)c;
+		hash *= 16777619u;
 	}
 	return hash;
 }
 
 uint32_t hash(StringView str)
 {
-	uint32_t hash = 7;
-	int i = 0;
+	uint32_t hash = 2166136261u;
 	for (int i = 0; i < str.length; i++)
 	{
-		char c = str.ptr[i];
-		hash = hash * 31 + c;
+		hash ^= (uint8_t)str.ptr[i];
+		hash *= 16777619u;
 	}
 	return hash;
 }
