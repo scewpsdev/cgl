@@ -13,8 +13,7 @@ using namespace nlohmann;
 
 static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 {
-	return (a->token.line < b->token.line || a->token.line == b->token.line && a->token.col < b->token.col) ? -1 :
-		a->token.line == b->token.line && a->token.col == b->token.col ? 0 : 1;
+	return a->token.offset < b->token.offset ? -1 : a->token.offset == b->token.offset ? 0 : 1;
 }
 
 void Document::init(const std::string& text)
@@ -76,6 +75,24 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 	lastChange = GetTimeNS();
 }
 
+static void getCoordFromOffset(int offset, const char* src, int* line, int* col)
+{
+	*line = 0;
+	*col = 0;
+	for (int i = 0; i < offset; i++)
+	{
+		if (src[i] == '\n')
+		{
+			*line += 1;
+			*col = 0;
+		}
+		else
+		{
+			*col += 1;
+		}
+	}
+}
+
 void Document::getTokens(std::vector<int>& data)
 {
 	std::vector<LSPToken> lspTokens;
@@ -92,14 +109,33 @@ void Document::getTokens(std::vector<int>& data)
 
 	if (hasAST)
 	{
-		
-
-		for (int i = 0; i < ast.numDeclarations; i++)
+		for (int i = 0; i < tokens.size; i++)
 		{
-			Node* declaration = ast.declarations[i];
-			if (declaration)
+			if (tokens[i].type == TOKEN_IDENTIFIER)
 			{
+				StringView identifier = getTokenString(tokens[i], text.c_str());
+				if (Node* node = lookupSymbol(&ast.symbols, identifier))
+				{
+					int type = 0, modifiers = 0;
 
+					if (node->type == NODE_STRUCT)
+						type = LSP_TOKEN_STRUCT;
+					else if (node->type == NODE_ENUM)
+						type = LSP_TOKEN_ENUM;
+					else if (node->type == NODE_UNION)
+						type = LSP_TOKEN_STRUCT;
+					else if (node->type == NODE_TYPEDEF)
+						type = LSP_TOKEN_STRUCT;
+					else if (node->type == NODE_FUNCTION)
+						type = LSP_TOKEN_FUNCTION;
+					else if (node->type == NODE_MACRO)
+						type = LSP_TOKEN_MACRO;
+
+					if (type)
+					{
+						addToken(tokens[i], type, modifiers);
+					}
+				}
 			}
 		}
 	}
@@ -112,9 +148,9 @@ void Document::getTokens(std::vector<int>& data)
 	for (int i = 0; i < (int)lspTokens.size(); i++)
 	{
 		LSPToken token = lspTokens[i];
-		int line = token.token.line - 1;
-		int col = token.token.col - 1;
-		int len = token.token.text.length;
+		int line, col;
+		getCoordFromOffset(token.token.offset, text.c_str(), &line, &col);
+		int len = token.token.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
 		data.push_back(line - lastLine);

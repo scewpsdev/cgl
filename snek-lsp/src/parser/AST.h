@@ -123,4 +123,4 @@ void initNode(Node* node, NodeType type, SourceLocation start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);
-Node* lookupSymbol(SymbolTable* symbols, const char* identifier);
+Node* lookupSymbol(SymbolTable* symbols, StringView identifier);

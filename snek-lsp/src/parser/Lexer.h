@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils/StringView.h"
+#include "utils/List.h"
 
 #include <string.h>
 
@@ -10,6 +11,7 @@ enum TokenType : int
 	TOKEN_NULL = 0,
 
 	TOKEN_FIRST = 256,
+
 	TOKEN_STRING_LITERAL,
 	TOKEN_STRING_LITERAL_MULTILINE,
 	TOKEN_CHAR_LITERAL,
@@ -121,14 +123,8 @@ enum TokenType : int
 struct Token
 {
 	TokenType type;
-	StringView text;
-	int line, col;
-};
-
-struct LexerState
-{
-	const char* cursor;
-	int line, col;
+	int offset;
+	int length;
 };
 
 struct SourceLocation
@@ -142,11 +138,14 @@ struct Lexer
 	const char* filename;
 	const char* src;
 	int length;
-	LexerState state;
+	int cursor;
+
+	List<int> lineOffsets;
 };
 
 
 void initLexer(Lexer* lexer, const char* filename, const char* src, int length);
-SourceLocation getSourceLocation(Lexer* lexer);
+SourceLocation getSourceLocation(Lexer* lexer, int offset);
+StringView getTokenString(Token token, const char* src);
 
 Token nextToken(Lexer* lexer);

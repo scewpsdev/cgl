@@ -30,11 +30,8 @@ std::map<std::string, int> uriMap;
 void send(json msg)
 {
 	std::string body = msg.dump();
-	//fprintf(stdout, "Content-Length: %d\r\n\r\n%s", (int)body.size(), body.c_str());
-	// had to get rid of the \r for some reason, it would print 4 newlines and not accept the message
 	fprintf(stdout, "Content-Length: %d\n\n%s", (int)body.size(), body.c_str());
 	fflush(stdout);
-	//fprintf(stderr, "Content-Length: %d\n\n%s\n", (int)body.size(), body.c_str());
 }
 
 void sendResponse(int id, json result)
@@ -57,6 +54,15 @@ int sendRequest(std::string method, json params)
 		{"params", params}
 		});
 	return id;
+}
+
+void sendNotification(std::string method, json params)
+{
+	send({
+		{"jsonrpc", "2.0"},
+		{"method", method},
+		{"params", params}
+		});
 }
 
 json readMessage()
@@ -294,21 +300,24 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	if (document->hasAST)
+	for (int i = 0; i < 1000; i++)
 	{
-		destroyAST(&document->ast);
-		document->tokens.clear();
-	}
+		if (document->hasAST)
+		{
+			destroyAST(&document->ast);
+			document->tokens.clear();
+		}
 
-	document->ast = {};
-	parse(&document->ast, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
-	document->hasAST = true;
+		document->ast = {};
+		parse(&document->ast, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+		document->hasAST = true;
 
-	Lexer lexer = {};
-	initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
-	while (lexer.state.cursor < lexer.src + lexer.length)
-	{
-		document->tokens.add(nextToken(&lexer));
+		Lexer lexer = {};
+		initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+		while (lexer.cursor < lexer.length)
+		{
+			document->tokens.add(nextToken(&lexer));
+		}
 	}
 
 	document->astMutex.unlock();

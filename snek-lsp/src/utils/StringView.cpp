@@ -20,6 +20,14 @@ StringView CreateString(const char* start, const char* end)
 	return str;
 }
 
+StringView CreateString(const char* start, int length)
+{
+	StringView str = {};
+	str.ptr = (char*)start;
+	str.length = length;
+	return str;
+}
+
 char* substring(const char* str, int offset, int length)
 {
 	if (length == -1) length = (int)strlen(str) - offset;

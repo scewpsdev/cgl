@@ -73,7 +73,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
 	}
 }
 
-Node* lookupSymbol(SymbolTable* symbols, const char* identifier)
+Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
 {
 	if (!symbols->count) return nullptr;
 

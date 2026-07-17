@@ -7,14 +7,16 @@
 #include "utils/Arena.h"
 #include "utils/List.h"
 
+#include <stdarg.h>
+
 
 struct Parser
 {
 	Lexer lexer;
-	LexerState state;
+	int cursor;
 
 	Token lookahead[3];
-	LexerState lookaheadState[3];
+	int lookaheadState[3];
 	int lookaheadCount;
 
 	Arena* arena;
@@ -31,7 +33,25 @@ static void initParser(Parser* parser, const char* filename, const char* src, in
 
 static SourceLocation getSourceLocation(Parser* parser)
 {
-	return { parser->lexer.filename, parser->state.line, parser->state.col };
+	return getSourceLocation(&parser->lexer, parser->cursor);
+}
+
+static StringView getTokenString(Token token, Parser* parser)
+{
+	return getTokenString(token, parser->lexer.src);
+}
+
+static void error(SourceLocation start, SourceLocation end, const char* msg, ...)
+{
+	va_list args;
+	va_start(args, msg);
+
+	char txt[256];
+	vsnprintf(txt, 256, msg, args);
+
+	va_end(args);
+
+	fprintf(stderr, "error %s:%d:%d: %s\n", start.filename, start.line, start.col, txt);
 }
 
 static Token nextToken(Parser* parser)
@@ -42,17 +62,17 @@ static Token nextToken(Parser* parser)
 		parser->lookahead[0] = parser->lookahead[1];
 		parser->lookahead[1] = parser->lookahead[2];
 
-		LexerState state = parser->lookaheadState[0];
+		int state = parser->lookaheadState[0];
 		parser->lookaheadState[0] = parser->lookaheadState[1];
 		parser->lookaheadState[1] = parser->lookaheadState[2];
 
 		parser->lookaheadCount--;
-		parser->state = state;
+		parser->cursor = state;
 		return token;
 	}
 
 	Token token = nextToken(&parser->lexer);
-	parser->state = parser->lexer.state;
+	parser->cursor = parser->lexer.cursor;
 	return token;
 }
 
@@ -62,7 +82,7 @@ static Token peekToken(Parser* parser, int count = 0)
 	while (parser->lookaheadCount <= count)
 	{
 		parser->lookahead[parser->lookaheadCount] = nextToken(&parser->lexer);
-		parser->lookaheadState[parser->lookaheadCount] = parser->lexer.state;
+		parser->lookaheadState[parser->lookaheadCount] = parser->lexer.cursor;
 		parser->lookaheadCount++;
 	}
 
@@ -80,14 +100,27 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 		return true;
 	}
 
-	// todo use token type string
-	SnekErrorLoc(getSourceLocation(parser), "Expected token %d", (int)type);
+	SourceLocation start = getSourceLocation(parser);
+	SourceLocation end = start;
+	end.col += token.length;
+
+	if (type < TOKEN_FIRST)
+		error(start, end, "Expected token %c", (int)type);
+	else
+		// todo use token type string
+		error(start, end, "Expected token %d", (int)type);
 	return false;
 }
 
 static bool nextIs(Parser* parser, int type)
 {
 	return peekToken(parser).type == type;
+}
+
+static bool nextIsKeyword(Parser* parser)
+{
+	TokenType type = peekToken(parser).type;
+	return type >= TOKEN_KEYWORD_BEGIN && type <= TOKEN_KEYWORD_END;
 }
 
 static void skipPastToken(Parser* parser, int type)
@@ -138,7 +171,7 @@ Struct* parseStruct(Parser* parser)
 
 	Struct* struct_ = parser->arena->alloc<Struct>();
 	initNode((Node*)struct_, NODE_STRUCT, start);
-	struct_->name = identifier.text;
+	struct_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
 	{
@@ -166,7 +199,7 @@ Enum* parseEnum(Parser* parser)
 
 	Enum* enum_ = parser->arena->alloc<Enum>();
 	initNode((Node*)enum_, NODE_ENUM, start);
-	enum_->name = identifier.text;
+	enum_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
 	{
@@ -194,7 +227,7 @@ Union* parseUnion(Parser* parser)
 
 	Union* union_ = parser->arena->alloc<Union>();
 	initNode((Node*)union_, NODE_UNION, start);
-	union_->name = identifier.text;
+	union_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
 	{
@@ -222,7 +255,7 @@ Typedef* parseTypedef(Parser* parser)
 
 	Typedef* typedef_ = parser->arena->alloc<Typedef>();
 	initNode((Node*)typedef_, NODE_TYPEDEF, start);
-	typedef_->name = identifier.text;
+	typedef_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
 	{
@@ -250,7 +283,7 @@ Function* parseFunction(Parser* parser)
 
 	Function* function = parser->arena->alloc<Function>();
 	initNode((Node*)function, NODE_FUNCTION, start);
-	function->name = identifier.text;
+	function->name = getTokenString(identifier, parser);
 
 	if (expectToken(parser, '('))
 	{
@@ -258,7 +291,7 @@ Function* parseFunction(Parser* parser)
 	}
 
 	// skip return type
-	while (nextIs(parser, TOKEN_IDENTIFIER) || nextIs(parser, TOKEN_OP_ASTERISK))
+	while (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser) || nextIs(parser, TOKEN_OP_ASTERISK))
 	{
 		nextToken(parser);
 	}
@@ -289,7 +322,7 @@ Macro* parseMacro(Parser* parser)
 
 	Macro* macro = parser->arena->alloc<Macro>();
 	initNode((Node*)macro, NODE_MACRO, start);
-	macro->name = identifier.text;
+	macro->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
 	{
@@ -365,6 +398,7 @@ void parseFile(Parser* parser, AST* ast)
 	int count = parser->scratch.size - start;
 	if (count > 0)
 	{
+		ast->numDeclarations = count;
 		ast->declarations = parser->arena->alloc<Node*>(count);
 		memcpy(ast->declarations, &parser->scratch[start], count * sizeof(Node*));
 	}
