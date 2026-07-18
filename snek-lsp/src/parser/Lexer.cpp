@@ -21,6 +21,7 @@ void initLexer(Lexer* lexer, const char* filename, const char* src, int length, 
 	lexer->diagnostics = diagnostics;
 	lexer->cursor = 0;
 
+	lexer->lineOffsets.add(0);
 	for (int i = 0; i < length; i++)
 	{
 		if (src[i] == '\n')
@@ -30,12 +31,12 @@ void initLexer(Lexer* lexer, const char* filename, const char* src, int length, 
 
 SourceLocation getSourceLocation(Lexer* lexer, int offset)
 {
-	for (int i = 0; i < lexer->lineOffsets.size; i++)
+	for (int i = 0; i < lexer->lineOffsets.size - 1; i++)
 	{
-		if (lexer->lineOffsets[i] > offset)
+		if (lexer->lineOffsets[i + 1] > offset)
 		{
-			int line = i - 1;
-			int col = offset - lexer->lineOffsets[i - 1];
+			int line = i;
+			int col = offset - lexer->lineOffsets[i];
 			return { lexer->filename, line, col };
 		}
 	}

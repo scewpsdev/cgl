@@ -50,7 +50,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
 	uint32_t h = hash(identifier);
 	uint32_t index = h & mask;
 
-	while (true)
+	for (int i = 0; i < symbols->capacity; i++)
 	{
 		SymbolEntry* slot = &symbols->slots[index];
 
@@ -69,6 +69,9 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
 
 		index = (index + 1) & mask;
 	}
+
+	SnekAssert(false);
+	return false;
 }
 
 Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
@@ -79,7 +82,7 @@ Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
 	uint32_t h = hash(identifier);
 	uint32_t index = h & mask;
 
-	while (true)
+	for (int i = 0; i < symbols->capacity; i++)
 	{
 		SymbolEntry* slot = &symbols->slots[index];
 
@@ -91,4 +94,6 @@ Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
 
 		index = (index + 1) & mask;
 	}
+
+	return nullptr;
 }
