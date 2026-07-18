@@ -30,13 +30,13 @@ SourceLocation getSourceLocation(Lexer* lexer, int offset)
 	{
 		if (lexer->lineOffsets[i] > offset)
 		{
-			int line = i;
-			int col = offset - lexer->lineOffsets[i - 1] + 1;
+			int line = i - 1;
+			int col = offset - lexer->lineOffsets[i - 1];
 			return { lexer->filename, line, col };
 		}
 	}
-	int line = lexer->lineOffsets.size;
-	int col = offset - lexer->lineOffsets[lexer->lineOffsets.size - 1] + 1;
+	int line = lexer->lineOffsets.size - 1;
+	int col = offset - lexer->lineOffsets[lexer->lineOffsets.size - 1];
 	return { lexer->filename, line, col };
 }
 
@@ -57,7 +57,7 @@ static void error(Lexer* lexer, int start, int end, const char* msg, ...)
 
 	va_end(args);
 
-	fprintf(stderr, "error %s:%d:%d: %s\n", location.filename, location.line, location.col, txt);
+	fprintf(stderr, "error %s:%d:%d: %s\n", location.filename, location.line + 1, location.col + 1, txt);
 }
 
 static char peekCharacter(Lexer* lexer, int offset = 0)

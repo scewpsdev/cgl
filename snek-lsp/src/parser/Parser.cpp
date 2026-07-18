@@ -51,7 +51,7 @@ static void error(SourceLocation start, SourceLocation end, const char* msg, ...
 
 	va_end(args);
 
-	fprintf(stderr, "error %s:%d:%d: %s\n", start.filename, start.line, start.col, txt);
+	fprintf(stderr, "error %s:%d:%d: %s\n", start.filename, start.line + 1, start.col + 1, txt);
 }
 
 static Token nextToken(Parser* parser)
@@ -355,27 +355,33 @@ void parseFile(Parser* parser, AST* ast)
 
 		if (token.type == TOKEN_STRUCT)
 		{
-			parser->scratch.add((Node*)parseStruct(parser));
+			if (Struct* struct_ = parseStruct(parser))
+				parser->scratch.add((Node*)struct_);
 		}
 		else if (token.type == TOKEN_ENUM)
 		{
-			parser->scratch.add((Node*)parseEnum(parser));
+			if (Enum* enum_ = parseEnum(parser))
+				parser->scratch.add((Node*)enum_);
 		}
 		else if (token.type == TOKEN_UNION)
 		{
-			parser->scratch.add((Node*)parseUnion(parser));
+			if (Union* union_ = parseUnion(parser))
+				parser->scratch.add((Node*)union_);
 		}
 		else if (token.type == TOKEN_TYPEDEF)
 		{
-			parser->scratch.add((Node*)parseTypedef(parser));
+			if (Typedef* typedef_ = parseTypedef(parser))
+				parser->scratch.add((Node*)typedef_);
 		}
 		else if (token.type == TOKEN_FUNCTION)
 		{
-			parser->scratch.add((Node*)parseFunction(parser));
+			if (Function* function = parseFunction(parser))
+				parser->scratch.add((Node*)function);
 		}
 		else if (token.type == TOKEN_MACRO)
 		{
-			parser->scratch.add((Node*)parseMacro(parser));
+			if (Macro* macro = parseMacro(parser))
+				parser->scratch.add((Node*)macro);
 		}
 		else if (token.type == TOKEN_MODULE)
 		{

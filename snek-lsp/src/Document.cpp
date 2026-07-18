@@ -46,6 +46,11 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 		{
 			changeLines.add(_strdup(line.c_str()));
 		}
+
+		if (text.back() == '\n')
+		{
+			changeLines.add(_strdup(""));
+		}
 	}
 
 	char* prefix = substring(lines[startLine], 0, startCol);
