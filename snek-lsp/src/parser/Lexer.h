@@ -133,6 +133,9 @@ struct SourceLocation
 	int line, col;
 };
 
+struct Arena;
+struct Diagnostics;
+
 struct Lexer
 {
 	const char* filename;
@@ -141,10 +144,13 @@ struct Lexer
 	int cursor;
 
 	List<int> lineOffsets;
+
+	Arena* arena;
+	Diagnostics* diagnostics;
 };
 
 
-void initLexer(Lexer* lexer, const char* filename, const char* src, int length);
+void initLexer(Lexer* lexer, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics);
 SourceLocation getSourceLocation(Lexer* lexer, int offset);
 StringView getTokenString(Token token, const char* src);
 

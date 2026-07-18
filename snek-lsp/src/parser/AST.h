@@ -107,8 +107,6 @@ struct SymbolTable
 
 struct AST
 {
-	Arena arena;
-
 	Node** declarations;
 	int numDeclarations;
 

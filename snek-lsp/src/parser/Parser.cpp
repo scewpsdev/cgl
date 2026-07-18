@@ -2,6 +2,7 @@
 
 #include "Lexer.h"
 #include "AST.h"
+#include "Diagnostics.h"
 
 #include "utils/Log.h"
 #include "utils/Arena.h"
@@ -21,13 +22,17 @@ struct Parser
 
 	Arena* arena;
 	List<Node*> scratch;
+
+	Diagnostics* diagnostics;
 };
 
-static void initParser(Parser* parser, const char* filename, const char* src, int length)
+static void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
 {
 	parser->lexer = {};
-	initLexer(&parser->lexer, filename, src, length);
+	initLexer(&parser->lexer, filename, src, length, arena, diagnostics);
 
+	parser->arena = arena;
+	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
 }
 
@@ -36,22 +41,36 @@ static SourceLocation getSourceLocation(Parser* parser)
 	return getSourceLocation(&parser->lexer, parser->cursor);
 }
 
+static SourceLocation getSourceLocation(Parser* parser, Token token)
+{
+	return getSourceLocation(&parser->lexer, token.offset);
+}
+
+static void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end)
+{
+	*start = getSourceLocation(&parser->lexer, token.offset);
+	*end = getSourceLocation(&parser->lexer, token.offset + token.length);
+}
+
 static StringView getTokenString(Token token, Parser* parser)
 {
 	return getTokenString(token, parser->lexer.src);
 }
 
-static void error(SourceLocation start, SourceLocation end, const char* msg, ...)
+static void error(Parser* parser, SourceLocation start, SourceLocation end, const char* fmt, ...)
 {
-	va_list args;
-	va_start(args, msg);
+	if (!parser->diagnostics) return;
 
-	char txt[256];
-	vsnprintf(txt, 256, msg, args);
+	va_list args;
+	va_start(args, fmt);
+
+	int length = vsnprintf(nullptr, 0, fmt, args);
+	char* msg = (char*)parser->arena->alloc(length + 1);
+	vsnprintf(msg, length + 1, fmt, args);
 
 	va_end(args);
 
-	fprintf(stderr, "error %s:%d:%d: %s\n", start.filename, start.line + 1, start.col + 1, txt);
+	logMessage(parser->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
 }
 
 static Token nextToken(Parser* parser)
@@ -100,15 +119,14 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 		return true;
 	}
 
-	SourceLocation start = getSourceLocation(parser);
-	SourceLocation end = start;
-	end.col += token.length;
+	SourceLocation start, end;
+	getSourceLocation(parser, token, &start, &end);
 
 	if (type < TOKEN_FIRST)
-		error(start, end, "Expected token %c", (int)type);
+		error(parser, start, end, "Expected token %c", (int)type);
 	else
 		// todo use token type string
-		error(start, end, "Expected token %d", (int)type);
+		error(parser, start, end, "Expected token %d", (int)type);
 	return false;
 }
 
@@ -412,18 +430,14 @@ void parseFile(Parser* parser, AST* ast)
 	parser->scratch.resize(start);
 }
 
-void parse(AST* ast, const char* filename, const char* src, int length)
+void parse(AST* ast, Arena* arena, Diagnostics* diagnostics, const char* filename, const char* src, int length)
 {
 	Parser parser = {};
-	initParser(&parser, filename, src, length);
-
-	initAST(ast);
-
-	parser.arena = &ast->arena;
+	initParser(&parser, filename, src, length, arena, diagnostics);
 
 	parseFile(&parser, ast);
 
-	initSymbolTable(&ast->symbols, ast->numDeclarations, &ast->arena);
+	initSymbolTable(&ast->symbols, ast->numDeclarations, arena);
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
 		Node* declaration = ast->declarations[i];

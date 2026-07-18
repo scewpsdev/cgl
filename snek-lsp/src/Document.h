@@ -8,6 +8,7 @@
 
 #include "parser/Lexer.h"
 #include "parser/AST.h"
+#include "parser/Diagnostics.h"
 #include "utils/List.h"
 
 
@@ -99,6 +100,8 @@ struct Document
 	std::mutex astMutex;
 	bool hasAST;
 	AST ast;
+	Arena arena;
+	Diagnostics diagnostics;
 	List<Token> tokens;
 
 

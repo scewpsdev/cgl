@@ -1,6 +1,8 @@
 #include "Lexer.h"
 
 #include "Keywords.h"
+#include "Diagnostics.h"
+#include "utils/Arena.h"
 #include "utils/Log.h"
 
 #include <assert.h>
@@ -10,11 +12,13 @@
 #include <string>
 
 
-void initLexer(Lexer* lexer, const char* filename, const char* src, int length)
+void initLexer(Lexer* lexer, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
 {
 	lexer->filename = filename;
 	lexer->src = src;
 	lexer->length = length;
+	lexer->arena = arena;
+	lexer->diagnostics = diagnostics;
 	lexer->cursor = 0;
 
 	for (int i = 0; i < length; i++)
@@ -45,19 +49,23 @@ StringView getTokenString(Token token, const char* src)
 	return CreateString(&src[token.offset], token.length);
 }
 
-static void error(Lexer* lexer, int start, int end, const char* msg, ...)
+static void error(Lexer* lexer, int start, int end, const char* fmt, ...)
 {
-	SourceLocation location = getSourceLocation(lexer, start);
+	if (!lexer->diagnostics) return;
+
+	SourceLocation startLocation = getSourceLocation(lexer, start);
+	SourceLocation endLocation = getSourceLocation(lexer, end);
 
 	va_list args;
-	va_start(args, msg);
+	va_start(args, fmt);
 
-	char txt[256];
-	vsnprintf(txt, 256, msg, args);
+	int length = vsnprintf(nullptr, 0, fmt, args);
+	char* msg = (char*)lexer->arena->alloc(length + 1);
+	vsnprintf(msg, length + 1, fmt, args);
 
 	va_end(args);
 
-	fprintf(stderr, "error %s:%d:%d: %s\n", location.filename, location.line + 1, location.col + 1, txt);
+	logMessage(lexer->diagnostics, msg, startLocation.line, startLocation.col, endLocation.line, endLocation.col, DIAGNOSTICS_ERROR);
 }
 
 static char peekCharacter(Lexer* lexer, int offset = 0)

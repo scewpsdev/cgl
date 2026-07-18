@@ -90,6 +90,37 @@ static json CreateHoverResult(std::string contents)
 	};
 }
 
+static void sendDiagnosticsNotification(Diagnostics* diagnostics, Document* document)
+{
+	json diagnosticsItems = json::array();
+	for (int i = 0; i < diagnostics->items.size; i++)
+	{
+		json range = {
+			{"start", {
+				{"line", diagnostics->items[i].startLine},
+				{"character", diagnostics->items[i].startCol}
+			}},
+			{"end", {
+				{"line", diagnostics->items[i].endLine},
+				{"character", diagnostics->items[i].endCol}
+			}}
+		};
+		json diagnosticsItem = {
+			{"range", range},
+			{"severity", (int)diagnostics->items[i].severity},
+			{"message", diagnostics->items[i].message}
+		};
+		diagnosticsItems.push_back(diagnosticsItem);
+
+		fprintf(stderr, "error %s:%d:%d: %s\n", document->uri.c_str(), diagnostics->items[i].startLine + 1, diagnostics->items[i].startCol + 1, diagnostics->items[i].message);
+	}
+
+	sendNotification("textDocument/publishDiagnostics", {
+		{"uri", document->uri},
+		{"diagnostics", diagnosticsItems}
+		});
+}
+
 char* ReadText(const char* path)
 {
 	if (FILE* file = fopen(path, "rb"))
@@ -304,16 +335,24 @@ void Parse(Document* document)
 	{
 		if (document->hasAST)
 		{
+			destroyDiagnostics(&document->diagnostics);
+			destroyArena(&document->arena);
 			destroyAST(&document->ast);
 			document->tokens.clear();
 		}
 
-		document->ast = {};
-		parse(&document->ast, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+		initAST(&document->ast);
+		initArena(&document->arena, 16 * 1024 * 1024);
+		initDiagnostics(&document->diagnostics, &document->arena);
+
+		parse(&document->ast, &document->arena, &document->diagnostics, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
 		document->hasAST = true;
 
+		if (i == 0)
+			sendDiagnosticsNotification(&document->diagnostics, document);
+
 		Lexer lexer = {};
-		initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+		initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
 		while (lexer.cursor < lexer.length)
 		{
 			document->tokens.add(nextToken(&lexer));
@@ -418,7 +457,7 @@ int main()
 			json result = {
 				{"capabilities", {
 					{"textDocumentSync", 2},
-					{"hoverProvider", true},
+					//{"hoverProvider", true},
 					{"completionProvider", {
 						{"resolveProvider", false}
 					}},
@@ -508,11 +547,13 @@ int main()
 				{"data", data}
 				});
 		}
+		/*
 		else if (method == "textDocument/hover")
 		{
 			json result = CreateHoverResult("abc");
 			sendResponse(request["id"], result);
 		}
+		*/
 		else if (method == "textDocument/completion")
 		{
 			json params = request["params"];
