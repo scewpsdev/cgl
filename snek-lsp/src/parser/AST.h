@@ -103,6 +103,14 @@ struct SymbolTable
 	SymbolEntry* slots;
 	int capacity;
 	int count;
+
+	Arena* arena;
+};
+
+struct Scope
+{
+	Scope* parent;
+	SymbolTable symbols;
 };
 
 struct AST
@@ -110,7 +118,7 @@ struct AST
 	Node** declarations;
 	int numDeclarations;
 
-	SymbolTable symbols;
+	Scope* globalScope;
 };
 
 
@@ -122,3 +130,5 @@ void initNode(Node* node, NodeType type, SourceLocation start);
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);
 Node* lookupSymbol(SymbolTable* symbols, StringView identifier);
+
+void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena);

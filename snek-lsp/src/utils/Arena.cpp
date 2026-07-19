@@ -59,6 +59,8 @@ void* Arena::alloc(int size)
 #endif
 
 	void* ptr = &buffer[offset];
+	memset(ptr, 0, alignedSize);
+
 	offset += alignedSize;
 	return ptr;
 }

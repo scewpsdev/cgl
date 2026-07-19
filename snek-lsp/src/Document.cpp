@@ -11,6 +11,9 @@
 using namespace nlohmann;
 
 
+extern List<Document*> documents;
+
+
 static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 {
 	return a->token.offset < b->token.offset ? -1 : a->token.offset == b->token.offset ? 0 : 1;
@@ -98,6 +101,16 @@ static void getCoordFromOffset(int offset, const char* src, int* line, int* col)
 	}
 }
 
+static Node* resolveSymbol(StringView identifier)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (Node* symbol = lookupSymbol(&documents[i]->ast.globalScope->symbols, identifier))
+			return symbol;
+	}
+	return nullptr;
+}
+
 void Document::getTokens(std::vector<int>& data)
 {
 	std::vector<LSPToken> lspTokens;
@@ -119,7 +132,7 @@ void Document::getTokens(std::vector<int>& data)
 			if (tokens[i].type == TOKEN_IDENTIFIER)
 			{
 				StringView identifier = getTokenString(tokens[i], text.c_str());
-				if (Node* node = lookupSymbol(&ast.symbols, identifier))
+				if (Node* node = resolveSymbol(identifier))
 				{
 					int type = 0, modifiers = 0;
 

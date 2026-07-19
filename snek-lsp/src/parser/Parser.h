@@ -2,6 +2,7 @@
 
 
 struct AST;
+struct Scope;
 struct Arena;
 struct Diagnostics;
 

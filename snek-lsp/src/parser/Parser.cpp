@@ -20,6 +20,8 @@ struct Parser
 	int lookaheadState[3];
 	int lookaheadCount;
 
+	Scope* currentScope;
+
 	Arena* arena;
 	List<Node*> scratch;
 
@@ -34,6 +36,22 @@ static void initParser(Parser* parser, const char* filename, const char* src, in
 	parser->arena = arena;
 	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
+}
+
+static Scope* pushScope(Parser* parser)
+{
+	Scope* scope = parser->arena->alloc<Scope>();
+	scope->parent = parser->currentScope;
+
+	bool isGlobal = false;
+	initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, parser->arena);
+
+	parser->currentScope = scope;
+}
+
+static void popScope(Parser* parser)
+{
+	parser->currentScope = parser->currentScope->parent;
 }
 
 static SourceLocation getSourceLocation(Parser* parser)
@@ -435,9 +453,12 @@ void parse(AST* ast, Arena* arena, Diagnostics* diagnostics, const char* filenam
 	Parser parser = {};
 	initParser(&parser, filename, src, length, arena, diagnostics);
 
+	ast->globalScope = arena->alloc<Scope>();
+	initScope(ast->globalScope, nullptr, true, arena);
+	parser.currentScope = ast->globalScope;
+
 	parseFile(&parser, ast);
 
-	initSymbolTable(&ast->symbols, ast->numDeclarations, arena);
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
 		Node* declaration = ast->declarations[i];
@@ -457,6 +478,6 @@ void parse(AST* ast, Arena* arena, Diagnostics* diagnostics, const char* filenam
 			identifier = declaration->macro.name;
 
 		if (identifier.ptr)
-			insertSymbol(&ast->symbols, identifier, declaration);
+			insertSymbol(&parser.currentScope->symbols, identifier, declaration);
 	}
 }
