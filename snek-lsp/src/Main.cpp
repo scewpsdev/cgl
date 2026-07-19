@@ -43,6 +43,17 @@ void sendResponse(int id, json result)
 		});
 }
 
+void sendErrorResponse(int id, int code)
+{
+	send({
+		{"jsonrpc", "2.0"},
+		{"id", id},
+		{"error", {
+			{"code", code}
+		}}
+		});
+}
+
 int requestIdCounter = 1;
 int sendRequest(std::string method, json params)
 {
@@ -53,6 +64,9 @@ int sendRequest(std::string method, json params)
 		{"method", method},
 		{"params", params}
 		});
+
+	std::cerr << "Sent request of type " << method << std::endl;
+
 	return id;
 }
 
@@ -63,6 +77,8 @@ void sendNotification(std::string method, json params)
 		{"method", method},
 		{"params", params}
 		});
+
+	std::cerr << "Sent notification of type " << method << std::endl;
 }
 
 json readMessage()
@@ -408,212 +424,229 @@ int main()
 
 		std::string method = request.value("method", "");
 
-		std::cerr << "Received message of type " << method << std::endl;
-
-		if (method == "initialize")
+		if (method != "")
 		{
-			json params = request["params"];
+			std::cerr << "Received message of type " << method << std::endl;
 
-			//printCapabilities(params["capabilities"]);
-
-			json root = params["rootPath"];
-			if (strcmp(root.type_name(), "string") == 0)
+			if (method == "initialize")
 			{
-				rootPath = params["rootPath"];
-				fprintf(stderr, "Root path: %s\n", rootPath.c_str());
-			}
+				json params = request["params"];
 
-			json tokenTypes = json::array();
-			tokenTypes[LSP_TOKEN_NAMESPACE] = "namespace";
-			tokenTypes[LSP_TOKEN_TYPE] = "type";
-			tokenTypes[LSP_TOKEN_CLASS] = "class";
-			tokenTypes[LSP_TOKEN_ENUM] = "enum";
-			tokenTypes[LSP_TOKEN_INTERFACE] = "interface";
-			tokenTypes[LSP_TOKEN_STRUCT] = "struct";
-			tokenTypes[LSP_TOKEN_TYPE_PARAMETER] = "typeParameter";
-			tokenTypes[LSP_TOKEN_PARAMETER] = "parameter";
-			tokenTypes[LSP_TOKEN_VARIABLE] = "variable";
-			tokenTypes[LSP_TOKEN_PROPERTY] = "property";
-			tokenTypes[LSP_TOKEN_ENUM_VALUE] = "enumMember";
-			tokenTypes[LSP_TOKEN_EVENT] = "event";
-			tokenTypes[LSP_TOKEN_FUNCTION] = "function";
-			tokenTypes[LSP_TOKEN_METHOD] = "method";
-			tokenTypes[LSP_TOKEN_MACRO] = "macro";
-			tokenTypes[LSP_TOKEN_KEYWORD] = "keyword";
-			tokenTypes[LSP_TOKEN_MODIFIER] = "modifier";
-			tokenTypes[LSP_TOKEN_COMMENT] = "comment";
-			tokenTypes[LSP_TOKEN_STRING] = "string";
-			tokenTypes[LSP_TOKEN_NUMBER] = "number";
-			tokenTypes[LSP_TOKEN_REGEXP] = "regexp";
-			tokenTypes[LSP_TOKEN_OPERATOR] = "operator";
+				//printCapabilities(params["capabilities"]);
 
-			json tokenModifiers = json::array();
-			tokenModifiers[LSP_TOKEN_MODIFIER_DECLARATION] = "declaration";
-			tokenModifiers[LSP_TOKEN_MODIFIER_DEFINITION] = "definition";
-			tokenModifiers[LSP_TOKEN_MODIFIER_READONLY] = "readonly";
-			tokenModifiers[LSP_TOKEN_MODIFIER_STATIC] = "static";
-			tokenModifiers[LSP_TOKEN_MODIFIER_DEPRECATED] = "deprecated";
-
-			json result = {
-				{"capabilities", {
-					{"textDocumentSync", 2},
-					//{"hoverProvider", true},
-					{"completionProvider", {
-						{"resolveProvider", false}
-					}},
-					{"semanticTokensProvider", {
-						{"legend", {
-							{"tokenTypes", tokenTypes},
-							{"tokenModifiers", tokenModifiers},
-						}},
-						{"full", true},
-					}},
-					/*
-					{"workspace", {
-						{"workspaceFolders", {
-							{"supported", true},
-							{"changeNotifications", true}
-						}}
-					}},
-					*/
-				}},
-				{"serverInfo", {
-					{"name", "Snek Language Server"},
-					{"version", "0.0.1"},
-				}}
-			};
-
-			sendResponse(request["id"], result);
-		}
-
-		// Notifications
-
-		else if (method == "textDocument/didOpen")
-		{
-			auto params = request["params"];
-			auto textDocument = params["textDocument"];
-			std::string uri = textDocument["uri"];
-			std::string text = textDocument["text"];
-
-			Document* document = new Document();
-			document->uri = uri;
-			documents.add(document);
-			uriMap.emplace(uri, documents.size - 1);
-
-			document->init(text);
-		}
-		else if (method == "textDocument/didChange")
-		{
-			auto params = request["params"];
-			auto textDocument = params["textDocument"];
-			std::string uri = textDocument["uri"];
-			int version = textDocument["version"];
-
-			Document* document = documents[uriMap[uri]];
-
-			json contentChanges = params["contentChanges"];
-			for (int i = 0; i < (int)contentChanges.size(); i++)
-			{
-				json changeEvent = contentChanges[i];
-
-				json range = changeEvent["range"];
-				json rangeStart = range["start"];
-				json rangeEnd = range["end"];
-
-				int startLine = rangeStart["line"];
-				int startCol = rangeStart["character"];
-
-				int endLine = rangeEnd["line"];
-				int endCol = rangeEnd["character"];
-
-				std::string text = changeEvent["text"];
-
-				document->onChange(startLine, startCol, endLine, endCol, text);
-			}
-		}
-
-		// Requests
-
-		else if (method == "textDocument/semanticTokens/full")
-		{
-			std::string uri = request["params"]["textDocument"]["uri"];
-			Document* document = documents[uriMap[uri]];
-
-			std::vector<int> data;
-
-			document->getTokens(data);
-
-			sendResponse(request["id"], {
-				{"data", data}
-				});
-		}
-		/*
-		else if (method == "textDocument/hover")
-		{
-			json result = CreateHoverResult("abc");
-			sendResponse(request["id"], result);
-		}
-		*/
-		else if (method == "textDocument/completion")
-		{
-			json params = request["params"];
-			std::string uri = params["textDocument"]["uri"];
-
-			Document* document = documents[uriMap[uri]];
-
-			json position = params["position"];
-			int line = position["line"] + 1;
-			int character = position["character"] + 1;
-
-			int triggerKind = 0;
-			std::string triggerCharacter = "";
-			if (params.contains("context"))
-			{
-				json context = params["context"];
-				triggerKind = context["triggerKind"];
-				if (triggerKind == 2) // triggerCharacter
-					triggerCharacter = context["triggerCharacter"];
-			}
-
-			// normal identifier completion
-			if (triggerKind >= 0 && triggerKind <= 2) // invoke
-			{
-				json items = json::array();
-
-				/*
-				for (auto& pair : keywords)
+				json root = params["rootPath"];
+				if (strcmp(root.type_name(), "string") == 0)
 				{
-					std::string keyword = pair.first;
-					items.push_back({
-						{"label", keyword },
-						{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
+					rootPath = params["rootPath"];
+					fprintf(stderr, "Root path: %s\n", rootPath.c_str());
+				}
+
+				json tokenTypes = json::array();
+				tokenTypes[LSP_TOKEN_NAMESPACE] = "namespace";
+				tokenTypes[LSP_TOKEN_TYPE] = "type";
+				tokenTypes[LSP_TOKEN_CLASS] = "class";
+				tokenTypes[LSP_TOKEN_ENUM] = "enum";
+				tokenTypes[LSP_TOKEN_INTERFACE] = "interface";
+				tokenTypes[LSP_TOKEN_STRUCT] = "struct";
+				tokenTypes[LSP_TOKEN_TYPE_PARAMETER] = "typeParameter";
+				tokenTypes[LSP_TOKEN_PARAMETER] = "parameter";
+				tokenTypes[LSP_TOKEN_VARIABLE] = "variable";
+				tokenTypes[LSP_TOKEN_PROPERTY] = "property";
+				tokenTypes[LSP_TOKEN_ENUM_VALUE] = "enumMember";
+				tokenTypes[LSP_TOKEN_EVENT] = "event";
+				tokenTypes[LSP_TOKEN_FUNCTION] = "function";
+				tokenTypes[LSP_TOKEN_METHOD] = "method";
+				tokenTypes[LSP_TOKEN_MACRO] = "macro";
+				tokenTypes[LSP_TOKEN_KEYWORD] = "keyword";
+				tokenTypes[LSP_TOKEN_MODIFIER] = "modifier";
+				tokenTypes[LSP_TOKEN_COMMENT] = "comment";
+				tokenTypes[LSP_TOKEN_STRING] = "string";
+				tokenTypes[LSP_TOKEN_NUMBER] = "number";
+				tokenTypes[LSP_TOKEN_REGEXP] = "regexp";
+				tokenTypes[LSP_TOKEN_OPERATOR] = "operator";
+
+				json tokenModifiers = json::array();
+				tokenModifiers[LSP_TOKEN_MODIFIER_DECLARATION] = "declaration";
+				tokenModifiers[LSP_TOKEN_MODIFIER_DEFINITION] = "definition";
+				tokenModifiers[LSP_TOKEN_MODIFIER_READONLY] = "readonly";
+				tokenModifiers[LSP_TOKEN_MODIFIER_STATIC] = "static";
+				tokenModifiers[LSP_TOKEN_MODIFIER_DEPRECATED] = "deprecated";
+
+				json result = {
+					{"capabilities", {
+						{"textDocumentSync", 2},
+						//{"hoverProvider", true},
+						{"completionProvider", {
+							{"resolveProvider", false}
+						}},
+						{"semanticTokensProvider", {
+							{"legend", {
+								{"tokenTypes", tokenTypes},
+								{"tokenModifiers", tokenModifiers},
+							}},
+							{"full", true},
+						}},
+						/*
+						{"workspace", {
+							{"workspaceFolders", {
+								{"supported", true},
+								{"changeNotifications", true}
+							}}
+						}},
+						*/
+					}},
+					{"serverInfo", {
+						{"name", "Snek Language Server"},
+						{"version", "0.0.1"},
+					}}
+				};
+
+				sendResponse(request["id"], result);
+			}
+
+			// Notifications
+
+			else if (method == "textDocument/didOpen")
+			{
+				auto params = request["params"];
+				auto textDocument = params["textDocument"];
+				std::string uri = textDocument["uri"];
+				std::string text = textDocument["text"];
+
+				Document* document = new Document();
+				document->uri = uri;
+				documents.add(document);
+				uriMap.emplace(uri, documents.size - 1);
+
+				document->init(text);
+			}
+			else if (method == "textDocument/didChange")
+			{
+				auto params = request["params"];
+				auto textDocument = params["textDocument"];
+				std::string uri = textDocument["uri"];
+				int version = textDocument["version"];
+
+				Document* document = documents[uriMap[uri]];
+
+				json contentChanges = params["contentChanges"];
+				for (int i = 0; i < (int)contentChanges.size(); i++)
+				{
+					json changeEvent = contentChanges[i];
+
+					json range = changeEvent["range"];
+					json rangeStart = range["start"];
+					json rangeEnd = range["end"];
+
+					int startLine = rangeStart["line"];
+					int startCol = rangeStart["character"];
+
+					int endLine = rangeEnd["line"];
+					int endCol = rangeEnd["character"];
+
+					std::string text = changeEvent["text"];
+
+					document->onChange(startLine, startCol, endLine, endCol, text);
+				}
+			}
+
+			// Requests
+
+			else if (method == "textDocument/semanticTokens/full")
+			{
+				std::string uri = request["params"]["textDocument"]["uri"];
+				int id = request["id"];
+
+				Document* document = documents[uriMap[uri]];
+
+				if (document->lastChange == 0) // dont send tokens is document is outdated and needs to be reparsed
+				{
+					std::vector<int> data;
+					document->getTokens(data);
+
+					sendResponse(id, {
+						{"data", data}
 						});
 				}
-				*/
-
-				// TODO autocomplete using all parsed asts
-				//std::filesystem::path path = std::filesystem::path(uri);
-				//std::string name = path.stem().string();
-				//AST::File* ast = compiler->getASTByName(name.c_str());
-				//autocomplete(ast, compiler->resolver, items, line, character);
-
-				if (triggerKind == 2)
+				else
 				{
-					fprintf(stderr, "trigger character %c\n", triggerCharacter[0]);
+					sendErrorResponse(id, -32801);
+				}
+			}
+			/*
+			else if (method == "textDocument/hover")
+			{
+				json result = CreateHoverResult("abc");
+				sendResponse(request["id"], result);
+			}
+			*/
+			else if (method == "textDocument/completion")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = documents[uriMap[uri]];
+
+				json position = params["position"];
+				int line = position["line"] + 1;
+				int character = position["character"] + 1;
+
+				int triggerKind = 0;
+				std::string triggerCharacter = "";
+				if (params.contains("context"))
+				{
+					json context = params["context"];
+					triggerKind = context["triggerKind"];
+					if (triggerKind == 2) // triggerCharacter
+						triggerCharacter = context["triggerCharacter"];
 				}
 
-				sendResponse(request["id"], {
-					{"isIncomplete", false},
-					{"items", items}
-					});
+				// normal identifier completion
+				if (triggerKind >= 0 && triggerKind <= 2) // invoke
+				{
+					json items = json::array();
+
+					/*
+					for (auto& pair : keywords)
+					{
+						std::string keyword = pair.first;
+						items.push_back({
+							{"label", keyword },
+							{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
+							});
+					}
+					*/
+
+					// TODO autocomplete using all parsed asts
+					//std::filesystem::path path = std::filesystem::path(uri);
+					//std::string name = path.stem().string();
+					//AST::File* ast = compiler->getASTByName(name.c_str());
+					//autocomplete(ast, compiler->resolver, items, line, character);
+
+					if (triggerKind == 2)
+					{
+						fprintf(stderr, "trigger character %c\n", triggerCharacter[0]);
+					}
+
+					sendResponse(request["id"], {
+						{"isIncomplete", false},
+						{"items", items}
+						});
+				}
+				else
+				{
+					sendResponse(request["id"], {
+						{"isIncomplete", false},
+						{"items", json::array()}
+						});
+				}
 			}
-			else
-			{
-				sendResponse(request["id"], {
-					{"isIncomplete", false},
-					{"items", json::array()}
-					});
-			}
+		}
+		else
+		{
+			int id = request["id"];
+
+			std::cerr << "Received response with id " << id << std::endl;
 		}
 	}
 }
