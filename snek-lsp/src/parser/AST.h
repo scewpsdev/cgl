@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-enum NodeType
+enum NodeType : uint8_t
 {
 	NODE_NULL = 0,
 
@@ -17,10 +17,12 @@ enum NodeType
 	NODE_FUNCTION,
 	NODE_MACRO,
 
+	NODE_TYPE,
+
 	NODE_COUNT
 };
 
-enum StorageSpecifier
+enum StorageSpecifier : uint8_t
 {
 	STORAGE_NULL = 0,
 
@@ -35,9 +37,100 @@ enum StorageSpecifier
 
 struct NodeBase
 {
-	NodeType type;
-	SourceLocation start, end;
+	uint8_t type;
+	int start, end;
 };
+
+enum TypeKind : uint8_t
+{
+	TYPE_NULL = 0,
+
+	TYPE_VOID,
+	TYPE_INTEGER,
+	TYPE_FLOAT,
+	TYPE_BOOL,
+	TYPE_ANY,
+	TYPE_STRING,
+	TYPE_NAMED,
+	TYPE_STRUCT,
+	TYPE_UNION,
+	TYPE_POINTER,
+	TYPE_OPTIONAL,
+	TYPE_FUNCTION,
+	TYPE_TUPLE,
+	TYPE_ARRAY,
+};
+
+struct Type : NodeBase
+{
+	uint8_t typeKind;
+};
+
+struct IntegerType : Type
+{
+	uint8_t bitWidth;
+	bool isSigned;
+};
+
+struct FloatType : Type
+{
+	uint8_t bitWidth;
+};
+
+struct NamedType : Type
+{
+	StringView name;
+};
+
+struct Field : NodeBase
+{
+	Type* type;
+	StringView name;
+};
+
+struct StructType : Type
+{
+	Field** fields;
+	int numFields;
+};
+
+struct UnionType : Type
+{
+	Field** fields;
+	int numFields;
+};
+
+struct PointerType : Type
+{
+	Type* elementType;
+};
+
+struct OptionalType : Type
+{
+	Type* elementType;
+};
+
+struct FunctionType : Type
+{
+	Type* returnType;
+	Type** paramTypes;
+	StringView* paramNames;
+	int numParams;
+	Type* variadicType;
+};
+
+struct TupleType : Type
+{
+	Type** elementTypes;
+	int numElementTypes;
+};
+
+struct ArrayType : Type
+{
+	Type* elementType;
+	int constantSize;
+};
+
 
 struct Struct : NodeBase
 {
@@ -79,9 +172,24 @@ struct Node
 {
 	union {
 		struct {
-			NodeType type;
-			SourceLocation start, end;
+			uint8_t type;
+			int start, end;
 		};
+
+		// types
+
+		IntegerType integerType;
+		FloatType floatType;
+		NamedType namedType;
+		StructType structType;
+		UnionType unionType;
+		PointerType pointerType;
+		OptionalType optionalType;
+		FunctionType functionType;
+		TupleType tupleType;
+		ArrayType arrayType;
+
+		// declarations
 
 		Struct struct_;
 		Enum enum_;
@@ -125,7 +233,8 @@ struct AST
 void initAST(AST* ast);
 void destroyAST(AST* ast);
 
-void initNode(Node* node, NodeType type, SourceLocation start);
+void initNode(Node* node, uint8_t type, int start);
+void initType(Type* type, uint8_t typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);

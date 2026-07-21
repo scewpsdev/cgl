@@ -14,10 +14,16 @@ void destroyAST(AST* ast)
 {
 }
 
-void initNode(Node* node, NodeType type, SourceLocation start)
+void initNode(Node* node, uint8_t type, int start)
 {
 	node->type = type;
 	node->start = start;
+}
+
+void initType(Type* type, uint8_t typeKind, int start)
+{
+	initNode((Node*)type, NODE_TYPE, start);
+	type->typeKind = typeKind;
 }
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena)

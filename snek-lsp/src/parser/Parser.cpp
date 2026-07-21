@@ -70,6 +70,12 @@ static void getSourceLocation(Parser* parser, Token token, SourceLocation* start
 	*end = getSourceLocation(&parser->lexer, token.offset + token.length);
 }
 
+static void getTokenRange(Token token, int* start, int* end)
+{
+	*start = token.offset;
+	*end = token.offset + token.length;
+}
+
 static StringView getTokenString(Token token, Parser* parser)
 {
 	return getTokenString(token, parser->lexer.src);
@@ -148,9 +154,11 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 	return false;
 }
 
-static bool nextIs(Parser* parser, int type)
+static bool nextIs(Parser* parser, int type, Token* outToken = nullptr)
 {
-	return peekToken(parser).type == type;
+	Token token = peekToken(parser);
+	if (outToken) *outToken = token;
+	return token.type == type;
 }
 
 static bool nextIsKeyword(Parser* parser)
@@ -195,9 +203,134 @@ static StorageSpecifier getStorageSpecifier(TokenType tokenType)
 	}
 }
 
+static Type* parseBasicType(Parser* parser)
+{
+	Token token = peekToken(parser);
+	int start, end;
+	getTokenRange(token, &start, &end);
+
+	if (token.type == TOKEN_VOID)
+	{
+		nextToken(parser);
+
+		Type* type = parser->arena->alloc<Type>();
+		initType(type, TYPE_VOID, start);
+		type->end = end;
+		return type;
+	}
+	else if (token.type == TOKEN_INT8 || token.type == TOKEN_INT16 || token.type == TOKEN_INT32 || token.type == TOKEN_INT64 || token.type == TOKEN_INT128)
+	{
+		nextToken(parser);
+
+		const int BITWIDTHS[] = { 8, 16, 32, 64, 128 };
+
+		IntegerType* type = parser->arena->alloc<IntegerType>();
+		initType((Type*)type, TYPE_INTEGER, start);
+		type->end = end;
+		type->bitWidth = BITWIDTHS[token.type - TOKEN_INT8];
+		type->isSigned = true;
+		return type;
+	}
+	else if (token.type == TOKEN_UINT8 || token.type == TOKEN_UINT16 || token.type == TOKEN_UINT32 || token.type == TOKEN_UINT64 || token.type == TOKEN_UINT128)
+	{
+		nextToken(parser);
+
+		const int BITWIDTHS[] = { 8, 16, 32, 64, 128 };
+
+		IntegerType* type = parser->arena->alloc<IntegerType>();
+		initType((Type*)type, TYPE_INTEGER, start);
+		type->end = end;
+		type->bitWidth = BITWIDTHS[token.type - TOKEN_UINT8];
+		type->isSigned = false;
+		return type;
+	}
+	else if (token.type == TOKEN_FLOAT16 || token.type == TOKEN_FLOAT32 || token.type == TOKEN_FLOAT64 || token.type == TOKEN_FLOAT80 || token.type == TOKEN_FLOAT128)
+	{
+		nextToken(parser);
+
+		const int BITWIDTHS[] = { 16, 32, 64, 80, 128 };
+
+		FloatType* type = parser->arena->alloc<FloatType>();
+		initType((Type*)type, TYPE_FLOAT, start);
+		type->end = end;
+		type->bitWidth = BITWIDTHS[token.type - TOKEN_FLOAT16];
+		return type;
+	}
+	else if (token.type == TOKEN_BOOL)
+	{
+		nextToken(parser);
+
+		Type* type = parser->arena->alloc<Type>();
+		initType(type, TYPE_BOOL, start);
+		type->end = end;
+		return type;
+	}
+	else if (token.type == TOKEN_ANY)
+	{
+		nextToken(parser);
+
+		Type* type = parser->arena->alloc<Type>();
+		initType(type, TYPE_ANY, start);
+		type->end = end;
+		return type;
+	}
+	else if (token.type == TOKEN_STRING)
+	{
+		nextToken(parser);
+
+		Type* type = parser->arena->alloc<Type>();
+		initType(type, TYPE_STRING, start);
+		type->end = end;
+		return type;
+	}
+	else if (token.type == TOKEN_IDENTIFIER)
+	{
+		nextToken(parser);
+
+		NamedType* type = parser->arena->alloc<NamedType>();
+		initType((Type*)type, TYPE_NAMED, start);
+		type->end = end;
+		type->name = getTokenString(token, parser);
+		return type;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+Type* parseType(Parser* parser)
+{
+	if (Type* basicType = parseBasicType(parser))
+	{
+		Token token;
+		if (nextIs(parser, TOKEN_ASTERISK, &token) && token.offset == basicType->end)
+		{
+			PointerType* type = parser->arena->alloc<PointerType>();
+			initType((Type*)type, TYPE_POINTER, basicType->start);
+			type->end = token.offset + token.length;
+			type->elementType = basicType;
+			return type;
+		}
+		else if (nextIs(parser, TOKEN_QUESTION, &token) && token.offset == basicType->end)
+		{
+			OptionalType* type = parser->arena->alloc<OptionalType>();
+			initType((Type*)type, TYPE_OPTIONAL, basicType->start);
+			type->end = token.offset + token.length;
+			type->elementType = basicType;
+			return type;
+		}
+		else
+		{
+			return basicType;
+		}
+	}
+	return nullptr;
+}
+
 Struct* parseStruct(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // struct
 
@@ -218,14 +351,14 @@ Struct* parseStruct(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	struct_->end = getSourceLocation(parser);
+	struct_->end = parser->cursor;
 
 	return struct_;
 }
 
 Enum* parseEnum(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // enum
 
@@ -246,14 +379,14 @@ Enum* parseEnum(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	enum_->end = getSourceLocation(parser);
+	enum_->end = parser->cursor;
 
 	return enum_;
 }
 
 Union* parseUnion(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // union
 
@@ -274,14 +407,14 @@ Union* parseUnion(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	union_->end = getSourceLocation(parser);
+	union_->end = parser->cursor;
 
 	return union_;
 }
 
 Typedef* parseTypedef(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // typedef
 
@@ -302,14 +435,14 @@ Typedef* parseTypedef(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	typedef_->end = getSourceLocation(parser);
+	typedef_->end = parser->cursor;
 
 	return typedef_;
 }
 
 Function* parseFunction(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // func
 
@@ -327,7 +460,7 @@ Function* parseFunction(Parser* parser)
 	}
 
 	// skip return type
-	while (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser) || nextIs(parser, TOKEN_OP_ASTERISK))
+	while (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser) || nextIs(parser, TOKEN_ASTERISK))
 	{
 		nextToken(parser);
 	}
@@ -341,14 +474,14 @@ Function* parseFunction(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	function->end = getSourceLocation(parser);
+	function->end = parser->cursor;
 
 	return function;
 }
 
 Macro* parseMacro(Parser* parser)
 {
-	SourceLocation start = getSourceLocation(parser);
+	int start = parser->cursor;
 
 	nextToken(parser); // macro
 
@@ -369,7 +502,7 @@ Macro* parseMacro(Parser* parser)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	macro->end = getSourceLocation(parser);
+	macro->end = parser->cursor;
 
 	return macro;
 }

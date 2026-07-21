@@ -355,19 +355,19 @@ static bool readOperator(Lexer* lexer, Token* token)
 
 	switch (c)
 	{
-	case '+': token->type = TOKEN_OP_PLUS; break;
-	case '-': token->type = TOKEN_OP_MINUS; break;
-	case '*': token->type = TOKEN_OP_ASTERISK; break;
-	case '/': token->type = TOKEN_OP_SLASH; break;
-	case '%': token->type = TOKEN_OP_PERCENT; break;
-	case '&': token->type = TOKEN_OP_AMPERSAND; break;
-	case '|': token->type = TOKEN_OP_OR; break;
-	case '^': token->type = TOKEN_OP_CARET; break;
-	case '?': token->type = TOKEN_OP_QUESTION; break;
-	case '!': token->type = TOKEN_OP_EXCLAMATION; break;
-	case '=': token->type = TOKEN_OP_EQUALS; break;
-	case '<': token->type = TOKEN_OP_LESS_THAN; break;
-	case '>': token->type = TOKEN_OP_GREATER_THAN; break;
+	case '+': token->type = TOKEN_PLUS; break;
+	case '-': token->type = TOKEN_MINUS; break;
+	case '*': token->type = TOKEN_ASTERISK; break;
+	case '/': token->type = TOKEN_SLASH; break;
+	case '%': token->type = TOKEN_PERCENT; break;
+	case '&': token->type = TOKEN_AMPERSAND; break;
+	case '|': token->type = TOKEN_OR; break;
+	case '^': token->type = TOKEN_CARET; break;
+	case '?': token->type = TOKEN_QUESTION; break;
+	case '!': token->type = TOKEN_EXCLAMATION; break;
+	case '=': token->type = TOKEN_EQUALS; break;
+	case '<': token->type = TOKEN_LESS_THAN; break;
+	case '>': token->type = TOKEN_GREATER_THAN; break;
 	default:
 		assert(false && "ReadOperator");
 		break;
