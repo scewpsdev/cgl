@@ -2,6 +2,7 @@
 
 #include "Lexer.h"
 #include "utils/Arena.h"
+#include "utils/StringView.h"
 
 #include <stdint.h>
 
@@ -10,14 +11,25 @@ enum NodeType : uint8_t
 {
 	NODE_NULL = 0,
 
+	NODE_PRIMITIVE_TYPE,
+	NODE_NAMED_TYPE,
+	NODE_STRUCT_TYPE,
+	NODE_UNION_TYPE,
+	NODE_POINTER_TYPE,
+	NODE_OPTIONAL_TYPE,
+	NODE_FUNCTION_TYPE,
+	NODE_TUPLE_TYPE,
+	NODE_ARRAY_TYPE,
+
+	NODE_FIELD,
+	NODE_PARAMETER,
+
 	NODE_STRUCT,
 	NODE_ENUM,
 	NODE_UNION,
 	NODE_TYPEDEF,
 	NODE_FUNCTION,
 	NODE_MACRO,
-
-	NODE_TYPE,
 
 	NODE_COUNT
 };
@@ -46,12 +58,26 @@ enum TypeKind : uint8_t
 	TYPE_NULL = 0,
 
 	TYPE_VOID,
-	TYPE_INTEGER,
+
+	TYPE_INT_START,
+	TYPE_INT8,
+	TYPE_INT16,
+	TYPE_INT32,
+	TYPE_INT64,
+	TYPE_UINT8,
+	TYPE_UINT16,
+	TYPE_UINT32,
+	TYPE_UINT64,
+	TYPE_INT_END,
+
+	TYPE_FLOAT_BEGIN,
 	TYPE_FLOAT,
+	TYPE_DOUBLE,
+	TYPE_FLOAT_END,
+
 	TYPE_BOOL,
 	TYPE_ANY,
 	TYPE_STRING,
-	TYPE_NAMED,
 	TYPE_STRUCT,
 	TYPE_UNION,
 	TYPE_POINTER,
@@ -64,17 +90,6 @@ enum TypeKind : uint8_t
 struct Type : NodeBase
 {
 	uint8_t typeKind;
-};
-
-struct IntegerType : Type
-{
-	uint8_t bitWidth;
-	bool isSigned;
-};
-
-struct FloatType : Type
-{
-	uint8_t bitWidth;
 };
 
 struct NamedType : Type
@@ -128,7 +143,7 @@ struct TupleType : Type
 struct ArrayType : Type
 {
 	Type* elementType;
-	int constantSize;
+	int64_t constantSize;
 };
 
 
@@ -136,6 +151,9 @@ struct Struct : NodeBase
 {
 	StringView name;
 	uint32_t storage;
+
+	Field** fields;
+	int numFields;
 };
 
 struct Enum : NodeBase
@@ -148,6 +166,9 @@ struct Union : NodeBase
 {
 	StringView name;
 	uint32_t storage;
+
+	Field** fields;
+	int numFields;
 };
 
 struct Typedef : NodeBase
@@ -156,10 +177,20 @@ struct Typedef : NodeBase
 	uint32_t storage;
 };
 
+struct Parameter : NodeBase
+{
+	Type* type;
+	StringView name;
+};
+
 struct Function : NodeBase
 {
 	StringView name;
 	uint32_t storage;
+
+	Parameter** params;
+	int numParams;
+	Type* returnType;
 };
 
 struct Macro : NodeBase
@@ -178,8 +209,7 @@ struct Node
 
 		// types
 
-		IntegerType integerType;
-		FloatType floatType;
+		Type primitiveType;
 		NamedType namedType;
 		StructType structType;
 		UnionType unionType;
@@ -188,6 +218,9 @@ struct Node
 		FunctionType functionType;
 		TupleType tupleType;
 		ArrayType arrayType;
+
+		Field field;
+		Parameter parameter;
 
 		// declarations
 
@@ -229,15 +262,19 @@ struct AST
 	Scope* globalScope;
 };
 
+typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
+
 
 void initAST(AST* ast);
 void destroyAST(AST* ast);
 
 void initNode(Node* node, uint8_t type, int start);
-void initType(Type* type, uint8_t typeKind, int start);
+void initType(Type* type, uint8_t nodeType, uint8_t typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);
 Node* lookupSymbol(SymbolTable* symbols, StringView identifier);
 
 void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena);
+
+void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr);

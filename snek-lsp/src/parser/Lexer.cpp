@@ -438,9 +438,6 @@ static TokenType getKeywordType(const char* str, int len)
 		case 'f':
 			if (str[1] == 'u' && str[2] == 'n' && str[3] == 'c') return TOKEN_FUNCTION;
 			break;
-		case 'h':
-			if (str[1] == 'a' && str[2] == 'l' && str[3] == 'f') return TOKEN_FLOAT16;
-			break;
 		case 'i':
 			if (str[1] == 'n' && str[2] == 't' && str[3] == '8') return TOKEN_INT8;
 			break;
@@ -449,9 +446,6 @@ static TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'n':
 			if (str[1] == 'u' && str[2] == 'l' && str[3] == 'l') return TOKEN_NULL_KEYWORD;
-			break;
-		case 'q':
-			if (str[1] == 'u' && str[2] == 'a' && str[3] == 'd') return TOKEN_FLOAT128;
 			break;
 		case 's':
 			if (str[1] == 'n' && str[2] == 'e' && str[3] == 'w') return TOKEN_STACKNEW;
@@ -521,7 +515,6 @@ static TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'i':
 			if (str[1] == 'm' && str[2] == 'p' && str[3] == 'o' && str[4] == 'r' && str[5] == 't') return TOKEN_IMPORT;
-			if (str[1] == 'n' && str[2] == 't' && str[3] == '1' && str[4] == '2' && str[5] == '8') return TOKEN_INT128;
 			break;
 		case 'm':
 			if (str[1] == 'e' && str[2] == 't' && str[3] == 'h' && str[4] == 'o' && str[5] == 'd') return TOKEN_METHOD;
@@ -551,26 +544,18 @@ static TokenType getKeywordType(const char* str, int len)
 	case 7:
 		switch (str[0])
 		{
-		case 'd':
-			if (str[1] == 'e' && str[2] == 'c' && str[3] == 'i' && str[4] == 'm' && str[5] == 'a' && str[6] == 'l') return TOKEN_FLOAT80;
-			break;
 		case 'e':
 			if (str[1] == 'x' && str[2] == 't' && str[3] == 'e' && str[4] == 'r' && str[5] == 'n' && str[6] == 'c') return TOKEN_EXTERN;
 			break;
 		case 'f':
-			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '1' && str[6] == '6') return TOKEN_FLOAT16;
 			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '3' && str[6] == '2') return TOKEN_FLOAT32;
 			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '6' && str[6] == '4') return TOKEN_FLOAT64;
-			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '8' && str[6] == '0') return TOKEN_FLOAT80;
 			break;
 		case 'p':
 			if (str[1] == 'a' && str[2] == 'c' && str[3] == 'k' && str[4] == 'a' && str[5] == 'g' && str[6] == 'e') return TOKEN_MODULE;
 			break;
 		case 't':
 			if (str[1] == 'y' && str[2] == 'p' && str[3] == 'e' && str[4] == 'd' && str[5] == 'e' && str[6] == 'f') return TOKEN_TYPEDEF;
-			break;
-		case 'u':
-			if (str[1] == 'i' && str[2] == 'n' && str[3] == 't' && str[4] == '1' && str[5] == '2' && str[6] == '8') return TOKEN_UINT128;
 			break;
 		}
 		break;
@@ -580,9 +565,6 @@ static TokenType getKeywordType(const char* str, int len)
 		{
 		case 'c':
 			if (str[1] == 'o' && str[2] == 'n' && str[3] == 't' && str[4] == 'i' && str[5] == 'n' && str[6] == 'u' && str[7] == 'e') return TOKEN_CONTINUE;
-			break;
-		case 'f':
-			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '1' && str[6] == '2' && str[7] == '8') return TOKEN_FLOAT128;
 			break;
 		case 'i':
 			if (str[1] == 'n' && str[2] == 't' && str[3] == 'e' && str[4] == 'r' && str[5] == 'n' && str[6] == 'a' && str[7] == 'l') return TOKEN_PRIVATE;

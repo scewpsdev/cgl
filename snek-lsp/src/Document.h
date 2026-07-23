@@ -49,7 +49,8 @@ enum LSPTokenModifier
 
 struct LSPToken
 {
-	Token token;
+	int offset;
+	int length;
 	int type;
 	int modifiers;
 };
@@ -102,7 +103,6 @@ struct Document
 	AST ast;
 	Arena arena;
 	Diagnostics diagnostics;
-	List<Token> tokens;
 
 
 	void init(const std::string& text);

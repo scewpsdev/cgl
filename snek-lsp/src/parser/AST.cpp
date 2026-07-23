@@ -20,9 +20,9 @@ void initNode(Node* node, uint8_t type, int start)
 	node->start = start;
 }
 
-void initType(Type* type, uint8_t typeKind, int start)
+void initType(Type* type, uint8_t nodeType, uint8_t typeKind, int start)
 {
-	initNode((Node*)type, NODE_TYPE, start);
+	initNode((Node*)type, nodeType, start);
 	type->typeKind = typeKind;
 }
 
@@ -136,4 +136,106 @@ void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
 
 	int symbolCapacity = isGlobal ? 1024 : 16;
 	initSymbolTable(&scope->symbols, symbolCapacity, arena);
+}
+
+static void traverseType(Type* type, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor((Node*)type, userPtr);
+
+	if (type->typeKind == TYPE_STRUCT)
+	{
+
+	}
+	else if (type->typeKind == TYPE_UNION)
+	{
+
+	}
+	else if (type->typeKind == TYPE_POINTER)
+	{
+		PointerType* pointerType = (PointerType*)type;
+		traverseType(pointerType->elementType, visitor, userPtr);
+	}
+	else if (type->typeKind == TYPE_OPTIONAL)
+	{
+		OptionalType* optionalType = (OptionalType*)type;
+		traverseType(optionalType->elementType, visitor, userPtr);
+	}
+	else if (type->typeKind == TYPE_FUNCTION)
+	{
+
+	}
+	else if (type->typeKind == TYPE_TUPLE)
+	{
+
+	}
+	else if (type->typeKind == TYPE_ARRAY)
+	{
+		ArrayType* arrayType = (ArrayType*)type;
+		traverseType(arrayType->elementType, visitor, userPtr);
+	}
+}
+
+static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor((Node*)field, userPtr);
+
+	traverseType(field->type, visitor, userPtr);
+}
+
+static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor((Node*)parameter, userPtr);
+
+	traverseType(parameter->type, visitor, userPtr);
+}
+
+static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor(declaration, userPtr);
+
+	if (declaration->type == NODE_STRUCT)
+	{
+		Struct* struct_ = (Struct*)declaration;
+		for (int i = 0; i < struct_->numFields; i++)
+		{
+			traverseField(struct_->fields[i], visitor, userPtr);
+		}
+	}
+	else if (declaration->type == NODE_ENUM)
+	{
+	}
+	else if (declaration->type == NODE_UNION)
+	{
+		Union* union_ = (Union*)declaration;
+		for (int i = 0; i < union_->numFields; i++)
+		{
+			traverseField(union_->fields[i], visitor, userPtr);
+		}
+	}
+	else if (declaration->type == NODE_TYPEDEF)
+	{
+	}
+	else if (declaration->type == NODE_FUNCTION)
+	{
+		Function* function = (Function*)declaration;
+		for (int i = 0; i < function->numParams; i++)
+		{
+			traverseParameter(function->params[i], visitor, userPtr);
+		}
+		if (function->returnType)
+		{
+			traverseType(function->returnType, visitor, userPtr);
+		}
+	}
+	else if (declaration->type == NODE_MACRO)
+	{
+	}
+}
+
+void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr)
+{
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		traverseDeclaration(ast->declarations[i], visitor, userPtr);
+	}
 }

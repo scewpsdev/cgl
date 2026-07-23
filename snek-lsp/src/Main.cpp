@@ -354,7 +354,6 @@ void Parse(Document* document)
 			destroyDiagnostics(&document->diagnostics);
 			destroyArena(&document->arena);
 			destroyAST(&document->ast);
-			document->tokens.clear();
 		}
 
 		initAST(&document->ast);
@@ -365,13 +364,8 @@ void Parse(Document* document)
 		document->hasAST = true;
 
 		if (i == 0)
-			sendDiagnosticsNotification(&document->diagnostics, document);
-
-		Lexer lexer = {};
-		initLexer(&lexer, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
-		while (lexer.cursor < lexer.length)
 		{
-			document->tokens.add(nextToken(&lexer));
+			sendDiagnosticsNotification(&document->diagnostics, document);
 		}
 	}
 

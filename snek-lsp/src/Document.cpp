@@ -16,7 +16,7 @@ extern List<Document*> documents;
 
 static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 {
-	return a->token.offset < b->token.offset ? -1 : a->token.offset == b->token.offset ? 0 : 1;
+	return a->offset < b->offset ? -1 : a->offset == b->offset ? 0 : 1;
 }
 
 void Document::init(const std::string& text)
@@ -111,64 +111,40 @@ static Node* resolveSymbol(StringView identifier)
 	return nullptr;
 }
 
+static void getNodeTokens(Node* node, List<LSPToken>* lspTokens)
+{
+	if (node->type == NODE_NAMED_TYPE)
+	{
+		if (Node* type = resolveSymbol(node->namedType.name))
+		{
+			LSPTokenType tokenType = type->type == NODE_STRUCT ? LSP_TOKEN_STRUCT : LSP_TOKEN_TYPE;
+			lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
+		}
+	}
+}
+
 void Document::getTokens(std::vector<int>& data)
 {
-	std::vector<LSPToken> lspTokens;
-
-	auto addToken = [&lspTokens](Token token, int type, int modifiers)
-		{
-			lspTokens.push_back({ token, type, modifiers });
-		};
-
-
-	std::map<uint32_t, Node*> nameMap;
+	List<LSPToken> lspTokens;
 
 	astMutex.lock();
 
 	if (hasAST)
 	{
-		for (int i = 0; i < tokens.size; i++)
-		{
-			if (tokens[i].type == TOKEN_IDENTIFIER)
-			{
-				StringView identifier = getTokenString(tokens[i], text.c_str());
-				if (Node* node = resolveSymbol(identifier))
-				{
-					int type = 0, modifiers = 0;
-
-					if (node->type == NODE_STRUCT)
-						type = LSP_TOKEN_STRUCT;
-					else if (node->type == NODE_ENUM)
-						type = LSP_TOKEN_ENUM;
-					else if (node->type == NODE_UNION)
-						type = LSP_TOKEN_STRUCT;
-					else if (node->type == NODE_TYPEDEF)
-						type = LSP_TOKEN_STRUCT;
-					else if (node->type == NODE_FUNCTION)
-						type = LSP_TOKEN_FUNCTION;
-					else if (node->type == NODE_MACRO)
-						type = LSP_TOKEN_MACRO;
-
-					if (type)
-					{
-						addToken(tokens[i], type, modifiers);
-					}
-				}
-			}
-		}
+		traverseAST(&ast, (ASTVisitor_t)getNodeTokens, &lspTokens);
 	}
 
 	astMutex.unlock();
 
-	qsort(lspTokens.data(), lspTokens.size(), sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
+	qsort(lspTokens.buffer, lspTokens.size, sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
 
 	int lastLine = 0, lastCol = 0;
-	for (int i = 0; i < (int)lspTokens.size(); i++)
+	for (int i = 0; i < lspTokens.size; i++)
 	{
 		LSPToken token = lspTokens[i];
 		int line, col;
-		getCoordFromOffset(token.token.offset, text.c_str(), &line, &col);
-		int len = token.token.length;
+		getCoordFromOffset(token.offset, text.c_str(), &line, &col);
+		int len = token.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
 		data.push_back(line - lastLine);
@@ -180,4 +156,6 @@ void Document::getTokens(std::vector<int>& data)
 		lastLine = line;
 		lastCol = col;
 	}
+
+	FreeList(&lspTokens);
 }
