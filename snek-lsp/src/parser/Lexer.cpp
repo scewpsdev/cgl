@@ -29,6 +29,11 @@ void initLexer(Lexer* lexer, const char* filename, const char* src, int length, 
 	}
 }
 
+void destroyLexer(Lexer* lexer)
+{
+	FreeList(&lexer->lineOffsets);
+}
+
 SourceLocation getSourceLocation(Lexer* lexer, int offset)
 {
 	for (int i = 0; i < lexer->lineOffsets.size - 1; i++)

@@ -354,13 +354,17 @@ void Parse(Document* document)
 			destroyDiagnostics(&document->diagnostics);
 			destroyArena(&document->arena);
 			destroyAST(&document->ast);
+			destroyParser(&document->parser);
 		}
 
 		initAST(&document->ast);
 		initArena(&document->arena, 16 * 1024 * 1024);
 		initDiagnostics(&document->diagnostics, &document->arena);
 
-		parse(&document->ast, &document->arena, &document->diagnostics, document->uri.c_str(), document->text.c_str(), (int)document->text.size());
+		document->parser = {};
+		initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
+
+		parse(&document->parser, &document->ast, &document->arena);
 		document->hasAST = true;
 
 		if (i == 0)

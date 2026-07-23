@@ -111,28 +111,50 @@ static Node* resolveSymbol(StringView identifier)
 	return nullptr;
 }
 
-static void getNodeTokens(Node* node, List<LSPToken>* lspTokens)
+struct ASTVisitorData
 {
-	if (node->type == NODE_NAMED_TYPE)
+	Parser* parser;
+	List<LSPToken>* lspTokens;
+};
+
+static void getStringRange(StringView str, Parser* parser, int* start, int* end)
+{
+	*start = (int)(str.ptr - parser->lexer.src);
+	*end = *start + str.length;
+}
+
+static void getNodeTokens(Node* node, ASTVisitorData* data)
+{
+	if (node->type == NODE_STRUCT)
+	{
+		Struct* struct_ = &node->struct_;
+		int start, end;
+		getStringRange(struct_->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, 0 });
+	}
+	else if (node->type == NODE_NAMED_TYPE)
 	{
 		if (Node* type = resolveSymbol(node->namedType.name))
 		{
 			LSPTokenType tokenType = type->type == NODE_STRUCT ? LSP_TOKEN_STRUCT : LSP_TOKEN_TYPE;
-			lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
+			data->lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
 		}
 	}
 }
 
 void Document::getTokens(std::vector<int>& data)
 {
+	if (!hasAST)
+		return;
+
 	List<LSPToken> lspTokens;
 
 	astMutex.lock();
 
-	if (hasAST)
-	{
-		traverseAST(&ast, (ASTVisitor_t)getNodeTokens, &lspTokens);
-	}
+	ASTVisitorData visitorData = {};
+	visitorData.parser = &parser;
+	visitorData.lspTokens = &lspTokens;
+	traverseAST(&ast, (ASTVisitor_t)getNodeTokens, &visitorData);
 
 	astMutex.unlock();
 
@@ -142,19 +164,18 @@ void Document::getTokens(std::vector<int>& data)
 	for (int i = 0; i < lspTokens.size; i++)
 	{
 		LSPToken token = lspTokens[i];
-		int line, col;
-		getCoordFromOffset(token.offset, text.c_str(), &line, &col);
+		SourceLocation location = getSourceLocation(&parser.lexer, token.offset);
 		int len = token.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
-		data.push_back(line - lastLine);
-		data.push_back(line == lastLine ? col - lastCol : col);
+		data.push_back(location.line - lastLine);
+		data.push_back(location.line == lastLine ? location.col - lastCol : location.col);
 		data.push_back(len);
 		data.push_back(token.type);
 		data.push_back(token.modifiers);
 
-		lastLine = line;
-		lastCol = col;
+		lastLine = location.line;
+		lastCol = location.col;
 	}
 
 	FreeList(&lspTokens);

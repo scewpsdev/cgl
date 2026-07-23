@@ -11,24 +11,7 @@
 #include <stdarg.h>
 
 
-struct Parser
-{
-	Lexer lexer;
-	int cursor, lastTokenEnd;
-
-	Token lookahead[3];
-	int lookaheadState[3];
-	int lookaheadCount;
-
-	Scope* currentScope;
-
-	Arena* arena;
-	List<Node*> scratch;
-
-	Diagnostics* diagnostics;
-};
-
-static void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
+void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
 {
 	parser->lexer = {};
 	initLexer(&parser->lexer, filename, src, length, arena, diagnostics);
@@ -37,6 +20,11 @@ static void initParser(Parser* parser, const char* filename, const char* src, in
 	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
 	parser->lastTokenEnd = 0;
+}
+
+void destroyParser(Parser* parser)
+{
+	destroyLexer(&parser->lexer);
 }
 
 static Scope* pushScope(Parser* parser)
@@ -55,17 +43,17 @@ static void popScope(Parser* parser)
 	parser->currentScope = parser->currentScope->parent;
 }
 
-static SourceLocation getSourceLocation(Parser* parser)
+SourceLocation getSourceLocation(Parser* parser)
 {
 	return getSourceLocation(&parser->lexer, parser->cursor);
 }
 
-static SourceLocation getSourceLocation(Parser* parser, Token token)
+SourceLocation getSourceLocation(Parser* parser, Token token)
 {
 	return getSourceLocation(&parser->lexer, token.offset);
 }
 
-static void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end)
+void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end)
 {
 	*start = getSourceLocation(&parser->lexer, token.offset);
 	*end = getSourceLocation(&parser->lexer, token.offset + token.length);
@@ -692,16 +680,13 @@ void parseFile(Parser* parser, AST* ast)
 	ast->declarations = copyFromScratchBuffer<Node*>(parser, scratchStart, &ast->numDeclarations);
 }
 
-void parse(AST* ast, Arena* arena, Diagnostics* diagnostics, const char* filename, const char* src, int length)
+void parse(Parser* parser, AST* ast, Arena* arena)
 {
-	Parser parser = {};
-	initParser(&parser, filename, src, length, arena, diagnostics);
-
 	ast->globalScope = arena->alloc<Scope>();
 	initScope(ast->globalScope, nullptr, true, arena);
-	parser.currentScope = ast->globalScope;
+	parser->currentScope = ast->globalScope;
 
-	parseFile(&parser, ast);
+	parseFile(parser, ast);
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
@@ -722,6 +707,6 @@ void parse(AST* ast, Arena* arena, Diagnostics* diagnostics, const char* filenam
 			identifier = declaration->macro.name;
 
 		if (identifier.ptr)
-			insertSymbol(&parser.currentScope->symbols, identifier, declaration);
+			insertSymbol(&parser->currentScope->symbols, identifier, declaration);
 	}
 }

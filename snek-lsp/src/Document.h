@@ -7,6 +7,7 @@
 #include "nlohmann/json.hpp"
 
 #include "parser/Lexer.h"
+#include "parser/Parser.h"
 #include "parser/AST.h"
 #include "parser/Diagnostics.h"
 #include "utils/List.h"
@@ -103,6 +104,7 @@ struct Document
 	AST ast;
 	Arena arena;
 	Diagnostics diagnostics;
+	Parser parser;
 
 
 	void init(const std::string& text);

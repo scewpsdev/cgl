@@ -146,6 +146,8 @@ struct Lexer
 
 
 void initLexer(Lexer* lexer, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics);
+void destroyLexer(Lexer* lexer);
+
 SourceLocation getSourceLocation(Lexer* lexer, int offset);
 StringView getTokenString(Token token, const char* src);
 
