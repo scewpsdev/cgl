@@ -21,6 +21,8 @@ enum NodeType : uint8_t
 	NODE_TUPLE_TYPE,
 	NODE_ARRAY_TYPE,
 
+	NODE_EXPRESSION,
+
 	NODE_FIELD,
 	NODE_PARAMETER,
 
@@ -29,7 +31,9 @@ enum NodeType : uint8_t
 	NODE_UNION,
 	NODE_TYPEDEF,
 	NODE_FUNCTION,
+	NODE_GLOBAL_VARIABLE,
 	NODE_MACRO,
+	NODE_IMPORT,
 
 	NODE_COUNT
 };
@@ -147,6 +151,12 @@ struct ArrayType : Type
 };
 
 
+struct Expression : NodeBase
+{
+
+};
+
+
 struct Struct : NodeBase
 {
 	StringView name;
@@ -193,10 +203,29 @@ struct Function : NodeBase
 	Type* returnType;
 };
 
+struct VariableDeclarator
+{
+	StringView name;
+	Expression* value;
+};
+
+struct GlobalVariable : NodeBase
+{
+	Type* type;
+	uint32_t storage;
+	StringView* names;
+	int numNames;
+};
+
 struct Macro : NodeBase
 {
 	StringView name;
 	uint32_t storage;
+};
+
+struct Import : NodeBase
+{
+	StringView name;
 };
 
 struct Node
@@ -219,6 +248,8 @@ struct Node
 		TupleType tupleType;
 		ArrayType arrayType;
 
+		Expression expression;
+
 		Field field;
 		Parameter parameter;
 
@@ -229,7 +260,9 @@ struct Node
 		Union union_;
 		Typedef typedef_;
 		Function function;
+		GlobalVariable globalVariable;
 		Macro macro;
+		Import import;
 	};
 };
 

@@ -20,10 +20,13 @@ void initParser(Parser* parser, const char* filename, const char* src, int lengt
 	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
 	parser->lastTokenEnd = 0;
+
+	initScratchBuffer(&parser->scratch, 16);
 }
 
 void destroyParser(Parser* parser)
 {
+	destroyScratchBuffer(&parser->scratch);
 	destroyLexer(&parser->lexer);
 }
 
@@ -195,19 +198,19 @@ static StorageSpecifier getStorageSpecifier(TokenType tokenType)
 }
 
 template<typename T>
-static T* copyFromScratchBuffer(Parser* parser, int start, int* outCount)
+static T* copyFromScratchBuffer(Parser* parser, int mark, int* outCount)
 {
 	T* nodes = nullptr;
 
-	int count = parser->scratch.size - start;
+	int count = parser->scratch.count<T>(mark);
 	if (count > 0)
 	{
 		nodes = parser->arena->alloc<T>(count);
-		memcpy(nodes, &parser->scratch[start], count * sizeof(T));
+		memcpy(nodes, parser->scratch.memory + mark, count * sizeof(T));
 	}
 
 	*outCount = count;
-	parser->scratch.resize(start);
+	parser->scratch.release(mark);
 
 	return nodes;
 }
@@ -387,10 +390,8 @@ Field* parseField(Parser* parser)
 	return field;
 }
 
-Struct* parseStruct(Parser* parser)
+Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 {
-	int start = parser->cursor;
-
 	nextToken(parser); // struct
 
 	Token identifier;
@@ -399,6 +400,7 @@ Struct* parseStruct(Parser* parser)
 
 	Struct* struct_ = parser->arena->alloc<Struct>();
 	initNode((Node*)struct_, NODE_STRUCT, start);
+	struct_->storage = storage;
 	struct_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -407,7 +409,7 @@ Struct* parseStruct(Parser* parser)
 	}
 	else if (expectToken(parser, '{'))
 	{
-		int scratchStart = parser->scratch.size;
+		int mark = parser->scratch.mark();
 
 		while (!nextIs(parser, '}'))
 		{
@@ -415,7 +417,7 @@ Struct* parseStruct(Parser* parser)
 				parser->scratch.add((Node*)field);
 		}
 
-		struct_->fields = copyFromScratchBuffer<Field*>(parser, scratchStart, &struct_->numFields);
+		struct_->fields = copyFromScratchBuffer<Field*>(parser, mark, &struct_->numFields);
 
 		nextToken(parser);
 	}
@@ -425,10 +427,8 @@ Struct* parseStruct(Parser* parser)
 	return struct_;
 }
 
-Enum* parseEnum(Parser* parser)
+Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 {
-	int start = parser->cursor;
-
 	nextToken(parser); // enum
 
 	Token identifier;
@@ -437,6 +437,7 @@ Enum* parseEnum(Parser* parser)
 
 	Enum* enum_ = parser->arena->alloc<Enum>();
 	initNode((Node*)enum_, NODE_ENUM, start);
+	enum_->storage = storage;
 	enum_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -453,10 +454,8 @@ Enum* parseEnum(Parser* parser)
 	return enum_;
 }
 
-Union* parseUnion(Parser* parser)
+Union* parseUnion(Parser* parser, uint32_t storage, int start)
 {
-	int start = parser->cursor;
-
 	nextToken(parser); // union
 
 	Token identifier;
@@ -465,6 +464,7 @@ Union* parseUnion(Parser* parser)
 
 	Union* union_ = parser->arena->alloc<Union>();
 	initNode((Node*)union_, NODE_UNION, start);
+	union_->storage = storage;
 	union_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -481,10 +481,8 @@ Union* parseUnion(Parser* parser)
 	return union_;
 }
 
-Typedef* parseTypedef(Parser* parser)
+Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 {
-	int start = parser->cursor;
-
 	nextToken(parser); // typedef
 
 	Token identifier;
@@ -493,6 +491,7 @@ Typedef* parseTypedef(Parser* parser)
 
 	Typedef* typedef_ = parser->arena->alloc<Typedef>();
 	initNode((Node*)typedef_, NODE_TYPEDEF, start);
+	typedef_->storage = storage;
 	typedef_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -530,10 +529,8 @@ Parameter* parseParameter(Parser* parser)
 	return parameter;
 }
 
-Function* parseFunction(Parser* parser)
+Function* parseFunction(Parser* parser, uint32_t storage, int start)
 {
-	int start = parser->cursor;
-
 	nextToken(parser); // func
 
 	Token identifier;
@@ -549,9 +546,10 @@ Function* parseFunction(Parser* parser)
 
 	Function* function = parser->arena->alloc<Function>();
 	initNode((Node*)function, NODE_FUNCTION, start);
+	function->storage = storage;
 	function->name = getTokenString(identifier, parser);
 
-	int scratchStart = parser->scratch.size;
+	int mark = parser->scratch.mark();
 
 	bool next = !nextIs(parser, ')');
 	while (next)
@@ -565,7 +563,7 @@ Function* parseFunction(Parser* parser)
 	if (!expectToken(parser, ')'))
 		skipPastToken(parser, ')');
 
-	function->params = copyFromScratchBuffer<Parameter*>(parser, scratchStart, &function->numParams);
+	function->params = copyFromScratchBuffer<Parameter*>(parser, mark, &function->numParams);
 
 	if (!nextIs(parser, '{'))
 	{
@@ -586,10 +584,52 @@ Function* parseFunction(Parser* parser)
 	return function;
 }
 
-Macro* parseMacro(Parser* parser)
+GlobalVariable* parseGlobalVariable(Parser* parser, Type* type, uint32_t storage, int start)
 {
-	int start = parser->cursor;
+	int mark = parser->scratch.mark();
 
+	Token identifier;
+	bool next = nextIs(parser, TOKEN_IDENTIFIER, &identifier);
+	while (next)
+	{
+		if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
+		{
+			parser->scratch.release(mark);
+			skipPastToken(parser, ';');
+			return nullptr;
+		}
+
+		parser->scratch.add(getTokenString(identifier, parser));
+
+		// skip value todo remove
+		if (nextIs(parser, TOKEN_EQUALS))
+		{
+			while (!(nextIs(parser, ',') || nextIs(parser, ';')))
+				nextToken(parser);
+		}
+
+		next = nextIs(parser, ',');
+		if (next)
+			nextToken(parser);
+	}
+
+	expectToken(parser, ';');
+
+	int end = parser->lastTokenEnd;
+
+	GlobalVariable* globalVariable = parser->arena->alloc<GlobalVariable>();
+	initNode((Node*)globalVariable, NODE_GLOBAL_VARIABLE, start);
+	globalVariable->storage = storage;
+	globalVariable->type = type;
+	globalVariable->end = end;
+
+	globalVariable->names = copyFromScratchBuffer<StringView>(parser, mark, &globalVariable->numNames);
+
+	return globalVariable;
+}
+
+Macro* parseMacro(Parser* parser, uint32_t storage, int start)
+{
 	nextToken(parser); // macro
 
 	Token identifier;
@@ -598,6 +638,7 @@ Macro* parseMacro(Parser* parser)
 
 	Macro* macro = parser->arena->alloc<Macro>();
 	initNode((Node*)macro, NODE_MACRO, start);
+	macro->storage = storage;
 	macro->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -616,7 +657,9 @@ Macro* parseMacro(Parser* parser)
 
 void parseFile(Parser* parser, AST* ast)
 {
-	int scratchStart = parser->scratch.size;
+	int start = parser->cursor;
+
+	int mark = parser->scratch.mark();
 
 	Token token = {};
 	while ((token = peekToken(parser)).type)
@@ -631,32 +674,32 @@ void parseFile(Parser* parser, AST* ast)
 
 		if (token.type == TOKEN_STRUCT)
 		{
-			if (Struct* struct_ = parseStruct(parser))
+			if (Struct* struct_ = parseStruct(parser, storage, start))
 				parser->scratch.add((Node*)struct_);
 		}
 		else if (token.type == TOKEN_ENUM)
 		{
-			if (Enum* enum_ = parseEnum(parser))
+			if (Enum* enum_ = parseEnum(parser, storage, start))
 				parser->scratch.add((Node*)enum_);
 		}
 		else if (token.type == TOKEN_UNION)
 		{
-			if (Union* union_ = parseUnion(parser))
+			if (Union* union_ = parseUnion(parser, storage, start))
 				parser->scratch.add((Node*)union_);
 		}
 		else if (token.type == TOKEN_TYPEDEF)
 		{
-			if (Typedef* typedef_ = parseTypedef(parser))
+			if (Typedef* typedef_ = parseTypedef(parser, storage, start))
 				parser->scratch.add((Node*)typedef_);
 		}
 		else if (token.type == TOKEN_FUNCTION)
 		{
-			if (Function* function = parseFunction(parser))
+			if (Function* function = parseFunction(parser, storage, start))
 				parser->scratch.add((Node*)function);
 		}
 		else if (token.type == TOKEN_MACRO)
 		{
-			if (Macro* macro = parseMacro(parser))
+			if (Macro* macro = parseMacro(parser, storage, start))
 				parser->scratch.add((Node*)macro);
 		}
 		else if (token.type == TOKEN_MODULE)
@@ -671,13 +714,18 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			skipPastToken(parser, ';');
 		}
+		else if (Type* type = parseType(parser))
+		{
+			if (GlobalVariable* globalVariable = parseGlobalVariable(parser, type, storage, start))
+				parser->scratch.add((Node*)globalVariable);
+		}
 		else
 		{
 			skipPastToken(parser, ';');
 		}
 	}
 
-	ast->declarations = copyFromScratchBuffer<Node*>(parser, scratchStart, &ast->numDeclarations);
+	ast->declarations = copyFromScratchBuffer<Node*>(parser, mark, &ast->numDeclarations);
 }
 
 void parse(Parser* parser, AST* ast, Arena* arena)
@@ -694,19 +742,23 @@ void parse(Parser* parser, AST* ast, Arena* arena)
 
 		StringView identifier = {};
 		if (declaration->type == NODE_STRUCT)
-			identifier = declaration->struct_.name;
+			insertSymbol(&parser->currentScope->symbols, declaration->struct_.name, declaration);
 		else if (declaration->type == NODE_ENUM)
-			identifier = declaration->enum_.name;
+			insertSymbol(&parser->currentScope->symbols, declaration->enum_.name, declaration);
 		else if (declaration->type == NODE_UNION)
-			identifier = declaration->union_.name;
+			insertSymbol(&parser->currentScope->symbols, declaration->union_.name, declaration);
 		else if (declaration->type == NODE_TYPEDEF)
-			identifier = declaration->typedef_.name;
+			insertSymbol(&parser->currentScope->symbols, declaration->typedef_.name, declaration);
 		else if (declaration->type == NODE_FUNCTION)
-			identifier = declaration->function.name;
+			insertSymbol(&parser->currentScope->symbols, declaration->function.name, declaration);
+		else if (declaration->type == NODE_GLOBAL_VARIABLE)
+		{
+			for (int i = 0; i < declaration->globalVariable.numNames; i++)
+			{
+				insertSymbol(&parser->currentScope->symbols, declaration->globalVariable.names[i], declaration);
+			}
+		}
 		else if (declaration->type == NODE_MACRO)
-			identifier = declaration->macro.name;
-
-		if (identifier.ptr)
-			insertSymbol(&parser->currentScope->symbols, identifier, declaration);
+			insertSymbol(&parser->currentScope->symbols, declaration->macro.name, declaration);
 	}
 }

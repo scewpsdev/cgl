@@ -132,6 +132,16 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 		getStringRange(struct_->name, data->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, 0 });
 	}
+	else if (node->type == NODE_GLOBAL_VARIABLE)
+	{
+		GlobalVariable* globalVariable = &node->globalVariable;
+		for (int i = 0; i < globalVariable->numNames; i++)
+		{
+			int start, end;
+			getStringRange(globalVariable->names[i], data->parser, &start, &end);
+			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, 0 });
+		}
+	}
 	else if (node->type == NODE_NAMED_TYPE)
 	{
 		if (Node* type = resolveSymbol(node->namedType.name))

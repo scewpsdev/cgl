@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Lexer.h"
+#include "utils/ScratchBuffer.h"
 
 
 struct AST;
@@ -21,7 +22,7 @@ struct Parser
 	Scope* currentScope;
 
 	Arena* arena;
-	List<Node*> scratch;
+	ScratchBuffer scratch;
 
 	Diagnostics* diagnostics;
 };

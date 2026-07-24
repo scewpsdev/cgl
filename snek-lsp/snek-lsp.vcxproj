@@ -147,6 +147,7 @@
     <ClCompile Include="src\utils\Arena.cpp" />
     <ClCompile Include="src\utils\Hash.cpp" />
     <ClCompile Include="src\utils\Log.cpp" />
+    <ClCompile Include="src\utils\ScratchBuffer.cpp" />
     <ClCompile Include="src\utils\StringBuffer.cpp" />
     <ClCompile Include="src\utils\StringView.cpp" />
   </ItemGroup>
@@ -210,6 +211,7 @@
     <ClInclude Include="src\utils\HashMap.h" />
     <ClInclude Include="src\utils\List.h" />
     <ClInclude Include="src\utils\Log.h" />
+    <ClInclude Include="src\utils\ScratchBuffer.h" />
     <ClInclude Include="src\utils\StringBuffer.h" />
     <ClInclude Include="src\utils\StringView.h" />
   </ItemGroup>

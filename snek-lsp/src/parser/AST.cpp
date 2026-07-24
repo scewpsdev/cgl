@@ -227,7 +227,15 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 			traverseType(function->returnType, visitor, userPtr);
 		}
 	}
+	else if (declaration->type == NODE_GLOBAL_VARIABLE)
+	{
+		GlobalVariable* globalVariable = &declaration->globalVariable;
+		traverseType(globalVariable->type, visitor, userPtr);
+	}
 	else if (declaration->type == NODE_MACRO)
+	{
+	}
+	else if (declaration->type == NODE_IMPORT)
 	{
 	}
 }
