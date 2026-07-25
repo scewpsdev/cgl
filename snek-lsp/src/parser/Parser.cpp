@@ -73,6 +73,11 @@ static StringView getTokenString(Token token, Parser* parser)
 	return getTokenString(token, parser->lexer.src);
 }
 
+static StringView getRangedString(int start, int end, Parser* parser)
+{
+	return CreateString(parser->lexer.src + start, end - start);
+}
+
 static void error(Parser* parser, SourceLocation start, SourceLocation end, const char* fmt, ...)
 {
 	if (!parser->diagnostics) return;
@@ -87,6 +92,22 @@ static void error(Parser* parser, SourceLocation start, SourceLocation end, cons
 	va_end(args);
 
 	logMessage(parser->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
+}
+
+static void error(Parser* parser, SourceLocation location, const char* fmt, ...)
+{
+	if (!parser->diagnostics) return;
+
+	va_list args;
+	va_start(args, fmt);
+
+	int length = vsnprintf(nullptr, 0, fmt, args);
+	char* msg = (char*)parser->arena->alloc(length + 1);
+	vsnprintf(msg, length + 1, fmt, args);
+
+	va_end(args);
+
+	logMessage(parser->diagnostics, msg, location.line, location.col, location.line, location.col + 1, DIAGNOSTICS_ERROR);
 }
 
 static Token nextToken(Parser* parser)
@@ -365,6 +386,292 @@ Type* parseType(Parser* parser)
 	return nullptr;
 }
 
+Expression* parseAtom(Parser* parser)
+{
+	int start = parser->cursor;
+
+	Token token;
+	if (nextIs(parser, TOKEN_INT_LITERAL, &token))
+	{
+		nextToken(parser);
+
+		IntLiteral* intLiteral = parser->arena->alloc<IntLiteral>();
+		initNode((Node*)intLiteral, NODE_INT_LITERAL, start);
+		intLiteral->value = getTokenString(token, parser);
+		intLiteral->end = parser->cursor;
+
+		return intLiteral;
+	}
+	else if (nextIs(parser, TOKEN_STRING_LITERAL, &token))
+	{
+		nextToken(parser);
+
+		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
+		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
+		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 1], token.length - 2);
+		stringLiteral->end = parser->cursor;
+
+		return stringLiteral;
+	}
+	else if (nextIs(parser, TOKEN_STRING_LITERAL_MULTILINE, &token))
+	{
+		nextToken(parser);
+
+		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
+		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
+		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 4], token.length - 8);
+		stringLiteral->end = parser->cursor;
+
+		return stringLiteral;
+	}
+	else if (nextIs(parser, TOKEN_IDENTIFIER, &token))
+	{
+		nextToken(parser);
+
+		Identifier* identifier = parser->arena->alloc<Identifier>();
+		initNode((Node*)identifier, NODE_IDENTIFIER, start);
+		identifier->name = getTokenString(token, parser);
+		identifier->end = parser->cursor;
+
+		return identifier;
+	}
+
+	return nullptr;
+}
+
+static OperatorType peekBinaryOperatorType(Parser* parser, int* numTokens)
+{
+	Token token = peekToken(parser);
+	*numTokens = 1;
+
+	if (token.type == TOKEN_PLUS)
+	{
+		return OPERATOR_ADD;
+	}
+	else if (token.type == TOKEN_MINUS)
+	{
+		return OPERATOR_SUBTRACT;
+	}
+	else if (token.type == TOKEN_ASTERISK)
+	{
+		return OPERATOR_MULTIPLY;
+	}
+	else if (token.type == TOKEN_SLASH)
+	{
+		return OPERATOR_DIVIDE;
+	}
+	else if (token.type == TOKEN_PERCENT)
+	{
+		return OPERATOR_MODULO;
+	}
+	else if (token.type == TOKEN_LESS_THAN)
+	{
+		if (peekToken(parser, 1).type == TOKEN_LESS_THAN)
+		{
+			*numTokens = 2;
+			return OPERATOR_BITSHIFT_LEFT;
+		}
+		else
+		{
+			return OPERATOR_LESS;
+		}
+	}
+	else if (token.type == TOKEN_GREATER_THAN)
+	{
+		if (peekToken(parser, 1).type == TOKEN_GREATER_THAN)
+		{
+			*numTokens = 2;
+			return OPERATOR_BITSHIFT_RIGHT;
+		}
+		else
+		{
+			return OPERATOR_GREATER;
+		}
+	}
+
+	return OPERATOR_NULL;
+}
+
+static int getOperatorPrecedence(OperatorType operatorType)
+{
+	switch (operatorType)
+	{
+	case OPERATOR_INCREMENT_POSTFIX:
+	case OPERATOR_DECREMENT_POSTFIX:
+	case OPERATOR_FUNCTION_CALL:
+	case OPERATOR_SUBSCRIPT:
+	case OPERATOR_MEMBER:
+		return 1;
+
+	case OPERATOR_INCREMENT_PREFIX:
+	case OPERATOR_DECREMENT_PREFIX:
+	case OPERATOR_PLUS_PREFIX:
+	case OPERATOR_MINUS_PREFIX:
+	case OPERATOR_LOGICAL_NOT:
+	case OPERATOR_BITWISE_NOT:
+	case OPERATOR_CAST:
+	case OPERATOR_DEREFERENCE:
+	case OPERATOR_ADDRESS:
+		return 2;
+
+	case OPERATOR_MULTIPLY:
+	case OPERATOR_DIVIDE:
+	case OPERATOR_MODULO:
+		return 3;
+
+	case OPERATOR_ADD:
+	case OPERATOR_SUBTRACT:
+		return 4;
+
+	case OPERATOR_BITSHIFT_LEFT:
+	case OPERATOR_BITSHIFT_RIGHT:
+		return 5;
+
+	case OPERATOR_LESS:
+	case OPERATOR_LESS_EQUALS:
+	case OPERATOR_GREATER:
+	case OPERATOR_GREATER_EQUALS:
+		return 6;
+
+	case OPERATOR_EQUALS:
+	case OPERATOR_NOT_EQUALS:
+		return 7;
+
+	case OPERATOR_BITWISE_AND:
+		return 8;
+
+	case OPERATOR_BITWISE_XOR:
+		return 9;
+
+	case OPERATOR_BITWISE_OR:
+		return 10;
+
+	case OPERATOR_LOGICAL_AND:
+		return 11;
+
+	case OPERATOR_LOGICAL_OR:
+		return 12;
+
+	case OPERATOR_TERNARY_CONDITION:
+		return 13;
+
+	case OPERATOR_ASSIGN:
+	case OPERATOR_ADD_ASSIGN:
+	case OPERATOR_SUBTRACT_ASSIGN:
+	case OPERATOR_MULTIPLY_ASSIGN:
+	case OPERATOR_DIVIDE_ASSIGN:
+	case OPERATOR_MODULO_ASSIGN:
+	case OPERATOR_BITSHIFT_LEFT_ASSIGN:
+	case OPERATOR_BITSHIFT_RIGHT_ASSIGN:
+	case OPERATOR_BITWISE_AND_ASSIGN:
+	case OPERATOR_BITWISE_XOR_ASSIGN:
+	case OPERATOR_BITWISE_OR_ASSIGN:
+		return 14;
+
+	default:
+		return 1000;
+	}
+}
+
+Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
+{
+	if (Expression* left = parseAtom(parser))
+	{
+		int numOperatorTokens;
+		while (OperatorType operatorType = peekBinaryOperatorType(parser, &numOperatorTokens))
+		{
+			if (getOperatorPrecedence(operatorType) < getOperatorPrecedence(lastOperatorType))
+			{
+				int operatorStart = parser->cursor;
+				for (int i = 0; i < numOperatorTokens; i++)
+					nextToken(parser);
+				int operatorEnd = parser->cursor;
+
+				if (Expression* right = parseBinaryOperator(parser, operatorType))
+				{
+					BinaryOperator* op = parser->arena->alloc<BinaryOperator>();
+					initNode((Node*)op, NODE_BINARY_OPERATOR, left->start);
+					op->op = operatorType;
+					op->left = left;
+					op->right = right;
+					op->end = parser->cursor;
+
+					left = op;
+				}
+				else
+				{
+					StringView operatorString = getRangedString(operatorStart, operatorEnd, parser);
+					error(parser, getSourceLocation(parser), "Expected expression after operator %.*s", operatorString.length, operatorString.ptr);
+					return left;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		return left;
+	}
+
+	return nullptr;
+}
+
+Expression* parseExpression(Parser* parser)
+{
+	return parseBinaryOperator(parser, OPERATOR_NULL);
+}
+
+Statement* parseStatement(Parser* parser)
+{
+	int start = parser->cursor;
+
+	if (nextIs(parser, '{'))
+	{
+		nextToken(parser);
+
+		BlockStatement* block = parser->arena->alloc<BlockStatement>();
+		initNode((Node*)block, NODE_BLOCK_STATEMENT, start);
+
+		int mark = parser->scratch.mark();
+
+		while (!nextIs(parser, '}'))
+		{
+			if (Statement* statement = parseStatement(parser))
+			{
+				parser->scratch.add(statement);
+			}
+			else
+			{
+				Token token = nextToken(parser);
+				StringView tokenStr = getTokenString(token, parser);
+				SourceLocation start, end;
+				getSourceLocation(parser, token, &start, &end);
+				error(parser, start, end, "Unexpected token '%.*s'", tokenStr.length, tokenStr.ptr);
+			}
+		}
+
+		nextToken(parser);
+
+		block->statements = copyFromScratchBuffer<Statement*>(parser, mark, &block->numStatements);
+		block->end = parser->cursor;
+
+		return block;
+	}
+	if (Expression* expression = parseExpression(parser))
+	{
+		expectToken(parser, ';');
+
+		ExpressionStatement* expressionStatement = parser->arena->alloc<ExpressionStatement>();
+		initNode((Node*)expressionStatement, NODE_EXPRESSION_STATEMENT, start);
+		expressionStatement->end = parser->cursor;
+		expressionStatement->expression = expression;
+		return expressionStatement;
+	}
+
+	return nullptr;
+}
+
 Field* parseField(Parser* parser)
 {
 	Type* type = parseType(parser);
@@ -574,9 +881,9 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 	{
 		nextToken(parser);
 	}
-	else if (expectToken(parser, '{'))
+	else
 	{
-		skipPastTokenNested(parser, '{', '}');
+		function->body = parseStatement(parser);
 	}
 
 	function->end = parser->cursor;
@@ -599,14 +906,22 @@ GlobalVariable* parseGlobalVariable(Parser* parser, Type* type, uint32_t storage
 			return nullptr;
 		}
 
-		parser->scratch.add(getTokenString(identifier, parser));
+		VariableDeclarator declarator = {};
+		declarator.name = getTokenString(identifier, parser);
+		declarator.value = nullptr;
 
-		// skip value todo remove
 		if (nextIs(parser, TOKEN_EQUALS))
 		{
-			while (!(nextIs(parser, ',') || nextIs(parser, ';')))
-				nextToken(parser);
+			nextToken(parser);
+			declarator.value = parseExpression(parser);
+
+			if (!declarator.value)
+			{
+				error(parser, getSourceLocation(parser), "Expected an expression");
+			}
 		}
+
+		parser->scratch.add(declarator);
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -623,7 +938,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, Type* type, uint32_t storage
 	globalVariable->type = type;
 	globalVariable->end = end;
 
-	globalVariable->names = copyFromScratchBuffer<StringView>(parser, mark, &globalVariable->numNames);
+	globalVariable->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &globalVariable->numDeclarators);
 
 	return globalVariable;
 }
@@ -753,9 +1068,9 @@ void parse(Parser* parser, AST* ast, Arena* arena)
 			insertSymbol(&parser->currentScope->symbols, declaration->function.name, declaration);
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
-			for (int i = 0; i < declaration->globalVariable.numNames; i++)
+			for (int i = 0; i < declaration->globalVariable.numDeclarators; i++)
 			{
-				insertSymbol(&parser->currentScope->symbols, declaration->globalVariable.names[i], declaration);
+				insertSymbol(&parser->currentScope->symbols, declaration->globalVariable.declarators[i].name, declaration);
 			}
 		}
 		else if (declaration->type == NODE_MACRO)

@@ -21,7 +21,13 @@ enum NodeType : uint8_t
 	NODE_TUPLE_TYPE,
 	NODE_ARRAY_TYPE,
 
-	NODE_EXPRESSION,
+	NODE_INT_LITERAL,
+	NODE_STRING_LITERAL,
+	NODE_IDENTIFIER,
+	NODE_BINARY_OPERATOR,
+
+	NODE_BLOCK_STATEMENT,
+	NODE_EXPRESSION_STATEMENT,
 
 	NODE_FIELD,
 	NODE_PARAMETER,
@@ -156,6 +162,109 @@ struct Expression : NodeBase
 
 };
 
+struct IntLiteral : Expression
+{
+	StringView value;
+};
+
+struct StringLiteral : Expression
+{
+	StringView value;
+};
+
+struct Identifier : Expression
+{
+	StringView name;
+};
+
+enum OperatorType : uint8_t
+{
+	OPERATOR_NULL = 0,
+
+	OPERATOR_INCREMENT_POSTFIX,
+	OPERATOR_DECREMENT_POSTFIX,
+	OPERATOR_FUNCTION_CALL,
+	OPERATOR_SUBSCRIPT,
+	OPERATOR_MEMBER,
+
+	OPERATOR_INCREMENT_PREFIX,
+	OPERATOR_DECREMENT_PREFIX,
+	OPERATOR_PLUS_PREFIX,
+	OPERATOR_MINUS_PREFIX,
+	OPERATOR_LOGICAL_NOT,
+	OPERATOR_BITWISE_NOT,
+	OPERATOR_CAST,
+	OPERATOR_DEREFERENCE,
+	OPERATOR_ADDRESS,
+
+	OPERATOR_MULTIPLY,
+	OPERATOR_DIVIDE,
+	OPERATOR_MODULO,
+
+	OPERATOR_ADD,
+	OPERATOR_SUBTRACT,
+
+	OPERATOR_BITSHIFT_LEFT,
+	OPERATOR_BITSHIFT_RIGHT,
+
+	OPERATOR_LESS,
+	OPERATOR_LESS_EQUALS,
+	OPERATOR_GREATER,
+	OPERATOR_GREATER_EQUALS,
+
+	OPERATOR_EQUALS,
+	OPERATOR_NOT_EQUALS,
+
+	OPERATOR_BITWISE_AND,
+
+	OPERATOR_BITWISE_XOR,
+
+	OPERATOR_BITWISE_OR,
+
+	OPERATOR_LOGICAL_AND,
+
+	OPERATOR_LOGICAL_OR,
+
+	OPERATOR_TERNARY_CONDITION,
+
+	OPERATOR_ASSIGN,
+	OPERATOR_ADD_ASSIGN,
+	OPERATOR_SUBTRACT_ASSIGN,
+	OPERATOR_MULTIPLY_ASSIGN,
+	OPERATOR_DIVIDE_ASSIGN,
+	OPERATOR_MODULO_ASSIGN,
+	OPERATOR_BITSHIFT_LEFT_ASSIGN,
+	OPERATOR_BITSHIFT_RIGHT_ASSIGN,
+	OPERATOR_BITWISE_AND_ASSIGN,
+	OPERATOR_BITWISE_XOR_ASSIGN,
+	OPERATOR_BITWISE_OR_ASSIGN,
+
+	OPERATOR_COUNT
+};
+
+struct BinaryOperator : Expression
+{
+	uint8_t op;
+	Expression* left, * right;
+};
+
+
+struct Statement : NodeBase
+{
+
+};
+
+struct BlockStatement : Statement
+{
+	Statement** statements;
+	int numStatements;
+};
+
+struct ExpressionStatement : Statement
+{
+	Expression* expression;
+};
+
 
 struct Struct : NodeBase
 {
@@ -201,6 +310,8 @@ struct Function : NodeBase
 	Parameter** params;
 	int numParams;
 	Type* returnType;
+
+	Statement* body;
 };
 
 struct VariableDeclarator
@@ -213,8 +324,8 @@ struct GlobalVariable : NodeBase
 {
 	Type* type;
 	uint32_t storage;
-	StringView* names;
-	int numNames;
+	VariableDeclarator* declarators;
+	int numDeclarators;
 };
 
 struct Macro : NodeBase
@@ -248,7 +359,12 @@ struct Node
 		TupleType tupleType;
 		ArrayType arrayType;
 
-		Expression expression;
+		IntLiteral intLiteral;
+		StringLiteral stringLiteral;
+		Identifier identifier;
+		BinaryOperator binaryOperator;
+
+		ExpressionStatement expressionStatement;
 
 		Field field;
 		Parameter parameter;
