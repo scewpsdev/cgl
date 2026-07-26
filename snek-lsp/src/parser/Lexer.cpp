@@ -263,7 +263,6 @@ static bool readNumberLiteral(Lexer* lexer, Token* token)
 	token->offset = start;
 
 	bool fp = false;
-	bool isDouble = true;
 	bool hex = false;
 
 	if (negative)
@@ -285,8 +284,6 @@ static bool readNumberLiteral(Lexer* lexer, Token* token)
 			hex = true;
 		if (c == '.' || (!hex && c == 'f'))
 			fp = true;
-		if (!hex && c == 'f')
-			isDouble = false;
 
 		c = tolower(peekCharacter(lexer, 0));
 		c2 = tolower(peekCharacter(lexer, 1));
@@ -294,7 +291,7 @@ static bool readNumberLiteral(Lexer* lexer, Token* token)
 
 	int end = lexer->cursor;
 
-	token->type = fp ? isDouble ? TOKEN_DOUBLE_LITERAL : TOKEN_FLOAT_LITERAL : TOKEN_INT_LITERAL;
+	token->type = fp ? TOKEN_FLOAT_LITERAL : TOKEN_INT_LITERAL;
 	token->length = end - start;
 
 	skipWhitespace(lexer);
@@ -310,32 +307,15 @@ static bool readPunctuation(Lexer* lexer, Token* token)
 		|| c == ':'
 		|| c == ';'
 		|| c == '#'
+		|| c == '$'
 		|| c == '('
 		|| c == ')'
 		|| c == '{'
 		|| c == '}'
 		|| c == '['
-		|| c == ']';
-	if (!punctuation)
-		return false;
+		|| c == ']'
 
-	int start = lexer->cursor;
-
-	token->type = (TokenType)nextCharacter(lexer);
-	token->offset = start;
-
-	int end = lexer->cursor;
-	token->length = lexer->cursor - start;
-
-	skipWhitespace(lexer);
-
-	return true;
-}
-
-static bool readOperator(Lexer* lexer, Token* token)
-{
-	char c = peekCharacter(lexer, 0);
-	bool op = c == '+'
+		|| c == '+'
 		|| c == '-'
 		|| c == '*'
 		|| c == '/'
@@ -347,36 +327,16 @@ static bool readOperator(Lexer* lexer, Token* token)
 		|| c == '>'
 		|| c == '!'
 		|| c == '?'
-		|| c == '$'
+		|| c == '~'
 		|| c == '=';
-	if (!op)
+
+	if (!punctuation)
 		return false;
 
 	int start = lexer->cursor;
 
+	token->type = (TokenType)nextCharacter(lexer);
 	token->offset = start;
-
-	nextCharacter(lexer);
-
-	switch (c)
-	{
-	case '+': token->type = TOKEN_PLUS; break;
-	case '-': token->type = TOKEN_MINUS; break;
-	case '*': token->type = TOKEN_ASTERISK; break;
-	case '/': token->type = TOKEN_SLASH; break;
-	case '%': token->type = TOKEN_PERCENT; break;
-	case '&': token->type = TOKEN_AMPERSAND; break;
-	case '|': token->type = TOKEN_OR; break;
-	case '^': token->type = TOKEN_CARET; break;
-	case '?': token->type = TOKEN_QUESTION; break;
-	case '!': token->type = TOKEN_EXCLAMATION; break;
-	case '=': token->type = TOKEN_EQUALS; break;
-	case '<': token->type = TOKEN_LESS_THAN; break;
-	case '>': token->type = TOKEN_GREATER_THAN; break;
-	default:
-		assert(false && "ReadOperator");
-		break;
-	}
 
 	int end = lexer->cursor;
 	token->length = end - start;
@@ -640,8 +600,6 @@ Token nextToken(Lexer* lexer)
 	if (readNumberLiteral(lexer, &token))
 		return token;
 	if (readPunctuation(lexer, &token))
-		return token;
-	if (readOperator(lexer, &token))
 		return token;
 	if (readIdentifier(lexer, &token))
 		return token;

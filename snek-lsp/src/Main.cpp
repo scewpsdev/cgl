@@ -378,6 +378,7 @@ void Parse(Document* document)
 	uint64_t afterParse = GetTimeNS();
 	float ms = (afterParse - beforeParse) / 1e6f;
 	fprintf(stderr, "parsed in %.3fms\n", ms);
+	fprintf(stderr, "%.2f/%.2f kb arena memory used\n", document->arena.offset / 1024.0f, document->arena.capacity / 1024.0f);
 
 	sendRequest("workspace/semanticTokens/refresh", nullptr);
 }

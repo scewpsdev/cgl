@@ -22,9 +22,20 @@ enum NodeType : uint8_t
 	NODE_ARRAY_TYPE,
 
 	NODE_INT_LITERAL,
+	NODE_FLOAT_LITERAL,
 	NODE_STRING_LITERAL,
+	NODE_TRUE,
+	NODE_FALSE,
 	NODE_IDENTIFIER,
+	NODE_COMPOUND_EXPRESSION,
+	NODE_EXPRESSION_LIST,
 	NODE_BINARY_OPERATOR,
+	NODE_CAST,
+	NODE_PREFIX_OPERATOR,
+	NODE_POSTFIX_OPERATOR,
+	NODE_FUNCTION_CALL,
+	NODE_ARRAY_SUBSCRIPT,
+	NODE_MEMBER_ACCESS,
 
 	NODE_BLOCK_STATEMENT,
 	NODE_IF,
@@ -35,6 +46,7 @@ enum NodeType : uint8_t
 	NODE_CONTINUE,
 	NODE_DEFER,
 	NODE_VARIABLE_DECLARATION,
+	NODE_ASSIGNMENT,
 	NODE_EXPRESSION_STATEMENT,
 
 	NODE_FIELD,
@@ -175,6 +187,11 @@ struct IntLiteral : Expression
 	StringView value;
 };
 
+struct FloatLiteral : Expression
+{
+	StringView value;
+};
+
 struct StringLiteral : Expression
 {
 	StringView value;
@@ -185,6 +202,17 @@ struct Identifier : Expression
 	StringView name;
 };
 
+struct CompoundExpression : Expression
+{
+	Expression* value;
+};
+
+struct ExpressionList : Expression
+{
+	Expression** values;
+	int numValues;
+};
+
 enum OperatorType : uint8_t
 {
 	OPERATOR_NULL = 0,
@@ -192,8 +220,8 @@ enum OperatorType : uint8_t
 	OPERATOR_INCREMENT_POSTFIX,
 	OPERATOR_DECREMENT_POSTFIX,
 	OPERATOR_FUNCTION_CALL,
-	OPERATOR_SUBSCRIPT,
-	OPERATOR_MEMBER,
+	OPERATOR_ARRAY_SUBSCRIPT,
+	OPERATOR_MEMBER_ACCESS,
 
 	OPERATOR_INCREMENT_PREFIX,
 	OPERATOR_DECREMENT_PREFIX,
@@ -201,7 +229,6 @@ enum OperatorType : uint8_t
 	OPERATOR_MINUS_PREFIX,
 	OPERATOR_LOGICAL_NOT,
 	OPERATOR_BITWISE_NOT,
-	OPERATOR_CAST,
 	OPERATOR_DEREFERENCE,
 	OPERATOR_ADDRESS,
 
@@ -214,6 +241,8 @@ enum OperatorType : uint8_t
 
 	OPERATOR_BITSHIFT_LEFT,
 	OPERATOR_BITSHIFT_RIGHT,
+
+	OPERATOR_CAST,
 
 	OPERATOR_LESS,
 	OPERATOR_LESS_EQUALS,
@@ -246,6 +275,8 @@ enum OperatorType : uint8_t
 	OPERATOR_BITWISE_AND_ASSIGN,
 	OPERATOR_BITWISE_XOR_ASSIGN,
 	OPERATOR_BITWISE_OR_ASSIGN,
+	OPERATOR_LOGICAL_AND_ASSIGN,
+	OPERATOR_LOGICAL_OR_ASSIGN,
 
 	OPERATOR_COUNT
 };
@@ -254,6 +285,45 @@ struct BinaryOperator : Expression
 {
 	uint8_t op;
 	Expression* left, * right;
+};
+
+struct PrefixOperator : Expression
+{
+	uint8_t op;
+	Expression* expression;
+};
+
+struct PostfixOperator : Expression
+{
+	uint8_t op;
+	Expression* expression;
+};
+
+struct FunctionCall : Expression
+{
+	Expression* expression;
+	Expression** args;
+	int numArgs;
+};
+
+struct ArraySubscript : Expression
+{
+	Expression* expression;
+	Expression** args;
+	int numArgs;
+};
+
+struct MemberAccess : Expression
+{
+	Expression* expression;
+	StringView name;
+	int64_t index;
+};
+
+struct Cast : Expression
+{
+	Expression* expression;
+	Type* targetType;
 };
 
 
@@ -311,6 +381,13 @@ struct VariableDeclaration : Statement
 	uint32_t storage;
 	VariableDeclarator* declarators;
 	int numDeclarators;
+};
+
+struct Assignment : Statement
+{
+	OperatorType op;
+	Expression* expression;
+	Expression* value;
 };
 
 struct ExpressionStatement : Statement
@@ -407,9 +484,18 @@ struct Node
 		ArrayType arrayType;
 
 		IntLiteral intLiteral;
+		FloatLiteral floatLiteral;
 		StringLiteral stringLiteral;
 		Identifier identifier;
+		CompoundExpression compoundExpression;
+		ExpressionList expressionList;
 		BinaryOperator binaryOperator;
+		PrefixOperator prefixOperator;
+		PostfixOperator postfixOperator;
+		FunctionCall functionCall;
+		ArraySubscript arraySubscript;
+		MemberAccess memberAccess;
+		Cast cast;
 
 		BlockStatement blockStatement;
 		If if_;
@@ -418,6 +504,7 @@ struct Node
 		Return return_;
 		Defer defer;
 		VariableDeclaration variableDeclaration;
+		Assignment assignment;
 		ExpressionStatement expressionStatement;
 
 		Field field;
