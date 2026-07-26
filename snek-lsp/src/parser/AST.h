@@ -27,6 +27,14 @@ enum NodeType : uint8_t
 	NODE_BINARY_OPERATOR,
 
 	NODE_BLOCK_STATEMENT,
+	NODE_IF,
+	NODE_WHILE,
+	NODE_FOR,
+	NODE_RETURN,
+	NODE_BREAK,
+	NODE_CONTINUE,
+	NODE_DEFER,
+	NODE_VARIABLE_DECLARATION,
 	NODE_EXPRESSION_STATEMENT,
 
 	NODE_FIELD,
@@ -260,6 +268,51 @@ struct BlockStatement : Statement
 	int numStatements;
 };
 
+struct If : Statement
+{
+	Expression* condition;
+	Statement* then, * else_;
+};
+
+struct While : Statement
+{
+	Expression* condition;
+	Statement* then;
+};
+
+struct For : Statement
+{
+	StringView iteratorName;
+	Expression* startValue;
+	OperatorType compareType;
+	Expression* compareValue;
+	Statement* body;
+};
+
+struct Return : Statement
+{
+	Expression* value;
+};
+
+struct Defer : Statement
+{
+	Statement* body;
+};
+
+struct VariableDeclarator
+{
+	StringView name;
+	Expression* value;
+};
+
+struct VariableDeclaration : Statement
+{
+	Type* type;
+	uint32_t storage;
+	VariableDeclarator* declarators;
+	int numDeclarators;
+};
+
 struct ExpressionStatement : Statement
 {
 	Expression* expression;
@@ -314,12 +367,6 @@ struct Function : NodeBase
 	Statement* body;
 };
 
-struct VariableDeclarator
-{
-	StringView name;
-	Expression* value;
-};
-
 struct GlobalVariable : NodeBase
 {
 	Type* type;
@@ -364,6 +411,13 @@ struct Node
 		Identifier identifier;
 		BinaryOperator binaryOperator;
 
+		BlockStatement blockStatement;
+		If if_;
+		While while_;
+		For for_;
+		Return return_;
+		Defer defer;
+		VariableDeclaration variableDeclaration;
 		ExpressionStatement expressionStatement;
 
 		Field field;

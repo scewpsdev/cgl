@@ -166,6 +166,9 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 	else
 		// todo use token type string
 		error(parser, start, end, "Expected token %d", (int)type);
+
+	*outToken = {};
+
 	return false;
 }
 
@@ -398,7 +401,7 @@ Expression* parseAtom(Parser* parser)
 		IntLiteral* intLiteral = parser->arena->alloc<IntLiteral>();
 		initNode((Node*)intLiteral, NODE_INT_LITERAL, start);
 		intLiteral->value = getTokenString(token, parser);
-		intLiteral->end = parser->cursor;
+		intLiteral->end = parser->lastTokenEnd;
 
 		return intLiteral;
 	}
@@ -409,7 +412,7 @@ Expression* parseAtom(Parser* parser)
 		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
 		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
 		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 1], token.length - 2);
-		stringLiteral->end = parser->cursor;
+		stringLiteral->end = parser->lastTokenEnd;
 
 		return stringLiteral;
 	}
@@ -420,7 +423,7 @@ Expression* parseAtom(Parser* parser)
 		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
 		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
 		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 4], token.length - 8);
-		stringLiteral->end = parser->cursor;
+		stringLiteral->end = parser->lastTokenEnd;
 
 		return stringLiteral;
 	}
@@ -431,7 +434,7 @@ Expression* parseAtom(Parser* parser)
 		Identifier* identifier = parser->arena->alloc<Identifier>();
 		initNode((Node*)identifier, NODE_IDENTIFIER, start);
 		identifier->name = getTokenString(token, parser);
-		identifier->end = parser->cursor;
+		identifier->end = parser->lastTokenEnd;
 
 		return identifier;
 	}
@@ -594,7 +597,7 @@ Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 					op->op = operatorType;
 					op->left = left;
 					op->right = right;
-					op->end = parser->cursor;
+					op->end = parser->lastTokenEnd;
 
 					left = op;
 				}
@@ -622,6 +625,31 @@ Expression* parseExpression(Parser* parser)
 	return parseBinaryOperator(parser, OPERATOR_NULL);
 }
 
+static Statement** parseCodeBlock(Parser* parser, int endToken, int* numStatements)
+{
+	int mark = parser->scratch.mark();
+
+	while (!nextIs(parser, endToken))
+	{
+		if (Statement* statement = parseStatement(parser))
+		{
+			parser->scratch.add(statement);
+		}
+		else
+		{
+			Token token = nextToken(parser);
+			StringView tokenStr = getTokenString(token, parser);
+			SourceLocation start, end;
+			getSourceLocation(parser, token, &start, &end);
+			error(parser, start, end, "Unexpected token '%.*s'", tokenStr.length, tokenStr.ptr);
+		}
+	}
+
+	nextToken(parser);
+
+	return copyFromScratchBuffer<Statement*>(parser, mark, numStatements);
+}
+
 Statement* parseStatement(Parser* parser)
 {
 	int start = parser->cursor;
@@ -633,38 +661,203 @@ Statement* parseStatement(Parser* parser)
 		BlockStatement* block = parser->arena->alloc<BlockStatement>();
 		initNode((Node*)block, NODE_BLOCK_STATEMENT, start);
 
-		int mark = parser->scratch.mark();
-
-		while (!nextIs(parser, '}'))
-		{
-			if (Statement* statement = parseStatement(parser))
-			{
-				parser->scratch.add(statement);
-			}
-			else
-			{
-				Token token = nextToken(parser);
-				StringView tokenStr = getTokenString(token, parser);
-				SourceLocation start, end;
-				getSourceLocation(parser, token, &start, &end);
-				error(parser, start, end, "Unexpected token '%.*s'", tokenStr.length, tokenStr.ptr);
-			}
-		}
-
-		nextToken(parser);
-
-		block->statements = copyFromScratchBuffer<Statement*>(parser, mark, &block->numStatements);
-		block->end = parser->cursor;
+		block->statements = parseCodeBlock(parser, '}', &block->numStatements);
+		block->end = parser->lastTokenEnd;
 
 		return block;
 	}
-	if (Expression* expression = parseExpression(parser))
+	else if (nextIs(parser, TOKEN_IF))
+	{
+		nextToken(parser);
+
+		If* if_ = parser->arena->alloc<If>();
+		initNode((Node*)if_, NODE_IF, start);
+
+		if_->then = then;
+		if_->else_ = else_;
+		if_->end = parser->lastTokenEnd;
+
+		if (Expression* condition = parseExpression(parser))
+		{
+			if_->condition = condition;
+
+
+		}
+		else
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+		}
+
+		Statement* then = parseStatement(parser);
+		if (!then)
+		{
+			error(parser, getSourceLocation(parser), "Statement expected");
+		}
+
+		Statement* else_ = nullptr;
+		if (nextIs(parser, TOKEN_ELSE))
+		{
+			nextToken(parser);
+			else_ = parseStatement(parser);
+			if (!else_)
+			{
+				error(parser, getSourceLocation(parser), "Statement expected");
+			}
+		}
+
+
+
+		return if_;
+	}
+	else if (nextIs(parser, TOKEN_WHILE))
+	{
+		nextToken(parser);
+
+		Expression* condition = parseExpression(parser);
+		if (!condition)
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+		}
+
+		Statement* then = parseStatement(parser);
+		if (!then)
+		{
+			error(parser, getSourceLocation(parser), "Statement expected");
+		}
+
+		While* while_ = parser->arena->alloc<While>();
+		initNode((Node*)while_, NODE_WHILE, start);
+		while_->condition = condition;
+		while_->then = then;
+		while_->end = parser->lastTokenEnd;
+
+		return while_;
+	}
+	else if (nextIs(parser, TOKEN_FOR))
+	{
+		nextToken(parser);
+
+		expectToken(parser, '(');
+
+		Token iteratorName;
+		expectToken(parser, TOKEN_IDENTIFIER, &iteratorName);
+
+		expectToken(parser, ',');
+
+		Expression* startValue = parseExpression(parser);
+		if (!startValue)
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+		}
+
+		expectToken(parser, ',');
+
+		int numOperatorTokens;
+		OperatorType compareType = peekBinaryOperatorType(parser, &numOperatorTokens);
+		if (!(
+			compareType >= OPERATOR_LESS &&
+			compareType <= OPERATOR_NOT_EQUALS
+			))
+		{
+			error(parser, getSourceLocation(parser), "Comparison operator expected");
+		}
+
+		Expression* compareValue = parseExpression(parser);
+		if (!compareValue)
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+		}
+
+		expectToken(parser, ')');
+
+		Statement* body = parseStatement(parser);
+		if (!body)
+		{
+			error(parser, getSourceLocation(parser), "Statement expected");
+		}
+
+		For* for_ = parser->arena->alloc<For>();
+		initNode((Node*)for_, NODE_FOR, start);
+		for_->iteratorName = getTokenString(iteratorName, parser);
+		for_->startValue = startValue;
+		for_->compareType = compareType;
+		for_->compareValue = compareValue;
+		for_->body = body;
+		for_->end = parser->lastTokenEnd;
+
+		return for_;
+	}
+	else if (nextIs(parser, TOKEN_RETURN))
+	{
+		nextToken(parser);
+
+		Expression* value = nullptr;
+		if (!nextIs(parser, ';'))
+		{
+			value = parseExpression(parser);
+			if (!value)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+			}
+		}
+
+		expectToken(parser, ';');
+
+		Return* return_ = parser->arena->alloc<Return>();
+		initNode((Node*)return_, NODE_RETURN, start);
+		return_->value = value;
+		return_->end = parser->lastTokenEnd;
+
+		return return_;
+	}
+	else if (nextIs(parser, TOKEN_BREAK))
+	{
+		nextToken(parser);
+
+		Statement* break_ = parser->arena->alloc<Statement>();
+		initNode((Node*)break_, NODE_BREAK, start);
+		break_->end = parser->lastTokenEnd;
+
+		return break_;
+	}
+	else if (nextIs(parser, TOKEN_CONTINUE))
+	{
+		nextToken(parser);
+
+		Statement* continue_ = parser->arena->alloc<Statement>();
+		initNode((Node*)continue_, NODE_CONTINUE, start);
+		continue_->end = parser->lastTokenEnd;
+
+		return continue_;
+	}
+	else if (nextIs(parser, TOKEN_DEFER))
+	{
+		nextToken(parser);
+
+		Statement* body = parseStatement(parser);
+		if (!body)
+		{
+			error(parser, getSourceLocation(parser), "Statement expected");
+		}
+
+		Defer* defer = parser->arena->alloc<Defer>();
+		initNode((Node*)defer, NODE_DEFER, start);
+		defer->body = body;
+		defer->end = parser->lastTokenEnd;
+
+		return defer;
+	}
+	else if (Type* type = parseType(parser))
+	{
+
+	}
+	else if (Expression* expression = parseExpression(parser))
 	{
 		expectToken(parser, ';');
 
 		ExpressionStatement* expressionStatement = parser->arena->alloc<ExpressionStatement>();
 		initNode((Node*)expressionStatement, NODE_EXPRESSION_STATEMENT, start);
-		expressionStatement->end = parser->cursor;
+		expressionStatement->end = parser->lastTokenEnd;
 		expressionStatement->expression = expression;
 		return expressionStatement;
 	}
@@ -729,7 +922,7 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 		nextToken(parser);
 	}
 
-	struct_->end = parser->cursor;
+	struct_->end = parser->lastTokenEnd;
 
 	return struct_;
 }
@@ -756,7 +949,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	enum_->end = parser->cursor;
+	enum_->end = parser->lastTokenEnd;
 
 	return enum_;
 }
@@ -783,7 +976,7 @@ Union* parseUnion(Parser* parser, uint32_t storage, int start)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	union_->end = parser->cursor;
+	union_->end = parser->lastTokenEnd;
 
 	return union_;
 }
@@ -810,7 +1003,7 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	typedef_->end = parser->cursor;
+	typedef_->end = parser->lastTokenEnd;
 
 	return typedef_;
 }
@@ -886,7 +1079,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 		function->body = parseStatement(parser);
 	}
 
-	function->end = parser->cursor;
+	function->end = parser->lastTokenEnd;
 
 	return function;
 }
@@ -917,7 +1110,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, Type* type, uint32_t storage
 
 			if (!declarator.value)
 			{
-				error(parser, getSourceLocation(parser), "Expected an expression");
+				error(parser, getSourceLocation(parser), "Expression expected");
 			}
 		}
 
@@ -965,7 +1158,7 @@ Macro* parseMacro(Parser* parser, uint32_t storage, int start)
 		skipPastTokenNested(parser, '{', '}');
 	}
 
-	macro->end = parser->cursor;
+	macro->end = parser->lastTokenEnd;
 
 	return macro;
 }
