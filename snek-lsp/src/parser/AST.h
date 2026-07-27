@@ -196,7 +196,6 @@ struct ArrayType : Type
 
 struct Expression : NodeBase
 {
-
 };
 
 struct IntLiteral : Expression
@@ -304,6 +303,12 @@ struct BinaryOperator : Expression
 	Expression* left, * right;
 };
 
+struct Cast : Expression
+{
+	Expression* expression;
+	Type* targetType;
+};
+
 struct PrefixOperator : Expression
 {
 	uint8_t op;
@@ -337,12 +342,6 @@ struct MemberAccess : Expression
 	int64_t index;
 };
 
-struct Cast : Expression
-{
-	Expression* expression;
-	Type* targetType;
-};
-
 struct TernaryCondition : Expression
 {
 	Expression* condition;
@@ -352,7 +351,6 @@ struct TernaryCondition : Expression
 
 struct Statement : NodeBase
 {
-
 };
 
 struct BlockStatement : Statement

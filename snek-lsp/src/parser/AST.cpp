@@ -205,11 +205,181 @@ static void traverseType(Type* type, ASTVisitor_t visitor, void* userPtr)
 	}
 }
 
+static void traverseExpression(Expression* expression, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor((Node*)expression, userPtr);
+
+	if (expression->type == NODE_COMPOUND_EXPRESSION)
+	{
+		CompoundExpression* compound = (CompoundExpression*)expression;
+		if (compound->value)
+			traverseExpression(compound->value, visitor, userPtr);
+	}
+	else if (expression->type == NODE_EXPRESSION_LIST)
+	{
+		ExpressionList* expressionList = (ExpressionList*)expression;
+		for (int i = 0; i < expressionList->numValues; i++)
+		{
+			if (expressionList->values[i])
+				traverseExpression(expressionList->values[i], visitor, userPtr);
+		}
+	}
+	else if (expression->type == NODE_BINARY_OPERATOR)
+	{
+		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
+		if (binaryOperator->left)
+			traverseExpression(binaryOperator->left, visitor, userPtr);
+		if (binaryOperator->right)
+			traverseExpression(binaryOperator->right, visitor, userPtr);
+	}
+	else if (expression->type == NODE_CAST)
+	{
+		Cast* cast = (Cast*)expression;
+		if (cast->expression)
+			traverseExpression(cast->expression, visitor, userPtr);
+		if (cast->targetType)
+			traverseType(cast->targetType, visitor, userPtr);
+	}
+	else if (expression->type == NODE_PREFIX_OPERATOR)
+	{
+		PrefixOperator* prefixOperator = (PrefixOperator*)expression;
+		if (prefixOperator->expression)
+			traverseExpression(prefixOperator->expression, visitor, userPtr);
+	}
+	else if (expression->type == NODE_POSTFIX_OPERATOR)
+	{
+		PostfixOperator* postfixOperator = (PostfixOperator*)expression;
+		if (postfixOperator->expression)
+			traverseExpression(postfixOperator->expression, visitor, userPtr);
+	}
+	else if (expression->type == NODE_FUNCTION_CALL)
+	{
+		FunctionCall* functionCall = (FunctionCall*)expression;
+		if (functionCall->expression)
+			traverseExpression(functionCall->expression, visitor, userPtr);
+		for (int i = 0; i < functionCall->numArgs; i++)
+		{
+			if (functionCall->args[i])
+				traverseExpression(functionCall->args[i], visitor, userPtr);
+		}
+	}
+	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
+	{
+		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
+		if (arraySubscript->expression)
+			traverseExpression(arraySubscript->expression, visitor, userPtr);
+		for (int i = 0; i < arraySubscript->numArgs; i++)
+		{
+			if (arraySubscript->args[i])
+				traverseExpression(arraySubscript->args[i], visitor, userPtr);
+		}
+	}
+	else if (expression->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* memberAccess = (MemberAccess*)expression;
+		if (memberAccess->expression)
+			traverseExpression(memberAccess->expression, visitor, userPtr);
+	}
+	else if (expression->type == NODE_TERNARY_CONDITION)
+	{
+		TernaryCondition* ternaryCondition = (TernaryCondition*)expression;
+		if (ternaryCondition->condition)
+			traverseExpression(ternaryCondition->condition, visitor, userPtr);
+		if (ternaryCondition->then)
+			traverseExpression(ternaryCondition->then, visitor, userPtr);
+		if (ternaryCondition->else_)
+			traverseExpression(ternaryCondition->else_, visitor, userPtr);
+	}
+}
+
+static void traverseStatement(Statement* statement, ASTVisitor_t visitor, void* userPtr)
+{
+	if (statement->type == NODE_BLOCK_STATEMENT)
+	{
+		BlockStatement* block = (BlockStatement*)statement;
+		for (int i = 0; i < block->numStatements; i++)
+		{
+			if (block->statements[i])
+				traverseStatement(block->statements[i], visitor, userPtr);
+		}
+	}
+	else if (statement->type == NODE_IF)
+	{
+		If* if_ = (If*)statement;
+		if (if_->condition)
+			traverseExpression(if_->condition, visitor, userPtr);
+		if (if_->then)
+			traverseStatement(if_->then, visitor, userPtr);
+		if (if_->else_)
+			traverseStatement(if_->else_, visitor, userPtr);
+	}
+	else if (statement->type == NODE_WHILE)
+	{
+		While* while_ = (While*)statement;
+		if (while_->condition)
+			traverseExpression(while_->condition, visitor, userPtr);
+		if (while_->then)
+			traverseStatement(while_->then, visitor, userPtr);
+	}
+	else if (statement->type == NODE_FOR)
+	{
+		For* for_ = (For*)statement;
+		if (for_->startValue)
+			traverseExpression(for_->startValue, visitor, userPtr);
+		if (for_->compareValue)
+			traverseExpression(for_->compareValue, visitor, userPtr);
+		if (for_->body)
+			traverseStatement(for_->body, visitor, userPtr);
+	}
+	else if (statement->type == NODE_RETURN)
+	{
+		Return* return_ = (Return*)statement;
+		if (return_->value)
+			traverseExpression(return_->value, visitor, userPtr);
+	}
+	else if (statement->type == NODE_DEFER)
+	{
+		Defer* defer = (Defer*)statement;
+		if (defer->body)
+			traverseStatement(defer->body, visitor, userPtr);
+	}
+	else if (statement->type == NODE_VARIABLE_DECLARATION)
+	{
+		VariableDeclaration* variableDeclaration = (VariableDeclaration*)statement;
+		if (variableDeclaration->type)
+			traverseType(variableDeclaration->type, visitor, userPtr);
+		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
+		{
+			if (variableDeclaration->declarators[i].value)
+				traverseExpression(variableDeclaration->declarators[i].value, visitor, userPtr);
+		}
+	}
+	else if (statement->type == NODE_ASSIGNMENT)
+	{
+		Assignment* assignment = (Assignment*)statement;
+		if (assignment->expression)
+			traverseExpression(assignment->expression, visitor, userPtr);
+		if (assignment->value)
+			traverseExpression(assignment->value, visitor, userPtr);
+	}
+	else if (statement->type == NODE_EXPRESSION_STATEMENT)
+	{
+		ExpressionStatement* expression = (ExpressionStatement*)statement;
+		if (expression->expression)
+			traverseExpression(expression->expression, visitor, userPtr);
+	}
+}
+
 static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr)
 {
 	visitor((Node*)field, userPtr);
 
 	traverseType(field->type, visitor, userPtr);
+	for (int i = 0; i < field->numDeclarators; i++)
+	{
+		if (field->declarators[i].value)
+			traverseExpression(field->declarators[i].value, visitor, userPtr);
+	}
 }
 
 static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* userPtr)
@@ -244,6 +414,8 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 	}
 	else if (declaration->type == NODE_TYPEDEF)
 	{
+		Typedef* typedef_ = (Typedef*)declaration;
+		traverseType(typedef_->value, visitor, userPtr);
 	}
 	else if (declaration->type == NODE_FUNCTION)
 	{
@@ -256,11 +428,28 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 		{
 			traverseType(function->returnType, visitor, userPtr);
 		}
+		if (function->value)
+		{
+			traverseExpression(function->value, visitor, userPtr);
+		}
+		else
+		{
+			for (int i = 0; i < function->numStatements; i++)
+			{
+				if (function->statements[i])
+					traverseStatement(function->statements[i], visitor, userPtr);
+			}
+		}
 	}
 	else if (declaration->type == NODE_GLOBAL_VARIABLE)
 	{
 		GlobalVariable* globalVariable = &declaration->globalVariable;
 		traverseType(globalVariable->type, visitor, userPtr);
+		for (int i = 0; i < globalVariable->numDeclarators; i++)
+		{
+			if (globalVariable->declarators[i].value)
+				traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
+		}
 	}
 	else if (declaration->type == NODE_MACRO)
 	{
