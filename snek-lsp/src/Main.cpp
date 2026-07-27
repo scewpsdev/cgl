@@ -347,7 +347,7 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	for (int i = 0; i < 1000; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		if (document->hasAST)
 		{
@@ -396,7 +396,7 @@ void ParserThread()
 
 			const int parseDelay = 500;
 
-			if (document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
+			if (!document->hasAST || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				Parse(document);
 				document->lastChange = 0;
@@ -409,7 +409,7 @@ void ParserThread()
 
 int main()
 {
-	SleepMS(5000);
+	//SleepMS(5000);
 	std::cerr << "Starting lsp server" << std::endl;
 
 	std::thread parserThread(ParserThread);

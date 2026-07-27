@@ -417,6 +417,7 @@ static TokenType getKeywordType(const char* str, int len)
 			break;
 		case 't':
 			if (str[1] == 'r' && str[2] == 'u' && str[3] == 'e') return TOKEN_TRUE;
+			if (str[1] == 'y' && str[2] == 'p' && str[3] == 'e') return TOKEN_TYPEDEF;
 			break;
 		case 'u':
 			if (str[1] == 'i' && str[2] == 'n' && str[3] == 't') return TOKEN_UINT32;
@@ -518,9 +519,6 @@ static TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'p':
 			if (str[1] == 'a' && str[2] == 'c' && str[3] == 'k' && str[4] == 'a' && str[5] == 'g' && str[6] == 'e') return TOKEN_MODULE;
-			break;
-		case 't':
-			if (str[1] == 'y' && str[2] == 'p' && str[3] == 'e' && str[4] == 'd' && str[5] == 'e' && str[6] == 'f') return TOKEN_TYPEDEF;
 			break;
 		}
 		break;

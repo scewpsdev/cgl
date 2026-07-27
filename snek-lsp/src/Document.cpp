@@ -125,12 +125,29 @@ static void getStringRange(StringView str, Parser* parser, int* start, int* end)
 
 static void getNodeTokens(Node* node, ASTVisitorData* data)
 {
+	if (!node)
+		return;
+
 	if (node->type == NODE_STRUCT)
 	{
 		Struct* struct_ = &node->struct_;
 		int start, end;
 		getStringRange(struct_->name, data->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, 0 });
+	}
+	else if (node->type == NODE_ENUM)
+	{
+		Enum* enum_ = &node->enum_;
+		int start, end;
+		getStringRange(enum_->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM, 0 });
+
+		for (int i = 0; i < enum_->numValues; i++)
+		{
+			int start, end;
+			getStringRange(enum_->values[i].name, data->parser, &start, &end);
+			data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
+		}
 	}
 	else if (node->type == NODE_PARAMETER)
 	{

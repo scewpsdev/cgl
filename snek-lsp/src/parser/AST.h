@@ -26,6 +26,7 @@ enum NodeType : uint8_t
 	NODE_STRING_LITERAL,
 	NODE_TRUE,
 	NODE_FALSE,
+	NODE_NULL_LITERAL,
 	NODE_IDENTIFIER,
 	NODE_COMPOUND_EXPRESSION,
 	NODE_EXPRESSION_LIST,
@@ -36,6 +37,7 @@ enum NodeType : uint8_t
 	NODE_FUNCTION_CALL,
 	NODE_ARRAY_SUBSCRIPT,
 	NODE_MEMBER_ACCESS,
+	NODE_TERNARY_CONDITION,
 
 	NODE_BLOCK_STATEMENT,
 	NODE_IF,
@@ -117,6 +119,9 @@ enum TypeKind : uint8_t
 	TYPE_ARRAY,
 };
 
+
+struct Expression;
+
 struct Type : NodeBase
 {
 	uint8_t typeKind;
@@ -127,10 +132,17 @@ struct NamedType : Type
 	StringView name;
 };
 
+struct VariableDeclarator
+{
+	StringView name;
+	Expression* value;
+};
+
 struct Field : NodeBase
 {
 	Type* type;
-	StringView name;
+	VariableDeclarator* declarators;
+	int numDeclarators;
 };
 
 struct StructType : Type
@@ -155,13 +167,18 @@ struct OptionalType : Type
 	Type* elementType;
 };
 
+struct Parameter : NodeBase
+{
+	Type* type;
+	StringView name;
+	bool variadic;
+};
+
 struct FunctionType : Type
 {
-	Type* returnType;
-	Type** paramTypes;
-	StringView* paramNames;
+	Parameter** params;
 	int numParams;
-	Type* variadicType;
+	Type* returnType;
 };
 
 struct TupleType : Type
@@ -173,7 +190,7 @@ struct TupleType : Type
 struct ArrayType : Type
 {
 	Type* elementType;
-	int64_t constantSize;
+	Expression* size;
 };
 
 
@@ -326,6 +343,12 @@ struct Cast : Expression
 	Type* targetType;
 };
 
+struct TernaryCondition : Expression
+{
+	Expression* condition;
+	Expression* then, * else_;
+};
+
 
 struct Statement : NodeBase
 {
@@ -369,12 +392,6 @@ struct Defer : Statement
 	Statement* body;
 };
 
-struct VariableDeclarator
-{
-	StringView name;
-	Expression* value;
-};
-
 struct VariableDeclaration : Statement
 {
 	Type* type;
@@ -405,10 +422,19 @@ struct Struct : NodeBase
 	int numFields;
 };
 
+struct EnumValue
+{
+	StringView name;
+	Expression* value;
+};
+
 struct Enum : NodeBase
 {
 	StringView name;
 	uint32_t storage;
+
+	EnumValue* values;
+	int numValues;
 };
 
 struct Union : NodeBase
@@ -424,12 +450,7 @@ struct Typedef : NodeBase
 {
 	StringView name;
 	uint32_t storage;
-};
-
-struct Parameter : NodeBase
-{
-	Type* type;
-	StringView name;
+	Type* value;
 };
 
 struct Function : NodeBase
@@ -441,7 +462,9 @@ struct Function : NodeBase
 	int numParams;
 	Type* returnType;
 
-	Statement* body;
+	Statement** statements;
+	int numStatements;
+	Expression* value;
 };
 
 struct GlobalVariable : NodeBase

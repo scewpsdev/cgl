@@ -91,7 +91,7 @@
         },
         {
           "name": "storage.type.sneklang",
-          "match": "\\b(package|namespace|import|var|let|func|struct|class|typedef|macro|method|enum|union)\\b"
+          "match": "\\b(package|namespace|import|var|let|func|struct|class|type|macro|method|enum|union)\\b"
         }
       ]
     },
