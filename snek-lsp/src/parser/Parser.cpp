@@ -82,6 +82,9 @@ static void error(Parser* parser, SourceLocation start, SourceLocation end, cons
 {
 	if (!parser->diagnostics) return;
 
+	if (start.line == 37 && start.col == 14)
+		__debugbreak();
+
 	va_list args;
 	va_start(args, fmt);
 
@@ -97,6 +100,9 @@ static void error(Parser* parser, SourceLocation start, SourceLocation end, cons
 static void error(Parser* parser, SourceLocation location, const char* fmt, ...)
 {
 	if (!parser->diagnostics) return;
+
+	if (location.line == 37 && location.col == 14)
+		__debugbreak();
 
 	va_list args;
 	va_start(args, fmt);

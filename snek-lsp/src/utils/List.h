@@ -69,6 +69,12 @@ struct List
 
 	void insert(int idx, const T& element)
 	{
+		if (idx == size)
+		{
+			add(element);
+			return;
+		}
+
 		SnekAssert(idx >= 0 && idx < size);
 		resize(size + 1);
 		for (int i = size - 1; i >= idx + 1; i--)

@@ -107,8 +107,11 @@ static Node* resolveSymbol(StringView identifier)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (Node* symbol = lookupSymbol(&documents[i]->ast.globalScope->symbols, identifier))
-			return symbol;
+		if (documents[i]->hasAST)
+		{
+			if (Node* symbol = lookupSymbol(&documents[i]->ast.globalScope->symbols, identifier))
+				return symbol;
+		}
 	}
 	return nullptr;
 }

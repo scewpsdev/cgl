@@ -108,6 +108,36 @@ static json CreateHoverResult(std::string contents)
 	};
 }
 
+std::string escapeString(const std::string& input)
+{
+	std::ostringstream escaped;
+
+	for (char c : input) {
+		switch (c) {
+		case '"':  escaped << "\\\""; break;
+		case '\\': escaped << "\\\\"; break;
+		case '\b': escaped << "\\b";  break;
+		case '\f': escaped << "\\f";  break;
+		case '\n': escaped << "\\n";  break;
+		case '\r': escaped << "\\r";  break;
+		case '\t': escaped << "\\t";  break;
+		default:
+			// Handle control characters (ASCII 0 to 31) using \u00xx format
+			if (static_cast<unsigned char>(c) < 32) {
+				escaped << "\\u"
+					<< std::hex << std::setw(4) << std::setfill('0')
+					<< static_cast<int>(c);
+			}
+			else {
+				escaped << c;
+			}
+			break;
+		}
+	}
+
+	return escaped.str();
+}
+
 static void sendDiagnosticsNotification(Diagnostics* diagnostics, Document* document)
 {
 	json diagnosticsItems = json::array();
@@ -126,7 +156,7 @@ static void sendDiagnosticsNotification(Diagnostics* diagnostics, Document* docu
 		json diagnosticsItem = {
 			{"range", range},
 			{"severity", (int)diagnostics->items[i].severity},
-			{"message", diagnostics->items[i].message}
+			{"message", escapeString(diagnostics->items[i].message)}
 		};
 		diagnosticsItems.push_back(diagnosticsItem);
 
@@ -503,7 +533,7 @@ static std::string PathToURI(const char* path)
 		}
 		else {
 			// Force lowercase hex output (%3a) to match your client output
-			uri << '%' << std::hex << std::setw(2) << std::setfill('0') << (int)c;
+			uri << '%' << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << (int)c;
 		}
 	}
 
