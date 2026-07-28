@@ -24,6 +24,7 @@ enum NodeType : uint8_t
 	NODE_INT_LITERAL,
 	NODE_FLOAT_LITERAL,
 	NODE_STRING_LITERAL,
+	NODE_CHAR_LITERAL,
 	NODE_TRUE,
 	NODE_FALSE,
 	NODE_NULL_LITERAL,
@@ -209,6 +210,11 @@ struct FloatLiteral : Expression
 };
 
 struct StringLiteral : Expression
+{
+	StringView value;
+};
+
+struct CharLiteral : Expression
 {
 	StringView value;
 };
@@ -507,6 +513,7 @@ struct Node
 		IntLiteral intLiteral;
 		FloatLiteral floatLiteral;
 		StringLiteral stringLiteral;
+		CharLiteral charLiteral;
 		Identifier identifier;
 		CompoundExpression compoundExpression;
 		ExpressionList expressionList;

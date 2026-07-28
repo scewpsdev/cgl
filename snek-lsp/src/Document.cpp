@@ -28,6 +28,8 @@ void Document::init(const std::string& text)
 		lines.add(_strdup(line.c_str()));
 	}
 
+	open = false;
+
 	lastChange = GetTimeNS();
 
 	hasAST = false;
@@ -128,19 +130,34 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 	if (!node)
 		return;
 
-	if (node->type == NODE_STRUCT)
+	if (node->type == NODE_NAMED_TYPE)
+	{
+		if (Node* type = resolveSymbol(node->namedType.name))
+		{
+			LSPTokenType tokenType = type->type == NODE_STRUCT ? LSP_TOKEN_STRUCT : LSP_TOKEN_TYPE;
+			data->lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
+		}
+	}
+	else if (node->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = &node->memberAccess;
+		int start, end;
+		getStringRange(member->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
+	}
+	else if (node->type == NODE_STRUCT)
 	{
 		Struct* struct_ = &node->struct_;
 		int start, end;
 		getStringRange(struct_->name, data->parser, &start, &end);
-		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, 0 });
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_ENUM)
 	{
 		Enum* enum_ = &node->enum_;
 		int start, end;
 		getStringRange(enum_->name, data->parser, &start, &end);
-		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM, 0 });
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM, LSP_TOKEN_MODIFIER_DECLARATION });
 
 		for (int i = 0; i < enum_->numValues; i++)
 		{
@@ -148,6 +165,24 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 			getStringRange(enum_->values[i].name, data->parser, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 		}
+	}
+	else if (node->type == NODE_TYPEDEF)
+	{
+		Typedef* typedef_ = &node->typedef_;
+		int start, end;
+		getStringRange(typedef_->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_TYPE, LSP_TOKEN_MODIFIER_DECLARATION });
+	}
+	else if (node->type == NODE_FUNCTION)
+	{
+		Function* function = &node->function;
+		int start, end;
+		getStringRange(function->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_FUNCTION, LSP_TOKEN_MODIFIER_DECLARATION });
+	}
+	else if (node->type == NODE_IMPORT)
+	{
+
 	}
 	else if (node->type == NODE_PARAMETER)
 	{
@@ -163,15 +198,7 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 		{
 			int start, end;
 			getStringRange(globalVariable->declarators[i].name, data->parser, &start, &end);
-			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, 0 });
-		}
-	}
-	else if (node->type == NODE_NAMED_TYPE)
-	{
-		if (Node* type = resolveSymbol(node->namedType.name))
-		{
-			LSPTokenType tokenType = type->type == NODE_STRUCT ? LSP_TOKEN_STRUCT : LSP_TOKEN_TYPE;
-			data->lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
+			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, LSP_TOKEN_MODIFIER_DECLARATION });
 		}
 	}
 }

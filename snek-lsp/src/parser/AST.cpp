@@ -63,6 +63,7 @@ static void growSymbolTable(SymbolTable* symbols)
 				}
 
 				index = (index + 1) & mask;
+				newSlot = &newSlots[index];
 			}
 		}
 	}
@@ -415,14 +416,16 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 	else if (declaration->type == NODE_TYPEDEF)
 	{
 		Typedef* typedef_ = (Typedef*)declaration;
-		traverseType(typedef_->value, visitor, userPtr);
+		if (typedef_->value)
+			traverseType(typedef_->value, visitor, userPtr);
 	}
 	else if (declaration->type == NODE_FUNCTION)
 	{
 		Function* function = (Function*)declaration;
 		for (int i = 0; i < function->numParams; i++)
 		{
-			traverseParameter(function->params[i], visitor, userPtr);
+			if (function->params[i])
+				traverseParameter(function->params[i], visitor, userPtr);
 		}
 		if (function->returnType)
 		{

@@ -49,29 +49,73 @@
       ]
     },
     "strings": {
-      "name": "string.quoted.double.sneklang",
-      "begin": "\"",
-      "end": "\"",
       "patterns": [
         {
-          "name": "constant.character.escape.sneklang",
-          "match": "\\\\."
+          "name": "string.quoted.triple.double.sneklang",
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sneklang",
+              "match": "\\\\([abfnrtv\\\\'\"]|[0-7]{1,3}|x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.sneklang",
+          "begin": "(L|u8|u|U)?\"",
+          "end": "\"",
+          "beginCaptures": {
+            "1": { "name": "storage.type.string.sneklang" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.sneklang",
+              "match": "\\\\([abfnrtv\\\\'\"]|[0-7]{1,3}|x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.character.sneklang",
+          "begin": "(L|u8|u|U)?'",
+          "end": "'",
+          "beginCaptures": {
+            "1": { "name": "storage.type.string.sneklang" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.sneklang",
+              "match": "\\\\([abfnrtv\\\\'\"]|[0-7]{1,3}|x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
         }
       ]
     },
     "numbers": {
       "patterns": [
         {
+          "name": "constant.numeric.float.hexadecimal.sneklang",
+          "match": "\\b0[xX]([0-9a-fA-F]+(\\.[0-9a-fA-F]*)?|\\.[0-9a-fA-F]+)[pP][+-]?\\d+[fFlL]?\\b"
+        },
+        {
           "name": "constant.numeric.float.scientific.sneklang",
-          "match": "\\b\\d+(\\.\\d+)?[eE][+-]?\\d+[fFdD]?\\b"
+          "match": "\\b((\\d+(\\.\\d*)?|\\.\\d+)[eE][+-]?\\d+|\\d+\\.\\d*|\\.\\d+)[fFlL]?\\b"
         },
         {
-          "name": "constant.numeric.float.sneklang",
-          "match": "\\b\\d+\\.\\d+[fFdD]?\\b"
+          "name": "constant.numeric.integer.hexadecimal.sneklang",
+          "match": "\\b0[xX][0-9a-fA-F]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
         },
         {
-          "name": "constant.numeric.integer.sneklang",
-          "match": "\\b\\d+\\b"
+          "name": "constant.numeric.integer.binary.sneklang",
+          "match": "\\b0[bB][01]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.octal.sneklang",
+          "match": "\\b0[0-7]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.decimal.sneklang",
+          "match": "\\b(0|[1-9]\\d*)([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
         }
       ]
     },

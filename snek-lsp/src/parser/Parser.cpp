@@ -110,6 +110,11 @@ static void error(Parser* parser, SourceLocation location, const char* fmt, ...)
 	logMessage(parser->diagnostics, msg, location.line, location.col, location.line, location.col + 1, DIAGNOSTICS_ERROR);
 }
 
+static bool hasNext(Parser* parser)
+{
+	return parser->cursor < parser->lexer.length;
+}
+
 static Token nextToken(Parser* parser)
 {
 	if (parser->lookaheadCount > 0)
@@ -220,7 +225,7 @@ static void skipPastToken(Parser* parser, int type)
 static void skipPastTokenNested(Parser* parser, int openType, int closeType)
 {
 	int level = 1;
-	while (level > 0)
+	while (hasNext(parser) && level > 0)
 	{
 		Token token = nextToken(parser);
 		if (token.type == openType)
@@ -458,55 +463,60 @@ static Type* parseBasicType(Parser* parser)
 	}
 }
 
+static Type* parseComplexType(Parser* parser, Type* basicType)
+{
+	Token token;
+	if (nextIs(parser, '*', &token) && token.offset == basicType->end)
+	{
+		nextToken(parser);
+
+		PointerType* type = parser->arena->alloc<PointerType>();
+		initType((Type*)type, NODE_POINTER_TYPE, TYPE_POINTER, basicType->start);
+		type->end = token.offset + token.length;
+		type->elementType = basicType;
+
+		return parseComplexType(parser, type);
+	}
+	else if (nextIs(parser, '?', &token) && token.offset == basicType->end)
+	{
+		nextToken(parser);
+
+		OptionalType* type = parser->arena->alloc<OptionalType>();
+		initType((Type*)type, NODE_OPTIONAL_TYPE, TYPE_OPTIONAL, basicType->start);
+		type->end = token.offset + token.length;
+		type->elementType = basicType;
+
+		return parseComplexType(parser, type);
+	}
+	else if (nextIs(parser, '[', &token) && token.offset == basicType->end)
+	{
+		nextToken(parser);
+
+		Expression* size = nullptr;
+		if (!nextIs(parser, ']'))
+			size = parseExpression(parser);
+
+		expectToken(parser, ']');
+
+		ArrayType* type = parser->arena->alloc<ArrayType>();
+		initType((Type*)type, NODE_ARRAY_TYPE, TYPE_ARRAY, basicType->start);
+		type->elementType = basicType;
+		type->size = size;
+		type->end = parser->lastTokenEnd;
+
+		return parseComplexType(parser, type);
+	}
+	else
+	{
+		return basicType;
+	}
+}
+
 Type* parseType(Parser* parser)
 {
 	if (Type* basicType = parseBasicType(parser))
 	{
-		Token token;
-		if (nextIs(parser, '*', &token) && token.offset == basicType->end)
-		{
-			nextToken(parser);
-
-			PointerType* type = parser->arena->alloc<PointerType>();
-			initType((Type*)type, NODE_POINTER_TYPE, TYPE_POINTER, basicType->start);
-			type->end = token.offset + token.length;
-			type->elementType = basicType;
-
-			return type;
-		}
-		else if (nextIs(parser, '?', &token) && token.offset == basicType->end)
-		{
-			nextToken(parser);
-
-			OptionalType* type = parser->arena->alloc<OptionalType>();
-			initType((Type*)type, NODE_OPTIONAL_TYPE, TYPE_OPTIONAL, basicType->start);
-			type->end = token.offset + token.length;
-			type->elementType = basicType;
-
-			return type;
-		}
-		else if (nextIs(parser, '[', &token) && token.offset == basicType->end)
-		{
-			nextToken(parser);
-
-			Expression* size = nullptr;
-			if (!nextIs(parser, ']'))
-				size = parseExpression(parser);
-
-			expectToken(parser, ']');
-
-			ArrayType* type = parser->arena->alloc<ArrayType>();
-			initType((Type*)type, NODE_ARRAY_TYPE, TYPE_ARRAY, basicType->start);
-			type->elementType = basicType;
-			type->size = size;
-			type->end = parser->lastTokenEnd;
-
-			return type;
-		}
-		else
-		{
-			return basicType;
-		}
+		return parseComplexType(parser, basicType);
 	}
 	return nullptr;
 }
@@ -583,6 +593,17 @@ Expression* parseAtom(Parser* parser)
 		stringLiteral->end = parser->lastTokenEnd;
 
 		return stringLiteral;
+	}
+	else if (nextIs(parser, TOKEN_CHAR_LITERAL, &token))
+	{
+		nextToken(parser);
+
+		CharLiteral* charLiteral = parser->arena->alloc<CharLiteral>();
+		initNode((Node*)charLiteral, NODE_CHAR_LITERAL, start);
+		charLiteral->value = CreateString(&parser->lexer.src[token.offset + 1], token.length - 2);
+		charLiteral->end = parser->lastTokenEnd;
+
+		return charLiteral;
 	}
 	else if (nextIs(parser, TOKEN_TRUE))
 	{
@@ -1625,7 +1646,7 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	{
 		int mark = parser->scratch.mark();
 
-		while (!nextIs(parser, '}'))
+		while (hasNext(parser) && !nextIs(parser, '}'))
 		{
 			if (Field* field = parseField(parser))
 				parser->scratch.add((Node*)field);

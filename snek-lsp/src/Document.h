@@ -96,6 +96,8 @@ struct Document
 	std::string uri;
 	List<char*> lines;
 	std::mutex linesMutex;
+
+	bool open;
 	uint64_t lastChange = 0;
 
 	std::string text;

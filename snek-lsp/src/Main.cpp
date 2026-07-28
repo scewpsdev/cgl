@@ -6,6 +6,7 @@
 #include <thread>
 #include <stdio.h>
 #include <stdarg.h>
+#include <filesystem>
 
 #include <nlohmann/json.hpp>
 
@@ -21,6 +22,7 @@ using json = nlohmann::json;
 
 
 std::string rootPath;
+std::thread parserThread;
 List<Document*> documents;
 std::map<std::string, int> uriMap;
 
@@ -383,6 +385,172 @@ void Parse(Document* document)
 	sendRequest("workspace/semanticTokens/refresh", nullptr);
 }
 
+static Document* OpenDocument(std::string uri, std::string text)
+{
+	fprintf(stderr, "Opening document %s\n", uri.c_str());
+
+	Document* document = new Document();
+	document->uri = uri;
+	documents.add(document);
+	uriMap.emplace(document->uri, documents.size - 1);
+	document->init(text);
+	return document;
+}
+
+static Document* GetDocument(std::string uri)
+{
+	auto it = uriMap.find(uri);
+	if (it != uriMap.end())
+		return documents[it->second];
+	return nullptr;
+}
+
+static char* GetModuleNameFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
+	const char* dot = strrchr(slash, '.');
+	if (!dot)
+		dot = slash + strlen(slash);
+
+	int length = (int)(dot - slash);
+
+	char* name = new char[length + 1];
+	strncpy(name, slash, length);
+	name[length] = 0;
+
+	return name;
+}
+
+static const char* GetFilenameFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
+	return slash;
+}
+
+static char* GetFolderFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (!slash)
+		slash = path;
+
+	int length = (int)(slash - path);
+
+	if (length == 0)
+	{
+		char* folder = new char[2];
+		strcpy(folder, ".");
+		folder[1] = 0;
+		return folder;
+	}
+	else
+	{
+		char* folder = new char[length + 1];
+		strncpy(folder, path, length);
+		folder[length] = 0;
+		return folder;
+	}
+}
+
+static const char* GetExtensionFromPath(const char* path)
+{
+	const char* ext = strrchr(path, '.');
+	if (ext)
+		ext++;
+	else
+		ext = path + strlen(path);
+
+	return ext;
+}
+
+static std::string PathToURI(const char* path)
+{
+	namespace fs = std::filesystem;
+
+	// 1. Get absolute path and normalize to generic forward slashes '/'
+	fs::path p = fs::absolute(path).generic_string();
+	std::string genericPath = p.string();
+
+	// 2. Format Windows paths (e.g., "C:/path" -> "/c:/path")
+	if (genericPath.size() > 1 && genericPath[1] == ':') {
+		genericPath[0] = std::tolower(genericPath[0]); // Lowercase drive letter
+		genericPath = "/" + genericPath;
+	}
+
+	// 3. Simple strict percent-encoding loop
+	std::ostringstream uri;
+	uri << "file://";
+
+	for (unsigned char c : genericPath) {
+		// Keep ONLY unreserved RFC 3986 path characters and standard '/' delimiters
+		if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/') {
+			uri << (char)c;
+		}
+		else {
+			// Force lowercase hex output (%3a) to match your client output
+			uri << '%' << std::hex << std::setw(2) << std::setfill('0') << (int)c;
+		}
+	}
+
+	return uri.str();
+}
+
+static bool AddFile(const char* path)
+{
+	if (char* src = ReadText(path))
+	{
+		OpenDocument(PathToURI(path), std::string(src));
+		delete[] src;
+		return true;
+	}
+	return false;
+}
+
+static bool ScanSourceFolder(const char* folder, const char* extension, bool recursive)
+{
+	if (!std::filesystem::exists(folder))
+	{
+		return false;
+	}
+
+	bool result = true;
+
+	for (auto& de : std::filesystem::directory_iterator(folder))
+	{
+		std::u8string dePathStr = de.path().u8string();
+		const char* dePath = (const char*)dePathStr.c_str();
+		if (de.is_directory() && recursive)
+		{
+			result = ScanSourceFolder(dePath, extension, recursive) && result;
+		}
+		else
+		{
+			const char* fileExtension = GetExtensionFromPath(dePath);
+			if (fileExtension && strcmp(fileExtension, extension) == 0)
+			{
+				result = AddFile(dePath) && result;
+			}
+		}
+	}
+
+	return result;
+}
+
 void ParserThread()
 {
 	bool running = true;
@@ -409,11 +577,8 @@ void ParserThread()
 
 int main()
 {
-	//SleepMS(5000);
-	std::cerr << "Starting lsp server" << std::endl;
-
-	std::thread parserThread(ParserThread);
-	parserThread.detach();
+	SleepMS(5000);
+	fprintf(stderr, "Starting LSP Server\n");
 
 	while (true)
 	{
@@ -500,6 +665,11 @@ int main()
 					}}
 				};
 
+				ScanSourceFolder(rootPath.c_str(), "src", true);
+
+				parserThread = std::thread(ParserThread);
+				parserThread.detach();
+
 				sendResponse(request["id"], result);
 			}
 
@@ -512,12 +682,10 @@ int main()
 				std::string uri = textDocument["uri"];
 				std::string text = textDocument["text"];
 
-				Document* document = new Document();
-				document->uri = uri;
-				documents.add(document);
-				uriMap.emplace(uri, documents.size - 1);
-
-				document->init(text);
+				Document* document = GetDocument(uri);
+				if (!document)
+					document = OpenDocument(uri, text);
+				document->open = true;
 			}
 			else if (method == "textDocument/didChange")
 			{
@@ -526,26 +694,31 @@ int main()
 				std::string uri = textDocument["uri"];
 				int version = textDocument["version"];
 
-				Document* document = documents[uriMap[uri]];
-
-				json contentChanges = params["contentChanges"];
-				for (int i = 0; i < (int)contentChanges.size(); i++)
+				if (Document* document = GetDocument(uri))
 				{
-					json changeEvent = contentChanges[i];
+					json contentChanges = params["contentChanges"];
+					for (int i = 0; i < (int)contentChanges.size(); i++)
+					{
+						json changeEvent = contentChanges[i];
 
-					json range = changeEvent["range"];
-					json rangeStart = range["start"];
-					json rangeEnd = range["end"];
+						json range = changeEvent["range"];
+						json rangeStart = range["start"];
+						json rangeEnd = range["end"];
 
-					int startLine = rangeStart["line"];
-					int startCol = rangeStart["character"];
+						int startLine = rangeStart["line"];
+						int startCol = rangeStart["character"];
 
-					int endLine = rangeEnd["line"];
-					int endCol = rangeEnd["character"];
+						int endLine = rangeEnd["line"];
+						int endCol = rangeEnd["character"];
 
-					std::string text = changeEvent["text"];
+						std::string text = changeEvent["text"];
 
-					document->onChange(startLine, startCol, endLine, endCol, text);
+						document->onChange(startLine, startCol, endLine, endCol, text);
+					}
+				}
+				else
+				{
+					fprintf(stderr, "Document %s not found\n", uri.c_str());
 				}
 			}
 
@@ -556,20 +729,25 @@ int main()
 				std::string uri = request["params"]["textDocument"]["uri"];
 				int id = request["id"];
 
-				Document* document = documents[uriMap[uri]];
-
-				if (document->lastChange == 0) // dont send tokens is document is outdated and needs to be reparsed
+				if (Document* document = GetDocument(uri))
 				{
-					std::vector<int> data;
-					document->getTokens(data);
+					if (document->lastChange == 0) // dont send tokens is document is outdated and needs to be reparsed
+					{
+						std::vector<int> data;
+						document->getTokens(data);
 
-					sendResponse(id, {
-						{"data", data}
-						});
+						sendResponse(id, {
+							{"data", data}
+							});
+					}
+					else
+					{
+						sendErrorResponse(id, -32801);
+					}
 				}
 				else
 				{
-					sendErrorResponse(id, -32801);
+					fprintf(stderr, "Document %s not found\n", uri.c_str());
 				}
 			}
 			/*
@@ -584,7 +762,7 @@ int main()
 				json params = request["params"];
 				std::string uri = params["textDocument"]["uri"];
 
-				Document* document = documents[uriMap[uri]];
+				Document* document = GetDocument(uri);
 
 				json position = params["position"];
 				int line = position["line"] + 1;
@@ -644,8 +822,7 @@ int main()
 		else
 		{
 			int id = request["id"];
-
-			std::cerr << "Received response with id " << id << std::endl;
+			fprintf(stderr, "Received response with id %d\n", id);
 		}
 	}
 }
