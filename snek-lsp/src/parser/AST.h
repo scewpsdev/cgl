@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Lexer.h"
+#include "TypeKind.h"
 #include "utils/Arena.h"
 #include "utils/StringView.h"
 
@@ -86,49 +87,18 @@ struct NodeBase
 	int start, end;
 };
 
-enum TypeKind : uint8_t
-{
-	TYPE_NULL = 0,
-
-	TYPE_VOID,
-
-	TYPE_INT_START,
-	TYPE_INT8,
-	TYPE_INT16,
-	TYPE_INT32,
-	TYPE_INT64,
-	TYPE_UINT8,
-	TYPE_UINT16,
-	TYPE_UINT32,
-	TYPE_UINT64,
-	TYPE_INT_END,
-
-	TYPE_FLOAT_BEGIN,
-	TYPE_FLOAT,
-	TYPE_DOUBLE,
-	TYPE_FLOAT_END,
-
-	TYPE_BOOL,
-	TYPE_ANY,
-	TYPE_STRING,
-	TYPE_STRUCT,
-	TYPE_UNION,
-	TYPE_POINTER,
-	TYPE_OPTIONAL,
-	TYPE_FUNCTION,
-	TYPE_TUPLE,
-	TYPE_ARRAY,
-};
-
 
 struct Expression;
+struct Type;
 
-struct Type : NodeBase
+struct TypeNode : NodeBase
 {
 	uint8_t typeKind;
+
+	Type* inferredType;
 };
 
-struct NamedType : Type
+struct NamedType : TypeNode
 {
 	StringView name;
 };
@@ -141,62 +111,63 @@ struct VariableDeclarator
 
 struct Field : NodeBase
 {
-	Type* type;
+	TypeNode* type;
 	VariableDeclarator* declarators;
 	int numDeclarators;
 };
 
-struct StructType : Type
+struct StructType : TypeNode
 {
 	Field** fields;
 	int numFields;
 };
 
-struct UnionType : Type
+struct UnionType : TypeNode
 {
 	Field** fields;
 	int numFields;
 };
 
-struct PointerType : Type
+struct PointerType : TypeNode
 {
-	Type* elementType;
+	TypeNode* elementType;
 };
 
-struct OptionalType : Type
+struct OptionalType : TypeNode
 {
-	Type* elementType;
+	TypeNode* elementType;
 };
 
 struct Parameter : NodeBase
 {
-	Type* type;
+	TypeNode* type;
 	StringView name;
 	bool variadic;
 };
 
-struct FunctionType : Type
+struct FunctionType : TypeNode
 {
 	Parameter** params;
 	int numParams;
-	Type* returnType;
+	TypeNode* returnType;
 };
 
-struct TupleType : Type
+struct TupleType : TypeNode
 {
-	Type** elementTypes;
+	TypeNode** elementTypes;
 	int numElementTypes;
 };
 
-struct ArrayType : Type
+struct ArrayType : TypeNode
 {
-	Type* elementType;
+	TypeNode* elementType;
 	Expression* size;
 };
 
 
 struct Expression : NodeBase
 {
+	Type* inferredType;
 };
 
 struct IntLiteral : Expression
@@ -312,7 +283,7 @@ struct BinaryOperator : Expression
 struct Cast : Expression
 {
 	Expression* expression;
-	Type* targetType;
+	TypeNode* targetType;
 };
 
 struct PrefixOperator : Expression
@@ -398,7 +369,7 @@ struct Defer : Statement
 
 struct VariableDeclaration : Statement
 {
-	Type* type;
+	TypeNode* type;
 	uint32_t storage;
 	VariableDeclarator* declarators;
 	int numDeclarators;
@@ -454,7 +425,7 @@ struct Typedef : NodeBase
 {
 	StringView name;
 	uint32_t storage;
-	Type* value;
+	TypeNode* value;
 };
 
 struct Function : NodeBase
@@ -464,7 +435,7 @@ struct Function : NodeBase
 
 	Parameter** params;
 	int numParams;
-	Type* returnType;
+	TypeNode* returnType;
 
 	Statement** statements;
 	int numStatements;
@@ -473,7 +444,7 @@ struct Function : NodeBase
 
 struct GlobalVariable : NodeBase
 {
-	Type* type;
+	TypeNode* type;
 	uint32_t storage;
 	VariableDeclarator* declarators;
 	int numDeclarators;
@@ -500,7 +471,7 @@ struct Node
 
 		// types
 
-		Type primitiveType;
+		TypeNode primitiveType;
 		NamedType namedType;
 		StructType structType;
 		UnionType unionType;
@@ -577,7 +548,20 @@ struct AST
 	Node** declarations;
 	int numDeclarations;
 
-	Scope* globalScope;
+	Struct** structs;
+	int numStructs;
+	Enum** enums;
+	int numEnums;
+	Union** unions;
+	int numUnions;
+	Typedef** typedefs;
+	int numTypedefs;
+	Function** functions;
+	int numFunctions;
+	Macro** macros;
+	int numMacros;
+	GlobalVariable** globalVariables;
+	int numGlobalVariables;
 };
 
 typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
@@ -587,7 +571,7 @@ void initAST(AST* ast);
 void destroyAST(AST* ast);
 
 void initNode(Node* node, uint8_t type, int start);
-void initType(Type* type, uint8_t nodeType, uint8_t typeKind, int start);
+void initType(TypeNode* type, uint8_t nodeType, uint8_t typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);

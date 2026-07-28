@@ -6,7 +6,6 @@
 
 struct AST;
 struct Node;
-struct Scope;
 struct Arena;
 struct Diagnostics;
 
@@ -18,8 +17,6 @@ struct Parser
 	Token lookahead[3];
 	int lookaheadState[3];
 	int lookaheadCount;
-
-	Scope* currentScope;
 
 	Arena* arena;
 	ScratchBuffer scratch;

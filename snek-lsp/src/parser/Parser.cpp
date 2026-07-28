@@ -30,22 +30,6 @@ void destroyParser(Parser* parser)
 	destroyLexer(&parser->lexer);
 }
 
-static Scope* pushScope(Parser* parser)
-{
-	Scope* scope = parser->arena->alloc<Scope>();
-	scope->parent = parser->currentScope;
-
-	bool isGlobal = false;
-	initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, parser->arena);
-
-	parser->currentScope = scope;
-}
-
-static void popScope(Parser* parser)
-{
-	parser->currentScope = parser->currentScope->parent;
-}
-
 SourceLocation getSourceLocation(Parser* parser)
 {
 	return getSourceLocation(&parser->lexer, parser->cursor);
@@ -82,9 +66,6 @@ static void error(Parser* parser, SourceLocation start, SourceLocation end, cons
 {
 	if (!parser->diagnostics) return;
 
-	if (start.line == 37 && start.col == 14)
-		__debugbreak();
-
 	va_list args;
 	va_start(args, fmt);
 
@@ -100,9 +81,6 @@ static void error(Parser* parser, SourceLocation start, SourceLocation end, cons
 static void error(Parser* parser, SourceLocation location, const char* fmt, ...)
 {
 	if (!parser->diagnostics) return;
-
-	if (location.line == 37 && location.col == 14)
-		__debugbreak();
 
 	va_list args;
 	va_start(args, fmt);
@@ -282,13 +260,13 @@ static T* copyFromScratchBuffer(Parser* parser, int mark, int* outCount)
 }
 
 
-Type* parseType(Parser* parser);
+TypeNode* parseType(Parser* parser);
 Expression* parseExpression(Parser* parser);
 Statement* parseStatement(Parser* parser);
 Field* parseField(Parser* parser);
 Parameter* parseParameter(Parser* parser);
 
-static Type* parseBasicType(Parser* parser)
+static TypeNode* parseBasicType(Parser* parser)
 {
 	Token token = peekToken(parser);
 	int start, end;
@@ -298,7 +276,7 @@ static Type* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, TYPE_VOID, start);
 		type->end = end;
 		return type;
@@ -309,7 +287,7 @@ static Type* parseBasicType(Parser* parser)
 
 		uint8_t typeKind = TYPE_INT8 + (token.type - TOKEN_INT8);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
 		type->end = end;
 		return type;
@@ -320,7 +298,7 @@ static Type* parseBasicType(Parser* parser)
 
 		uint8_t typeKind = TYPE_UINT8 + (token.type - TOKEN_UINT8);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
 		type->end = end;
 		return type;
@@ -331,7 +309,7 @@ static Type* parseBasicType(Parser* parser)
 
 		uint8_t typeKind = token.type == TOKEN_FLOAT32 ? TYPE_FLOAT : TYPE_DOUBLE;
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
 		type->end = end;
 		return type;
@@ -340,7 +318,7 @@ static Type* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, TYPE_BOOL, start);
 		type->end = end;
 		return type;
@@ -349,7 +327,7 @@ static Type* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, TYPE_ANY, start);
 		type->end = end;
 		return type;
@@ -358,7 +336,7 @@ static Type* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		Type* type = parser->arena->alloc<Type>();
+		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, TYPE_STRING, start);
 		type->end = end;
 		return type;
@@ -368,7 +346,7 @@ static Type* parseBasicType(Parser* parser)
 		nextToken(parser);
 
 		NamedType* type = parser->arena->alloc<NamedType>();
-		initType((Type*)type, NODE_NAMED_TYPE, 0, start);
+		initType((TypeNode*)type, NODE_NAMED_TYPE, 0, start);
 		type->end = end;
 		type->name = getTokenString(token, parser);
 		return type;
@@ -378,7 +356,7 @@ static Type* parseBasicType(Parser* parser)
 		nextToken(parser);
 
 		FunctionType* type = parser->arena->alloc<FunctionType>();
-		initType((Type*)type, NODE_FUNCTION_TYPE, TYPE_FUNCTION, start);
+		initType((TypeNode*)type, NODE_FUNCTION_TYPE, TYPE_FUNCTION, start);
 
 		int mark = parser->scratch.mark();
 
@@ -412,7 +390,7 @@ static Type* parseBasicType(Parser* parser)
 		nextToken(parser);
 
 		StructType* type = parser->arena->alloc<StructType>();
-		initType((Type*)type, NODE_STRUCT_TYPE, TYPE_STRUCT, start);
+		initType((TypeNode*)type, NODE_STRUCT_TYPE, TYPE_STRUCT, start);
 
 		if (expectToken(parser, '{'))
 		{
@@ -440,7 +418,7 @@ static Type* parseBasicType(Parser* parser)
 		nextToken(parser);
 
 		UnionType* type = parser->arena->alloc<UnionType>();
-		initType((Type*)type, NODE_UNION_TYPE, TYPE_UNION, start);
+		initType((TypeNode*)type, NODE_UNION_TYPE, TYPE_UNION, start);
 
 		if (expectToken(parser, '{'))
 		{
@@ -469,7 +447,7 @@ static Type* parseBasicType(Parser* parser)
 	}
 }
 
-static Type* parseComplexType(Parser* parser, Type* basicType)
+static TypeNode* parseComplexType(Parser* parser, TypeNode* basicType)
 {
 	Token token;
 	if (nextIs(parser, '*', &token) && token.offset == basicType->end)
@@ -477,7 +455,7 @@ static Type* parseComplexType(Parser* parser, Type* basicType)
 		nextToken(parser);
 
 		PointerType* type = parser->arena->alloc<PointerType>();
-		initType((Type*)type, NODE_POINTER_TYPE, TYPE_POINTER, basicType->start);
+		initType((TypeNode*)type, NODE_POINTER_TYPE, TYPE_POINTER, basicType->start);
 		type->end = token.offset + token.length;
 		type->elementType = basicType;
 
@@ -488,7 +466,7 @@ static Type* parseComplexType(Parser* parser, Type* basicType)
 		nextToken(parser);
 
 		OptionalType* type = parser->arena->alloc<OptionalType>();
-		initType((Type*)type, NODE_OPTIONAL_TYPE, TYPE_OPTIONAL, basicType->start);
+		initType((TypeNode*)type, NODE_OPTIONAL_TYPE, TYPE_OPTIONAL, basicType->start);
 		type->end = token.offset + token.length;
 		type->elementType = basicType;
 
@@ -505,7 +483,7 @@ static Type* parseComplexType(Parser* parser, Type* basicType)
 		expectToken(parser, ']');
 
 		ArrayType* type = parser->arena->alloc<ArrayType>();
-		initType((Type*)type, NODE_ARRAY_TYPE, TYPE_ARRAY, basicType->start);
+		initType((TypeNode*)type, NODE_ARRAY_TYPE, TYPE_ARRAY, basicType->start);
 		type->elementType = basicType;
 		type->size = size;
 		type->end = parser->lastTokenEnd;
@@ -518,9 +496,9 @@ static Type* parseComplexType(Parser* parser, Type* basicType)
 	}
 }
 
-Type* parseType(Parser* parser)
+TypeNode* parseType(Parser* parser)
 {
-	if (Type* basicType = parseBasicType(parser))
+	if (TypeNode* basicType = parseBasicType(parser))
 	{
 		return parseComplexType(parser, basicType);
 	}
@@ -1175,7 +1153,7 @@ Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 
 				if (operatorType == OPERATOR_CAST)
 				{
-					Type* type = parseType(parser);
+					TypeNode* type = parseType(parser);
 
 					Cast* cast = parser->arena->alloc<Cast>();
 					initNode((Node*)cast, NODE_CAST, left->start);
@@ -1475,7 +1453,7 @@ Statement* parseStatement(Parser* parser)
 	{
 		int start = parser->cursor;
 
-		if (Type* type = parseType(parser))
+		if (TypeNode* type = parseType(parser))
 		{
 			if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
 			{
@@ -1565,7 +1543,7 @@ Statement* parseStatement(Parser* parser)
 
 Field* parseField(Parser* parser)
 {
-	Type* type = parseType(parser);
+	TypeNode* type = parseType(parser);
 	if (!type)
 		return nullptr;
 
@@ -1775,7 +1753,7 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 
 Parameter* parseParameter(Parser* parser)
 {
-	Type* type = parseType(parser);
+	TypeNode* type = parseType(parser);
 	if (!type)
 		return nullptr;
 
@@ -1872,7 +1850,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 	return function;
 }
 
-GlobalVariable* parseGlobalVariable(Parser* parser, Type* type, uint32_t storage, int start)
+GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t storage, int start)
 {
 	int mark = parser->scratch.mark();
 
@@ -1972,32 +1950,50 @@ void parseFile(Parser* parser, AST* ast)
 		if (token.type == TOKEN_STRUCT)
 		{
 			if (Struct* struct_ = parseStruct(parser, storage, start))
+			{
 				parser->scratch.add((Node*)struct_);
+				ast->numStructs++;
+			}
 		}
 		else if (token.type == TOKEN_ENUM)
 		{
 			if (Enum* enum_ = parseEnum(parser, storage, start))
+			{
 				parser->scratch.add((Node*)enum_);
+				ast->numEnums++;
+			}
 		}
 		else if (token.type == TOKEN_UNION)
 		{
 			if (Union* union_ = parseUnion(parser, storage, start))
+			{
 				parser->scratch.add((Node*)union_);
+				ast->numUnions++;
+			}
 		}
 		else if (token.type == TOKEN_TYPEDEF)
 		{
 			if (Typedef* typedef_ = parseTypedef(parser, storage, start))
+			{
 				parser->scratch.add((Node*)typedef_);
+				ast->numTypedefs++;
+			}
 		}
 		else if (token.type == TOKEN_FUNCTION && peekToken(parser, 1).type == TOKEN_IDENTIFIER)
 		{
 			if (Function* function = parseFunction(parser, storage, start))
+			{
 				parser->scratch.add((Node*)function);
+				ast->numFunctions++;
+			}
 		}
 		else if (token.type == TOKEN_MACRO)
 		{
 			if (Macro* macro = parseMacro(parser, storage, start))
+			{
 				parser->scratch.add((Node*)macro);
+				ast->numMacros++;
+			}
 		}
 		else if (token.type == TOKEN_MODULE)
 		{
@@ -2011,10 +2007,13 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			skipPastToken(parser, ';');
 		}
-		else if (Type* type = parseType(parser))
+		else if (TypeNode* type = parseType(parser))
 		{
 			if (GlobalVariable* globalVariable = parseGlobalVariable(parser, type, storage, start))
+			{
 				parser->scratch.add((Node*)globalVariable);
+				ast->numGlobalVariables++;
+			}
 		}
 		else
 		{
@@ -2039,35 +2038,5 @@ void parseFile(Parser* parser, AST* ast)
 
 void parse(Parser* parser, AST* ast, Arena* arena)
 {
-	ast->globalScope = arena->alloc<Scope>();
-	initScope(ast->globalScope, nullptr, true, arena);
-	parser->currentScope = ast->globalScope;
-
 	parseFile(parser, ast);
-
-	for (int i = 0; i < ast->numDeclarations; i++)
-	{
-		Node* declaration = ast->declarations[i];
-
-		StringView identifier = {};
-		if (declaration->type == NODE_STRUCT)
-			insertSymbol(&parser->currentScope->symbols, declaration->struct_.name, declaration);
-		else if (declaration->type == NODE_ENUM)
-			insertSymbol(&parser->currentScope->symbols, declaration->enum_.name, declaration);
-		else if (declaration->type == NODE_UNION)
-			insertSymbol(&parser->currentScope->symbols, declaration->union_.name, declaration);
-		else if (declaration->type == NODE_TYPEDEF)
-			insertSymbol(&parser->currentScope->symbols, declaration->typedef_.name, declaration);
-		else if (declaration->type == NODE_FUNCTION)
-			insertSymbol(&parser->currentScope->symbols, declaration->function.name, declaration);
-		else if (declaration->type == NODE_GLOBAL_VARIABLE)
-		{
-			for (int i = 0; i < declaration->globalVariable.numDeclarators; i++)
-			{
-				insertSymbol(&parser->currentScope->symbols, declaration->globalVariable.declarators[i].name, declaration);
-			}
-		}
-		else if (declaration->type == NODE_MACRO)
-			insertSymbol(&parser->currentScope->symbols, declaration->macro.name, declaration);
-	}
 }

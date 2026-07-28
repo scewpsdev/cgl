@@ -20,7 +20,7 @@ void initNode(Node* node, uint8_t type, int start)
 	node->start = start;
 }
 
-void initType(Type* type, uint8_t nodeType, uint8_t typeKind, int start)
+void initType(TypeNode* type, uint8_t nodeType, uint8_t typeKind, int start)
 {
 	initNode((Node*)type, nodeType, start);
 	type->typeKind = typeKind;
@@ -142,7 +142,7 @@ void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
 static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr);
 static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* userPtr);
 
-static void traverseType(Type* type, ASTVisitor_t visitor, void* userPtr)
+static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 {
 	visitor((Node*)type, userPtr);
 
