@@ -260,8 +260,5 @@
     <ClInclude Include="src\typechecker\TypeSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\utils\LinearHashMap.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

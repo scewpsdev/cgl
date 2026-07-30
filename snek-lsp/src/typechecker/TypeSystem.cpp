@@ -215,22 +215,22 @@ Type* getOptionalType(TypeSystem* types, Type* elementType)
 	return internType(types, key);
 }
 
-Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** elementTypes)
+Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, char** fieldNames)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.numFields = numElements;
-	key.struct_.fieldTypes = elementTypes;
+	key.struct_.fieldTypes = fieldTypes;
 
 	Type* type = internType(types, key);
 
 	if (type == &key)
-		type->struct_.fieldTypes = copyTypes(types, numElements, elementTypes);
+		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
 
 	return type;
 }
 
-Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** elementTypes)
+Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, char** fieldNames)
 {
 	char tmpName[256];
 	strncpy(tmpName, name.ptr, name.length);
@@ -239,14 +239,14 @@ Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Ty
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.name = tmpName;
 	key.struct_.numFields = numElements;
-	key.struct_.fieldTypes = elementTypes;
+	key.struct_.fieldTypes = fieldTypes;
 
 	Type* type = internType(types, key);
 
 	if (type == &key)
 	{
 		type->struct_.name = _strdup(tmpName);
-		type->struct_.fieldTypes = copyTypes(types, numElements, elementTypes);
+		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
 	}
 
 	return type;

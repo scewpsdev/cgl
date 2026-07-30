@@ -14,6 +14,9 @@ struct StringView
 StringView CreateString(const char* start, const char* end);
 StringView CreateString(const char* start, int length);
 
+bool compareString(StringView a, StringView b);
+bool compareString(StringView a, const char* b);
+
 char* substring(const char* str, int offset, int length = -1);
 char* concat(const char* str1, const char* str2);
 char* concatDelete(const char* str1, const char* str2);

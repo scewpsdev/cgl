@@ -33,13 +33,13 @@ enum NodeType : uint8_t
 	NODE_COMPOUND_EXPRESSION,
 	NODE_EXPRESSION_LIST,
 	NODE_BINARY_OPERATOR,
-	NODE_CAST,
-	NODE_PREFIX_OPERATOR,
-	NODE_POSTFIX_OPERATOR,
+	NODE_UNARY_OPERATOR,
 	NODE_FUNCTION_CALL,
 	NODE_ARRAY_SUBSCRIPT,
 	NODE_MEMBER_ACCESS,
 	NODE_TERNARY_CONDITION,
+	NODE_CAST,
+	NODE_CAST_IMPLICIT,
 
 	NODE_BLOCK_STATEMENT,
 	NODE_IF,
@@ -288,19 +288,7 @@ struct BinaryOperator : Expression
 	Expression* left, * right;
 };
 
-struct Cast : Expression
-{
-	Expression* expression;
-	TypeNode* targetType;
-};
-
-struct PrefixOperator : Expression
-{
-	uint8_t op;
-	Expression* expression;
-};
-
-struct PostfixOperator : Expression
+struct UnaryOperator : Expression
 {
 	uint8_t op;
 	Expression* expression;
@@ -331,6 +319,18 @@ struct TernaryCondition : Expression
 {
 	Expression* condition;
 	Expression* then, * else_;
+};
+
+struct Cast : Expression
+{
+	Expression* expression;
+	TypeNode* targetType;
+};
+
+struct ImplicitCast : Expression
+{
+	Expression* expression;
+	Type* targetType;
 };
 
 
@@ -499,12 +499,12 @@ struct Node
 		CompoundExpression compoundExpression;
 		ExpressionList expressionList;
 		BinaryOperator binaryOperator;
-		PrefixOperator prefixOperator;
-		PostfixOperator postfixOperator;
+		UnaryOperator unaryOperator;
 		FunctionCall functionCall;
 		ArraySubscript arraySubscript;
 		MemberAccess memberAccess;
 		Cast cast;
+		ImplicitCast implicitCast;
 
 		BlockStatement blockStatement;
 		If if_;

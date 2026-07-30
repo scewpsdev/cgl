@@ -28,6 +28,23 @@ StringView CreateString(const char* start, int length)
 	return str;
 }
 
+bool compareString(StringView a, StringView b)
+{
+	if (a.length != b.length)
+		return false;
+
+	return strncmp(a.ptr, b.ptr, a.length) == 0;
+}
+
+bool compareString(StringView a, const char* b)
+{
+	int len = (int)strlen(b);
+	if (a.length != len)
+		return false;
+
+	return strncmp(a.ptr, b, len) == 0;
+}
+
 char* substring(const char* str, int offset, int length)
 {
 	if (length == -1) length = (int)strlen(str) - offset;

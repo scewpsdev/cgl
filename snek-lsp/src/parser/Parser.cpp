@@ -1021,6 +1021,7 @@ Expression* parsePostfixOperator(Parser* parser)
 				{
 					Token identifier = nextToken(parser);
 					member->name = getTokenString(identifier, parser);
+					member->index = -1;
 				}
 				else if (nextIs(parser, TOKEN_INT_LITERAL))
 				{
@@ -1039,8 +1040,8 @@ Expression* parsePostfixOperator(Parser* parser)
 			}
 			else
 			{
-				PostfixOperator* op = parser->arena->alloc<PostfixOperator>();
-				initNode((Node*)op, NODE_POSTFIX_OPERATOR, expression->start);
+				UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
+				initNode((Node*)op, NODE_UNARY_OPERATOR, expression->start);
 				op->op = operatorType;
 				op->expression = expression;
 
@@ -1126,8 +1127,8 @@ Expression* parsePrefixOperator(Parser* parser)
 			error(parser, getSourceLocation(parser), "Expression expected");
 		}
 
-		PrefixOperator* op = parser->arena->alloc<PrefixOperator>();
-		initNode((Node*)op, NODE_PREFIX_OPERATOR, start);
+		UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
+		initNode((Node*)op, NODE_UNARY_OPERATOR, start);
 		op->op = operatorType;
 		op->expression = expression;
 

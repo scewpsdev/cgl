@@ -11,12 +11,14 @@ struct Type
 			char* name;
 			int numFields;
 			Type** fieldTypes;
+			char** fieldNames;
 		} struct_;
 
 		struct {
 			char* name;
 			int numFields;
 			Type** fieldTypes;
+			char** fieldNames;
 		} union_;
 
 		struct {
