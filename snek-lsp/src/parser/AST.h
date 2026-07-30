@@ -88,6 +88,7 @@ struct NodeBase
 };
 
 
+struct Node;
 struct Expression;
 struct Type;
 
@@ -173,11 +174,14 @@ struct Expression : NodeBase
 struct IntLiteral : Expression
 {
 	StringView value;
+	uint64_t intValue;
+	bool negative;
 };
 
 struct FloatLiteral : Expression
 {
 	StringView value;
+	double floatValue;
 };
 
 struct StringLiteral : Expression
@@ -193,6 +197,8 @@ struct CharLiteral : Expression
 struct Identifier : Expression
 {
 	StringView name;
+
+	Node* resolvedSymbol;
 };
 
 struct CompoundExpression : Expression
@@ -369,7 +375,7 @@ struct Defer : Statement
 
 struct VariableDeclaration : Statement
 {
-	TypeNode* type;
+	TypeNode* variableType;
 	uint32_t storage;
 	VariableDeclarator* declarators;
 	int numDeclarators;
@@ -440,6 +446,8 @@ struct Function : NodeBase
 	Statement** statements;
 	int numStatements;
 	Expression* value;
+
+	Type* functionType;
 };
 
 struct GlobalVariable : NodeBase
@@ -522,10 +530,30 @@ struct Node
 	};
 };
 
+enum SymbolType : uint8_t
+{
+	SYMBOL_NULL = 0,
+
+	SYMBOL_VARIABLE,
+	SYMBOL_TYPE,
+	SYMBOL_FUNCTION_SET,
+	SYMBOL_MACRO,
+};
+
 struct SymbolEntry
 {
 	uint32_t key;
-	Node* value;
+	uint8_t type;
+
+	union
+	{
+		Node* declaration;
+		struct {
+			Node** overloads;
+			int count;
+			int capacity;
+		} functionSet;
+	};
 };
 
 struct SymbolTable
@@ -574,8 +602,8 @@ void initNode(Node* node, uint8_t type, int start);
 void initType(TypeNode* type, uint8_t nodeType, uint8_t typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
-bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node);
-Node* lookupSymbol(SymbolTable* symbols, StringView identifier);
+bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration);
+SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
 
 void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena);
 

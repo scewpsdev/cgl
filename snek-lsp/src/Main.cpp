@@ -14,6 +14,7 @@
 #include "Platform.h"
 
 #include "parser/Parser.h"
+#include "typechecker/TypeSystem.h"
 
 #include "utils/List.h"
 
@@ -23,6 +24,8 @@ using json = nlohmann::json;
 
 std::string rootPath;
 std::thread parserThread;
+
+TypeSystem types;
 List<Document*> documents;
 std::map<std::string, int> uriMap;
 
@@ -379,31 +382,25 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	for (int i = 0; i < 1; i++)
+	if (document->hasAST)
 	{
-		if (document->hasAST)
-		{
-			destroyDiagnostics(&document->diagnostics);
-			destroyArena(&document->arena);
-			destroyAST(&document->ast);
-			destroyParser(&document->parser);
-		}
-
-		initAST(&document->ast);
-		initArena(&document->arena, 16 * 1024 * 1024);
-		initDiagnostics(&document->diagnostics, &document->arena);
-
-		document->parser = {};
-		initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
-
-		parse(&document->parser, &document->ast, &document->arena);
-		document->hasAST = true;
-
-		if (i == 0)
-		{
-			sendDiagnosticsNotification(&document->diagnostics, document);
-		}
+		destroyDiagnostics(&document->diagnostics);
+		destroyArena(&document->arena);
+		destroyAST(&document->ast);
+		destroyParser(&document->parser);
 	}
+
+	initAST(&document->ast);
+	initArena(&document->arena, 16 * 1024 * 1024);
+	initDiagnostics(&document->diagnostics, &document->arena);
+
+	document->parser = {};
+	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
+
+	parse(&document->parser, &document->ast, &document->arena);
+	document->hasAST = true;
+
+	sendDiagnosticsNotification(&document->diagnostics, document);
 
 	document->astMutex.unlock();
 
@@ -413,6 +410,32 @@ void Parse(Document* document)
 	fprintf(stderr, "%.2f/%.2f kb arena memory used\n", document->arena.offset / 1024.0f, document->arena.capacity / 1024.0f);
 
 	sendRequest("workspace/semanticTokens/refresh", nullptr);
+}
+
+void TypeCheck(Document* document)
+{
+	SnekAssert(document->hasAST);
+
+	uint64_t beforeTypeCheck = GetTimeNS();
+
+	document->astMutex.lock();
+
+	if (document->typeChecker.lexer)
+	{
+		destroyTypeChecker(&document->typeChecker);
+	}
+
+	document->typeChecker = {};
+	initTypeChecker(&document->typeChecker, &document->arena, &document->parser.lexer, &document->diagnostics, &types);
+
+	symbolCollection(&document->typeChecker, &document->ast);
+	symbolResolution(&document->typeChecker, &document->ast);
+
+	document->astMutex.unlock();
+
+	uint64_t afterTypeCheck = GetTimeNS();
+	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;
+	fprintf(stderr, "typechecked in %.3fms\n", ms);
 }
 
 static Document* OpenDocument(std::string uri, std::string text)
@@ -588,16 +611,34 @@ void ParserThread()
 	{
 		uint64_t now = GetTimeNS();
 
+		bool allDocumentsParsed = true;
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
 
 			const int parseDelay = 500;
-
 			if (!document->hasAST || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				Parse(document);
+				document->needsTypeCheck = true;
 				document->lastChange = 0;
+			}
+
+			allDocumentsParsed = allDocumentsParsed && document->hasAST;
+		}
+
+		for (int i = 0; i < documents.size; i++)
+		{
+			Document* document = documents[i];
+
+			if (document->needsTypeCheck)
+			{
+				// for now we just wait until all documents have been parsed
+				if (allDocumentsParsed)
+				{
+					TypeCheck(document);
+					document->needsTypeCheck = false;
+				}
 			}
 		}
 
@@ -694,6 +735,8 @@ int main()
 						{"version", "0.0.1"},
 					}}
 				};
+
+				initTypeSystem(&types);
 
 				ScanSourceFolder(rootPath.c_str(), "src", true);
 

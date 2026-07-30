@@ -72,7 +72,7 @@ static void growSymbolTable(SymbolTable* symbols)
 	symbols->capacity = newCapacity;
 }
 
-bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
+bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration)
 {
 	if (symbols->count * 100 > symbols->capacity * 70)
 	{
@@ -90,14 +90,39 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
 		if (!slot->key)
 		{
 			slot->key = h;
-			slot->value = node;
+			slot->type = type;
+
+			if (type == SYMBOL_FUNCTION_SET)
+			{
+				slot->functionSet.overloads = symbols->arena->alloc<Node*>(slot->functionSet.capacity = 8);
+				slot->functionSet.count = 0;
+				slot->functionSet.overloads[slot->functionSet.count++] = declaration;
+			}
+			else
+			{
+				slot->declaration = declaration;
+			}
+
 			symbols->count++;
 			return true;
 		}
 
 		if (slot->key == h)
 		{
-			return false;
+			if (type == SYMBOL_FUNCTION_SET)
+			{
+				if (slot->functionSet.count == slot->functionSet.capacity)
+				{
+					Node** newOverloads = symbols->arena->alloc<Node*>(slot->functionSet.capacity *= 2);
+					memcpy(newOverloads, slot->functionSet.overloads, slot->functionSet.count * sizeof(Node*));
+					slot->functionSet.overloads = newOverloads;
+				}
+				slot->functionSet.overloads[slot->functionSet.count++] = declaration;
+			}
+			else
+			{
+				return false;
+			}
 		}
 
 		index = (index + 1) & mask;
@@ -107,7 +132,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, Node* node)
 	return false;
 }
 
-Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
+SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier)
 {
 	if (!symbols->count) return nullptr;
 
@@ -123,7 +148,7 @@ Node* lookupSymbol(SymbolTable* symbols, StringView identifier)
 			return nullptr;
 
 		if (slot->key == h)
-			return slot->value;
+			return slot;
 
 		index = (index + 1) & mask;
 	}
@@ -348,7 +373,7 @@ static void traverseStatement(Statement* statement, ASTVisitor_t visitor, void* 
 	{
 		VariableDeclaration* variableDeclaration = (VariableDeclaration*)statement;
 		if (variableDeclaration->type)
-			traverseType(variableDeclaration->type, visitor, userPtr);
+			traverseType(variableDeclaration->variableType, visitor, userPtr);
 		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
 		{
 			if (variableDeclaration->declarators[i].value)

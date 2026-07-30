@@ -1,13 +1,12 @@
 #pragma once
 
-#include "Type.h"
-
 
 struct AST;
 struct Function;
 struct Arena;
 struct Lexer;
 struct Diagnostics;
+struct TypeSystem;
 struct Scope;
 
 struct TypeChecker
@@ -16,26 +15,13 @@ struct TypeChecker
 	Lexer* lexer;
 	Diagnostics* diagnostics;
 
-	Type errorType;
-	Type int8Type;
-	Type int16Type;
-	Type int32Type;
-	Type int64Type;
-	Type uint8Type;
-	Type uint16Type;
-	Type uint32Type;
-	Type uint64Type;
-	Type floatType;
-	Type doubleType;
-	Type boolType;
-	Type anyType;
-	Type stringType;
+	TypeSystem* types;
 
 	Scope* currentScope;
 };
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* diagnostics);
+void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types);
 void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, AST* ast);

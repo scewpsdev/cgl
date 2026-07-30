@@ -1491,7 +1491,7 @@ Statement* parseStatement(Parser* parser)
 				VariableDeclaration* variableDeclaration = parser->arena->alloc<VariableDeclaration>();
 				initNode((Node*)variableDeclaration, NODE_VARIABLE_DECLARATION, start);
 				//variableDeclaration->storage = storage;
-				variableDeclaration->type = type;
+				variableDeclaration->variableType = type;
 				variableDeclaration->end = parser->lastTokenEnd;
 
 				variableDeclaration->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &variableDeclaration->numDeclarators);

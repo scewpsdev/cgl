@@ -10,6 +10,7 @@
 #include "parser/Parser.h"
 #include "parser/AST.h"
 #include "parser/Diagnostics.h"
+#include "typechecker/TypeChecker.h"
 #include "utils/List.h"
 
 
@@ -99,6 +100,7 @@ struct Document
 
 	bool open;
 	uint64_t lastChange = 0;
+	bool needsTypeCheck = false;
 
 	std::string text;
 	std::mutex astMutex;
@@ -107,6 +109,7 @@ struct Document
 	Arena arena;
 	Diagnostics diagnostics;
 	Parser parser;
+	TypeChecker typeChecker;
 
 
 	void init(const std::string& text);

@@ -145,6 +145,7 @@
     <ClCompile Include="src\parser\Parser.cpp" />
     <ClCompile Include="src\Platform.cpp" />
     <ClCompile Include="src\typechecker\TypeChecker.cpp" />
+    <ClCompile Include="src\typechecker\TypeSystem.cpp" />
     <ClCompile Include="src\utils\Arena.cpp" />
     <ClCompile Include="src\utils\Hash.cpp" />
     <ClCompile Include="src\utils\Log.cpp" />
@@ -209,6 +210,7 @@
     <ClInclude Include="src\Platform.h" />
     <ClInclude Include="src\typechecker\Type.h" />
     <ClInclude Include="src\typechecker\TypeChecker.h" />
+    <ClInclude Include="src\typechecker\TypeSystem.h" />
     <ClInclude Include="src\utils\Arena.h" />
     <ClInclude Include="src\utils\Defer.h" />
     <ClInclude Include="src\utils\Hash.h" />

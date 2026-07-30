@@ -57,6 +57,9 @@
     <ClCompile Include="src\typechecker\TypeChecker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\typechecker\TypeSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\nlohmann\json.hpp">
@@ -252,6 +255,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\parser\TypeKind.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\typechecker\TypeSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -35,4 +35,6 @@ enum TypeKind : uint8_t
 	TYPE_FUNCTION,
 	TYPE_TUPLE,
 	TYPE_ARRAY,
+
+	TYPE_COUNT
 };
