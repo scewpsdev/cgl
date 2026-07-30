@@ -8,11 +8,15 @@ struct Type
 	uint8_t typeKind;
 	union {
 		struct {
-
+			char* name;
+			int numFields;
+			Type** fieldTypes;
 		} struct_;
 
 		struct {
-
+			char* name;
+			int numFields;
+			Type** fieldTypes;
 		} union_;
 
 		struct {
@@ -24,12 +28,10 @@ struct Type
 		} optional;
 
 		struct {
-
+			Type* returnType;
+			int numParams;
+			Type** paramTypes;
 		} function;
-
-		struct {
-
-		} tuple;
 
 		struct {
 			Type* elementType;

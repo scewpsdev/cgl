@@ -29,7 +29,7 @@ struct ScratchBuffer
 		*t = value;
 		return t;
 	}
-	
+
 	template<typename T>
 	int count(int mark)
 	{
@@ -42,6 +42,16 @@ struct ScratchBuffer
 		SnekAssert(n * sizeof(T) == bytes);
 
 		return n;
+	}
+
+	template<typename T>
+	T* getData(int mark)
+	{
+		int alignment = alignof(T);
+		size_t current = (size_t)(memory + mark);
+		size_t aligned = (current + (alignment - 1)) & ~(alignment - 1);
+		int offset = (int)(aligned - (size_t)memory);
+		return (T*)(memory + offset);
 	}
 };
 

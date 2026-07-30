@@ -171,7 +171,7 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 {
 	visitor((Node*)type, userPtr);
 
-	if (type->typeKind == TYPE_STRUCT)
+	if (type->type == NODE_STRUCT_TYPE)
 	{
 		StructType* structType = (StructType*)type;
 		for (int i = 0; i < structType->numFields; i++)
@@ -180,7 +180,7 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 				traverseField(structType->fields[i], visitor, userPtr);
 		}
 	}
-	else if (type->typeKind == TYPE_UNION)
+	else if (type->type == NODE_UNION_TYPE)
 	{
 		UnionType* unionType = (UnionType*)type;
 		for (int i = 0; i < unionType->numFields; i++)
@@ -189,19 +189,19 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 				traverseField(unionType->fields[i], visitor, userPtr);
 		}
 	}
-	else if (type->typeKind == TYPE_POINTER)
+	else if (type->type == NODE_POINTER_TYPE)
 	{
 		PointerType* pointerType = (PointerType*)type;
 		if (pointerType->elementType)
 			traverseType(pointerType->elementType, visitor, userPtr);
 	}
-	else if (type->typeKind == TYPE_OPTIONAL)
+	else if (type->type == NODE_OPTIONAL_TYPE)
 	{
 		OptionalType* optionalType = (OptionalType*)type;
 		if (optionalType->elementType)
 			traverseType(optionalType->elementType, visitor, userPtr);
 	}
-	else if (type->typeKind == TYPE_FUNCTION)
+	else if (type->type == NODE_FUNCTION_TYPE)
 	{
 		FunctionType* functionType = (FunctionType*)type;
 		for (int i = 0; i < functionType->numParams; i++)
@@ -214,7 +214,7 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 			traverseType(functionType->returnType, visitor, userPtr);
 		}
 	}
-	else if (type->typeKind == TYPE_TUPLE)
+	else if (type->type == NODE_TUPLE_TYPE)
 	{
 		TupleType* tupleType = (TupleType*)type;
 		for (int i = 0; i < tupleType->numElementTypes; i++)
@@ -223,7 +223,7 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 				traverseType(tupleType->elementTypes[i], visitor, userPtr);
 		}
 	}
-	else if (type->typeKind == TYPE_ARRAY)
+	else if (type->type == NODE_ARRAY_TYPE)
 	{
 		ArrayType* arrayType = (ArrayType*)type;
 		if (arrayType->elementType)
@@ -400,7 +400,7 @@ static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr)
 {
 	visitor((Node*)field, userPtr);
 
-	traverseType(field->type, visitor, userPtr);
+	traverseType(field->variableType, visitor, userPtr);
 	for (int i = 0; i < field->numDeclarators; i++)
 	{
 		if (field->declarators[i].value)

@@ -215,6 +215,7 @@
     <ClInclude Include="src\utils\Defer.h" />
     <ClInclude Include="src\utils\Hash.h" />
     <ClInclude Include="src\utils\HashMap.h" />
+    <ClInclude Include="src\utils\LinearHashMap.h" />
     <ClInclude Include="src\utils\List.h" />
     <ClInclude Include="src\utils\Log.h" />
     <ClInclude Include="src\utils\ScratchBuffer.h" />

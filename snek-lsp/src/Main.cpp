@@ -651,6 +651,8 @@ int main()
 	SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
+	initTypeSystem(&types);
+
 	while (true)
 	{
 		json request = readMessage();
@@ -735,8 +737,6 @@ int main()
 						{"version", "0.0.1"},
 					}}
 				};
-
-				initTypeSystem(&types);
 
 				ScanSourceFolder(rootPath.c_str(), "src", true);
 
@@ -898,4 +898,6 @@ int main()
 			fprintf(stderr, "Received response with id %d\n", id);
 		}
 	}
+
+	destroyTypeSystem(&types);
 }

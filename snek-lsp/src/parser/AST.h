@@ -112,9 +112,11 @@ struct VariableDeclarator
 
 struct Field : NodeBase
 {
-	TypeNode* type;
+	TypeNode* variableType;
 	VariableDeclarator* declarators;
 	int numDeclarators;
+
+	Type* inferredType;
 };
 
 struct StructType : TypeNode

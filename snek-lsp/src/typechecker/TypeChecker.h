@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils/ScratchBuffer.h"
+
 
 struct AST;
 struct Function;
@@ -12,6 +14,7 @@ struct Scope;
 struct TypeChecker
 {
 	Arena* arena;
+	ScratchBuffer scratch;
 	Lexer* lexer;
 	Diagnostics* diagnostics;
 

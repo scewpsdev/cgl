@@ -1549,7 +1549,7 @@ Field* parseField(Parser* parser)
 
 	Field* field = parser->arena->alloc<Field>();
 	initNode((Node*)field, NODE_FIELD, type->start);
-	field->type = type;
+	field->variableType = type;
 
 	bool hasName = (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser)) && nextIs(parser, 1, ';');
 	if ((type->typeKind == TYPE_STRUCT || type->typeKind == TYPE_UNION) && !hasName)

@@ -16,10 +16,13 @@ void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* d
 	tc->lexer = lexer;
 	tc->diagnostics = diagnostics;
 	tc->types = types;
+
+	initScratchBuffer(&tc->scratch, 16);
 }
 
 void destroyTypeChecker(TypeChecker* tc)
 {
+	destroyScratchBuffer(&tc->scratch);
 }
 
 static void getSourceLocation(TypeChecker* tc, Node* node, SourceLocation* start, SourceLocation* end)
@@ -156,6 +159,214 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 	}
 }
 
+static int charToDigit(char c)
+{
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return 10 + c - 'a';
+	if (c >= 'A' && c <= 'F') return 10 + c - 'A';
+	return -1;
+}
+
+static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str, bool* negative, Type** type)
+{
+	int i = 0;
+	int base = 10;
+
+	if (str[0] == '-')
+	{
+		*negative = true;
+		i++;
+	}
+
+	if (str.length >= i + 2 && str[i] == '0')
+	{
+		if (str[i + 1] == 'x')
+		{
+			base = 16;
+			i += 2;
+		}
+		else if (str[i + 1] == 'b')
+		{
+			base = 2;
+			i += 2;
+		}
+		else if (str[i + 1] == 'o')
+		{
+			base = 8;
+			i += 2;
+		}
+	}
+
+	uint64_t value = 0;
+	int digitCount = 0;
+
+	for (; i < str.length; i++)
+	{
+		char c = str[i];
+
+		if (c == '_') continue;
+
+		int digit = charToDigit(c);
+		if (digit == -1 || digit >= base) break;
+
+		digitCount++;
+
+		if (*negative && value > (uint64_t)(INT64_MAX - digit) / base || value > (UINT64_MAX - digit) / base)
+		{
+			error(tc, node, "Integer overflow");
+		}
+
+		value = value * base + digit;
+	}
+
+	if (digitCount == 0)
+	{
+		error(tc, node, "Integer base prefix must be followed by atleast one digit");
+	}
+
+	if (str.length - i == 2 && strncmp(&str[i], "i8", 2) == 0) *type = &tc->types->primitiveTypes[TYPE_INT8];
+	else if (str.length - i == 3 && strncmp(&str[i], "i16", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT16];
+	else if (str.length - i == 3 && strncmp(&str[i], "i32", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT32];
+	else if (str.length - i == 3 && strncmp(&str[i], "i64", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT64];
+	else if (str.length - i == 2 && strncmp(&str[i], "u8", 2) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT8];
+	else if (str.length - i == 3 && strncmp(&str[i], "u16", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT16];
+	else if (str.length - i == 3 && strncmp(&str[i], "u32", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
+	else if (str.length - i == 3 && strncmp(&str[i], "u64", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT64];
+	else if (str.length - i == 1 && strncmp(&str[i], "u", 1) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
+	else if (str.length - i != 0)
+	{
+		error(tc, CreateString(str.ptr + i, str.length - i), "Undefined integer constant suffix '%.*s'", str.length - i, str.ptr + i);
+	}
+
+	if (!*type)
+	{
+		if (*negative)
+		{
+			if (value <= INT32_MIN + 1) *type = &tc->types->primitiveTypes[TYPE_INT32];
+			else *type = &tc->types->primitiveTypes[TYPE_INT64];
+		}
+		else
+		{
+			if (base == 10)
+			{
+				if (value <= INT32_MAX) *type = &tc->types->primitiveTypes[TYPE_INT32];
+				else *type = &tc->types->primitiveTypes[TYPE_INT64];
+			}
+			else
+			{
+				if (value <= INT32_MAX) *type = &tc->types->primitiveTypes[TYPE_INT32];
+				else if (value <= UINT32_MAX) *type = &tc->types->primitiveTypes[TYPE_UINT32];
+				else if (value <= INT64_MAX) *type = &tc->types->primitiveTypes[TYPE_INT64];
+				else *type = &tc->types->primitiveTypes[TYPE_UINT64];
+			}
+		}
+	}
+
+	if ((*type)->typeKind == TYPE_INT8 && value > INT8_MAX)
+	{
+		error(tc, node, "Integer literal too large for 8-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_INT16 && value > INT16_MAX)
+	{
+		error(tc, node, "Integer literal too large for 16-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_INT32 && value > INT32_MAX)
+	{
+		error(tc, node, "Integer literal too large for 32-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_INT64 && value > INT64_MAX)
+	{
+		error(tc, node, "Integer literal too large for 64-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_UINT8 && value > UINT8_MAX)
+	{
+		error(tc, node, "Integer literal too large for unsigned 8-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_UINT16 && value > UINT16_MAX)
+	{
+		error(tc, node, "Integer literal too large for unsigned 16-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_UINT32 && value > UINT32_MAX)
+	{
+		error(tc, node, "Integer literal too large for unsigned 32-bit target");
+	}
+	else if ((*type)->typeKind == TYPE_UINT64 && value > UINT64_MAX)
+	{
+		// should never be triggered, since integer overflow happens before that
+		error(tc, node, "Integer literal too large for unsigned 64-bit target");
+		SnekAssert(false);
+	}
+
+	return value;
+}
+
+static double stringToFloatConstant(TypeChecker* tc, Node* node, StringView str, Type** type)
+{
+	int length = str.length;
+	if (str.length > 3 && strncmp(str.ptr + str.length - 3, "f32", 3) == 0)
+	{
+		*type = &tc->types->primitiveTypes[TYPE_FLOAT];
+		length -= 3;
+	}
+	else if (str.length > 3 && strncmp(str.ptr + str.length - 3, "f64", 3) == 0)
+	{
+		*type = &tc->types->primitiveTypes[TYPE_DOUBLE];
+		length -= 3;
+	}
+	else if (str.length > 1 && (str[str.length - 1] == 'f' || str[str.length - 1] == 'F'))
+	{
+		*type = &tc->types->primitiveTypes[TYPE_FLOAT];
+		length -= 1;
+	}
+	else
+	{
+		*type = &tc->types->primitiveTypes[TYPE_DOUBLE];
+	}
+
+	char buffer[256];
+	int numDigits = 0;
+	for (int i = 0; i < length; i++)
+	{
+		if (i >= 256)
+		{
+			error(tc, node, "Float literal exceeds maximum of 255 characters");
+			return 0.0;
+		}
+
+		char c = str[i];
+		if (c == '_') continue;
+		buffer[numDigits++] = c;
+	}
+	buffer[numDigits] = 0;
+
+	char* endPtr = nullptr;
+	errno = 0;
+	double value = strtod(buffer, &endPtr);
+
+	if (endPtr != buffer + numDigits)
+	{
+		error(tc, node, "Invalid float literal syntax");
+		return 0.0;
+	}
+	else if (errno == ERANGE)
+	{
+		error(tc, node, "Float literal overflow");
+		return 0.0;
+	}
+
+	if (*type == &tc->types->primitiveTypes[TYPE_FLOAT])
+	{
+		float f = (float)value;
+		if (isinf(f) && !isinf(value))
+		{
+			error(tc, node, "Float literal overflow for 32-bit target");
+			return 0.0;
+		}
+	}
+
+	return value;
+}
+
 static bool isConstant(Expression* expression)
 {
 	if (!expression)
@@ -245,6 +456,10 @@ static bool isConstant(Expression* expression)
 	return false;
 }
 
+static void resolveExpression(TypeChecker* tc, Expression* expression);
+static void resolveField(TypeChecker* tc, Field* field);
+static void resolveParameter(TypeChecker* tc, Parameter* parameter);
+
 static void resolveType(TypeChecker* tc, TypeNode* type)
 {
 	if (type->type == NODE_PRIMITIVE_TYPE)
@@ -254,244 +469,192 @@ static void resolveType(TypeChecker* tc, TypeNode* type)
 	}
 	else if (type->type == NODE_STRUCT_TYPE)
 	{
+		StructType* structType = (StructType*)type;
 
-	}
-	else if (type->type == NODE_UNION_TYPE)
-	{
+		int mark = tc->scratch.mark();
 
-	}
-	else if (type->type == NODE_POINTER_TYPE)
-	{
-
-	}
-	else if (type->type == NODE_OPTIONAL_TYPE)
-	{
-
-	}
-	else if (type->type == NODE_FUNCTION_TYPE)
-	{
-
-	}
-	else if (type->type == NODE_TUPLE_TYPE)
-	{
-
-	}
-	else if (type->type == NODE_ARRAY_TYPE)
-	{
-
-	}
-	else
-	{
-		SnekAssert(false);
-	}
-}
-
-static int charToDigit(char c)
-{
-	if (c >= '0' && c <= '9') return c - '0';
-	if (c >= 'a' && c <= 'f') return 10 + c - 'a';
-	if (c >= 'A' && c <= 'F') return 10 + c - 'A';
-	return -1;
-}
-
-static uint64_t stringToIntConstant(TypeChecker* tc, IntLiteral* node, StringView str, bool* negative, Type** type)
-{
-	int i = 0;
-	int base = 10;
-
-	if (str[0] == '-')
-	{
-		*negative = true;
-		i++;
-	}
-
-	if (str.length >= i + 2 && str[i] == '0')
-	{
-		if (str[i + 1] == 'x')
+		for (int i = 0; i < structType->numFields; i++)
 		{
-			base = 16;
-			i += 2;
-		}
-		else if (str[i + 1] == 'b')
-		{
-			base = 2;
-			i += 2;
-		}
-		else if (str[i + 1] == 'o')
-		{
-			base = 8;
-			i += 2;
-		}
-	}
-
-	uint64_t value = 0;
-	int digitCount = 0;
-
-	for (; i < str.length; i++)
-	{
-		char c = str[i];
-
-		if (c == '_') continue;
-
-		int digit = charToDigit(c);
-		if (digit == -1 || digit >= base) break;
-
-		digitCount++;
-
-		if (*negative && value > (uint64_t)(INT64_MAX - digit) / base || value > (UINT64_MAX - digit) / base)
-		{
-			error(tc, (Node*)node, "Integer overflow");
-		}
-
-		value = value * base + digit;
-	}
-
-	if (digitCount == 0)
-	{
-		error(tc, (Node*)node, "Integer base prefix must be followed by atleast one digit");
-	}
-
-	if (str.length - i == 2 && strncmp(&str[i], "i8", 2) == 0) *type = &tc->types->primitiveTypes[TYPE_INT8];
-	else if (str.length - i == 3 && strncmp(&str[i], "i16", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT16];
-	else if (str.length - i == 3 && strncmp(&str[i], "i32", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT32];
-	else if (str.length - i == 3 && strncmp(&str[i], "i64", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_INT64];
-	else if (str.length - i == 2 && strncmp(&str[i], "u8", 2) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT8];
-	else if (str.length - i == 3 && strncmp(&str[i], "u16", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT16];
-	else if (str.length - i == 3 && strncmp(&str[i], "u32", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
-	else if (str.length - i == 3 && strncmp(&str[i], "u64", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT64];
-	else if (str.length - i == 1 && strncmp(&str[i], "u", 1) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
-	else if (str.length - i != 0)
-	{
-		error(tc, CreateString(str.ptr + i, str.length - i), "Undefined integer constant suffix '%.*s'", str.length - i, str.ptr + i);
-	}
-
-	if (!*type)
-	{
-		if (*negative)
-		{
-			if (value <= INT32_MIN + 1) *type = &tc->types->primitiveTypes[TYPE_INT32];
-			else *type = &tc->types->primitiveTypes[TYPE_INT64];
-		}
-		else
-		{
-			if (base == 10)
+			if (structType->fields[i])
 			{
-				if (value <= INT32_MAX) *type = &tc->types->primitiveTypes[TYPE_INT32];
-				else *type = &tc->types->primitiveTypes[TYPE_INT64];
+				resolveField(tc, structType->fields[i]);
+				for (int j = 0; j < structType->fields[i]->numDeclarators; j++)
+					tc->scratch.add(structType->fields[i]->inferredType);
 			}
 			else
 			{
-				if (value <= INT32_MAX) *type = &tc->types->primitiveTypes[TYPE_INT32];
-				else if (value <= UINT32_MAX) *type = &tc->types->primitiveTypes[TYPE_UINT32];
-				else if (value <= INT64_MAX) *type = &tc->types->primitiveTypes[TYPE_INT64];
-				else *type = &tc->types->primitiveTypes[TYPE_UINT64];
+				tc->scratch.add(nullptr);
 			}
 		}
-	}
 
-	if ((*type)->typeKind == TYPE_INT8 && value > INT8_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for 8-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_INT16 && value > INT16_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for 16-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_INT32 && value > INT32_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for 32-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_INT64 && value > INT64_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for 64-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_UINT8 && value > UINT8_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for unsigned 8-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_UINT16 && value > UINT16_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for unsigned 16-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_UINT32 && value > UINT32_MAX)
-	{
-		error(tc, (Node*)node, "Integer literal too large for unsigned 32-bit target");
-	}
-	else if ((*type)->typeKind == TYPE_UINT64 && value > UINT64_MAX)
-	{
-		// should never be triggered, since integer overflow happens before that
-		error(tc, (Node*)node, "Integer literal too large for unsigned 64-bit target");
-		SnekAssert(false);
-	}
+		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes);
 
-	return value;
-}
+		tc->scratch.release(mark);
+	}
+	else if (type->type == NODE_UNION_TYPE)
+	{
+		UnionType* unionType = (UnionType*)type;
 
-static double stringToFloatConstant(TypeChecker* tc, FloatLiteral* node, StringView str, Type** type)
-{
-	int length = str.length;
-	if (str.length > 3 && strncmp(str.ptr + str.length - 3, "f32", 3) == 0)
-	{
-		*type = &tc->types->primitiveTypes[TYPE_FLOAT];
-		length -= 3;
+		int mark = tc->scratch.mark();
+
+		for (int i = 0; i < unionType->numFields; i++)
+		{
+			if (unionType->fields[i])
+			{
+				resolveField(tc, unionType->fields[i]);
+				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+					tc->scratch.add(unionType->fields[i]->inferredType);
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
+		}
+
+		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+		type->inferredType = getAnonymousStructType(tc->types, unionType->numFields, fieldTypes);
+
+		tc->scratch.release(mark);
 	}
-	else if (str.length > 3 && strncmp(str.ptr + str.length - 3, "f64", 3) == 0)
+	else if (type->type == NODE_POINTER_TYPE)
 	{
-		*type = &tc->types->primitiveTypes[TYPE_DOUBLE];
-		length -= 3;
+		PointerType* pointerType = (PointerType*)type;
+
+		Type* elementType = nullptr;
+		if (pointerType->elementType)
+		{
+			resolveType(tc, pointerType->elementType);
+			elementType = pointerType->elementType->inferredType;
+		}
+		else
+		{
+			elementType = &tc->types->errorType;
+		}
+
+		type->inferredType = getPointerType(tc->types, elementType);
 	}
-	else if (str.length > 1 && (str[str.length - 1] == 'f' || str[str.length - 1] == 'F'))
+	else if (type->type == NODE_OPTIONAL_TYPE)
 	{
-		*type = &tc->types->primitiveTypes[TYPE_FLOAT];
-		length -= 1;
+		OptionalType* optionalType = (OptionalType*)type;
+
+		Type* elementType = nullptr;
+		if (optionalType->elementType)
+		{
+			resolveType(tc, optionalType->elementType);
+			elementType = optionalType->elementType->inferredType;
+		}
+		else
+		{
+			elementType = &tc->types->errorType;
+		}
+
+		type->inferredType = getOptionalType(tc->types, elementType);
+	}
+	else if (type->type == NODE_FUNCTION_TYPE)
+	{
+		FunctionType* functionType = (FunctionType*)type;
+
+		int mark = tc->scratch.mark();
+
+		for (int j = 0; j < functionType->numParams; j++)
+		{
+			if (functionType->params[j])
+			{
+				resolveParameter(tc, functionType->params[j]);
+				if (functionType->params[j]->type)
+					tc->scratch.add(functionType->params[j]->type->inferredType);
+				else
+					tc->scratch.add(nullptr);
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
+		}
+
+		Type* returnType = nullptr;
+		if (functionType->returnType)
+		{
+			resolveType(tc, functionType->returnType);
+			returnType = functionType->returnType->inferredType;
+		}
+
+		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch.getData<Type*>(mark));
+
+		tc->scratch.release(mark);
+	}
+	else if (type->type == NODE_TUPLE_TYPE)
+	{
+		TupleType* tupleType = (TupleType*)type;
+
+		int mark = tc->scratch.mark();
+
+		for (int i = 0; i < tupleType->numElementTypes; i++)
+		{
+			if (tupleType->elementTypes[i])
+			{
+				resolveType(tc, tupleType->elementTypes[i]);
+				tc->scratch.add(tupleType->elementTypes[i]->inferredType);
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
+		}
+
+		Type** elementTypes = tc->scratch.getData<Type*>(mark);
+		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes);
+
+		tc->scratch.release(mark);
+	}
+	else if (type->type == NODE_ARRAY_TYPE)
+	{
+		ArrayType* arrayType = (ArrayType*)type;
+
+		Type* elementType = nullptr;
+		if (arrayType->elementType)
+		{
+			resolveType(tc, arrayType->elementType);
+			elementType = arrayType->elementType->inferredType;
+		}
+		else
+		{
+			elementType = &tc->types->errorType;
+		}
+
+		uint64_t size = 0;
+		if (arrayType->size)
+		{
+			resolveExpression(tc, arrayType->size);
+
+			//if (isConstant(arrayType->size))
+			if (arrayType->size->type == NODE_INT_LITERAL)
+			{
+				//size = constantFold(arrayType->size);
+				IntLiteral* sizeNode = (IntLiteral*)arrayType->size;
+
+				bool negative;
+				Type* sizeType;
+				size = stringToIntConstant(tc, (Node*)sizeNode, sizeNode->value, &negative, &sizeType);
+
+				if (negative)
+				{
+					error(tc, (Node*)arrayType->size, "Array size cannot be negative");
+				}
+			}
+			else
+			{
+				error(tc, (Node*)arrayType->size, "Array size must be a constant expression");
+			}
+		}
+
+		type->inferredType = getArrayType(tc->types, elementType, size);
 	}
 	else
 	{
-		*type = &tc->types->primitiveTypes[TYPE_DOUBLE];
+		SnekAssert(false);
 	}
-
-	char buffer[256];
-	int numDigits = 0;
-	for (int i = 0; i < length; i++)
-	{
-		if (i >= 256)
-		{
-			error(tc, (Node*)node, "Float literal exceeds maximum of 255 characters");
-			return 0.0;
-		}
-
-		char c = str[i];
-		if (c == '_') continue;
-		buffer[numDigits++] = c;
-	}
-	buffer[numDigits] = 0;
-
-	char* endPtr = nullptr;
-	errno = 0;
-	double value = strtod(buffer, &endPtr);
-
-	if (endPtr != buffer + numDigits)
-	{
-		error(tc, (Node*)node, "Invalid float literal syntax");
-		return 0.0;
-	}
-	else if (errno == ERANGE)
-	{
-		error(tc, (Node*)node, "Float literal overflow");
-		return 0.0;
-	}
-
-	if (*type == &tc->types->primitiveTypes[TYPE_FLOAT])
-	{
-		float f = (float)value;
-		if (isinf(f) && !isinf(value))
-		{
-			error(tc, (Node*)node, "Float literal overflow for 32-bit target");
-			return 0.0;
-		}
-	}
-
-	return value;
 }
 
 static Node* resolveSymbol(TypeChecker* tc, StringView identifier)
@@ -526,12 +689,12 @@ static void resolveExpression(TypeChecker* tc, Expression* expression)
 	if (expression->type == NODE_INT_LITERAL)
 	{
 		IntLiteral* intLiteral = (IntLiteral*)expression;
-		intLiteral->intValue = stringToIntConstant(tc, intLiteral, intLiteral->value, &intLiteral->negative, &intLiteral->inferredType);
+		intLiteral->intValue = stringToIntConstant(tc, (Node*)intLiteral, intLiteral->value, &intLiteral->negative, &intLiteral->inferredType);
 	}
 	else if (expression->type == NODE_FLOAT_LITERAL)
 	{
 		FloatLiteral* floatLiteral = (FloatLiteral*)expression;
-		floatLiteral->floatValue = stringToFloatConstant(tc, floatLiteral, floatLiteral->value, &floatLiteral->inferredType);
+		floatLiteral->floatValue = stringToFloatConstant(tc, (Node*)floatLiteral, floatLiteral->value, &floatLiteral->inferredType);
 	}
 	else if (expression->type == NODE_STRING_LITERAL)
 	{
@@ -591,12 +754,27 @@ static void resolveExpression(TypeChecker* tc, Expression* expression)
 	else if (expression->type == NODE_EXPRESSION_LIST)
 	{
 		ExpressionList* expressionList = (ExpressionList*)expression;
+
+		int mark = tc->scratch.mark();
+
 		for (int i = 0; i < expressionList->numValues; i++)
 		{
 			if (expressionList->values[i])
+			{
 				resolveExpression(tc, expressionList->values[i]);
+				tc->scratch.add(expressionList->values[i]);
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
 		}
-		expression->inferredType = ;
+
+		Type** valueTypes = tc->scratch.getData<Type*>(mark);
+
+		expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes);
+
+		tc->scratch.release(mark);
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -760,8 +938,15 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 static void resolveField(TypeChecker* tc, Field* field)
 {
-	if (field->type)
-		resolveType(tc, field->type);
+	if (field->variableType)
+	{
+		resolveType(tc, field->variableType);
+		field->inferredType = field->variableType->inferredType;
+	}
+	else
+	{
+		field->inferredType = &tc->types->errorType;
+	}
 }
 
 static void resolveParameter(TypeChecker* tc, Parameter* parameter)
@@ -818,18 +1003,40 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 	for (int i = 0; i < ast->numFunctions; i++)
 	{
 		Function* function = ast->functions[i];
+
+		int mark = tc->scratch.mark();
+
 		for (int j = 0; j < function->numParams; j++)
 		{
 			if (function->params[j])
+			{
 				resolveParameter(tc, function->params[j]);
+				if (function->params[j]->type)
+					tc->scratch.add(function->params[j]->type->inferredType);
+				else
+					tc->scratch.add(nullptr);
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
 		}
-		if (function->returnType)
-			resolveType(tc, function->returnType);
 
+		Type* returnType = nullptr;
 		if (function->value)
+		{
 			resolveExpression(tc, function->value);
+			returnType = function->value->inferredType;
+		}
+		else if (function->returnType)
+		{
+			resolveType(tc, function->returnType);
+			returnType = function->returnType->inferredType;
+		}
 
-		function->functionType = ;
+		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch.getData<Type*>(mark));
+
+		tc->scratch.release(mark);
 		/*
 		else
 		{
