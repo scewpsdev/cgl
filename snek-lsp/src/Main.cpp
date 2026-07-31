@@ -70,7 +70,7 @@ int sendRequest(std::string method, json params)
 		{"params", params}
 		});
 
-	std::cerr << "Sent request of type " << method << std::endl;
+	//std::cerr << "Sent request of type " << method << std::endl;
 
 	return id;
 }
@@ -83,7 +83,7 @@ void sendNotification(std::string method, json params)
 		{"params", params}
 		});
 
-	std::cerr << "Sent notification of type " << method << std::endl;
+	//std::cerr << "Sent notification of type " << method << std::endl;
 }
 
 json readMessage()
@@ -391,7 +391,7 @@ void Parse(Document* document)
 	}
 
 	initAST(&document->ast);
-	initArena(&document->arena, 16 * 1024 * 1024);
+	initArena(&document->arena, 2 * 1024 * 1024);
 	initDiagnostics(&document->diagnostics, &document->arena);
 
 	document->parser = {};
@@ -406,36 +406,54 @@ void Parse(Document* document)
 
 	uint64_t afterParse = GetTimeNS();
 	float ms = (afterParse - beforeParse) / 1e6f;
-	fprintf(stderr, "parsed in %.3fms\n", ms);
+	fprintf(stderr, "parsed '%s' in %.3fms\n", document->uri.c_str(), ms);
 	fprintf(stderr, "%.2f/%.2f kb arena memory used\n", document->arena.offset / 1024.0f, document->arena.capacity / 1024.0f);
 
 	sendRequest("workspace/semanticTokens/refresh", nullptr);
 }
 
-void TypeCheck(Document* document)
+void TypeCheck(List<Document*> documents)
 {
-	SnekAssert(document->hasAST);
-
 	uint64_t beforeTypeCheck = GetTimeNS();
 
-	document->astMutex.lock();
-
-	if (document->typeChecker.lexer)
+	for (int i = 0; i < documents.size; i++)
 	{
-		destroyTypeChecker(&document->typeChecker);
+		Document* document = documents[i];
+
+		SnekAssert(document->hasAST);
+
+		document->astMutex.lock();
+
+		if (document->typeChecker.lexer)
+		{
+			destroyTypeChecker(&document->typeChecker);
+		}
+
+		document->typeChecker = {};
+		initTypeChecker(&document->typeChecker, &document->arena, &document->parser.lexer, &document->diagnostics, &types);
+
+		symbolCollection(&document->typeChecker, &document->ast);
+		symbolResolution(&document->typeChecker, &document->ast);
+
+		document->astMutex.unlock();
 	}
 
-	document->typeChecker = {};
-	initTypeChecker(&document->typeChecker, &document->arena, &document->parser.lexer, &document->diagnostics, &types);
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
 
-	symbolCollection(&document->typeChecker, &document->ast);
-	symbolResolution(&document->typeChecker, &document->ast);
+		document->astMutex.lock();
 
-	document->astMutex.unlock();
+		symbolResolution(&document->typeChecker, &document->ast);
+
+		sendDiagnosticsNotification(&document->diagnostics, document);
+
+		document->astMutex.unlock();
+	}
 
 	uint64_t afterTypeCheck = GetTimeNS();
 	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;
-	fprintf(stderr, "typechecked in %.3fms\n", ms);
+	fprintf(stderr, "typechecked %d documents in %.3fms\n", documents.size, ms);
 }
 
 static Document* OpenDocument(std::string uri, std::string text)
@@ -627,6 +645,8 @@ void ParserThread()
 			allDocumentsParsed = allDocumentsParsed && document->hasAST;
 		}
 
+		List<Document*> typeCheckList;
+
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
@@ -636,11 +656,15 @@ void ParserThread()
 				// for now we just wait until all documents have been parsed
 				if (allDocumentsParsed)
 				{
-					TypeCheck(document);
+					typeCheckList.add(document);
 					document->needsTypeCheck = false;
 				}
 			}
 		}
+
+		TypeCheck(typeCheckList);
+
+		FreeList(&typeCheckList);
 
 		SleepMS(10);
 	}
@@ -663,7 +687,7 @@ int main()
 
 		if (method != "")
 		{
-			std::cerr << "Received message of type " << method << std::endl;
+			//fprintf(stderr, "Received message of type %s\n", method.c_str());
 
 			if (method == "initialize")
 			{
@@ -895,7 +919,7 @@ int main()
 		else
 		{
 			int id = request["id"];
-			fprintf(stderr, "Received response with id %d\n", id);
+			//fprintf(stderr, "Received response with id %d\n", id);
 		}
 	}
 

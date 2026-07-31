@@ -10,7 +10,7 @@
 
 struct Type
 {
-	uint8_t typeKind;
+	TypeKind typeKind;
 	StringView name;
 
 	union {
@@ -27,6 +27,11 @@ struct Type
 			Type** fieldTypes;
 			StringView* fieldNames;
 		} union_;
+
+		struct {
+			StringView name;
+			Type* valueType;
+		} enum_;
 
 		struct {
 			Type* elementType;
@@ -79,6 +84,9 @@ void destroyTypeSystem(TypeSystem* types);
 Type* getPointerType(TypeSystem* types, Type* elementType);
 Type* getOptionalType(TypeSystem* types, Type* elementType);
 Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, char** fieldNames);
+Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames);
+Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
+Type* getNamedUnionType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames);
+Type* getEnumType(TypeSystem* types, StringView name, Type* valueType);
 Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes);
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size);

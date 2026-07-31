@@ -75,15 +75,20 @@ static void error(TypeChecker* tc, StringView str, const char* fmt, ...)
 	logMessage(tc->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
 }
 
-static Scope* pushScope(TypeChecker* tc)
+static Scope* pushScope(TypeChecker* tc, Scope* scope = nullptr)
 {
-	Scope* scope = tc->arena->alloc<Scope>();
-	scope->parent = tc->currentScope;
+	if (!scope)
+	{
+		scope = tc->arena->alloc<Scope>();
+		scope->parent = tc->currentScope;
 
-	bool isGlobal = false;
-	initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, tc->arena);
+		bool isGlobal = false;
+		initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, tc->arena);
+	}
 
 	tc->currentScope = scope;
+
+	return scope;
 }
 
 static void popScope(TypeChecker* tc)
@@ -93,9 +98,7 @@ static void popScope(TypeChecker* tc)
 
 void symbolCollection(TypeChecker* tc, AST* ast)
 {
-	//ast->globalScope = arena->alloc<Scope>();
-	//initScope(ast->globalScope, nullptr, true, arena);
-	//parser->currentScope = ast->globalScope;
+	ast->globalScope = pushScope(tc);
 
 	ast->structs = tc->arena->alloc<Struct*>(ast->numStructs);
 	ast->enums = tc->arena->alloc<Enum*>(ast->numEnums);
@@ -157,6 +160,8 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 			ast->macros[numMacros++] = &declaration->macro;
 		}
 	}
+
+	popScope(tc);
 }
 
 static int charToDigit(char c)
@@ -488,6 +493,7 @@ static bool isLValue(Expression* expression)
 static Type* resolveExpression(TypeChecker* tc, Expression* expression);
 static Type* resolveField(TypeChecker* tc, Field* field);
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter);
+static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier);
 
 static Type* resolveType(TypeChecker* tc, TypeNode* type)
 {
@@ -496,6 +502,45 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		type->inferredType = &tc->types->primitiveTypes[type->typeKind];
 		SnekAssert(type->inferredType->typeKind == type->typeKind);
 		return type->inferredType;
+	}
+	else if (type->type == NODE_NAMED_TYPE)
+	{
+		NamedType* namedType = (NamedType*)type;
+
+		SymbolEntry* symbol = resolveSymbol(tc, namedType->name);
+		if (symbol && symbol->type == SYMBOL_TYPE)
+		{
+			Node* node = symbol->declaration;
+			if (node->type == NODE_STRUCT)
+			{
+				Struct* struct_ = &node->struct_;
+				return type->inferredType = struct_->structType;
+			}
+			else if (node->type == NODE_UNION)
+			{
+				Union* union_ = &node->union_;
+				return type->inferredType = union_->unionType;
+			}
+			else if (node->type == NODE_ENUM)
+			{
+				Enum* enum_ = &node->enum_;
+				return type->inferredType = enum_->enumType;
+			}
+			else if (node->type == NODE_TYPEDEF)
+			{
+				Typedef* typedef_ = &node->typedef_;
+				return type->inferredType = typedef_->value->inferredType;
+			}
+			else
+			{
+				SnekAssert(false);
+			}
+		}
+		else
+		{
+			error(tc, (Node*)type, "Undefined typename '%.*s'", namedType->name.length, namedType->name.ptr);
+			return type->inferredType = &tc->types->errorType;
+		}
 	}
 	else if (type->type == NODE_STRUCT_TYPE)
 	{
@@ -591,7 +636,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 
 		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
 
-		type->inferredType = getAnonymousStructType(tc->types, unionType->numFields, fieldTypes, fieldNames);
+		type->inferredType = getAnonymousUnionType(tc->types, unionType->numFields, fieldTypes, fieldNames);
 
 		tc->scratch.release(mark);
 
@@ -740,13 +785,16 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	return type->inferredType = &tc->types->errorType;
 }
 
-static Node* resolveSymbol(TypeChecker* tc, StringView identifier)
+static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 {
 	Scope* scope = tc->currentScope;
 	while (scope)
 	{
 		if (SymbolEntry* symbol = lookupSymbol(&scope->symbols, identifier))
 		{
+			return symbol;
+
+			/*
 			if (symbol->type == SYMBOL_FUNCTION_SET)
 			{
 				if (symbol->functionSet.count == 1)
@@ -761,6 +809,7 @@ static Node* resolveSymbol(TypeChecker* tc, StringView identifier)
 			{
 				return symbol->declaration;
 			}
+			*/
 		}
 		scope = scope->parent;
 	}
@@ -1061,30 +1110,55 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 	else if (expression->type == NODE_IDENTIFIER)
 	{
 		Identifier* identifier = (Identifier*)expression;
-		if (Node* symbol = resolveSymbol(tc, identifier->name))
+		if (SymbolEntry* symbol = resolveSymbol(tc, identifier->name))
 		{
 			identifier->resolvedSymbol = symbol;
 
-			if (symbol->type == NODE_VARIABLE_DECLARATION)
+			if (symbol->type == SYMBOL_VARIABLE)
 			{
-				VariableDeclaration* variableDeclaration = &symbol->variableDeclaration;
-				identifier->inferredType = variableDeclaration->variableType->inferredType;
+				Node* node = symbol->declaration;
+				if (node->type == NODE_VARIABLE_DECLARATION)
+				{
+					VariableDeclaration* variableDeclaration = &node->variableDeclaration;
+					return identifier->inferredType = variableDeclaration->variableType->inferredType;
+				}
+				else if (node->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* globalVariable = &node->globalVariable;
+					return identifier->inferredType = globalVariable->variableType->inferredType;
+				}
+				else
+				{
+					SnekAssert(false);
+					return identifier->inferredType = &tc->types->errorType;
+				}
 			}
-			else if (symbol->type == NODE_FUNCTION)
+			else if (symbol->type == SYMBOL_FUNCTION_SET)
 			{
-				Function* function = &symbol->function;
-				identifier->inferredType = function->functionType;
+				if (symbol->functionSet.count == 1)
+				{
+					Node* node = symbol->functionSet.overloads[0];
+					SnekAssert(node->type == NODE_FUNCTION);
+
+					Function* function = &node->function;
+					return identifier->inferredType = function->functionType;
+				}
+				else
+				{
+					error(tc, (Node*)expression, "Ambiguous identifier, multiple function overloads with name '%.*s'", identifier->name.length, identifier->name.ptr);
+					return identifier->inferredType = &tc->types->errorType;
+				}
 			}
 			else
 			{
 				SnekAssert(false);
-				identifier->inferredType = &tc->types->errorType;
+				return identifier->inferredType = &tc->types->errorType;
 			}
 		}
 		else
 		{
 			error(tc, (Node*)expression, "Undefined variable '%.*s'", identifier->name.length, identifier->name.ptr);
-			identifier->inferredType = &tc->types->errorType;
+			return identifier->inferredType = &tc->types->errorType;
 		}
 	}
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
@@ -1440,23 +1514,38 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 
 static void resolveStatement(TypeChecker* tc, Statement* statement)
 {
+	SnekAssert(tc->currentFunction);
+
 	if (statement->type == NODE_BLOCK_STATEMENT)
 	{
 		BlockStatement* block = (BlockStatement*)statement;
+
+		pushScope(tc);
+
 		for (int i = 0; i < block->numStatements; i++)
 		{
 			if (block->statements[i])
 				resolveStatement(tc, block->statements[i]);
 		}
+
+		popScope(tc);
 	}
 	else if (statement->type == NODE_IF)
 	{
 		If* if_ = (If*)statement;
 
 		Type* conditionType = resolveExpression(tc, if_->condition);
+
+		pushScope(tc);
 		resolveStatement(tc, if_->then);
+		popScope(tc);
+
 		if (if_->else_)
+		{
+			pushScope(tc);
 			resolveStatement(tc, if_->else_);
+			popScope(tc);
+		}
 
 		if (!isTruthyType(conditionType))
 		{
@@ -1474,7 +1563,9 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		Type* conditionType = resolveExpression(tc, while_->condition);
 
 		tc->loopDepth++;
+		pushScope(tc);
 		resolveStatement(tc, while_->then);
+		popScope(tc);
 		tc->loopDepth--;
 
 		if (!isTruthyType(conditionType))
@@ -1503,7 +1594,9 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		}
 
 		tc->loopDepth++;
+		pushScope(tc);
 		resolveStatement(tc, for_->body);
+		popScope(tc);
 		tc->loopDepth--;
 	}
 	else if (statement->type == NODE_RETURN)
@@ -1562,7 +1655,9 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			return;
 		}
 
+		pushScope(tc);
 		resolveStatement(tc, defer->body);
+		popScope(tc);
 	}
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{
@@ -1651,19 +1746,88 @@ static Type* resolveParameter(TypeChecker* tc, Parameter* parameter)
 
 void symbolResolution(TypeChecker* tc, AST* ast)
 {
+	pushScope(tc, ast->globalScope);
+
 	for (int i = 0; i < ast->numStructs; i++)
 	{
 		Struct* struct_ = ast->structs[i];
+
+		int mark = tc->scratch.mark();
+
 		for (int j = 0; j < struct_->numFields; j++)
 		{
-			if (struct_->fields[j])
-				resolveField(tc, struct_->fields[j]);
+			resolveField(tc, struct_->fields[j]);
+			for (int j = 0; j < struct_->fields[i]->numDeclarators; j++)
+				tc->scratch.add(struct_->fields[i]->inferredType);
 		}
+
+		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+
+		int mark2 = tc->scratch.mark();
+
+		for (int j = 0; j < struct_->numFields; j++)
+		{
+			for (int j = 0; j < struct_->fields[i]->numDeclarators; j++)
+			{
+				if (struct_->fields[i]->declarators[j].name.length)
+					tc->scratch.add(struct_->fields[i]->declarators[j].name);
+				else
+					tc->scratch.add(nullptr);
+			}
+		}
+
+		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+
+		struct_->structType = getNamedStructType(tc->types, struct_->name, struct_->numFields, fieldTypes, fieldNames);
+
+		tc->scratch.release(mark);
+	}
+
+	for (int i = 0; i < ast->numUnions; i++)
+	{
+		Union* union_ = ast->unions[i];
+
+		int mark = tc->scratch.mark();
+
+		for (int j = 0; j < union_->numFields; j++)
+		{
+			resolveField(tc, union_->fields[j]);
+			for (int j = 0; j < union_->fields[i]->numDeclarators; j++)
+				tc->scratch.add(union_->fields[i]->inferredType);
+		}
+
+		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+
+		int mark2 = tc->scratch.mark();
+
+		for (int j = 0; j < union_->numFields; j++)
+		{
+			for (int j = 0; j < union_->fields[i]->numDeclarators; j++)
+			{
+				if (union_->fields[i]->declarators[j].name.length)
+					tc->scratch.add(union_->fields[i]->declarators[j].name);
+				else
+					tc->scratch.add(nullptr);
+			}
+		}
+
+		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+
+		union_->unionType = getNamedUnionType(tc->types, union_->name, union_->numFields, fieldTypes, fieldNames);
+
+		tc->scratch.release(mark);
 	}
 
 	for (int i = 0; i < ast->numEnums; i++)
 	{
 		Enum* enum_ = ast->enums[i];
+
+		Type* valueType = &tc->types->primitiveTypes[TYPE_INT32];
+		if (enum_->valueType)
+		{
+			valueType = resolveType(tc, enum_->valueType);
+		}
+
 		for (int j = 0; j < enum_->numValues; j++)
 		{
 			if (enum_->values[j].value)
@@ -1675,28 +1839,21 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 				}
 			}
 		}
-	}
 
-	for (int i = 0; i < ast->numUnions; i++)
-	{
-		Union* union_ = ast->unions[i];
-		for (int j = 0; j < union_->numFields; j++)
-		{
-			if (union_->fields[j])
-				resolveField(tc, union_->fields[j]);
-		}
+		enum_->enumType = getEnumType(tc->types, enum_->name, valueType);
 	}
 
 	for (int i = 0; i < ast->numTypedefs; i++)
 	{
 		Typedef* typedef_ = ast->typedefs[i];
-		if (typedef_->value)
-			resolveType(tc, typedef_->value);
+		resolveType(tc, typedef_->value);
 	}
 
 	for (int i = 0; i < ast->numFunctions; i++)
 	{
 		Function* function = ast->functions[i];
+
+		function->scope = pushScope(tc);
 
 		int mark = tc->scratch.mark();
 
@@ -1705,6 +1862,9 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 			if (function->params[j])
 			{
 				resolveParameter(tc, function->params[j]);
+
+				insertSymbol(&function->scope->symbols, function->params[j]->name, SYMBOL_VARIABLE, (Node*)function->params[j]);
+
 				if (function->params[j]->type)
 					tc->scratch.add(function->params[j]->type->inferredType);
 				else
@@ -1731,6 +1891,7 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch.getData<Type*>(mark));
 
 		tc->scratch.release(mark);
+
 		/*
 		else
 		{
@@ -1741,6 +1902,8 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 			}
 		}
 		*/
+
+		popScope(tc);
 	}
 
 	for (int i = 0; i < ast->numMacros; i++)
@@ -1752,24 +1915,29 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 	for (int i = 0; i < ast->numGlobalVariables; i++)
 	{
 		GlobalVariable* globalVariable = ast->globalVariables[i];
-		if (globalVariable->type)
-			resolveType(tc, globalVariable->type);
+		resolveType(tc, globalVariable->variableType);
 		for (int j = 0; j < globalVariable->numDeclarators; j++)
 		{
 			if (globalVariable->declarators[j].value)
 				resolveExpression(tc, globalVariable->declarators[j].value);
 		}
 	}
+
+	popScope(tc);
 }
 
 void typeCheckFunction(TypeChecker* tc, Function* function)
 {
 	if (!function->value)
 	{
+		pushScope(tc, function->scope);
+
 		for (int j = 0; j < function->numStatements; j++)
 		{
 			if (function->statements[j])
 				resolveStatement(tc, function->statements[j]);
 		}
+
+		popScope(tc);
 	}
 }

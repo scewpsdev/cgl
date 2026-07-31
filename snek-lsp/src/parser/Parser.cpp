@@ -285,7 +285,7 @@ static TypeNode* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		uint8_t typeKind = TYPE_INT8 + (token.type - TOKEN_INT8);
+		TypeKind typeKind = (TypeKind)(TYPE_INT8 + (token.type - TOKEN_INT8));
 
 		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
@@ -296,7 +296,7 @@ static TypeNode* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		uint8_t typeKind = TYPE_UINT8 + (token.type - TOKEN_UINT8);
+		TypeKind typeKind = (TypeKind)(TYPE_UINT8 + (token.type - TOKEN_UINT8));
 
 		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
@@ -307,7 +307,7 @@ static TypeNode* parseBasicType(Parser* parser)
 	{
 		nextToken(parser);
 
-		uint8_t typeKind = token.type == TOKEN_FLOAT32 ? TYPE_FLOAT : TYPE_DOUBLE;
+		TypeKind typeKind = token.type == TOKEN_FLOAT32 ? TYPE_FLOAT : TYPE_DOUBLE;
 
 		TypeNode* type = parser->arena->alloc<TypeNode>();
 		initType(type, NODE_PRIMITIVE_TYPE, typeKind, start);
@@ -346,7 +346,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		nextToken(parser);
 
 		NamedType* type = parser->arena->alloc<NamedType>();
-		initType((TypeNode*)type, NODE_NAMED_TYPE, 0, start);
+		initType((TypeNode*)type, NODE_NAMED_TYPE, TYPE_NULL, start);
 		type->end = end;
 		type->name = getTokenString(token, parser);
 		return type;
@@ -1894,7 +1894,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 	GlobalVariable* globalVariable = parser->arena->alloc<GlobalVariable>();
 	initNode((Node*)globalVariable, NODE_GLOBAL_VARIABLE, start);
 	globalVariable->storage = storage;
-	globalVariable->type = type;
+	globalVariable->variableType = type;
 	globalVariable->end = parser->lastTokenEnd;
 
 	globalVariable->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &globalVariable->numDeclarators);

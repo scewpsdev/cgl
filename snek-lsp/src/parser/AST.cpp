@@ -14,13 +14,13 @@ void destroyAST(AST* ast)
 {
 }
 
-void initNode(Node* node, uint8_t type, int start)
+void initNode(Node* node, NodeType type, int start)
 {
 	node->type = type;
 	node->start = start;
 }
 
-void initType(TypeNode* type, uint8_t nodeType, uint8_t typeKind, int start)
+void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start)
 {
 	initNode((Node*)type, nodeType, start);
 	type->typeKind = typeKind;
@@ -466,11 +466,10 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 	else if (declaration->type == NODE_GLOBAL_VARIABLE)
 	{
 		GlobalVariable* globalVariable = &declaration->globalVariable;
-		traverseType(globalVariable->type, visitor, userPtr);
+		traverseType(globalVariable->variableType, visitor, userPtr);
 		for (int i = 0; i < globalVariable->numDeclarators; i++)
 		{
-			if (globalVariable->declarators[i].value)
-				traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
+			traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
 		}
 	}
 	else if (declaration->type == NODE_MACRO)

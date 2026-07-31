@@ -29,8 +29,8 @@ static uint64_t hashType(Type* type)
 	switch (type->typeKind)
 	{
 	case TYPE_STRUCT:
-		if (type->name.length)
-			hash = (hash ^ (uintptr_t)type->name.ptr) * 1099511628211ULL;
+		if (type->struct_.name.length)
+			hash = (hash ^ (uintptr_t)type->struct_.name.ptr) * 1099511628211ULL;
 		for (int i = 0; i < type->struct_.numFields; i++)
 			hash = (hash ^ (uintptr_t)type->struct_.fieldTypes[i]) * 1099511628211ULL;
 		break;
@@ -39,6 +39,9 @@ static uint64_t hashType(Type* type)
 			hash = (hash ^ (uintptr_t)type->union_.name.ptr) * 1099511628211ULL;
 		for (int i = 0; i < type->union_.numFields; i++)
 			hash = (hash ^ (uintptr_t)type->union_.fieldTypes[i]) * 1099511628211ULL;
+		break;
+	case TYPE_ENUM:
+		hash = (hash ^ (uintptr_t)type->enum_.name.ptr) * 1099511628211ULL;
 		break;
 	case TYPE_POINTER:
 		hash = (hash ^ (uintptr_t)type->pointer.elementType) * 1099511628211ULL;
@@ -86,6 +89,8 @@ static bool compareTypes(Type* a, Type* b)
 				return false;
 		}
 		return true;
+	case TYPE_ENUM:
+		return compareString(a->enum_.name, b->enum_.name);
 	case TYPE_POINTER:
 		return a->pointer.elementType == b->pointer.elementType;
 	case TYPE_OPTIONAL:
@@ -166,7 +171,7 @@ void initTypeSystem(TypeSystem* types)
 {
 	initArena(&types->arena, 1024 * 1024);
 
-	types->errorType = { .typeKind = TYPE_NULL };
+	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>") };
 
 	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void") };
 	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8") };
@@ -183,8 +188,7 @@ void initTypeSystem(TypeSystem* types)
 	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
 	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
 
-	types->typeTable.entries = (TypeEntry*)malloc((types->typeTable.capacity = 64) * sizeof(TypeEntry*));
-	types->typeTable.count = 0;
+	initTypeTable(&types->typeTable, 64);
 }
 
 void destroyTypeSystem(TypeSystem* types)
@@ -198,9 +202,9 @@ static StringView createTypeString(TypeSystem* types, const char* fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 
-	int length = vsprintf(nullptr, fmt, args);
+	int length = vsnprintf(nullptr, 0, fmt, args);
 	char* buffer = (char*)types->arena.alloc(length + 1);
-	vsprintf(buffer, fmt, args);
+	vsnprintf(buffer, length + 1, fmt, args);
 	buffer[length] = 0;
 
 	va_end(args);
@@ -233,7 +237,7 @@ Type* getPointerType(TypeSystem* types, Type* elementType)
 
 	if (newType)
 	{
-		key.name = createTypeString(types, "%.*s*", elementType->name.length, elementType->name.ptr);
+		type->name = createTypeString(types, "%.*s*", elementType->name.length, elementType->name.ptr);
 	}
 
 	return type;
@@ -250,7 +254,7 @@ Type* getOptionalType(TypeSystem* types, Type* elementType)
 
 	if (newType)
 	{
-		key.name = createTypeString(types, "%.*s?", elementType->name.length, elementType->name.ptr);
+		type->name = createTypeString(types, "%.*s?", elementType->name.length, elementType->name.ptr);
 	}
 
 	return type;
@@ -279,7 +283,7 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 	return type;
 }
 
-Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, char** fieldNames)
+Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
@@ -294,6 +298,71 @@ Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Ty
 	{
 		type->struct_.name = copy(name);
 		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
+
+		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+	}
+
+	return type;
+}
+
+Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames)
+{
+	Type key = {};
+	key.typeKind = TYPE_UNION;
+	key.union_.numFields = numElements;
+	key.union_.fieldTypes = fieldTypes;
+	key.union_.fieldNames = fieldNames;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		type->union_.fieldTypes = copyTypes(types, numElements, fieldTypes);
+		if (type->union_.fieldNames)
+			type->union_.fieldNames = copyNames(types, numElements, fieldNames);
+
+		type->name = createTypeString(types, "<union>");
+	}
+
+	return type;
+}
+
+Type* getNamedUnionType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames)
+{
+	Type key = {};
+	key.typeKind = TYPE_UNION;
+	key.union_.name = name;
+	key.union_.numFields = numElements;
+	key.union_.fieldTypes = fieldTypes;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		type->union_.name = copy(name);
+		type->union_.fieldTypes = copyTypes(types, numElements, fieldTypes);
+
+		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+	}
+
+	return type;
+}
+
+Type* getEnumType(TypeSystem* types, StringView name, Type* valueType)
+{
+	Type key = {};
+	key.typeKind = TYPE_ENUM;
+	key.enum_.name = name;
+	key.enum_.valueType = valueType;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		type->enum_.name = copy(name);
 
 		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 	}

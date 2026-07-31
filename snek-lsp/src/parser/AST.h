@@ -57,8 +57,8 @@ enum NodeType : uint8_t
 	NODE_PARAMETER,
 
 	NODE_STRUCT,
-	NODE_ENUM,
 	NODE_UNION,
+	NODE_ENUM,
 	NODE_TYPEDEF,
 	NODE_FUNCTION,
 	NODE_GLOBAL_VARIABLE,
@@ -83,18 +83,20 @@ enum StorageSpecifier : uint8_t
 
 struct NodeBase
 {
-	uint8_t type;
+	NodeType type;
 	int start, end;
 };
 
 
 struct Node;
-struct Expression;
 struct Type;
+struct Expression;
+struct Scope;
+struct SymbolEntry;
 
 struct TypeNode : NodeBase
 {
-	uint8_t typeKind;
+	TypeKind typeKind;
 
 	Type* inferredType;
 };
@@ -200,7 +202,7 @@ struct Identifier : Expression
 {
 	StringView name;
 
-	Node* resolvedSymbol;
+	SymbolEntry* resolvedSymbol;
 };
 
 struct CompoundExpression : Expression
@@ -403,6 +405,19 @@ struct Struct : NodeBase
 
 	Field** fields;
 	int numFields;
+
+	Type* structType;
+};
+
+struct Union : NodeBase
+{
+	StringView name;
+	uint32_t storage;
+
+	Field** fields;
+	int numFields;
+
+	Type* unionType;
 };
 
 struct EnumValue
@@ -416,17 +431,11 @@ struct Enum : NodeBase
 	StringView name;
 	uint32_t storage;
 
+	TypeNode* valueType;
 	EnumValue* values;
 	int numValues;
-};
 
-struct Union : NodeBase
-{
-	StringView name;
-	uint32_t storage;
-
-	Field** fields;
-	int numFields;
+	Type* enumType;
 };
 
 struct Typedef : NodeBase
@@ -450,11 +459,12 @@ struct Function : NodeBase
 	Expression* value;
 
 	Type* functionType;
+	Scope* scope;
 };
 
 struct GlobalVariable : NodeBase
 {
-	TypeNode* type;
+	TypeNode* variableType;
 	uint32_t storage;
 	VariableDeclarator* declarators;
 	int numDeclarators;
@@ -475,7 +485,7 @@ struct Node
 {
 	union {
 		struct {
-			uint8_t type;
+			NodeType type;
 			int start, end;
 		};
 
@@ -592,6 +602,8 @@ struct AST
 	int numMacros;
 	GlobalVariable** globalVariables;
 	int numGlobalVariables;
+
+	Scope* globalScope;
 };
 
 typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
@@ -600,8 +612,8 @@ typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
 void initAST(AST* ast);
 void destroyAST(AST* ast);
 
-void initNode(Node* node, uint8_t type, int start);
-void initType(TypeNode* type, uint8_t nodeType, uint8_t typeKind, int start);
+void initNode(Node* node, NodeType type, int start);
+void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration);
