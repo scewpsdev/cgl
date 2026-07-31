@@ -495,6 +495,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		type->inferredType = &tc->types->primitiveTypes[type->typeKind];
 		SnekAssert(type->inferredType->typeKind == type->typeKind);
+		return type->inferredType;
 	}
 	else if (type->type == NODE_STRUCT_TYPE)
 	{
@@ -517,9 +518,34 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		}
 
 		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
-		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes);
+
+		int mark2 = tc->scratch.mark();
+
+		for (int i = 0; i < structType->numFields; i++)
+		{
+			if (structType->fields[i])
+			{
+				for (int j = 0; j < structType->fields[i]->numDeclarators; j++)
+				{
+					if (structType->fields[i]->declarators[j].name.length)
+						tc->scratch.add(structType->fields[i]->declarators[j].name);
+					else
+						tc->scratch.add(nullptr);
+				}
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
+		}
+
+		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+
+		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes, fieldNames);
 
 		tc->scratch.release(mark);
+
+		return type->inferredType;
 	}
 	else if (type->type == NODE_UNION_TYPE)
 	{
@@ -542,9 +568,34 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		}
 
 		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
-		type->inferredType = getAnonymousStructType(tc->types, unionType->numFields, fieldTypes);
+
+		int mark2 = tc->scratch.mark();
+
+		for (int i = 0; i < unionType->numFields; i++)
+		{
+			if (unionType->fields[i])
+			{
+				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+				{
+					if (unionType->fields[i]->declarators[j].name.length)
+						tc->scratch.add(unionType->fields[i]->declarators[j].name);
+					else
+						tc->scratch.add(nullptr);
+				}
+			}
+			else
+			{
+				tc->scratch.add(nullptr);
+			}
+		}
+
+		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+
+		type->inferredType = getAnonymousStructType(tc->types, unionType->numFields, fieldTypes, fieldNames);
 
 		tc->scratch.release(mark);
+
+		return type->inferredType;
 	}
 	else if (type->type == NODE_POINTER_TYPE)
 	{
@@ -561,7 +612,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			elementType = &tc->types->errorType;
 		}
 
-		type->inferredType = getPointerType(tc->types, elementType);
+		return type->inferredType = getPointerType(tc->types, elementType);
 	}
 	else if (type->type == NODE_OPTIONAL_TYPE)
 	{
@@ -578,7 +629,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			elementType = &tc->types->errorType;
 		}
 
-		type->inferredType = getOptionalType(tc->types, elementType);
+		return type->inferredType = getOptionalType(tc->types, elementType);
 	}
 	else if (type->type == NODE_FUNCTION_TYPE)
 	{
@@ -612,6 +663,8 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch.getData<Type*>(mark));
 
 		tc->scratch.release(mark);
+
+		return type->inferredType;
 	}
 	else if (type->type == NODE_TUPLE_TYPE)
 	{
@@ -633,9 +686,11 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		}
 
 		Type** elementTypes = tc->scratch.getData<Type*>(mark);
-		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes);
+		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes, nullptr);
 
 		tc->scratch.release(mark);
+
+		return type->inferredType;
 	}
 	else if (type->type == NODE_ARRAY_TYPE)
 	{
@@ -678,14 +733,11 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			}
 		}
 
-		type->inferredType = getArrayType(tc->types, elementType, size);
-	}
-	else
-	{
-		SnekAssert(false);
+		return type->inferredType = getArrayType(tc->types, elementType, size);
 	}
 
-	SnekAssert(type->inferredType);
+	SnekAssert(false);
+	return type->inferredType = &tc->types->errorType;
 }
 
 static Node* resolveSymbol(TypeChecker* tc, StringView identifier)
@@ -730,7 +782,12 @@ static bool isTruthyType(Type* type)
 	return type->typeKind == TYPE_BOOL || isIntegerType(type) || isFloatingPointType(type) || type->typeKind == TYPE_POINTER || type->typeKind == TYPE_OPTIONAL;
 }
 
-static int getFieldIndex(StringView name, int numFields, char** fieldNames)
+static bool isNumericType(Type* type)
+{
+	return isIntegerType(type) || isFloatingPointType(type);
+}
+
+static int getFieldIndex(StringView name, int numFields, StringView* fieldNames)
 {
 	for (int i = 0; i < numFields; i++)
 	{
@@ -785,16 +842,16 @@ static void insertImplicitCast(TypeChecker* tc, Expression** node, Type* type)
 	*node = cast;
 }
 
-static Type* typeCheckArithmeticOperator(TypeChecker* tc, BinaryOperator* expression, Type* left, Type* right)
+static Type* typeCheckArithmeticOperator(TypeChecker* tc, uint8_t op, Type* left, Type* right, Expression* expression, Expression** leftNode, Expression** rightNode)
 {
-	if (expression->op == OPERATOR_ADD || expression->op == OPERATOR_SUBTRACT)
+	if (op == OPERATOR_ADD || op == OPERATOR_SUBTRACT)
 	{
 		if (left->typeKind == TYPE_POINTER && isIntegerType(right))
 		{
-			insertImplicitCast(tc, &expression->right, &tc->types->primitiveTypes[TYPE_INT64]);
+			insertImplicitCast(tc, rightNode, &tc->types->primitiveTypes[TYPE_INT64]);
 			return left;
 		}
-		if (expression->op == OPERATOR_SUBTRACT && left->typeKind == TYPE_POINTER && right->typeKind == TYPE_POINTER)
+		if (op == OPERATOR_SUBTRACT && left->typeKind == TYPE_POINTER && right->typeKind == TYPE_POINTER)
 		{
 			if (left != right)
 			{
@@ -813,9 +870,18 @@ static Type* typeCheckArithmeticOperator(TypeChecker* tc, BinaryOperator* expres
 	}
 
 	if (left != commonType)
-		insertImplicitCast(tc, &expression->left, commonType);
+	{
+		if (leftNode)
+			insertImplicitCast(tc, leftNode, commonType);
+		else
+		{
+			error(tc, (Node*)expression, "Cannot assign value of type '%.*s' to variable of type '%.*s' without an explicit narrowing cast");
+		}
+	}
 	if (right != commonType)
-		insertImplicitCast(tc, &expression->right, commonType);
+	{
+		insertImplicitCast(tc, rightNode, commonType);
+	}
 
 	return commonType;
 }
@@ -872,7 +938,7 @@ static Type* typeCheckLogicalOperator(TypeChecker* tc, BinaryOperator* expressio
 {
 	if (!isTruthyType(left) || !isTruthyType(right))
 	{
-		error(tc, (Node*)(!isTruthyType(left) ? expression->left : expression->right), "Operand of logical operator must be a scalar");
+		error(tc, (Node*)(!isTruthyType(left) ? expression->left : expression->right), "Operand of logical operator must be bool or scalar");
 		return &tc->types->errorType;
 	}
 
@@ -882,6 +948,82 @@ static Type* typeCheckLogicalOperator(TypeChecker* tc, BinaryOperator* expressio
 		insertImplicitCast(tc, &expression->right, &tc->types->primitiveTypes[TYPE_BOOL]);
 
 	return &tc->types->primitiveTypes[TYPE_BOOL];
+}
+
+static bool isCastLegal(Type* expressionType, Type* targetType)
+{
+	if (expressionType == targetType)
+		return true;
+
+	if (isNumericType(expressionType) && isNumericType(targetType))
+		return true;
+
+	if (expressionType->typeKind == TYPE_POINTER && targetType->typeKind == TYPE_POINTER)
+		return true;
+
+	if (expressionType->typeKind == TYPE_POINTER && isIntegerType(targetType))
+		return true;
+	if (isIntegerType(expressionType) && targetType->typeKind == TYPE_POINTER)
+		return true;
+
+	return false;
+}
+
+static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType, Expression** expression)
+{
+	if (expressionType == targetType)
+		return true;
+
+	if (isNumericType(expressionType) && isNumericType(targetType))
+	{
+		if (getNumericRank(expressionType) <= getNumericRank(targetType))
+		{
+			if (expression)
+				insertImplicitCast(tc, expression, targetType);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	if (expressionType->typeKind == TYPE_POINTER && targetType->typeKind == TYPE_POINTER)
+	{
+		if (targetType->pointer.elementType->typeKind == TYPE_VOID)
+		{
+			insertImplicitCast(tc, expression, targetType);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	return false;
+}
+
+OperatorType assignmentOperatorToBinary(OperatorType op)
+{
+	switch (op)
+	{
+	case (OPERATOR_ADD_ASSIGN): return OPERATOR_ADD;
+	case (OPERATOR_SUBTRACT_ASSIGN): return OPERATOR_SUBTRACT;
+	case (OPERATOR_MULTIPLY_ASSIGN): return OPERATOR_MULTIPLY;
+	case (OPERATOR_DIVIDE_ASSIGN): return OPERATOR_DIVIDE;
+	case (OPERATOR_MODULO_ASSIGN): return OPERATOR_MODULO;
+	case (OPERATOR_BITSHIFT_LEFT_ASSIGN): return OPERATOR_BITSHIFT_LEFT;
+	case (OPERATOR_BITSHIFT_RIGHT_ASSIGN): return OPERATOR_BITSHIFT_RIGHT;
+	case (OPERATOR_BITWISE_AND_ASSIGN): return OPERATOR_BITWISE_AND;
+	case (OPERATOR_BITWISE_XOR_ASSIGN): return OPERATOR_BITWISE_XOR;
+	case (OPERATOR_BITWISE_OR_ASSIGN): return OPERATOR_BITWISE_OR;
+	case (OPERATOR_LOGICAL_AND_ASSIGN): return OPERATOR_LOGICAL_AND;
+	case (OPERATOR_LOGICAL_OR_ASSIGN): return OPERATOR_LOGICAL_OR;
+	default:
+		SnekAssert(false);
+		return OPERATOR_NULL;
+	}
 }
 
 static Type* resolveExpression(TypeChecker* tc, Expression* expression)
@@ -972,7 +1114,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 
 		Type** valueTypes = tc->scratch.getData<Type*>(mark);
 
-		expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes);
+		expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr);
 
 		tc->scratch.release(mark);
 	}
@@ -991,7 +1133,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		// todo check operator overload
 
 		if (binaryOperator->op == OPERATOR_ADD || binaryOperator->op == OPERATOR_SUBTRACT || binaryOperator->op == OPERATOR_MULTIPLY || binaryOperator->op == OPERATOR_DIVIDE || binaryOperator->op == OPERATOR_MODULO)
-			return binaryOperator->inferredType = typeCheckArithmeticOperator(tc, binaryOperator, left, right);
+			return binaryOperator->inferredType = typeCheckArithmeticOperator(tc, binaryOperator->op, left, right, binaryOperator, &binaryOperator->left, &binaryOperator->right);
 		else if (binaryOperator->op == OPERATOR_EQUALS || binaryOperator->op == OPERATOR_NOT_EQUALS || binaryOperator->op == OPERATOR_LESS || binaryOperator->op == OPERATOR_LESS_EQUALS || binaryOperator->op == OPERATOR_GREATER || binaryOperator->op == OPERATOR_GREATER_EQUALS)
 			return binaryOperator->inferredType = typeCheckComparisonOperator(tc, binaryOperator, left, right);
 		else if (binaryOperator->op == OPERATOR_BITWISE_AND || binaryOperator->op == OPERATOR_BITWISE_XOR || binaryOperator->op == OPERATOR_BITWISE_OR || binaryOperator->op == OPERATOR_BITSHIFT_LEFT || binaryOperator->op == OPERATOR_BITSHIFT_RIGHT)
@@ -1017,7 +1159,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (!isTruthyType(operandType))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Operand of logical not operator must be a scalar");
+				error(tc, (Node*)unaryOperator->expression, "Operand of logical not operator must be a bool or scalar");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1120,7 +1262,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		if (operandType->typeKind != TYPE_FUNCTION)
 		{
 			error(tc, (Node*)functionCall->expression, "Operand of function call must be of type function");
-			return &tc->types->errorType;
+			return expression->inferredType = &tc->types->errorType;
 		}
 
 		return expression->inferredType = operandType->function.returnType;
@@ -1146,7 +1288,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		else
 		{
 			error(tc, (Node*)subscript->expression, "Operand of subscript operator must be of array or pointer type");
-			return &tc->types->errorType;
+			return expression->inferredType = &tc->types->errorType;
 		}
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
@@ -1161,8 +1303,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 				member->index = getFieldIndex(member->name, operandType->struct_.numFields, operandType->struct_.fieldNames);
 			if (member->index == -1)
 			{
-				error(tc, member->name, "Undefined struct field '%.*s'", member->name.length, member->name.ptr);
-				return &tc->types->errorType;
+				error(tc, member->name, "Undefined struct field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+				return expression->inferredType = &tc->types->errorType;
 			}
 
 			return expression->inferredType = operandType->struct_.fieldTypes[member->index];
@@ -1173,52 +1315,127 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 				member->index = getFieldIndex(member->name, operandType->union_.numFields, operandType->union_.fieldNames);
 			if (member->index == -1)
 			{
-				error(tc, member->name, "Undefined struct field '%.*s'", member->name.length, member->name.ptr);
-				return &tc->types->errorType;
+				error(tc, member->name, "Undefined union field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+				return expression->inferredType = &tc->types->errorType;
 			}
 
 			return expression->inferredType = operandType->union_.fieldTypes[member->index];
 		}
 		else if (operandType->typeKind == TYPE_STRING)
 		{
-			
+			if (compareString(member->name, "length"))
+			{
+				member->index = 0;
+				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+			}
+			else if (compareString(member->name, "ptr"))
+			{
+				member->index = 1;
+				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8]);
+			}
+			else
+			{
+				error(tc, member->name, "Undefined string field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+				return expression->inferredType = &tc->types->errorType;
+			}
 		}
 		else if (operandType->typeKind == TYPE_ARRAY)
 		{
-
+			if (compareString(member->name, "length"))
+			{
+				member->index = 0;
+				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+			}
+			else if (compareString(member->name, "ptr"))
+			{
+				member->index = 1;
+				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8]);
+			}
+			else
+			{
+				error(tc, member->name, "Undefined array field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+				return expression->inferredType = &tc->types->errorType;
+			}
 		}
 		else
 		{
 			error(tc, (Node*)member->expression, "Operand of member access must be of struct, union, string or array type");
-			return &tc->types->errorType;
+			return expression->inferredType = &tc->types->errorType;
 		}
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
 		TernaryCondition* ternary = (TernaryCondition*)expression;
-		if (ternary->condition)
-			resolveExpression(tc, ternary->condition);
-		if (ternary->then)
-			resolveExpression(tc, ternary->then);
-		if (ternary->else_)
-			resolveExpression(tc, ternary->else_);
+
+		Type* conditionType = resolveExpression(tc, ternary->condition);
+		Type* thenType = resolveExpression(tc, ternary->then);
+		Type* elseType = resolveExpression(tc, ternary->else_);
+
+		if (!isTruthyType(conditionType))
+		{
+			error(tc, (Node*)ternary->condition, "Ternary condition must be bool or scalar");
+		}
+		else if (conditionType != &tc->types->primitiveTypes[TYPE_BOOL])
+		{
+			insertImplicitCast(tc, &ternary->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
+		}
+
+		if (thenType == &tc->types->errorType || elseType == &tc->types->errorType)
+		{
+			return expression->inferredType = &tc->types->errorType;
+		}
+
+		Type* commonType = nullptr;
+		if (thenType == elseType)
+			commonType = thenType;
+		else if (thenType->typeKind == TYPE_POINTER && elseType->typeKind == TYPE_POINTER)
+			commonType = thenType;
+		else
+		{
+			commonType = getCommonNumericType(thenType, elseType);
+		}
+
+		if (!commonType)
+		{
+			error(tc, (Node*)expression, "Incompatible types in ternary branches: ? '%.*s' : '%.*s'", thenType->name.length, thenType->name.ptr, elseType->name.length, elseType->name.ptr);
+			return expression->inferredType = &tc->types->errorType;
+		}
+
+		if (thenType != commonType)
+			insertImplicitCast(tc, &ternary->then, commonType);
+		if (elseType != commonType)
+			insertImplicitCast(tc, &ternary->else_, commonType);
+
+		return expression->inferredType = commonType;
 	}
 	else if (expression->type == NODE_CAST)
 	{
 		Cast* cast = (Cast*)expression;
-		if (cast->targetType)
-			resolveType(tc, cast->targetType);
-		if (cast->expression)
-			resolveExpression(tc, cast->expression);
+
+		Type* targetType = resolveType(tc, cast->targetType);
+		Type* expressionType = resolveExpression(tc, cast->expression);
+
+		if (targetType == &tc->types->errorType || expressionType == &tc->types->errorType)
+		{
+			return expression->inferredType = &tc->types->errorType;
+		}
+
+		if (!isCastLegal(expressionType, targetType))
+		{
+			error(tc, (Node*)expression, "Illegal cast from '%.*s' to '%.*s'", expressionType->name.length, expressionType->name.ptr, targetType->name.length, targetType->name.ptr);
+			return expression->inferredType = &tc->types->errorType;
+		}
+
+		return expression->inferredType = targetType;
 	}
 	else if (expression->type == NODE_CAST_IMPLICIT)
 	{
 		SnekAssert(false);
+		return expression->inferredType = &tc->types->errorType;
 	}
-	else
-	{
-		SnekAssert(false);
-	}
+
+	SnekAssert(false);
+	return expression->inferredType = &tc->types->errorType;
 }
 
 static void resolveStatement(TypeChecker* tc, Statement* statement)
@@ -1235,73 +1452,179 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 	else if (statement->type == NODE_IF)
 	{
 		If* if_ = (If*)statement;
-		if (if_->condition)
-			resolveExpression(tc, if_->condition);
-		if (if_->then)
-			resolveStatement(tc, if_->then);
+
+		Type* conditionType = resolveExpression(tc, if_->condition);
+		resolveStatement(tc, if_->then);
 		if (if_->else_)
 			resolveStatement(tc, if_->else_);
+
+		if (!isTruthyType(conditionType))
+		{
+			error(tc, (Node*)if_->condition, "if condition must be bool or scalar");
+		}
+		else
+		{
+			insertImplicitCast(tc, &if_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
+		}
 	}
 	else if (statement->type == NODE_WHILE)
 	{
 		While* while_ = (While*)statement;
-		if (while_->condition)
-			resolveExpression(tc, while_->condition);
-		if (while_->then)
-			resolveStatement(tc, while_->then);
+
+		Type* conditionType = resolveExpression(tc, while_->condition);
+
+		tc->loopDepth++;
+		resolveStatement(tc, while_->then);
+		tc->loopDepth--;
+
+		if (!isTruthyType(conditionType))
+		{
+			error(tc, (Node*)while_->condition, "while condition must be bool or scalar");
+		}
+		else
+		{
+			insertImplicitCast(tc, &while_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
+		}
 	}
 	else if (statement->type == NODE_FOR)
 	{
 		For* for_ = (For*)statement;
-		if (for_->startValue)
-			resolveExpression(tc, for_->startValue);
-		if (for_->compareValue)
-			resolveExpression(tc, for_->compareValue);
-		if (for_->body)
-			resolveStatement(tc, for_->body);
+
+		Type* startValueType = resolveExpression(tc, for_->startValue);
+		Type* compareValueType = resolveExpression(tc, for_->compareValue);
+
+		if (!isNumericType(startValueType))
+		{
+			error(tc, (Node*)for_->startValue, "Initial value of for iterator must be a scalar");
+		}
+		if (!isNumericType(compareValueType))
+		{
+			error(tc, (Node*)for_->compareValue, "Comparison value of for iterator must be a scalar");
+		}
+
+		tc->loopDepth++;
+		resolveStatement(tc, for_->body);
+		tc->loopDepth--;
 	}
 	else if (statement->type == NODE_RETURN)
 	{
 		Return* return_ = (Return*)statement;
-		if (return_->value)
-			resolveExpression(tc, return_->value);
+
+		if (!tc->currentFunction)
+		{
+			error(tc, (Node*)statement, "Cannot return outside of function");
+		}
+		else
+		{
+			Type* returnType = tc->currentFunction->functionType->function.returnType;
+
+			if (return_->value)
+			{
+				Type* valueType = resolveExpression(tc, return_->value);
+				if (valueType == &tc->types->errorType)
+					return;
+
+				if (!isAssignable(tc, valueType, returnType, &return_->value))
+				{
+					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
+				}
+			}
+			else
+			{
+				if (returnType)
+				{
+					error(tc, (Node*)return_->value, "Must return value of type '%.*s'", returnType->name.length, returnType->name.ptr);
+				}
+			}
+		}
 	}
 	else if (statement->type == NODE_BREAK)
 	{
+		if (tc->loopDepth == 0)
+		{
+			error(tc, (Node*)statement, "Cannot break outside of a loop");
+		}
 	}
 	else if (statement->type == NODE_CONTINUE)
 	{
+		if (tc->loopDepth == 0)
+		{
+			error(tc, (Node*)statement, "Cannot continue outside of a loop");
+		}
 	}
 	else if (statement->type == NODE_DEFER)
 	{
 		Defer* defer = (Defer*)statement;
-		if (defer->body)
-			resolveStatement(tc, defer->body);
+
+		if (!tc->currentFunction)
+		{
+			error(tc, (Node*)defer, "Cannot defer statement outside of function");
+			return;
+		}
+
+		resolveStatement(tc, defer->body);
 	}
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{
 		VariableDeclaration* variableDeclaration = (VariableDeclaration*)statement;
-		if (variableDeclaration->variableType)
-			resolveType(tc, variableDeclaration->variableType);
+
+		Type* variableType = resolveType(tc, variableDeclaration->variableType);
+
 		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
 		{
-			if (variableDeclaration->declarators[i].value)
-				resolveExpression(tc, variableDeclaration->declarators[i].value);
+			Type* initializerType = resolveExpression(tc, variableDeclaration->declarators[i].value);
+
+			SymbolEntry* symbol = lookupSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name);
+			if (symbol)
+			{
+				error(tc, variableDeclaration->declarators[i].name, "Redeclaration of variable '%.*s'", variableDeclaration->declarators[i].name.length, variableDeclaration->declarators[i].name.ptr);
+			}
+			else
+			{
+				insertSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name, SYMBOL_VARIABLE, (Node*)statement);
+			}
+
+			if (!isAssignable(tc, initializerType, variableType, &variableDeclaration->declarators[i].value))
+			{
+				error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize variable of type '%.*s' with value of type '%.*s'", variableType->name.length, variableType->name.ptr, initializerType->name.length, initializerType->name.ptr);
+			}
 		}
 	}
 	else if (statement->type == NODE_ASSIGNMENT)
 	{
 		Assignment* assignment = (Assignment*)statement;
-		if (assignment->expression)
-			resolveExpression(tc, assignment->expression);
-		if (assignment->value)
-			resolveExpression(tc, assignment->value);
+
+		Type* expressionType = resolveExpression(tc, assignment->expression);
+		Type* valueType = resolveExpression(tc, assignment->value);
+
+		if (!isLValue(assignment->expression))
+		{
+			error(tc, (Node*)assignment->expression, "Cannot assign value to non-lvalue expression");
+		}
+
+		if (assignment->op == OPERATOR_ASSIGN)
+		{
+			if (!isAssignable(tc, valueType, expressionType, &assignment->value))
+			{
+				error(tc, (Node*)assignment->value, "Cannot assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
+			}
+		}
+		else
+		{
+			OperatorType op = assignmentOperatorToBinary(assignment->op);
+			Type* resultType = typeCheckArithmeticOperator(tc, op, expressionType, valueType, assignment->value, nullptr, &assignment->value);
+
+			if (resultType != &tc->types->errorType && !isAssignable(tc, resultType, expressionType, nullptr))
+			{
+				error(tc, (Node*)statement, "Cannot assign result of type '%.*s' to expression of type '%.*s'", resultType->name.length, resultType->name.ptr, expressionType->name.length, expressionType->name.ptr);
+			}
+		}
 	}
 	else if (statement->type == NODE_EXPRESSION_STATEMENT)
 	{
 		ExpressionStatement* expression = (ExpressionStatement*)statement;
-		if (expression->expression)
-			resolveExpression(tc, expression->expression);
+
+		resolveExpression(tc, expression->expression);
 	}
 	else
 	{

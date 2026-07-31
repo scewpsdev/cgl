@@ -21,6 +21,8 @@ struct TypeChecker
 	TypeSystem* types;
 
 	Scope* currentScope;
+	Function* currentFunction;
+	int loopDepth;
 };
 
 

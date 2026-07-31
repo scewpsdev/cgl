@@ -266,17 +266,11 @@ static void traverseExpression(Expression* expression, ASTVisitor_t visitor, voi
 		if (cast->targetType)
 			traverseType(cast->targetType, visitor, userPtr);
 	}
-	else if (expression->type == NODE_PREFIX_OPERATOR)
+	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
-		PrefixOperator* prefixOperator = (PrefixOperator*)expression;
-		if (prefixOperator->expression)
-			traverseExpression(prefixOperator->expression, visitor, userPtr);
-	}
-	else if (expression->type == NODE_POSTFIX_OPERATOR)
-	{
-		PostfixOperator* postfixOperator = (PostfixOperator*)expression;
-		if (postfixOperator->expression)
-			traverseExpression(postfixOperator->expression, visitor, userPtr);
+		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
+		if (unaryOperator->expression)
+			traverseExpression(unaryOperator->expression, visitor, userPtr);
 	}
 	else if (expression->type == NODE_FUNCTION_CALL)
 	{

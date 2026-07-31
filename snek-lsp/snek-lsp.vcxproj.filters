@@ -251,9 +251,6 @@
     <ClInclude Include="src\typechecker\TypeChecker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\typechecker\Type.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\parser\TypeKind.h">
       <Filter>Header Files</Filter>
     </ClInclude>

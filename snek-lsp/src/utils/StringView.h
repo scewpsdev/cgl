@@ -13,6 +13,9 @@ struct StringView
 
 StringView CreateString(const char* start, const char* end);
 StringView CreateString(const char* start, int length);
+StringView CreateString(const char* ptr);
+
+StringView copy(StringView from);
 
 bool compareString(StringView a, StringView b);
 bool compareString(StringView a, const char* b);

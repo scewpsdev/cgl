@@ -28,6 +28,24 @@ StringView CreateString(const char* start, int length)
 	return str;
 }
 
+StringView CreateString(const char* ptr)
+{
+	StringView str = {};
+	str.ptr = (char*)ptr;
+	str.length = (int)strlen(ptr);
+	return str;
+}
+
+StringView copy(StringView from)
+{
+	StringView str = {};
+	str.length = from.length;
+	str.ptr = (char*)malloc(from.length + 1);
+	memcpy(str.ptr, from.ptr, from.length);
+	str.ptr[str.length] = 0;
+	return str;
+}
+
 bool compareString(StringView a, StringView b)
 {
 	if (a.length != b.length)

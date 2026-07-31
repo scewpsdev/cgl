@@ -2,6 +2,9 @@
 
 #include "utils/Hash.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+
 
 static void initTypeTable(TypeTable* table, int initialCapacity)
 {
@@ -26,14 +29,14 @@ static uint64_t hashType(Type* type)
 	switch (type->typeKind)
 	{
 	case TYPE_STRUCT:
-		if (type->struct_.name)
-			hash = (hash ^ (uintptr_t)type->struct_.name) * 1099511628211ULL;
+		if (type->name.length)
+			hash = (hash ^ (uintptr_t)type->name.ptr) * 1099511628211ULL;
 		for (int i = 0; i < type->struct_.numFields; i++)
 			hash = (hash ^ (uintptr_t)type->struct_.fieldTypes[i]) * 1099511628211ULL;
 		break;
 	case TYPE_UNION:
-		if (type->union_.name)
-			hash = (hash ^ (uintptr_t)type->union_.name) * 1099511628211ULL;
+		if (type->union_.name.length)
+			hash = (hash ^ (uintptr_t)type->union_.name.ptr) * 1099511628211ULL;
 		for (int i = 0; i < type->union_.numFields; i++)
 			hash = (hash ^ (uintptr_t)type->union_.fieldTypes[i]) * 1099511628211ULL;
 		break;
@@ -66,8 +69,8 @@ static bool compareTypes(Type* a, Type* b)
 
 	switch (a->typeKind) {
 	case TYPE_STRUCT:
-		if (a->struct_.name)
-			return a->struct_.name == b->struct_.name;
+		if (a->struct_.name.length)
+			return compareString(a->struct_.name, b->struct_.name);
 		for (int i = 0; i < a->struct_.numFields; i++)
 		{
 			if (a->struct_.fieldTypes[i] != b->struct_.fieldTypes[i])
@@ -75,8 +78,8 @@ static bool compareTypes(Type* a, Type* b)
 		}
 		return true;
 	case TYPE_UNION:
-		if (a->union_.name)
-			return a->union_.name == b->union_.name;
+		if (a->union_.name.length)
+			return compareString(a->union_.name, b->union_.name);
 		for (int i = 0; i < a->union_.numFields; i++)
 		{
 			if (a->union_.fieldTypes[i] != b->union_.fieldTypes[i])
@@ -129,7 +132,7 @@ static void growTypeTable(TypeTable* table)
 	table->capacity = newCapacity;
 }
 
-static Type* internType(TypeSystem* types, Type key)
+static Type* internType(TypeSystem* types, Type key, bool* newType)
 {
 	TypeTable* table = &types->typeTable;
 
@@ -165,20 +168,20 @@ void initTypeSystem(TypeSystem* types)
 
 	types->errorType = { .typeKind = TYPE_NULL };
 
-	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID };
-	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8 };
-	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16 };
-	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32 };
-	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64 };
-	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8 };
-	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16 };
-	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32 };
-	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64 };
-	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT };
-	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE };
-	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL };
-	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY };
-	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING };
+	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void") };
+	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8") };
+	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16") };
+	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32") };
+	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64") };
+	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8") };
+	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16") };
+	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32") };
+	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64") };
+	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float") };
+	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double") };
+	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool") };
+	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
+	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
 
 	types->typeTable.entries = (TypeEntry*)malloc((types->typeTable.capacity = 64) * sizeof(TypeEntry*));
 	types->typeTable.count = 0;
@@ -190,10 +193,32 @@ void destroyTypeSystem(TypeSystem* types)
 	destroyArena(&types->arena);
 }
 
-static Type** copyTypes(TypeSystem* types, int numTypes, Type** elements)
+static StringView createTypeString(TypeSystem* types, const char* fmt, ...)
 {
-	Type** newElements = types->arena.alloc<Type*>(numTypes);
-	memcpy(newElements, elements, numTypes * sizeof(Type*));
+	va_list args;
+	va_start(args, fmt);
+
+	int length = vsprintf(nullptr, fmt, args);
+	char* buffer = (char*)types->arena.alloc(length + 1);
+	vsprintf(buffer, fmt, args);
+	buffer[length] = 0;
+
+	va_end(args);
+
+	return CreateString(buffer, length);
+}
+
+static Type** copyTypes(TypeSystem* types, int numElements, Type** elements)
+{
+	Type** newElements = types->arena.alloc<Type*>(numElements);
+	memcpy(newElements, elements, numElements * sizeof(Type*));
+	return newElements;
+}
+
+static StringView* copyNames(TypeSystem* types, int numElements, StringView* elements)
+{
+	StringView* newElements = types->arena.alloc<StringView>(numElements);
+	memcpy(newElements, elements, numElements * sizeof(StringView));
 	return newElements;
 }
 
@@ -203,7 +228,15 @@ Type* getPointerType(TypeSystem* types, Type* elementType)
 	key.typeKind = TYPE_POINTER;
 	key.pointer.elementType = elementType;
 
-	return internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		key.name = createTypeString(types, "%.*s*", elementType->name.length, elementType->name.ptr);
+	}
+
+	return type;
 }
 
 Type* getOptionalType(TypeSystem* types, Type* elementType)
@@ -212,41 +245,57 @@ Type* getOptionalType(TypeSystem* types, Type* elementType)
 	key.typeKind = TYPE_OPTIONAL;
 	key.optional.elementType = elementType;
 
-	return internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		key.name = createTypeString(types, "%.*s?", elementType->name.length, elementType->name.ptr);
+	}
+
+	return type;
 }
 
-Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, char** fieldNames)
+Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.numFields = numElements;
 	key.struct_.fieldTypes = fieldTypes;
+	key.struct_.fieldNames = fieldNames;
 
-	Type* type = internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
 
-	if (type == &key)
+	if (newType)
+	{
 		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
+		if (type->struct_.fieldNames)
+			type->struct_.fieldNames = copyNames(types, numElements, fieldNames);
+
+		type->name = createTypeString(types, "<struct>");
+	}
 
 	return type;
 }
 
 Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, char** fieldNames)
 {
-	char tmpName[256];
-	strncpy(tmpName, name.ptr, name.length);
-
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
-	key.struct_.name = tmpName;
+	key.struct_.name = name;
 	key.struct_.numFields = numElements;
 	key.struct_.fieldTypes = fieldTypes;
 
-	Type* type = internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
 
-	if (type == &key)
+	if (newType)
 	{
-		type->struct_.name = _strdup(tmpName);
+		type->struct_.name = copy(name);
 		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
+
+		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 	}
 
 	return type;
@@ -260,10 +309,32 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 	key.function.numParams = numParams;
 	key.function.paramTypes = paramTypes;
 
-	Type* type = internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
 
-	if (type == &key)
+	if (newType)
+	{
 		type->function.paramTypes = copyTypes(types, numParams, paramTypes);
+
+		char buffer[256];
+		buffer[0] = 0;
+		strcat(buffer, "func(");
+		for (int i = 0; i < numParams; i++)
+		{
+			strcat(buffer, paramTypes[i]->name.ptr);
+			if (i < numParams - 1)
+				strcat(buffer, ",");
+		}
+		strcat(buffer, ")");
+
+		if (returnType)
+		{
+			strcat(buffer, "->");
+			strcat(buffer, returnType->name.ptr);
+		}
+
+		type->name = createTypeString(types, "%s", buffer);
+	}
 
 	return type;
 }
@@ -275,5 +346,16 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size)
 	key.array.elementType = elementType;
 	key.array.size = size;
 
-	return internType(types, key);
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	if (newType)
+	{
+		if (size)
+			type->name = createTypeString(types, "%.*s[%ull]", elementType->name.length, elementType->name.ptr, size);
+		else
+			type->name = createTypeString(types, "%.*s[]", elementType->name.length, elementType->name.ptr);
+	}
+
+	return type;
 }

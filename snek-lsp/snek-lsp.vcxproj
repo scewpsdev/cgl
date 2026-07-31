@@ -208,7 +208,6 @@
     <ClInclude Include="src\parser\Parser.h" />
     <ClInclude Include="src\parser\TypeKind.h" />
     <ClInclude Include="src\Platform.h" />
-    <ClInclude Include="src\typechecker\Type.h" />
     <ClInclude Include="src\typechecker\TypeChecker.h" />
     <ClInclude Include="src\typechecker\TypeSystem.h" />
     <ClInclude Include="src\utils\Arena.h" />
