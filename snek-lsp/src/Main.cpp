@@ -23,6 +23,7 @@ using json = nlohmann::json;
 
 
 std::string rootPath;
+std::string mainFilePath;
 std::thread parserThread;
 
 TypeSystem types;
@@ -189,6 +190,152 @@ char* ReadText(const char* path)
 		return buffer;
 	}
 	return nullptr;
+}
+
+static std::string PathToURI(const char* path)
+{
+	namespace fs = std::filesystem;
+
+	// 1. Get absolute path and normalize to generic forward slashes '/'
+	fs::path p = fs::absolute(path).generic_string();
+	std::string genericPath = p.string();
+
+	// 2. Format Windows paths (e.g., "C:/path" -> "/c:/path")
+	if (genericPath.size() > 1 && genericPath[1] == ':') {
+		genericPath[0] = std::tolower(genericPath[0]); // Lowercase drive letter
+		genericPath = "/" + genericPath;
+	}
+
+	// 3. Simple strict percent-encoding loop
+	std::ostringstream uri;
+	uri << "file://";
+
+	for (unsigned char c : genericPath) {
+		// Keep ONLY unreserved RFC 3986 path characters and standard '/' delimiters
+		if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/') {
+			uri << (char)c;
+		}
+		else {
+			// Force lowercase hex output (%3a) to match your client output
+			uri << '%' << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << (int)c;
+		}
+	}
+
+	return uri.str();
+}
+
+static std::string URIToPath(const std::string& uriStr)
+{
+	namespace fs = std::filesystem;
+
+	// 1. Strip the "file://" scheme
+	std::string prefix = "file://";
+	std::string pathStr = uriStr;
+	if (pathStr.rfind(prefix, 0) == 0) {
+		pathStr = pathStr.substr(prefix.length());
+	}
+
+	// 2. Percent-decode the remaining string
+	std::string decodedPath;
+	decodedPath.reserve(pathStr.size());
+
+	for (size_t i = 0; i < pathStr.size(); ++i) {
+		if (pathStr[i] == '%' && i + 2 < pathStr.size()) {
+			// Extract hex value
+			std::string hexStr = pathStr.substr(i + 1, 2);
+			unsigned char value = static_cast<unsigned char>(std::stoul(hexStr, nullptr, 16));
+			decodedPath += value;
+			i += 2; // Skip the hex characters
+		}
+		else {
+			decodedPath += pathStr[i];
+		}
+	}
+
+	// 3. Reformat Windows paths (e.g., "/c:/path" -> "c:/path" or "C:/path")
+	// If it starts with '/' followed by a drive letter and ':'
+	if (decodedPath.size() > 2 && decodedPath[0] == '/' && std::isalpha(decodedPath[1]) && decodedPath[2] == ':') {
+		decodedPath = decodedPath.substr(1); // Remove leading slash
+
+		// Optional: Capitalize drive letter to match native Windows preferences
+		decodedPath[0] = std::toupper(decodedPath[0]);
+	}
+
+	// 4. Return as native path string
+	return fs::path(decodedPath).make_preferred().string();
+}
+
+static char* GetModuleNameFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
+	const char* dot = strrchr(slash, '.');
+	if (!dot)
+		dot = slash + strlen(slash);
+
+	int length = (int)(dot - slash);
+
+	char* name = new char[length + 1];
+	strncpy(name, slash, length);
+	name[length] = 0;
+
+	return name;
+}
+
+static const char* GetFilenameFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
+	return slash;
+}
+
+static char* GetFolderFromPath(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (!slash)
+		slash = path;
+
+	int length = (int)(slash - path);
+
+	if (length == 0)
+	{
+		char* folder = new char[2];
+		strcpy(folder, ".");
+		folder[1] = 0;
+		return folder;
+	}
+	else
+	{
+		char* folder = new char[length + 1];
+		strncpy(folder, path, length);
+		folder[length] = 0;
+		return folder;
+	}
+}
+
+static const char* GetExtensionFromPath(const char* path)
+{
+	const char* ext = strrchr(path, '.');
+	if (ext)
+		ext++;
+	else
+		ext = path + strlen(path);
+
+	return ext;
 }
 
 /*
@@ -382,23 +529,26 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	if (document->hasAST)
+	if (document->state >= DOCUMENT_STATE_PARSED)
 	{
 		destroyDiagnostics(&document->diagnostics);
 		destroyArena(&document->arena);
 		destroyAST(&document->ast);
 		destroyParser(&document->parser);
 	}
+	if (document->state >= DOCUMENT_STATE_TYPECHECKED)
+	{
+		destroyTypeChecker(&document->typeChecker);
+	}
 
-	initAST(&document->ast);
+	initAST(&document->ast, document->localPath.c_str());
 	initArena(&document->arena, 2 * 1024 * 1024);
 	initDiagnostics(&document->diagnostics, &document->arena);
 
-	document->parser = {};
 	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
 
 	parse(&document->parser, &document->ast, &document->arena);
-	document->hasAST = true;
+	document->state = DOCUMENT_STATE_PARSED;
 
 	sendDiagnosticsNotification(&document->diagnostics, document);
 
@@ -420,11 +570,11 @@ void TypeCheck(List<Document*> documents)
 	{
 		Document* document = documents[i];
 
-		SnekAssert(document->hasAST);
+		SnekAssert(document->state >= DOCUMENT_STATE_PARSED);
 
 		document->astMutex.lock();
 
-		if (document->typeChecker.lexer)
+		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
 		{
 			destroyTypeChecker(&document->typeChecker);
 		}
@@ -433,7 +583,6 @@ void TypeCheck(List<Document*> documents)
 		initTypeChecker(&document->typeChecker, &document->arena, &document->parser.lexer, &document->diagnostics, &types);
 
 		symbolCollection(&document->typeChecker, &document->ast);
-		symbolResolution(&document->typeChecker, &document->ast);
 
 		document->astMutex.unlock();
 	}
@@ -445,6 +594,22 @@ void TypeCheck(List<Document*> documents)
 		document->astMutex.lock();
 
 		symbolResolution(&document->typeChecker, &document->ast);
+
+		document->astMutex.unlock();
+	}
+
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
+
+		document->astMutex.lock();
+
+		for (int j = 0; j < document->ast.numFunctions; j++)
+		{
+			typeCheckFunction(&document->typeChecker, document->ast.functions[j], &document->ast);
+		}
+
+		document->state = DOCUMENT_STATE_TYPECHECKED;
 
 		sendDiagnosticsNotification(&document->diagnostics, document);
 
@@ -458,10 +623,16 @@ void TypeCheck(List<Document*> documents)
 
 static Document* OpenDocument(std::string uri, std::string text)
 {
+	namespace fs = std::filesystem;
+
 	fprintf(stderr, "Opening document %s\n", uri.c_str());
+
+	fs::path mainFileDirectory = fs::path(mainFilePath).parent_path();
+	fs::path localPath = fs::relative(URIToPath(uri), mainFileDirectory);
 
 	Document* document = new Document();
 	document->uri = uri;
+	document->localPath = localPath.string();
 	documents.add(document);
 	uriMap.emplace(document->uri, documents.size - 1);
 	document->init(text);
@@ -476,111 +647,6 @@ static Document* GetDocument(std::string uri)
 	return nullptr;
 }
 
-static char* GetModuleNameFromPath(const char* path)
-{
-	const char* forwardSlash = strrchr(path, '/');
-	const char* backwardSlash = strrchr(path, '\\');
-	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
-	if (slash)
-		slash++;
-	else
-		slash = path;
-
-	const char* dot = strrchr(slash, '.');
-	if (!dot)
-		dot = slash + strlen(slash);
-
-	int length = (int)(dot - slash);
-
-	char* name = new char[length + 1];
-	strncpy(name, slash, length);
-	name[length] = 0;
-
-	return name;
-}
-
-static const char* GetFilenameFromPath(const char* path)
-{
-	const char* forwardSlash = strrchr(path, '/');
-	const char* backwardSlash = strrchr(path, '\\');
-	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
-	if (slash)
-		slash++;
-	else
-		slash = path;
-
-	return slash;
-}
-
-static char* GetFolderFromPath(const char* path)
-{
-	const char* forwardSlash = strrchr(path, '/');
-	const char* backwardSlash = strrchr(path, '\\');
-	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
-	if (!slash)
-		slash = path;
-
-	int length = (int)(slash - path);
-
-	if (length == 0)
-	{
-		char* folder = new char[2];
-		strcpy(folder, ".");
-		folder[1] = 0;
-		return folder;
-	}
-	else
-	{
-		char* folder = new char[length + 1];
-		strncpy(folder, path, length);
-		folder[length] = 0;
-		return folder;
-	}
-}
-
-static const char* GetExtensionFromPath(const char* path)
-{
-	const char* ext = strrchr(path, '.');
-	if (ext)
-		ext++;
-	else
-		ext = path + strlen(path);
-
-	return ext;
-}
-
-static std::string PathToURI(const char* path)
-{
-	namespace fs = std::filesystem;
-
-	// 1. Get absolute path and normalize to generic forward slashes '/'
-	fs::path p = fs::absolute(path).generic_string();
-	std::string genericPath = p.string();
-
-	// 2. Format Windows paths (e.g., "C:/path" -> "/c:/path")
-	if (genericPath.size() > 1 && genericPath[1] == ':') {
-		genericPath[0] = std::tolower(genericPath[0]); // Lowercase drive letter
-		genericPath = "/" + genericPath;
-	}
-
-	// 3. Simple strict percent-encoding loop
-	std::ostringstream uri;
-	uri << "file://";
-
-	for (unsigned char c : genericPath) {
-		// Keep ONLY unreserved RFC 3986 path characters and standard '/' delimiters
-		if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/') {
-			uri << (char)c;
-		}
-		else {
-			// Force lowercase hex output (%3a) to match your client output
-			uri << '%' << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << (int)c;
-		}
-	}
-
-	return uri.str();
-}
-
 static bool AddFile(const char* path)
 {
 	if (char* src = ReadText(path))
@@ -592,7 +658,7 @@ static bool AddFile(const char* path)
 	return false;
 }
 
-static bool ScanSourceFolder(const char* folder, const char* extension, bool recursive)
+static bool ScanSourceFolder(const char* folder, const char* extension, bool recursive, std::string* mainFilePath)
 {
 	if (!std::filesystem::exists(folder))
 	{
@@ -607,10 +673,16 @@ static bool ScanSourceFolder(const char* folder, const char* extension, bool rec
 		const char* dePath = (const char*)dePathStr.c_str();
 		if (de.is_directory() && recursive)
 		{
-			result = ScanSourceFolder(dePath, extension, recursive) && result;
+			result = ScanSourceFolder(dePath, extension, recursive, mainFilePath) && result;
 		}
 		else
 		{
+			const char* filename = GetFilenameFromPath(dePath);
+			if (strcmp(filename, "main.src") == 0)
+			{
+				*mainFilePath = filename;
+			}
+
 			const char* fileExtension = GetExtensionFromPath(dePath);
 			if (fileExtension && strcmp(fileExtension, extension) == 0)
 			{
@@ -635,14 +707,13 @@ void ParserThread()
 			Document* document = documents[i];
 
 			const int parseDelay = 500;
-			if (!document->hasAST || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
+			if (!document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				Parse(document);
-				document->needsTypeCheck = true;
 				document->lastChange = 0;
 			}
 
-			allDocumentsParsed = allDocumentsParsed && document->hasAST;
+			allDocumentsParsed = allDocumentsParsed && document->state >= DOCUMENT_STATE_PARSED;
 		}
 
 		List<Document*> typeCheckList;
@@ -651,20 +722,21 @@ void ParserThread()
 		{
 			Document* document = documents[i];
 
-			if (document->needsTypeCheck)
+			if (document->state == DOCUMENT_STATE_PARSED)
 			{
 				// for now we just wait until all documents have been parsed
 				if (allDocumentsParsed)
 				{
 					typeCheckList.add(document);
-					document->needsTypeCheck = false;
 				}
 			}
 		}
 
-		TypeCheck(typeCheckList);
-
-		FreeList(&typeCheckList);
+		if (typeCheckList.size > 0)
+		{
+			TypeCheck(typeCheckList);
+			FreeList(&typeCheckList);
+		}
 
 		SleepMS(10);
 	}
@@ -762,7 +834,7 @@ int main()
 					}}
 				};
 
-				ScanSourceFolder(rootPath.c_str(), "src", true);
+				ScanSourceFolder(rootPath.c_str(), "src", true, &mainFilePath);
 
 				parserThread = std::thread(ParserThread);
 				parserThread.detach();
@@ -780,9 +852,11 @@ int main()
 				std::string text = textDocument["text"];
 
 				Document* document = GetDocument(uri);
+
 				if (!document)
 					document = OpenDocument(uri, text);
-				document->open = true;
+
+				document->onOpen(text);
 			}
 			else if (method == "textDocument/didChange")
 			{

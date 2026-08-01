@@ -17,9 +17,9 @@ struct TypeChecker
 	ScratchBuffer scratch;
 	Lexer* lexer;
 	Diagnostics* diagnostics;
-
 	TypeSystem* types;
 
+	AST* ast;
 	Scope* currentScope;
 	Function* currentFunction;
 	int loopDepth;
@@ -31,4 +31,4 @@ void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, AST* ast);
 void symbolResolution(TypeChecker* tc, AST* ast);
-void typeCheckFunction(TypeChecker* tc, Function* function);
+void typeCheckFunction(TypeChecker* tc, Function* function, AST* ast);

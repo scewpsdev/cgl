@@ -1,6 +1,7 @@
 #include "TypeSystem.h"
 
 #include "utils/Hash.h"
+#include "utils/Log.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -283,28 +284,6 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 	return type;
 }
 
-Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames)
-{
-	Type key = {};
-	key.typeKind = TYPE_STRUCT;
-	key.struct_.name = name;
-	key.struct_.numFields = numElements;
-	key.struct_.fieldTypes = fieldTypes;
-
-	bool newType;
-	Type* type = internType(types, key, &newType);
-
-	if (newType)
-	{
-		type->struct_.name = copy(name);
-		type->struct_.fieldTypes = copyTypes(types, numElements, fieldTypes);
-
-		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
-	}
-
-	return type;
-}
-
 Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames)
 {
 	Type key = {};
@@ -323,48 +302,6 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 			type->union_.fieldNames = copyNames(types, numElements, fieldNames);
 
 		type->name = createTypeString(types, "<union>");
-	}
-
-	return type;
-}
-
-Type* getNamedUnionType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames)
-{
-	Type key = {};
-	key.typeKind = TYPE_UNION;
-	key.union_.name = name;
-	key.union_.numFields = numElements;
-	key.union_.fieldTypes = fieldTypes;
-
-	bool newType;
-	Type* type = internType(types, key, &newType);
-
-	if (newType)
-	{
-		type->union_.name = copy(name);
-		type->union_.fieldTypes = copyTypes(types, numElements, fieldTypes);
-
-		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
-	}
-
-	return type;
-}
-
-Type* getEnumType(TypeSystem* types, StringView name, Type* valueType)
-{
-	Type key = {};
-	key.typeKind = TYPE_ENUM;
-	key.enum_.name = name;
-	key.enum_.valueType = valueType;
-
-	bool newType;
-	Type* type = internType(types, key, &newType);
-
-	if (newType)
-	{
-		type->enum_.name = copy(name);
-
-		type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 	}
 
 	return type;
@@ -427,4 +364,104 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size)
 	}
 
 	return type;
+}
+
+Type* createNamedStructType(TypeSystem* types, StringView name)
+{
+	Type key = {};
+	key.typeKind = TYPE_STRUCT;
+	key.struct_.name = name;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	SnekAssert(newType);
+
+	type->struct_.name = copy(name);
+	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	return type;
+}
+
+void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames)
+{
+	SnekAssert(!type->struct_.numFields);
+
+	type->struct_.numFields = numFields;
+	type->struct_.fieldTypes = copyTypes(types, numFields, fieldTypes);
+	type->struct_.fieldNames = copyNames(types, numFields, fieldNames);
+}
+
+Type* createNamedUnionType(TypeSystem* types, StringView name)
+{
+	Type key = {};
+	key.typeKind = TYPE_UNION;
+	key.union_.name = name;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	SnekAssert(newType);
+
+	type->union_.name = copy(name);
+	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	return type;
+}
+
+void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames)
+{
+	SnekAssert(!type->union_.numFields);
+
+	type->union_.numFields = numFields;
+	type->union_.fieldTypes = copyTypes(types, numFields, fieldTypes);
+	type->union_.fieldNames = copyNames(types, numFields, fieldNames);
+}
+
+Type* createEnumType(TypeSystem* types, StringView name)
+{
+	Type key = {};
+	key.typeKind = TYPE_ENUM;
+	key.enum_.name = name;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	SnekAssert(newType);
+
+	type->enum_.name = copy(name);
+	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	return type;
+}
+
+void resolveEnumType(TypeSystem* types, Type* type, Type* valueType)
+{
+	SnekAssert(!type->enum_.valueType);
+
+	type->enum_.valueType = valueType;
+}
+
+Type* createAliasType(TypeSystem* types, StringView name)
+{
+	Type key = {};
+	key.typeKind = TYPE_ALIAS;
+	key.alias.name = name;
+
+	bool newType;
+	Type* type = internType(types, key, &newType);
+
+	SnekAssert(newType);
+
+	type->alias.name = copy(name);
+	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	return type;
+}
+
+void resolveAliasType(TypeSystem* types, Type* type, Type* value)
+{
+	SnekAssert(!type->alias.value);
+
+	type->alias.value = value;
 }

@@ -9,6 +9,7 @@
 
 void initArena(Arena* arena, int capacity)
 {
+	*arena = {};
 	arena->capacity = capacity;
 	arena->committed = 0;
 	arena->offset = 0;

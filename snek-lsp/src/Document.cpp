@@ -2,6 +2,7 @@
 
 #include "Platform.h"
 #include "utils/Hash.h"
+#include "typechecker/TypeSystem.h"
 
 #include <iostream>
 #include <sstream>
@@ -19,29 +20,11 @@ static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 	return a->offset < b->offset ? -1 : a->offset == b->offset ? 0 : 1;
 }
 
-void Document::init(const std::string& text)
+static void textToLines(const std::string& text, List<char*>& lines)
 {
-	std::istringstream stream(text);
-	std::string line;
-	while (std::getline(stream, line))
-	{
-		lines.add(_strdup(line.c_str()));
-	}
-
-	open = false;
-
-	lastChange = GetTimeNS();
-
-	hasAST = false;
-}
-
-void Document::onChange(int startLine, int startCol, int endLine, int endCol, std::string& text)
-{
-	List<char*> changeLines;
-
 	if (text == "")
 	{
-		changeLines.add(_strdup(""));
+		lines.add(_strdup(""));
 	}
 	else
 	{
@@ -49,14 +32,51 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 		std::string line;
 		while (std::getline(stream, line))
 		{
-			changeLines.add(_strdup(line.c_str()));
+			lines.add(_strdup(line.c_str()));
 		}
 
 		if (text.back() == '\n')
 		{
-			changeLines.add(_strdup(""));
+			lines.add(_strdup(""));
 		}
 	}
+}
+
+void Document::init(const std::string& text)
+{
+	textToLines(text, lines);
+
+	open = false;
+
+	lastChange = GetTimeNS();
+
+	state = DOCUMENT_STATE_UNPARSED;
+}
+
+void Document::onOpen(std::string& text)
+{
+	linesMutex.lock();
+
+	for (int i = 0; i < lines.size; i++)
+	{
+		free(lines[i]);
+	}
+	lines.clear();
+
+	textToLines(text, lines);
+
+	open = true;
+
+	linesMutex.unlock();
+
+	lastChange = GetTimeNS();
+}
+
+void Document::onChange(int startLine, int startCol, int endLine, int endCol, std::string& text)
+{
+	List<char*> changeLines;
+
+	textToLines(text, changeLines);
 
 	char* prefix = substring(lines[startLine], 0, startCol);
 	char* suffix = substring(lines[endLine], endCol);
@@ -103,19 +123,6 @@ static void getCoordFromOffset(int offset, const char* src, int* line, int* col)
 	}
 }
 
-static Node* resolveSymbol(StringView identifier)
-{
-	for (int i = 0; i < documents.size; i++)
-	{
-		if (documents[i]->hasAST)
-		{
-			//if (Node* symbol = lookupSymbol(&documents[i]->ast.globalScope->symbols, identifier))
-			//	return symbol;
-		}
-	}
-	return nullptr;
-}
-
 struct ASTVisitorData
 {
 	Parser* parser;
@@ -135,10 +142,17 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 
 	if (node->type == NODE_NAMED_TYPE)
 	{
-		if (Node* type = resolveSymbol(node->namedType.name))
+		NamedType* namedType = &node->namedType;
+		if (Type* type = namedType->inferredType)
 		{
-			LSPTokenType tokenType = type->type == NODE_STRUCT ? LSP_TOKEN_STRUCT : LSP_TOKEN_TYPE;
-			data->lspTokens->add({ node->start, node->end - node->start, tokenType, 0 });
+			if (type->typeKind == TYPE_STRUCT)
+				data->lspTokens->add({ node->start, node->end - node->start, LSP_TOKEN_STRUCT, 0 });
+			else if (type->typeKind == TYPE_UNION)
+				data->lspTokens->add({ node->start, node->end - node->start, LSP_TOKEN_STRUCT, 0 });
+			else if (type->typeKind == TYPE_ENUM)
+				data->lspTokens->add({ node->start, node->end - node->start, LSP_TOKEN_ENUM, 0 });
+			else if (type->typeKind != TYPE_NULL)
+				data->lspTokens->add({ node->start, node->end - node->start, LSP_TOKEN_TYPE, 0 });
 		}
 	}
 	else if (node->type == NODE_MEMBER_ACCESS)
@@ -208,7 +222,7 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 
 void Document::getTokens(std::vector<int>& data)
 {
-	if (!hasAST)
+	if (state == DOCUMENT_STATE_UNPARSED)
 		return;
 
 	List<LSPToken> lspTokens;

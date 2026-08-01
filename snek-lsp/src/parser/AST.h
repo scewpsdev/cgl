@@ -12,6 +12,11 @@ enum NodeType : uint8_t
 {
 	NODE_NULL = 0,
 
+	NODE_ERROR,
+	NODE_ERROR_TYPE,
+	NODE_ERROR_EXPRESSION,
+	NODE_ERROR_STATEMENT,
+
 	NODE_PRIMITIVE_TYPE,
 	NODE_NAMED_TYPE,
 	NODE_STRUCT_TYPE,
@@ -101,6 +106,10 @@ struct TypeNode : NodeBase
 	Type* inferredType;
 };
 
+struct ErrorType : TypeNode
+{
+};
+
 struct NamedType : TypeNode
 {
 	StringView name;
@@ -145,7 +154,7 @@ struct OptionalType : TypeNode
 
 struct Parameter : NodeBase
 {
-	TypeNode* type;
+	TypeNode* paramType;
 	StringView name;
 	bool variadic;
 };
@@ -173,6 +182,10 @@ struct ArrayType : TypeNode
 struct Expression : NodeBase
 {
 	Type* inferredType;
+};
+
+struct ErrorExpression : Expression
+{
 };
 
 struct IntLiteral : Expression
@@ -286,13 +299,13 @@ enum OperatorType : uint8_t
 
 struct BinaryOperator : Expression
 {
-	uint8_t op;
+	OperatorType op;
 	Expression* left, * right;
 };
 
 struct UnaryOperator : Expression
 {
-	uint8_t op;
+	OperatorType op;
 	Expression* expression;
 };
 
@@ -337,6 +350,10 @@ struct ImplicitCast : Expression
 
 
 struct Statement : NodeBase
+{
+};
+
+struct ErrorStatement : Statement
 {
 };
 
@@ -443,6 +460,8 @@ struct Typedef : NodeBase
 	StringView name;
 	uint32_t storage;
 	TypeNode* value;
+
+	Type* aliasType;
 };
 
 struct Function : NodeBase
@@ -491,6 +510,7 @@ struct Node
 
 		// types
 
+		ErrorType errorType;
 		TypeNode primitiveType;
 		NamedType namedType;
 		StructType structType;
@@ -501,6 +521,7 @@ struct Node
 		TupleType tupleType;
 		ArrayType arrayType;
 
+		ErrorExpression errorExpression;
 		IntLiteral intLiteral;
 		FloatLiteral floatLiteral;
 		StringLiteral stringLiteral;
@@ -516,6 +537,7 @@ struct Node
 		Cast cast;
 		ImplicitCast implicitCast;
 
+		ErrorStatement errorStatement;
 		BlockStatement blockStatement;
 		If if_;
 		While while_;
@@ -552,19 +574,22 @@ enum SymbolType : uint8_t
 	SYMBOL_MACRO,
 };
 
+struct FunctionSet
+{
+	Node** overloads;
+	int count;
+	int capacity;
+};
+
 struct SymbolEntry
 {
 	uint32_t key;
-	uint8_t type;
+	SymbolType type;
 
 	union
 	{
 		Node* declaration;
-		struct {
-			Node** overloads;
-			int count;
-			int capacity;
-		} functionSet;
+		FunctionSet functionSet;
 	};
 };
 
@@ -583,8 +608,12 @@ struct Scope
 	SymbolTable symbols;
 };
 
+typedef uint64_t FileHandle;
+
 struct AST
 {
+	FileHandle fileHandle;
+
 	Node** declarations;
 	int numDeclarations;
 
@@ -603,13 +632,16 @@ struct AST
 	GlobalVariable** globalVariables;
 	int numGlobalVariables;
 
+	int numDependencies;
+	FileHandle* dependencies;
+
 	Scope* globalScope;
 };
 
 typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
 
 
-void initAST(AST* ast);
+void initAST(AST* ast, const char* localPath);
 void destroyAST(AST* ast);
 
 void initNode(Node* node, NodeType type, int start);

@@ -92,19 +92,28 @@ struct DocumentPiece
 	std::string text;
 };
 
+enum DocumentState
+{
+	DOCUMENT_STATE_NULL = 0,
+
+	DOCUMENT_STATE_UNPARSED,
+	DOCUMENT_STATE_PARSED,
+	DOCUMENT_STATE_TYPECHECKED,
+};
+
 struct Document
 {
 	std::string uri;
+	std::string localPath;
 	List<char*> lines;
 	std::mutex linesMutex;
 
 	bool open;
+	DocumentState state;
 	uint64_t lastChange = 0;
-	bool needsTypeCheck = false;
 
 	std::string text;
 	std::mutex astMutex;
-	bool hasAST;
 	AST ast;
 	Arena arena;
 	Diagnostics diagnostics;
@@ -113,6 +122,7 @@ struct Document
 
 
 	void init(const std::string& text);
+	void onOpen(std::string& text);
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);
 };

@@ -13,7 +13,8 @@
 
 void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
 {
-	parser->lexer = {};
+	*parser = {};
+
 	initLexer(&parser->lexer, filename, src, length, arena, diagnostics);
 
 	parser->arena = arena;
@@ -265,6 +266,39 @@ Expression* parseExpression(Parser* parser);
 Statement* parseStatement(Parser* parser);
 Field* parseField(Parser* parser);
 Parameter* parseParameter(Parser* parser);
+
+static ErrorType* getErrorType(Parser* parser, int start)
+{
+	ErrorType* node = parser->arena->alloc<ErrorType>();
+	initNode((Node*)node, NODE_ERROR_TYPE, start);
+	node->end = start;
+	return node;
+}
+
+static ErrorExpression* getErrorExpression(Parser* parser, int start)
+{
+	ErrorExpression* node = parser->arena->alloc<ErrorExpression>();
+	initNode((Node*)node, NODE_ERROR_EXPRESSION, start);
+	node->end = start;
+	return node;
+}
+
+static ErrorStatement* getErrorStatement(Parser* parser, int start)
+{
+	ErrorStatement* node = parser->arena->alloc<ErrorStatement>();
+	initNode((Node*)node, NODE_ERROR_STATEMENT, start);
+	node->end = start;
+	return node;
+}
+
+static Node* getErrorNode(Parser* parser, int start)
+{
+	Node* node = parser->arena->alloc<Node>();
+	initNode(node, NODE_ERROR, start);
+	node->end = start;
+	return node;
+}
+
 
 static TypeNode* parseBasicType(Parser* parser)
 {
@@ -667,7 +701,7 @@ Expression* parseAtom(Parser* parser)
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
 			skipPastToken(parser, ')');
-			return nullptr;
+			return getErrorExpression(parser, start);
 		}
 	}
 
@@ -1614,13 +1648,12 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // struct
 
-	Token identifier;
-	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
-		return nullptr;
-
 	Struct* struct_ = parser->arena->alloc<Struct>();
 	initNode((Node*)struct_, NODE_STRUCT, start);
 	struct_->storage = storage;
+
+	Token identifier;
+	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	struct_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -1655,13 +1688,12 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // enum
 
-	Token identifier;
-	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
-		return nullptr;
-
 	Enum* enum_ = parser->arena->alloc<Enum>();
 	initNode((Node*)enum_, NODE_ENUM, start);
 	enum_->storage = storage;
+
+	Token identifier;
+	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	enum_->name = getTokenString(identifier, parser);
 
 	expectToken(parser, '{');
@@ -1702,13 +1734,12 @@ Union* parseUnion(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // union
 
-	Token identifier;
-	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
-		return nullptr;
-
 	Union* union_ = parser->arena->alloc<Union>();
 	initNode((Node*)union_, NODE_UNION, start);
 	union_->storage = storage;
+
+	Token identifier;
+	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	union_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))
@@ -1729,13 +1760,12 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // typedef
 
-	Token identifier;
-	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
-		return nullptr;
-
 	Typedef* typedef_ = parser->arena->alloc<Typedef>();
 	initNode((Node*)typedef_, NODE_TYPEDEF, start);
 	typedef_->storage = storage;
+
+	Token identifier;
+	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	typedef_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, '='))
@@ -1758,6 +1788,10 @@ Parameter* parseParameter(Parser* parser)
 	if (!type)
 		return nullptr;
 
+	Parameter* parameter = parser->arena->alloc<Parameter>();
+	initNode((Node*)parameter, NODE_PARAMETER, parser->cursor);
+	parameter->paramType = type;
+
 	bool variadic = false;
 	if (nextIs(parser, '.') && nextIs(parser, 1, '.') && nextIs(parser, 2, '.'))
 	{
@@ -1767,14 +1801,9 @@ Parameter* parseParameter(Parser* parser)
 		variadic = true;
 	}
 
-	if (!nextIs(parser, TOKEN_IDENTIFIER))
-		return nullptr;
+	Token nameToken;
+	expectToken(parser, TOKEN_IDENTIFIER, &nameToken);
 
-	Token nameToken = nextToken(parser);
-
-	Parameter* parameter = parser->arena->alloc<Parameter>();
-	initNode((Node*)parameter, NODE_PARAMETER, type->start);
-	parameter->type = type;
 	parameter->name = getTokenString(nameToken, parser);
 	parameter->variadic = variadic;
 	parameter->end = parser->lastTokenEnd;
@@ -1786,39 +1815,42 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // func
 
-	Token identifier;
-	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
-		return nullptr;
-
-	if (!expectToken(parser, '('))
-	{
-		skipPastToken(parser, '{');
-		skipPastTokenNested(parser, '{', '}');
-		return nullptr;
-	}
-
 	Function* function = parser->arena->alloc<Function>();
 	initNode((Node*)function, NODE_FUNCTION, start);
 	function->storage = storage;
+
+	Token identifier;
+	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	function->name = getTokenString(identifier, parser);
 
-	int mark = parser->scratch.mark();
-
-	bool next = !nextIs(parser, ')');
-	while (next)
+	if (expectToken(parser, '('))
 	{
-		if (Parameter* parameter = parseParameter(parser))
-			parser->scratch.add((Node*)parameter);
-		next = nextIs(parser, ',');
-		if (next) nextToken(parser);
+		int mark = parser->scratch.mark();
+
+		bool next = !nextIs(parser, ')');
+		while (next)
+		{
+			if (Parameter* parameter = parseParameter(parser))
+				parser->scratch.add((Node*)parameter);
+			next = nextIs(parser, ',');
+			if (next) nextToken(parser);
+		}
+
+		if (!expectToken(parser, ')'))
+			skipPastToken(parser, ')');
+
+		function->params = copyFromScratchBuffer<Parameter*>(parser, mark, &function->numParams);
+
+		parser->scratch.release(mark);
 	}
+	else
+	{
+		skipPastToken(parser, '(');
+		skipPastTokenNested(parser, '(', ')');
 
-	if (!expectToken(parser, ')'))
-		skipPastToken(parser, ')');
-
-	function->params = copyFromScratchBuffer<Parameter*>(parser, mark, &function->numParams);
-
-	parser->scratch.release(mark);
+		function->numParams = 0;
+		function->params = nullptr;
+	}
 
 	if (nextIs(parser, '=') && nextIs(parser, 1, '>'))
 	{

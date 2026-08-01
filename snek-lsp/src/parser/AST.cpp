@@ -6,8 +6,16 @@
 #include <stdio.h>
 
 
-void initAST(AST* ast)
+static FileHandle getFileHandle(const char* localPath)
 {
+	return (FileHandle)hash(localPath);
+}
+
+void initAST(AST* ast, const char* localPath)
+{
+	*ast = {};
+
+	ast->fileHandle = getFileHandle(localPath);
 }
 
 void destroyAST(AST* ast)
@@ -406,7 +414,7 @@ static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* 
 {
 	visitor((Node*)parameter, userPtr);
 
-	traverseType(parameter->type, visitor, userPtr);
+	traverseType(parameter->paramType, visitor, userPtr);
 }
 
 static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* userPtr)
@@ -469,7 +477,8 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 		traverseType(globalVariable->variableType, visitor, userPtr);
 		for (int i = 0; i < globalVariable->numDeclarators; i++)
 		{
-			traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
+			if (globalVariable->declarators[i].value)
+				traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
 		}
 	}
 	else if (declaration->type == NODE_MACRO)

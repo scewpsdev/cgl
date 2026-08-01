@@ -34,6 +34,11 @@ struct Type
 		} enum_;
 
 		struct {
+			StringView name;
+			Type* value;
+		} alias;
+
+		struct {
 			Type* elementType;
 		} pointer;
 
@@ -84,9 +89,18 @@ void destroyTypeSystem(TypeSystem* types);
 Type* getPointerType(TypeSystem* types, Type* elementType);
 Type* getOptionalType(TypeSystem* types, Type* elementType);
 Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getNamedStructType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames);
 Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getNamedUnionType(TypeSystem* types, StringView name, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getEnumType(TypeSystem* types, StringView name, Type* valueType);
 Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes);
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size);
+
+Type* createNamedStructType(TypeSystem* types, StringView name);
+void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
+
+Type* createNamedUnionType(TypeSystem* types, StringView name);
+void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
+
+Type* createEnumType(TypeSystem* types, StringView name);
+void resolveEnumType(TypeSystem* types, Type* type, Type* valueType);
+
+Type* createAliasType(TypeSystem* types, StringView name);
+void resolveAliasType(TypeSystem* types, Type* type, Type* value);

@@ -5,6 +5,7 @@
 
 void initDiagnostics(Diagnostics* diagnostics, Arena* arena)
 {
+	*diagnostics = {};
 	diagnostics->arena = arena;
 }
 
