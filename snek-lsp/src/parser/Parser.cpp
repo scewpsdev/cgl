@@ -1375,31 +1375,34 @@ Statement* parseStatement(Parser* parser)
 		if (Expression* condition = parseExpression(parser))
 		{
 			if_->condition = condition;
-
-			if (Statement* then = parseStatement(parser))
-			{
-				if_->then = then;
-
-				if (nextIs(parser, TOKEN_ELSE))
-				{
-					nextToken(parser);
-					if (Statement* else_ = parseStatement(parser))
-						if_->else_ = else_;
-					else
-					{
-						error(parser, getSourceLocation(parser), "Statement expected");
-					}
-				}
-			}
-			else
-			{
-				error(parser, getSourceLocation(parser), "Statement expected");
-			}
 		}
 		else
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
+			if_->condition = getErrorExpression(parser, parser->cursor);
 		}
+
+		if (Statement* then = parseStatement(parser))
+		{
+			if_->then = then;
+
+			if (nextIs(parser, TOKEN_ELSE))
+			{
+				nextToken(parser);
+				if (Statement* else_ = parseStatement(parser))
+					if_->else_ = else_;
+				else
+				{
+					error(parser, getSourceLocation(parser), "Statement expected");
+				}
+			}
+		}
+		else
+		{
+			error(parser, getSourceLocation(parser), "Statement expected");
+			if_->then = getErrorStatement(parser, parser->cursor);
+		}
+
 
 		if_->end = parser->lastTokenEnd;
 
@@ -2027,6 +2030,52 @@ Macro* parseMacro(Parser* parser, uint32_t storage, int start)
 	return macro;
 }
 
+Import* parseImport(Parser* parser, uint32_t storage, int start)
+{
+	nextToken(parser); // import
+
+	Token identifier;
+	if (!nextIs(parser, TOKEN_IDENTIFIER) && !nextIsKeyword(parser))
+	{
+		expectToken(parser, TOKEN_IDENTIFIER);
+		skipPastToken(parser, ';');
+		return nullptr;
+	}
+
+	identifier = nextToken(parser);
+
+	Import* import_ = parser->arena->alloc<Import>();
+	initNode((Node*)import_, NODE_IMPORT, start);
+
+	int mark = parser->scratch.mark();
+
+	parser->scratch.add(getTokenString(identifier, parser));
+
+	while (nextIs(parser, '.'))
+	{
+		nextToken(parser);
+
+		Token identifier;
+		if (!nextIs(parser, TOKEN_IDENTIFIER) && !nextIsKeyword(parser))
+			break;
+
+		identifier = nextToken(parser);
+
+		parser->scratch.add(getTokenString(identifier, parser));
+	}
+
+	import_->path = copyFromScratchBuffer<StringView>(parser, mark, &import_->pathCount);
+
+	parser->scratch.release(mark);
+
+	if (!expectToken(parser, ';'))
+		skipPastToken(parser, ';');
+
+	import_->end = parser->lastTokenEnd;
+
+	return import_;
+}
+
 void parseFile(Parser* parser, AST* ast)
 {
 	int start = parser->cursor;
@@ -2102,7 +2151,11 @@ void parseFile(Parser* parser, AST* ast)
 		}
 		else if (token.type == TOKEN_IMPORT)
 		{
-			skipPastToken(parser, ';');
+			if (Import* import = parseImport(parser, storage, start))
+			{
+				parser->scratch.add((Node*)import);
+				ast->numDependencies++;
+			}
 		}
 		else if (TypeNode* type = parseType(parser))
 		{

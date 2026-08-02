@@ -12,9 +12,6 @@
 #include <math.h>
 
 
-extern List<Document*> documents;
-
-
 void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types)
 {
 	tc->arena = arena;
@@ -114,6 +111,7 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 	ast->functions = tc->arena->alloc<Function*>(ast->numFunctions);
 	ast->macros = tc->arena->alloc<Macro*>(ast->numMacros);
 	ast->globalVariables = tc->arena->alloc<GlobalVariable*>(ast->numGlobalVariables);
+	ast->dependencies = tc->arena->alloc<Import*>(ast->numDependencies);
 
 	int numStructs = 0;
 	int numEnums = 0;
@@ -122,6 +120,7 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 	int numFunctions = 0;
 	int numMacros = 0;
 	int numGlobalVariables = 0;
+	int numDependencies = 0;
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
@@ -187,7 +186,17 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 		}
 		else if (declaration->type == NODE_IMPORT)
 		{
-			// todo add dependency
+			char buffer[256];
+			getLocalPathFromModuleName(buffer, declaration->import.path, declaration->import.pathCount);
+			FileHandle fileHandle = getFileHandle(buffer);
+			if (getAST(fileHandle))
+				declaration->import.fileHandle = fileHandle;
+			else
+			{
+				error(tc, (Node*)declaration, "Undefined module '%s'", buffer);
+			}
+
+			ast->dependencies[numDependencies++] = &declaration->import;
 		}
 	}
 
@@ -198,6 +207,7 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 	SnekAssert(numFunctions == ast->numFunctions);
 	SnekAssert(numMacros == ast->numMacros);
 	SnekAssert(numGlobalVariables == ast->numGlobalVariables);
+	SnekAssert(numDependencies == ast->numDependencies);
 
 	popScope(tc);
 }
@@ -830,16 +840,6 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	return type->inferredType = &tc->types->errorType;
 }
 
-static AST* getAST(FileHandle fileHandle)
-{
-	for (int i = 0; i < documents.size; i++)
-	{
-		if (documents[i]->ast.fileHandle == fileHandle)
-			return &documents[i]->ast;
-	}
-	return nullptr;
-}
-
 static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 {
 	Scope* scope = tc->currentScope;
@@ -854,11 +854,14 @@ static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 
 	for (int i = 0; i < tc->ast->numDependencies; i++)
 	{
-		FileHandle fileHandle = tc->ast->dependencies[i];
-		AST* dependency = getAST(fileHandle);
-		if (SymbolEntry* symbol = lookupSymbol(&dependency->globalScope->symbols, identifier))
+		Import* dependency = tc->ast->dependencies[i];
+		if (dependency->fileHandle)
 		{
-			return symbol;
+			AST* ast = getAST(dependency->fileHandle);
+			if (SymbolEntry* symbol = lookupSymbol(&ast->globalScope->symbols, identifier))
+			{
+				return symbol;
+			}
 		}
 	}
 
@@ -1156,6 +1159,14 @@ static void selectFunctionOverloads(TypeChecker* tc, FunctionSet* functionSet, F
 	}
 }
 
+static SymbolHandle getSymbolHandle(TypeChecker* tc, SymbolEntry* symbol)
+{
+	SymbolHandle handle = {};
+	handle.file = tc->ast->fileHandle;
+	handle.symbol = symbol->key;
+	return handle;
+}
+
 static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 {
 	if (expression->type == NODE_ERROR_EXPRESSION)
@@ -1199,7 +1210,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		Identifier* identifier = (Identifier*)expression;
 		if (SymbolEntry* symbol = resolveSymbol(tc, identifier->name))
 		{
-			identifier->resolvedSymbol = symbol;
+			identifier->resolvedSymbol = getSymbolHandle(tc, symbol);
 
 			if (symbol->type == SYMBOL_VARIABLE)
 			{
@@ -1218,6 +1229,11 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 				{
 					Parameter* parameter = &node->parameter;
 					return identifier->inferredType = parameter->paramType->inferredType;
+				}
+				else if (node->type == NODE_FOR)
+				{
+					For* for_ = &node->for_;
+					return &tc->types->primitiveTypes[TYPE_INT32];
 				}
 				else
 				{
@@ -1441,7 +1457,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			SymbolEntry* symbol = nullptr;
 			if ((symbol = resolveSymbol(tc, identifier->name)) && symbol->type == SYMBOL_FUNCTION_SET)
 			{
-				identifier->resolvedSymbol = symbol;
+				identifier->resolvedSymbol = getSymbolHandle(tc, symbol);
 
 				Function* overload = nullptr;
 
@@ -1709,11 +1725,14 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 {
 	SnekAssert(tc->currentFunction);
 
-	if (statement->type == NODE_BLOCK_STATEMENT)
+	if (statement->type == NODE_ERROR_STATEMENT)
+	{
+	}
+	else if (statement->type == NODE_BLOCK_STATEMENT)
 	{
 		BlockStatement* block = (BlockStatement*)statement;
 
-		pushScope(tc);
+		block->scope = pushScope(tc);
 
 		for (int i = 0; i < block->numStatements; i++)
 		{
@@ -1729,15 +1748,11 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		Type* conditionType = resolveExpression(tc, if_->condition);
 
-		pushScope(tc);
 		resolveStatement(tc, if_->then);
-		popScope(tc);
 
 		if (if_->else_)
 		{
-			pushScope(tc);
 			resolveStatement(tc, if_->else_);
-			popScope(tc);
 		}
 
 		if (!isTruthyType(conditionType))
@@ -1756,9 +1771,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		Type* conditionType = resolveExpression(tc, while_->condition);
 
 		tc->loopDepth++;
-		pushScope(tc);
 		resolveStatement(tc, while_->then);
-		popScope(tc);
 		tc->loopDepth--;
 
 		if (!isTruthyType(conditionType))
@@ -1774,6 +1787,9 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 	{
 		For* for_ = (For*)statement;
 
+		tc->loopDepth++;
+		for_->scope = pushScope(tc);
+
 		Type* startValueType = resolveExpression(tc, for_->startValue);
 		Type* compareValueType = resolveExpression(tc, for_->compareValue);
 
@@ -1786,9 +1802,10 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			error(tc, (Node*)for_->compareValue, "Comparison value of for iterator must be a scalar");
 		}
 
-		tc->loopDepth++;
-		pushScope(tc);
+		insertSymbol(&for_->scope->symbols, for_->iteratorName, SYMBOL_VARIABLE, (Node*)statement);
+
 		resolveStatement(tc, for_->body);
+
 		popScope(tc);
 		tc->loopDepth--;
 	}
@@ -1848,9 +1865,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			return;
 		}
 
-		pushScope(tc);
 		resolveStatement(tc, defer->body);
-		popScope(tc);
 	}
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{

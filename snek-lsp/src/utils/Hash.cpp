@@ -1,6 +1,7 @@
 #include "Hash.h"
 
 #include <string.h>
+#include <filesystem>
 
 
 uint32_t hash(uint32_t i)
@@ -42,9 +43,14 @@ uint32_t hash(StringView str)
 	return hash;
 }
 
+uint64_t hashPath(const char* path)
+{
+	return (uint64_t)std::filesystem::hash_value(path);
+}
+
 uint32_t hash(const void* ptr)
 {
-	return (uint32_t)(uint64_t)ptr;
+	return hash((uint32_t)(uint64_t)ptr);
 }
 
 uint32_t hashCombine(uint32_t h0, uint32_t h1)

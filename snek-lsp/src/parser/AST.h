@@ -211,11 +211,19 @@ struct CharLiteral : Expression
 	StringView value;
 };
 
+typedef uint64_t FileHandle;
+
+struct SymbolHandle
+{
+	FileHandle file;
+	uint32_t symbol;
+};
+
 struct Identifier : Expression
 {
 	StringView name;
 
-	SymbolEntry* resolvedSymbol;
+	SymbolHandle resolvedSymbol;
 };
 
 struct CompoundExpression : Expression
@@ -361,6 +369,8 @@ struct BlockStatement : Statement
 {
 	Statement** statements;
 	int numStatements;
+
+	Scope* scope;
 };
 
 struct If : Statement
@@ -382,6 +392,8 @@ struct For : Statement
 	OperatorType compareType;
 	Expression* compareValue;
 	Statement* body;
+
+	Scope* scope;
 };
 
 struct Return : Statement
@@ -497,7 +509,10 @@ struct Macro : NodeBase
 
 struct Import : NodeBase
 {
-	StringView name;
+	StringView* path;
+	int pathCount;
+
+	FileHandle fileHandle;
 };
 
 struct Node
@@ -608,8 +623,6 @@ struct Scope
 	SymbolTable symbols;
 };
 
-typedef uint64_t FileHandle;
-
 struct AST
 {
 	FileHandle fileHandle;
@@ -631,14 +644,13 @@ struct AST
 	int numMacros;
 	GlobalVariable** globalVariables;
 	int numGlobalVariables;
-
+	Import** dependencies;
 	int numDependencies;
-	FileHandle* dependencies;
 
 	Scope* globalScope;
 };
 
-typedef void(*ASTVisitor_t)(Node* node, void* userPtr);
+typedef void(*ASTVisitor_t)(Node* node, Scope* scope, void* userPtr);
 
 
 void initAST(AST* ast, const char* localPath);
@@ -650,7 +662,11 @@ void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration);
 SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
+SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h);
 
 void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena);
 
 void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr);
+
+void getLocalPathFromModuleName(char* path, StringView* parts, int numParts);
+FileHandle getFileHandle(const char* localPath);

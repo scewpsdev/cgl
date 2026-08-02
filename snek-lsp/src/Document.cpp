@@ -125,6 +125,7 @@ static void getCoordFromOffset(int offset, const char* src, int* line, int* col)
 
 struct ASTVisitorData
 {
+	AST* ast;
 	Parser* parser;
 	List<LSPToken>* lspTokens;
 };
@@ -135,7 +136,19 @@ static void getStringRange(StringView str, Parser* parser, int* start, int* end)
 	*end = *start + str.length;
 }
 
-static void getNodeTokens(Node* node, ASTVisitorData* data)
+static SymbolEntry* resolveSymbol(Scope* scope, SymbolHandle handle)
+{
+	while (scope)
+	{
+		if (SymbolEntry* symbol = lookupSymbol(&scope->symbols, handle.symbol))
+			return symbol;
+
+		scope = scope->parent;
+	}
+	return nullptr;
+}
+
+static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 {
 	if (!node)
 		return;
@@ -155,12 +168,62 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 				data->lspTokens->add({ node->start, node->end - node->start, LSP_TOKEN_TYPE, 0 });
 		}
 	}
+	else if (node->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = &node->identifier;
+
+		int start, end;
+		getStringRange(identifier->name, data->parser, &start, &end);
+		int len = end - start;
+
+		Scope* symbolScope = scope;
+		if (identifier->resolvedSymbol.file != data->ast->fileHandle)
+			symbolScope = getAST(identifier->resolvedSymbol.file)->globalScope;
+
+		if (SymbolEntry* symbol = resolveSymbol(symbolScope, identifier->resolvedSymbol))
+		{
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				Node* node = symbol->declaration;
+				if (node->type == NODE_VARIABLE_DECLARATION)
+				{
+					data->lspTokens->add({ start, len, LSP_TOKEN_VARIABLE, 0 });
+				}
+				else if (node->type == NODE_GLOBAL_VARIABLE)
+				{
+					int modifiers = LSP_TOKEN_MODIFIER_STATIC;
+					if (node->globalVariable.storage & STORAGE_CONSTANT)
+						modifiers |= LSP_TOKEN_MODIFIER_READONLY;
+					data->lspTokens->add({ start, len, LSP_TOKEN_VARIABLE, modifiers });
+				}
+				else if (node->type == NODE_PARAMETER)
+				{
+					data->lspTokens->add({ start, len, LSP_TOKEN_PARAMETER, 0 });
+				}
+				else if (node->type == NODE_FOR)
+				{
+					data->lspTokens->add({ start, len, LSP_TOKEN_VARIABLE, 0 });
+				}
+			}
+			else if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				data->lspTokens->add({ start, len, LSP_TOKEN_FUNCTION, 0 });
+			}
+		}
+	}
 	else if (node->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* member = &node->memberAccess;
 		int start, end;
 		getStringRange(member->name, data->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
+	}
+	else if (node->type == NODE_FOR)
+	{
+		For* for_ = &node->for_;
+		int start, end;
+		getStringRange(for_->iteratorName, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, 0 });
 	}
 	else if (node->type == NODE_STRUCT)
 	{
@@ -199,7 +262,7 @@ static void getNodeTokens(Node* node, ASTVisitorData* data)
 	}
 	else if (node->type == NODE_IMPORT)
 	{
-
+		//
 	}
 	else if (node->type == NODE_PARAMETER)
 	{
@@ -230,6 +293,7 @@ void Document::getTokens(std::vector<int>& data)
 	astMutex.lock();
 
 	ASTVisitorData visitorData = {};
+	visitorData.ast = &ast;
 	visitorData.parser = &parser;
 	visitorData.lspTokens = &lspTokens;
 	traverseAST(&ast, (ASTVisitor_t)getNodeTokens, &visitorData);
@@ -257,4 +321,14 @@ void Document::getTokens(std::vector<int>& data)
 	}
 
 	FreeList(&lspTokens);
+}
+
+AST* getAST(FileHandle fileHandle)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->ast.fileHandle == fileHandle)
+			return &documents[i]->ast;
+	}
+	return nullptr;
 }

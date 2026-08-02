@@ -6,9 +6,21 @@
 #include <stdio.h>
 
 
-static FileHandle getFileHandle(const char* localPath)
+FileHandle getFileHandle(const char* localPath)
 {
-	return (FileHandle)hash(localPath);
+	return (FileHandle)hashPath(localPath);
+}
+
+void getLocalPathFromModuleName(char* path, StringView* parts, int numParts)
+{
+	path[0] = 0;
+	for (int i = 0; i < numParts; i++)
+	{
+		strncat(path, parts[i].ptr, parts[i].length);
+		if (i < numParts - 1)
+			strcat(path, "/");
+	}
+	strcat(path, ".src");
 }
 
 void initAST(AST* ast, const char* localPath)
@@ -164,6 +176,29 @@ SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier)
 	return nullptr;
 }
 
+SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h)
+{
+	if (!symbols->count) return nullptr;
+
+	uint32_t mask = symbols->capacity - 1;
+	uint32_t index = h & mask;
+
+	for (int i = 0; i < symbols->capacity; i++)
+	{
+		SymbolEntry* slot = &symbols->slots[index];
+
+		if (!slot->key)
+			return nullptr;
+
+		if (slot->key == h)
+			return slot;
+
+		index = (index + 1) & mask;
+	}
+
+	return nullptr;
+}
+
 void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
 {
 	scope->parent = parent;
@@ -172,12 +207,12 @@ void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
 	initSymbolTable(&scope->symbols, symbolCapacity, arena);
 }
 
-static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr);
-static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* userPtr);
+static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void* userPtr);
+static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 
-static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
+static void traverseType(TypeNode* type, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)type, userPtr);
+	visitor((Node*)type, scope, userPtr);
 
 	if (type->type == NODE_STRUCT_TYPE)
 	{
@@ -185,7 +220,7 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 		for (int i = 0; i < structType->numFields; i++)
 		{
 			if (structType->fields[i])
-				traverseField(structType->fields[i], visitor, userPtr);
+				traverseField(structType->fields[i], scope, visitor, userPtr);
 		}
 	}
 	else if (type->type == NODE_UNION_TYPE)
@@ -194,20 +229,20 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 		for (int i = 0; i < unionType->numFields; i++)
 		{
 			if (unionType->fields[i])
-				traverseField(unionType->fields[i], visitor, userPtr);
+				traverseField(unionType->fields[i], scope, visitor, userPtr);
 		}
 	}
 	else if (type->type == NODE_POINTER_TYPE)
 	{
 		PointerType* pointerType = (PointerType*)type;
 		if (pointerType->elementType)
-			traverseType(pointerType->elementType, visitor, userPtr);
+			traverseType(pointerType->elementType, scope, visitor, userPtr);
 	}
 	else if (type->type == NODE_OPTIONAL_TYPE)
 	{
 		OptionalType* optionalType = (OptionalType*)type;
 		if (optionalType->elementType)
-			traverseType(optionalType->elementType, visitor, userPtr);
+			traverseType(optionalType->elementType, scope, visitor, userPtr);
 	}
 	else if (type->type == NODE_FUNCTION_TYPE)
 	{
@@ -215,11 +250,11 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 		for (int i = 0; i < functionType->numParams; i++)
 		{
 			if (functionType->params[i])
-				traverseParameter(functionType->params[i], visitor, userPtr);
+				traverseParameter(functionType->params[i], scope, visitor, userPtr);
 		}
 		if (functionType->returnType)
 		{
-			traverseType(functionType->returnType, visitor, userPtr);
+			traverseType(functionType->returnType, scope, visitor, userPtr);
 		}
 	}
 	else if (type->type == NODE_TUPLE_TYPE)
@@ -228,26 +263,26 @@ static void traverseType(TypeNode* type, ASTVisitor_t visitor, void* userPtr)
 		for (int i = 0; i < tupleType->numElementTypes; i++)
 		{
 			if (tupleType->elementTypes[i])
-				traverseType(tupleType->elementTypes[i], visitor, userPtr);
+				traverseType(tupleType->elementTypes[i], scope, visitor, userPtr);
 		}
 	}
 	else if (type->type == NODE_ARRAY_TYPE)
 	{
 		ArrayType* arrayType = (ArrayType*)type;
 		if (arrayType->elementType)
-			traverseType(arrayType->elementType, visitor, userPtr);
+			traverseType(arrayType->elementType, scope, visitor, userPtr);
 	}
 }
 
-static void traverseExpression(Expression* expression, ASTVisitor_t visitor, void* userPtr)
+static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)expression, userPtr);
+	visitor((Node*)expression, scope, userPtr);
 
 	if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
 		CompoundExpression* compound = (CompoundExpression*)expression;
 		if (compound->value)
-			traverseExpression(compound->value, visitor, userPtr);
+			traverseExpression(compound->value, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_EXPRESSION_LIST)
 	{
@@ -255,72 +290,72 @@ static void traverseExpression(Expression* expression, ASTVisitor_t visitor, voi
 		for (int i = 0; i < expressionList->numValues; i++)
 		{
 			if (expressionList->values[i])
-				traverseExpression(expressionList->values[i], visitor, userPtr);
+				traverseExpression(expressionList->values[i], scope, visitor, userPtr);
 		}
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
 		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
 		if (binaryOperator->left)
-			traverseExpression(binaryOperator->left, visitor, userPtr);
+			traverseExpression(binaryOperator->left, scope, visitor, userPtr);
 		if (binaryOperator->right)
-			traverseExpression(binaryOperator->right, visitor, userPtr);
+			traverseExpression(binaryOperator->right, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_CAST)
 	{
 		Cast* cast = (Cast*)expression;
 		if (cast->expression)
-			traverseExpression(cast->expression, visitor, userPtr);
+			traverseExpression(cast->expression, scope, visitor, userPtr);
 		if (cast->targetType)
-			traverseType(cast->targetType, visitor, userPtr);
+			traverseType(cast->targetType, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
 		if (unaryOperator->expression)
-			traverseExpression(unaryOperator->expression, visitor, userPtr);
+			traverseExpression(unaryOperator->expression, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_FUNCTION_CALL)
 	{
 		FunctionCall* functionCall = (FunctionCall*)expression;
 		if (functionCall->expression)
-			traverseExpression(functionCall->expression, visitor, userPtr);
+			traverseExpression(functionCall->expression, scope, visitor, userPtr);
 		for (int i = 0; i < functionCall->numArgs; i++)
 		{
 			if (functionCall->args[i])
-				traverseExpression(functionCall->args[i], visitor, userPtr);
+				traverseExpression(functionCall->args[i], scope, visitor, userPtr);
 		}
 	}
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
 		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
 		if (arraySubscript->expression)
-			traverseExpression(arraySubscript->expression, visitor, userPtr);
+			traverseExpression(arraySubscript->expression, scope, visitor, userPtr);
 		for (int i = 0; i < arraySubscript->numArgs; i++)
 		{
 			if (arraySubscript->args[i])
-				traverseExpression(arraySubscript->args[i], visitor, userPtr);
+				traverseExpression(arraySubscript->args[i], scope, visitor, userPtr);
 		}
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* memberAccess = (MemberAccess*)expression;
 		if (memberAccess->expression)
-			traverseExpression(memberAccess->expression, visitor, userPtr);
+			traverseExpression(memberAccess->expression, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
 		TernaryCondition* ternaryCondition = (TernaryCondition*)expression;
 		if (ternaryCondition->condition)
-			traverseExpression(ternaryCondition->condition, visitor, userPtr);
+			traverseExpression(ternaryCondition->condition, scope, visitor, userPtr);
 		if (ternaryCondition->then)
-			traverseExpression(ternaryCondition->then, visitor, userPtr);
+			traverseExpression(ternaryCondition->then, scope, visitor, userPtr);
 		if (ternaryCondition->else_)
-			traverseExpression(ternaryCondition->else_, visitor, userPtr);
+			traverseExpression(ternaryCondition->else_, scope, visitor, userPtr);
 	}
 }
 
-static void traverseStatement(Statement* statement, ASTVisitor_t visitor, void* userPtr)
+static void traverseStatement(Statement* statement, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
 	if (statement->type == NODE_BLOCK_STATEMENT)
 	{
@@ -328,105 +363,105 @@ static void traverseStatement(Statement* statement, ASTVisitor_t visitor, void* 
 		for (int i = 0; i < block->numStatements; i++)
 		{
 			if (block->statements[i])
-				traverseStatement(block->statements[i], visitor, userPtr);
+				traverseStatement(block->statements[i], block->scope, visitor, userPtr);
 		}
 	}
 	else if (statement->type == NODE_IF)
 	{
 		If* if_ = (If*)statement;
 		if (if_->condition)
-			traverseExpression(if_->condition, visitor, userPtr);
+			traverseExpression(if_->condition, scope, visitor, userPtr);
 		if (if_->then)
-			traverseStatement(if_->then, visitor, userPtr);
+			traverseStatement(if_->then, scope, visitor, userPtr);
 		if (if_->else_)
-			traverseStatement(if_->else_, visitor, userPtr);
+			traverseStatement(if_->else_, scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_WHILE)
 	{
 		While* while_ = (While*)statement;
 		if (while_->condition)
-			traverseExpression(while_->condition, visitor, userPtr);
+			traverseExpression(while_->condition, scope, visitor, userPtr);
 		if (while_->then)
-			traverseStatement(while_->then, visitor, userPtr);
+			traverseStatement(while_->then, scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_FOR)
 	{
 		For* for_ = (For*)statement;
 		if (for_->startValue)
-			traverseExpression(for_->startValue, visitor, userPtr);
+			traverseExpression(for_->startValue, for_->scope, visitor, userPtr);
 		if (for_->compareValue)
-			traverseExpression(for_->compareValue, visitor, userPtr);
+			traverseExpression(for_->compareValue, for_->scope, visitor, userPtr);
 		if (for_->body)
-			traverseStatement(for_->body, visitor, userPtr);
+			traverseStatement(for_->body, for_->scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_RETURN)
 	{
 		Return* return_ = (Return*)statement;
 		if (return_->value)
-			traverseExpression(return_->value, visitor, userPtr);
+			traverseExpression(return_->value, scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_DEFER)
 	{
 		Defer* defer = (Defer*)statement;
 		if (defer->body)
-			traverseStatement(defer->body, visitor, userPtr);
+			traverseStatement(defer->body, scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{
 		VariableDeclaration* variableDeclaration = (VariableDeclaration*)statement;
 		if (variableDeclaration->type)
-			traverseType(variableDeclaration->variableType, visitor, userPtr);
+			traverseType(variableDeclaration->variableType, scope, visitor, userPtr);
 		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
 		{
 			if (variableDeclaration->declarators[i].value)
-				traverseExpression(variableDeclaration->declarators[i].value, visitor, userPtr);
+				traverseExpression(variableDeclaration->declarators[i].value, scope, visitor, userPtr);
 		}
 	}
 	else if (statement->type == NODE_ASSIGNMENT)
 	{
 		Assignment* assignment = (Assignment*)statement;
 		if (assignment->expression)
-			traverseExpression(assignment->expression, visitor, userPtr);
+			traverseExpression(assignment->expression, scope, visitor, userPtr);
 		if (assignment->value)
-			traverseExpression(assignment->value, visitor, userPtr);
+			traverseExpression(assignment->value, scope, visitor, userPtr);
 	}
 	else if (statement->type == NODE_EXPRESSION_STATEMENT)
 	{
 		ExpressionStatement* expression = (ExpressionStatement*)statement;
 		if (expression->expression)
-			traverseExpression(expression->expression, visitor, userPtr);
+			traverseExpression(expression->expression, scope, visitor, userPtr);
 	}
 }
 
-static void traverseField(Field* field, ASTVisitor_t visitor, void* userPtr)
+static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)field, userPtr);
+	visitor((Node*)field, scope, userPtr);
 
-	traverseType(field->variableType, visitor, userPtr);
+	traverseType(field->variableType, scope, visitor, userPtr);
 	for (int i = 0; i < field->numDeclarators; i++)
 	{
 		if (field->declarators[i].value)
-			traverseExpression(field->declarators[i].value, visitor, userPtr);
+			traverseExpression(field->declarators[i].value, scope, visitor, userPtr);
 	}
 }
 
-static void traverseParameter(Parameter* parameter, ASTVisitor_t visitor, void* userPtr)
+static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)parameter, userPtr);
+	visitor((Node*)parameter, scope, userPtr);
 
-	traverseType(parameter->paramType, visitor, userPtr);
+	traverseType(parameter->paramType, scope, visitor, userPtr);
 }
 
-static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* userPtr)
+static void traverseDeclaration(Node* declaration, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor(declaration, userPtr);
+	visitor(declaration, scope, userPtr);
 
 	if (declaration->type == NODE_STRUCT)
 	{
 		Struct* struct_ = (Struct*)declaration;
 		for (int i = 0; i < struct_->numFields; i++)
 		{
-			traverseField(struct_->fields[i], visitor, userPtr);
+			traverseField(struct_->fields[i], scope, visitor, userPtr);
 		}
 	}
 	else if (declaration->type == NODE_UNION)
@@ -434,7 +469,7 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 		Union* union_ = (Union*)declaration;
 		for (int i = 0; i < union_->numFields; i++)
 		{
-			traverseField(union_->fields[i], visitor, userPtr);
+			traverseField(union_->fields[i], scope, visitor, userPtr);
 		}
 	}
 	else if (declaration->type == NODE_ENUM)
@@ -444,41 +479,43 @@ static void traverseDeclaration(Node* declaration, ASTVisitor_t visitor, void* u
 	{
 		Typedef* typedef_ = (Typedef*)declaration;
 		if (typedef_->value)
-			traverseType(typedef_->value, visitor, userPtr);
+			traverseType(typedef_->value, scope, visitor, userPtr);
 	}
 	else if (declaration->type == NODE_FUNCTION)
 	{
 		Function* function = (Function*)declaration;
+
+		if (function->returnType)
+		{
+			traverseType(function->returnType, scope, visitor, userPtr);
+		}
+
 		for (int i = 0; i < function->numParams; i++)
 		{
 			if (function->params[i])
-				traverseParameter(function->params[i], visitor, userPtr);
-		}
-		if (function->returnType)
-		{
-			traverseType(function->returnType, visitor, userPtr);
+				traverseParameter(function->params[i], function->scope, visitor, userPtr);
 		}
 		if (function->value)
 		{
-			traverseExpression(function->value, visitor, userPtr);
+			traverseExpression(function->value, function->scope, visitor, userPtr);
 		}
 		else
 		{
 			for (int i = 0; i < function->numStatements; i++)
 			{
 				if (function->statements[i])
-					traverseStatement(function->statements[i], visitor, userPtr);
+					traverseStatement(function->statements[i], function->scope, visitor, userPtr);
 			}
 		}
 	}
 	else if (declaration->type == NODE_GLOBAL_VARIABLE)
 	{
 		GlobalVariable* globalVariable = &declaration->globalVariable;
-		traverseType(globalVariable->variableType, visitor, userPtr);
+		traverseType(globalVariable->variableType, scope, visitor, userPtr);
 		for (int i = 0; i < globalVariable->numDeclarators; i++)
 		{
 			if (globalVariable->declarators[i].value)
-				traverseExpression(globalVariable->declarators[i].value, visitor, userPtr);
+				traverseExpression(globalVariable->declarators[i].value, scope, visitor, userPtr);
 		}
 	}
 	else if (declaration->type == NODE_MACRO)
@@ -493,6 +530,6 @@ void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr)
 {
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
-		traverseDeclaration(ast->declarations[i], visitor, userPtr);
+		traverseDeclaration(ast->declarations[i], ast->globalScope, visitor, userPtr);
 	}
 }

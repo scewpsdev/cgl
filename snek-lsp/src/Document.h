@@ -126,3 +126,6 @@ struct Document
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);
 };
+
+
+AST* getAST(FileHandle fileHandle);
