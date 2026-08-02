@@ -680,7 +680,7 @@ static bool ScanSourceFolder(const char* folder, const char* extension, bool rec
 			const char* filename = GetFilenameFromPath(dePath);
 			if (strcmp(filename, "main.src") == 0)
 			{
-				*mainFilePath = filename;
+				*mainFilePath = dePath;
 			}
 
 			const char* fileExtension = GetExtensionFromPath(dePath);

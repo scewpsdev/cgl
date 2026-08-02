@@ -346,7 +346,7 @@ static bool readPunctuation(Lexer* lexer, Token* token)
 	return true;
 }
 
-static TokenType getKeywordType(const char* str, int len)
+TokenType getKeywordType(const char* str, int len)
 {
 	switch (len)
 	{

@@ -1011,6 +1011,39 @@ static OperatorType parsePostfixOperatorType(Parser* parser)
 	}
 }
 
+static TypeKind getPrimitiveTypeKind(TokenType tokenType)
+{
+	if (tokenType == TOKEN_VOID)
+		return TYPE_VOID;
+	if (tokenType == TOKEN_INT8)
+		return TYPE_INT8;
+	if (tokenType == TOKEN_INT16)
+		return TYPE_INT16;
+	if (tokenType == TOKEN_INT32)
+		return TYPE_INT32;
+	if (tokenType == TOKEN_INT64)
+		return TYPE_INT64;
+	if (tokenType == TOKEN_UINT8)
+		return TYPE_UINT8;
+	if (tokenType == TOKEN_UINT16)
+		return TYPE_UINT16;
+	if (tokenType == TOKEN_UINT32)
+		return TYPE_UINT32;
+	if (tokenType == TOKEN_UINT64)
+		return TYPE_UINT64;
+	if (tokenType == TOKEN_BOOL)
+		return TYPE_BOOL;
+	if (tokenType == TOKEN_STRING)
+		return TYPE_STRING;
+	if (tokenType == TOKEN_FLOAT32)
+		return TYPE_FLOAT;
+	if (tokenType == TOKEN_FLOAT64)
+		return TYPE_DOUBLE;
+	if (tokenType == TOKEN_ANY)
+		return TYPE_ANY;
+	return TYPE_NULL;
+}
+
 Expression* parsePostfixOperator(Parser* parser)
 {
 	if (Expression* expression = parseAtom(parser))
@@ -1019,17 +1052,48 @@ Expression* parsePostfixOperator(Parser* parser)
 		{
 			if (operatorType == OPERATOR_FUNCTION_CALL)
 			{
-				FunctionCall* functionCall = parser->arena->alloc<FunctionCall>();
-				initNode((Node*)functionCall, NODE_FUNCTION_CALL, expression->start);
-				functionCall->expression = expression;
+				TypeNode* castType = nullptr;
+				if (expression->type == NODE_IDENTIFIER)
+				{
+					StringView name = ((Identifier*)expression)->name;
+					TokenType keywordType = getKeywordType(name.ptr, name.length);
+					if (TypeKind typeKind = getPrimitiveTypeKind(keywordType))
+					{
+						static_assert(sizeof(TypeNode) <= sizeof(Expression));
 
-				functionCall->args = parseExpressionList(parser, nullptr, &functionCall->numArgs);
+						castType = (TypeNode*)expression;
+						initType(castType, NODE_PRIMITIVE_TYPE, typeKind, expression->start);
+						expression = nullptr;
+					}
+				}
 
-				expectToken(parser, ')');
+				if (castType)
+				{
+					Cast* cast = parser->arena->alloc<Cast>();
+					initNode((Node*)cast, NODE_CAST, castType->start);
+					cast->targetType = castType;
 
-				functionCall->end = parser->lastTokenEnd;
+					cast->expression = parseExpression(parser);
+					expectToken(parser, ')');
 
-				expression = functionCall;
+					cast->end = parser->lastTokenEnd;
+
+					expression = cast;
+				}
+				else
+				{
+					FunctionCall* functionCall = parser->arena->alloc<FunctionCall>();
+					initNode((Node*)functionCall, NODE_FUNCTION_CALL, expression->start);
+					functionCall->expression = expression;
+
+					functionCall->args = parseExpressionList(parser, nullptr, &functionCall->numArgs);
+
+					expectToken(parser, ')');
+
+					functionCall->end = parser->lastTokenEnd;
+
+					expression = functionCall;
+				}
 			}
 			else if (operatorType == OPERATOR_ARRAY_SUBSCRIPT)
 			{

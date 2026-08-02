@@ -1437,7 +1437,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		if (functionCall->expression->type == NODE_IDENTIFIER)
 		{
 			Identifier* identifier = (Identifier*)functionCall->expression;
-			SymbolEntry* symbol;
+
+			SymbolEntry* symbol = nullptr;
 			if ((symbol = resolveSymbol(tc, identifier->name)) && symbol->type == SYMBOL_FUNCTION_SET)
 			{
 				identifier->resolvedSymbol = symbol;

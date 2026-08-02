@@ -130,4 +130,6 @@ void destroyLexer(Lexer* lexer);
 SourceLocation getSourceLocation(Lexer* lexer, int offset);
 StringView getTokenString(Token token, const char* src);
 
+TokenType getKeywordType(const char* str, int len);
+
 Token nextToken(Lexer* lexer);
