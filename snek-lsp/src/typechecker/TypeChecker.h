@@ -10,6 +10,8 @@ struct Lexer;
 struct Diagnostics;
 struct TypeSystem;
 struct Scope;
+struct SymbolEntry;
+struct Identifier;
 
 struct TypeChecker
 {
@@ -32,3 +34,5 @@ void destroyTypeChecker(TypeChecker* tc);
 void symbolCollection(TypeChecker* tc, AST* ast);
 void symbolResolution(TypeChecker* tc, AST* ast);
 void typeCheckFunction(TypeChecker* tc, Function* function, AST* ast);
+
+SymbolEntry* getIdentifierSymbol(Identifier* identifier);

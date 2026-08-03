@@ -92,9 +92,9 @@ static void growSymbolTable(SymbolTable* symbols)
 	symbols->capacity = newCapacity;
 }
 
-bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration)
+bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file)
 {
-	if (symbols->count * 100 > symbols->capacity * 70)
+	if (symbols->count * 4 >= symbols->capacity * 3)
 	{
 		growSymbolTable(symbols);
 	}
@@ -111,12 +111,15 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 		{
 			slot->key = h;
 			slot->type = type;
+			slot->file = file;
 
 			if (type == SYMBOL_FUNCTION_SET)
 			{
-				slot->functionSet.overloads = symbols->arena->alloc<Node*>(slot->functionSet.capacity = 8);
+				slot->functionSet.overloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity = 8);
 				slot->functionSet.count = 0;
-				slot->functionSet.overloads[slot->functionSet.count++] = declaration;
+				slot->functionSet.overloads[slot->functionSet.count++] = {
+					.declaration = declaration,
+				};
 			}
 			else
 			{
@@ -129,15 +132,21 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 
 		if (slot->key == h)
 		{
-			if (type == SYMBOL_FUNCTION_SET)
+			if (slot->type == SYMBOL_FUNCTION_SET)
 			{
+				if (slot->type != type)
+					return false;
+
 				if (slot->functionSet.count == slot->functionSet.capacity)
 				{
-					Node** newOverloads = symbols->arena->alloc<Node*>(slot->functionSet.capacity *= 2);
-					memcpy(newOverloads, slot->functionSet.overloads, slot->functionSet.count * sizeof(Node*));
+					FunctionOverload* newOverloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity *= 2);
+					memcpy(newOverloads, slot->functionSet.overloads, slot->functionSet.count * sizeof(FunctionOverload));
 					slot->functionSet.overloads = newOverloads;
 				}
-				slot->functionSet.overloads[slot->functionSet.count++] = declaration;
+
+				slot->functionSet.overloads[slot->functionSet.count++] = {
+					.declaration = declaration,
+				};
 			}
 			else
 			{
@@ -452,6 +461,14 @@ static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t v
 	traverseType(parameter->paramType, scope, visitor, userPtr);
 }
 
+static void traverseEnumValue(EnumValue* enumValue, Scope* scope, ASTVisitor_t visitor, void* userPtr)
+{
+	visitor((Node*)enumValue, scope, userPtr);
+
+	if (enumValue->value)
+		traverseExpression(enumValue->value, scope, visitor, userPtr);
+}
+
 static void traverseDeclaration(Node* declaration, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
 	visitor(declaration, scope, userPtr);
@@ -474,6 +491,11 @@ static void traverseDeclaration(Node* declaration, Scope* scope, ASTVisitor_t vi
 	}
 	else if (declaration->type == NODE_ENUM)
 	{
+		Enum* enum_ = (Enum*)declaration;
+		for (int i = 0; i < enum_->numValues; i++)
+		{
+			traverseEnumValue(enum_->values[i], scope, visitor, userPtr);
+		}
 	}
 	else if (declaration->type == NODE_TYPEDEF)
 	{

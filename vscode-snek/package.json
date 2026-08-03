@@ -1,6 +1,6 @@
 {
   "name": "snek-lang",
-  "displayName": "Snek Language Support",
+  "displayName": "SnekLang Language Support",
   "description": "Syntax highlighting and completion for SnekLang",
   "version": "0.0.1",
   "publisher": "scoopsdev",
@@ -30,7 +30,24 @@
         "scopeName": "source.snek",
         "path": "./sneklang.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "SnekLang Server Configuration",
+      "properties": {
+        "sneklang.trace.server": {
+          "type": "string",
+          "scope": "window",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the SnekLang language server."
+        }
+      }
+    }
   },
   "scripts": {
     "build": "tsc -p ./",

@@ -136,18 +136,6 @@ static void getStringRange(StringView str, Parser* parser, int* start, int* end)
 	*end = *start + str.length;
 }
 
-static SymbolEntry* resolveSymbol(Scope* scope, SymbolHandle handle)
-{
-	while (scope)
-	{
-		if (SymbolEntry* symbol = lookupSymbol(&scope->symbols, handle.symbol))
-			return symbol;
-
-		scope = scope->parent;
-	}
-	return nullptr;
-}
-
 static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 {
 	if (!node)
@@ -176,11 +164,9 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		getStringRange(identifier->name, data->parser, &start, &end);
 		int len = end - start;
 
-		Scope* symbolScope = scope;
-		if (identifier->resolvedSymbol.file != data->ast->fileHandle)
-			symbolScope = getAST(identifier->resolvedSymbol.file)->globalScope;
+		SymbolEntry* symbol = getIdentifierSymbol(identifier);
 
-		if (SymbolEntry* symbol = resolveSymbol(symbolScope, identifier->resolvedSymbol))
+		if (symbol)
 		{
 			if (symbol->type == SYMBOL_VARIABLE)
 			{
@@ -209,14 +195,40 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 			{
 				data->lspTokens->add({ start, len, LSP_TOKEN_FUNCTION, 0 });
 			}
+			else if (symbol->type == SYMBOL_TYPE)
+			{
+				Node* declaration = symbol->declaration;
+				if (declaration->type == NODE_STRUCT)
+					data->lspTokens->add({ start, len, LSP_TOKEN_STRUCT, 0 });
+				else if (declaration->type == NODE_UNION)
+					data->lspTokens->add({ start, len, LSP_TOKEN_STRUCT, 0 });
+				else if (declaration->type == NODE_ENUM)
+					data->lspTokens->add({ start, len, LSP_TOKEN_ENUM, 0 });
+			}
 		}
 	}
 	else if (node->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* member = &node->memberAccess;
+
 		int start, end;
 		getStringRange(member->name, data->parser, &start, &end);
-		data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
+
+		Type* operandType = member->expression->inferredType;
+		if (operandType->typeKind == TYPE_TYPE)
+		{
+			SnekAssert(member->expression->type == NODE_IDENTIFIER);
+			Identifier* typeName = (Identifier*)member->expression;
+			if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
+			{
+				if (symbol->declaration->type == NODE_ENUM)
+					data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
+			}
+		}
+		else
+		{
+			data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
+		}
 	}
 	else if (node->type == NODE_FOR)
 	{
@@ -242,7 +254,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		for (int i = 0; i < enum_->numValues; i++)
 		{
 			int start, end;
-			getStringRange(enum_->values[i].name, data->parser, &start, &end);
+			getStringRange(enum_->values[i]->name, data->parser, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 		}
 	}
@@ -264,12 +276,29 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		//
 	}
+	else if (node->type == NODE_FIELD)
+	{
+		Field* field = &node->field;
+		for (int i = 0; i < field->numDeclarators; i++)
+		{
+			int start, end;
+			getStringRange(field->declarators[i].name, data->parser, &start, &end);
+			data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
+		}
+	}
 	else if (node->type == NODE_PARAMETER)
 	{
 		Parameter* parameter = &node->parameter;
 		int start, end;
 		getStringRange(parameter->name, data->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_PARAMETER, 0 });
+	}
+	else if (node->type == NODE_ENUM_VALUE)
+	{
+		EnumValue* enumValue = &node->enumValue;
+		int start, end;
+		getStringRange(enumValue->name, data->parser, &start, &end);
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 	}
 	else if (node->type == NODE_GLOBAL_VARIABLE)
 	{
@@ -285,7 +314,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 
 void Document::getTokens(std::vector<int>& data)
 {
-	if (state == DOCUMENT_STATE_UNPARSED)
+	if (state < DOCUMENT_STATE_TYPECHECKED)
 		return;
 
 	List<LSPToken> lspTokens;

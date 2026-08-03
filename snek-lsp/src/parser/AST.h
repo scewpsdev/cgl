@@ -44,7 +44,6 @@ enum NodeType : uint8_t
 	NODE_MEMBER_ACCESS,
 	NODE_TERNARY_CONDITION,
 	NODE_CAST,
-	NODE_CAST_IMPLICIT,
 
 	NODE_BLOCK_STATEMENT,
 	NODE_IF,
@@ -60,6 +59,7 @@ enum NodeType : uint8_t
 
 	NODE_FIELD,
 	NODE_PARAMETER,
+	NODE_ENUM_VALUE,
 
 	NODE_STRUCT,
 	NODE_UNION,
@@ -223,7 +223,8 @@ struct Identifier : Expression
 {
 	StringView name;
 
-	SymbolHandle resolvedSymbol;
+	SymbolEntry* resolvedSymbol;
+	SymbolHandle resolvedSymbolHandle;
 };
 
 struct CompoundExpression : Expression
@@ -350,12 +351,6 @@ struct Cast : Expression
 	TypeNode* targetType;
 };
 
-struct ImplicitCast : Expression
-{
-	Expression* expression;
-	Type* targetType;
-};
-
 
 struct Statement : NodeBase
 {
@@ -449,7 +444,7 @@ struct Union : NodeBase
 	Type* unionType;
 };
 
-struct EnumValue
+struct EnumValue : NodeBase
 {
 	StringView name;
 	Expression* value;
@@ -461,7 +456,7 @@ struct Enum : NodeBase
 	uint32_t storage;
 
 	TypeNode* valueType;
-	EnumValue* values;
+	EnumValue** values;
 	int numValues;
 
 	Type* enumType;
@@ -550,7 +545,6 @@ struct Node
 		ArraySubscript arraySubscript;
 		MemberAccess memberAccess;
 		Cast cast;
-		ImplicitCast implicitCast;
 
 		ErrorStatement errorStatement;
 		BlockStatement blockStatement;
@@ -565,6 +559,7 @@ struct Node
 
 		Field field;
 		Parameter parameter;
+		EnumValue enumValue;
 
 		// declarations
 
@@ -589,9 +584,14 @@ enum SymbolType : uint8_t
 	SYMBOL_MACRO,
 };
 
+struct FunctionOverload
+{
+	Node* declaration;
+};
+
 struct FunctionSet
 {
-	Node** overloads;
+	FunctionOverload* overloads;
 	int count;
 	int capacity;
 };
@@ -600,6 +600,7 @@ struct SymbolEntry
 {
 	uint32_t key;
 	SymbolType type;
+	FileHandle file;
 
 	union
 	{
@@ -660,7 +661,7 @@ void initNode(Node* node, NodeType type, int start);
 void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
-bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration);
+bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file);
 SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
 SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h);
 

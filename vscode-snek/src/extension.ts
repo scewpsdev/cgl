@@ -28,10 +28,10 @@ export function activate(context: ExtensionContext) {
 	// Otherwise the run options are used
 	const serverOptions: ServerOptions = {
 		command: serverModule,
-    args: [],
-    options: {
-      cwd: path.dirname(serverModule)
-    }
+        args: [],
+        //options: {
+        //  cwd: path.dirname(serverModule)
+        //}
 	};
 
 	// Options to control the language client
@@ -42,14 +42,14 @@ export function activate(context: ExtensionContext) {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/*.src')
 		},
-        traceOutputChannel: window.createOutputChannel("LSP Trace"),
+        //traceOutputChannel: window.createOutputChannel("LSP Trace"),
         revealOutputChannelOn: RevealOutputChannelOn.Never
 	};
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'sneklang-lsp',
-		'Snek Language Server',
+		'sneklang',
+		'SnekLang Language Server',
 		serverOptions,
 		clientOptions
 	);

@@ -44,6 +44,9 @@ static uint64_t hashType(Type* type)
 	case TYPE_ENUM:
 		hash = (hash ^ (uintptr_t)type->enum_.name.ptr) * 1099511628211ULL;
 		break;
+	case TYPE_ALIAS:
+		hash = (hash ^ (uintptr_t)type->alias.name.ptr) * 1099511628211ULL;
+		break;
 	case TYPE_POINTER:
 		hash = (hash ^ (uintptr_t)type->pointer.elementType) * 1099511628211ULL;
 		break;
@@ -153,6 +156,7 @@ static Type* internType(TypeSystem* types, Type key, bool* newType)
 	{
 		if (table->entries[index].key == h && compareTypes(table->entries[index].value, &key))
 		{
+			*newType = false;
 			return table->entries[index].value;
 		}
 		index = (index + 1) & (table->capacity - 1);
@@ -164,6 +168,8 @@ static Type* internType(TypeSystem* types, Type key, bool* newType)
 	table->entries[index].key = h;
 	table->entries[index].value = type;
 	table->count++;
+
+	*newType = true;
 
 	return type;
 }
@@ -188,6 +194,7 @@ void initTypeSystem(TypeSystem* types)
 	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool") };
 	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
 	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
+	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type") };
 
 	initTypeTable(&types->typeTable, 64);
 }

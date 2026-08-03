@@ -550,7 +550,7 @@ void Parse(Document* document)
 	parse(&document->parser, &document->ast, &document->arena);
 	document->state = DOCUMENT_STATE_PARSED;
 
-	sendDiagnosticsNotification(&document->diagnostics, document);
+	//sendDiagnosticsNotification(&document->diagnostics, document);
 
 	document->astMutex.unlock();
 
@@ -558,8 +558,6 @@ void Parse(Document* document)
 	float ms = (afterParse - beforeParse) / 1e6f;
 	fprintf(stderr, "parsed '%s' in %.3fms\n", document->uri.c_str(), ms);
 	fprintf(stderr, "%.2f/%.2f kb arena memory used\n", document->arena.offset / 1024.0f, document->arena.capacity / 1024.0f);
-
-	sendRequest("workspace/semanticTokens/refresh", nullptr);
 }
 
 void TypeCheck(List<Document*> documents)
@@ -615,6 +613,8 @@ void TypeCheck(List<Document*> documents)
 
 		document->astMutex.unlock();
 	}
+
+	sendRequest("workspace/semanticTokens/refresh", nullptr);
 
 	uint64_t afterTypeCheck = GetTimeNS();
 	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;

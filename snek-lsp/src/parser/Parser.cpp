@@ -394,11 +394,17 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		int mark = parser->scratch.mark();
 
-		while (nextIs(parser, '(') && parser->scratch.used == mark || nextIs(parser, ','))
+		nextToken(parser); // (
+
+		bool next = !nextIs(parser, ')');
+		while (next)
 		{
-			nextToken(parser);
 			Parameter* param = parseParameter(parser);
 			parser->scratch.add(param);
+
+			next = nextIs(parser, ',');
+			if (next)
+				nextToken(parser);
 		}
 
 		if (!expectToken(parser, ')'))
@@ -543,17 +549,25 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 {
 	int mark = parser->scratch.mark();
 
-	if (!firstExpression)
-		firstExpression = parseExpression(parser);
+	bool next = !nextIs(parser, ')');
 
-	parser->scratch.add(firstExpression);
-
-	while (nextIs(parser, ','))
+	if (firstExpression)
 	{
-		nextToken(parser);
+		parser->scratch.add(firstExpression);
 
+		next = nextIs(parser, ',');
+		if (next)
+			nextToken(parser);
+	}
+
+	while (next)
+	{
 		Expression* expression = parseExpression(parser);
 		parser->scratch.add(expression);
+
+		next = nextIs(parser, ',');
+		if (next)
+			nextToken(parser);
 	}
 
 	Expression** expressions = copyFromScratchBuffer<Expression*>(parser, mark, numExpressions);
@@ -1134,6 +1148,8 @@ Expression* parsePostfixOperator(Parser* parser)
 					error(parser, start, end, "Identifier or integer expected");
 				}
 
+				member->end = parser->lastTokenEnd;
+
 				expression = member;
 			}
 			else
@@ -1142,6 +1158,7 @@ Expression* parsePostfixOperator(Parser* parser)
 				initNode((Node*)op, NODE_UNARY_OPERATOR, expression->start);
 				op->op = operatorType;
 				op->expression = expression;
+				op->end = parser->lastTokenEnd;
 
 				expression = op;
 			}
@@ -1229,6 +1246,7 @@ Expression* parsePrefixOperator(Parser* parser)
 		initNode((Node*)op, NODE_UNARY_OPERATOR, start);
 		op->op = operatorType;
 		op->expression = expression;
+		op->end = parser->lastTokenEnd;
 
 		return op;
 	}
@@ -1771,22 +1789,23 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 	{
 		Token identifier = nextToken(parser);
 
-		EnumValue value = {};
-		value.name = getTokenString(identifier, parser);
+		EnumValue* enumValue = parser->arena->alloc<EnumValue>();
+		initNode((Node*)enumValue, NODE_ENUM_VALUE, start);
+		enumValue->name = getTokenString(identifier, parser);
 
 		if (nextIs(parser, '='))
 		{
 			nextToken(parser);
-			value.value = parseExpression(parser);
+			enumValue->value = parseExpression(parser);
 		}
 
-		parser->scratch.add(value);
+		parser->scratch.add(enumValue);
 
 		if (nextIs(parser, ','))
 			nextToken(parser);
 	}
 
-	enum_->values = copyFromScratchBuffer<EnumValue>(parser, mark, &enum_->numValues);
+	enum_->values = copyFromScratchBuffer<EnumValue*>(parser, mark, &enum_->numValues);
 
 	parser->scratch.release(mark);
 
@@ -2078,13 +2097,13 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 void parseFile(Parser* parser, AST* ast)
 {
-	int start = parser->cursor;
-
 	int mark = parser->scratch.mark();
 
 	Token token = {};
 	while ((token = peekToken(parser)).type)
 	{
+		int start = parser->cursor;
+
 		uint32_t storage = 0;
 		while (StorageSpecifier storageSpecifier = getStorageSpecifier(token.type))
 		{
