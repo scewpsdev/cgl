@@ -63,6 +63,74 @@ static StringView getRangedString(int start, int end, Parser* parser)
 	return CreateString(parser->lexer.src + start, end - start);
 }
 
+static const char* getTokenTypeName(int type)
+{
+	static const char* tokenNames[TOKEN_COUNT];
+
+	tokenNames[TOKEN_STRING_LITERAL] = "string literal";
+	tokenNames[TOKEN_STRING_LITERAL_MULTILINE] = "multiline string literal";
+	tokenNames[TOKEN_CHAR_LITERAL] = "character literal";
+	tokenNames[TOKEN_FLOAT_LITERAL] = "floating point literal";
+	tokenNames[TOKEN_INT_LITERAL] = "integer literal";
+	tokenNames[TOKEN_MODULE] = "'module'";
+	tokenNames[TOKEN_NAMESPACE] = "'namespace'";
+	tokenNames[TOKEN_IMPORT] = "'import'";
+	tokenNames[TOKEN_VARIABLE] = "'var'";
+	tokenNames[TOKEN_LET] = "'let'";
+	tokenNames[TOKEN_FUNCTION] = "'func'";
+	tokenNames[TOKEN_STRUCT] = "'struct'";
+	tokenNames[TOKEN_CLASS] = "'class'";
+	tokenNames[TOKEN_TYPEDEF] = "'type'";
+	tokenNames[TOKEN_MACRO] = "'macro'";
+	tokenNames[TOKEN_METHOD] = "'method'";
+	tokenNames[TOKEN_ENUM] = "'enum'";
+	tokenNames[TOKEN_UNION] = "'union'";
+	tokenNames[TOKEN_PUBLIC] = "'public'";
+	tokenNames[TOKEN_PRIVATE] = "'private'";
+	tokenNames[TOKEN_STATIC] = "'static'";
+	tokenNames[TOKEN_CONSTANT] = "'const'";
+	tokenNames[TOKEN_EXTERN] = "'extern'";
+	tokenNames[TOKEN_DLLEXPORT] = "'dllexport'";
+	tokenNames[TOKEN_DLLIMPORT] = "'dllimport'";
+	tokenNames[TOKEN_PACKED] = "'packed'";
+	tokenNames[TOKEN_NOMANGLE] = "'nomangle'";
+	tokenNames[TOKEN_IF] = "'if'";
+	tokenNames[TOKEN_ELSE] = "'else'";
+	tokenNames[TOKEN_FOR] = "'for'";
+	tokenNames[TOKEN_WHILE] = "'while'";
+	tokenNames[TOKEN_RETURN] = "'return'";
+	tokenNames[TOKEN_BREAK] = "'break'";
+	tokenNames[TOKEN_CONTINUE] = "'continue'";
+	tokenNames[TOKEN_DEFER] = "'defer'";
+	tokenNames[TOKEN_ASSERT] = "'assert'";
+	tokenNames[TOKEN_AS] = "'as'";
+	tokenNames[TOKEN_SIZEOF] = "'sizeof'";
+	tokenNames[TOKEN_ALLOCA] = "'alloca'";
+	tokenNames[TOKEN_MALLOC] = "'malloc'";
+	tokenNames[TOKEN_STACKNEW] = "'stacknew'";
+	tokenNames[TOKEN_FREE] = "'free'";
+	tokenNames[TOKEN_TRUE] = "'true'";
+	tokenNames[TOKEN_FALSE] = "'false'";
+	tokenNames[TOKEN_NULL_KEYWORD] = "'null'";
+	tokenNames[TOKEN_VOID] = "'void'";
+	tokenNames[TOKEN_INT8] = "'char'";
+	tokenNames[TOKEN_INT16] = "'short'";
+	tokenNames[TOKEN_INT32] = "'int'";
+	tokenNames[TOKEN_INT64] = "'long'";
+	tokenNames[TOKEN_UINT8] = "'byte'";
+	tokenNames[TOKEN_UINT16] = "'ushort'";
+	tokenNames[TOKEN_UINT32] = "'uint'";
+	tokenNames[TOKEN_UINT64] = "'ulong'";
+	tokenNames[TOKEN_BOOL] = "'bool'";
+	tokenNames[TOKEN_STRING] = "'string'";
+	tokenNames[TOKEN_FLOAT32] = "'float'";
+	tokenNames[TOKEN_FLOAT64] = "'double'";
+	tokenNames[TOKEN_ANY] = "'any'";
+	tokenNames[TOKEN_IDENTIFIER] = "identifier";
+
+	return tokenNames[type];
+}
+
 static void error(Parser* parser, SourceLocation start, SourceLocation end, const char* fmt, ...)
 {
 	if (!parser->diagnostics) return;
@@ -134,6 +202,9 @@ static Token peekToken(Parser* parser, int offset = 0)
 		parser->lookaheadCount++;
 	}
 
+	if (parser->lookahead[offset].offset > parser->cursor)
+		parser->cursor = parser->lookahead[offset].offset;
+
 	return parser->lookahead[offset];
 }
 
@@ -168,10 +239,9 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 	}
 
 	if (type < TOKEN_FIRST)
-		error(parser, start, end, "Expected token %c", (int)type);
+		error(parser, start, end, "Expected token '%c'", (int)type);
 	else
-		// todo use token type string
-		error(parser, start, end, "Expected token %d", (int)type);
+		error(parser, start, end, "Expected %s", getTokenTypeName(type));
 
 	if (outToken) *outToken = {};
 
@@ -1738,7 +1808,12 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	struct_->storage = storage;
 
 	Token identifier;
-	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
+	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
+	{
+		struct_->end = parser->lastTokenEnd;
+		return struct_;
+	}
+
 	struct_->name = getTokenString(identifier, parser);
 
 	if (nextIs(parser, ';'))

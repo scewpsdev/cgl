@@ -147,6 +147,8 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 				slot->functionSet.overloads[slot->functionSet.count++] = {
 					.declaration = declaration,
 				};
+
+				return true;
 			}
 			else
 			{
