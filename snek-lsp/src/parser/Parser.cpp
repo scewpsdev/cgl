@@ -1842,6 +1842,51 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	return struct_;
 }
 
+Union* parseUnion(Parser* parser, uint32_t storage, int start)
+{
+	nextToken(parser); // union
+
+	Union* union_ = parser->arena->alloc<Union>();
+	initNode((Node*)union_, NODE_UNION, start);
+	union_->storage = storage;
+
+	Token identifier;
+	if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
+	{
+		union_->end = parser->lastTokenEnd;
+		return union_;
+	}
+
+	union_->name = getTokenString(identifier, parser);
+
+	if (nextIs(parser, ';'))
+	{
+		nextToken(parser);
+	}
+	else if (expectToken(parser, '{'))
+	{
+		int mark = parser->scratch.mark();
+
+		while (hasNext(parser) && !nextIs(parser, '}'))
+		{
+			if (Field* field = parseField(parser))
+				parser->scratch.add((Node*)field);
+			else
+				skipPastToken(parser, ';');
+		}
+
+		union_->fields = copyFromScratchBuffer<Field*>(parser, mark, &union_->numFields);
+
+		parser->scratch.release(mark);
+
+		nextToken(parser);
+	}
+
+	union_->end = parser->lastTokenEnd;
+
+	return union_;
+}
+
 Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 {
 	nextToken(parser); // enum
@@ -1887,32 +1932,6 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 	enum_->end = parser->lastTokenEnd;
 
 	return enum_;
-}
-
-Union* parseUnion(Parser* parser, uint32_t storage, int start)
-{
-	nextToken(parser); // union
-
-	Union* union_ = parser->arena->alloc<Union>();
-	initNode((Node*)union_, NODE_UNION, start);
-	union_->storage = storage;
-
-	Token identifier;
-	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
-	union_->name = getTokenString(identifier, parser);
-
-	if (nextIs(parser, ';'))
-	{
-		nextToken(parser);
-	}
-	else if (expectToken(parser, '{'))
-	{
-		skipPastTokenNested(parser, '{', '}');
-	}
-
-	union_->end = parser->lastTokenEnd;
-
-	return union_;
 }
 
 Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)

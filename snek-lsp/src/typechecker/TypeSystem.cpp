@@ -211,7 +211,7 @@ static StringView createTypeString(TypeSystem* types, const char* fmt, ...)
 	va_start(args, fmt);
 
 	int length = vsnprintf(nullptr, 0, fmt, args);
-	char* buffer = (char*)types->arena.alloc(length + 1);
+	char* buffer = (char*)malloc(length + 1);
 	vsnprintf(buffer, length + 1, fmt, args);
 	buffer[length] = 0;
 
@@ -222,14 +222,14 @@ static StringView createTypeString(TypeSystem* types, const char* fmt, ...)
 
 static Type** copyTypes(TypeSystem* types, int numElements, Type** elements)
 {
-	Type** newElements = types->arena.alloc<Type*>(numElements);
+	Type** newElements = (Type**)calloc(numElements, sizeof(Type*));
 	memcpy(newElements, elements, numElements * sizeof(Type*));
 	return newElements;
 }
 
 static StringView* copyNames(TypeSystem* types, int numElements, StringView* elements)
 {
-	StringView* newElements = types->arena.alloc<StringView>(numElements);
+	StringView* newElements = (StringView*)calloc(numElements, sizeof(StringView));
 	memcpy(newElements, elements, numElements * sizeof(StringView));
 	return newElements;
 }
@@ -384,7 +384,11 @@ Type* createNamedStructType(TypeSystem* types, StringView name)
 	bool newType;
 	Type* type = internType(types, key, &newType);
 
-	SnekAssert(newType);
+	if (!newType)
+	{
+		free(type->struct_.name.ptr);
+		free(type->name.ptr);
+	}
 
 	type->struct_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -412,7 +416,11 @@ Type* createNamedUnionType(TypeSystem* types, StringView name)
 	bool newType;
 	Type* type = internType(types, key, &newType);
 
-	SnekAssert(newType);
+	if (!newType)
+	{
+		free(type->union_.name.ptr);
+		free(type->name.ptr);
+	}
 
 	type->union_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -438,7 +446,11 @@ Type* createEnumType(TypeSystem* types, StringView name)
 	bool newType;
 	Type* type = internType(types, key, &newType);
 
-	SnekAssert(newType);
+	if (!newType)
+	{
+		free(type->enum_.name.ptr);
+		free(type->name.ptr);
+	}
 
 	type->enum_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);

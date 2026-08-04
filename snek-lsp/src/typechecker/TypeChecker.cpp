@@ -427,8 +427,52 @@ static double stringToFloatConstant(TypeChecker* tc, Node* node, StringView str,
 	return value;
 }
 
+static bool isIntegerType(Type* type)
+{
+	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
+}
+
+static bool isFloatingPointType(Type* type)
+{
+	return type->typeKind > TYPE_FLOAT_START || type->typeKind < TYPE_FLOAT_END;
+}
+
+static bool isTruthyType(Type* type)
+{
+	return type->typeKind == TYPE_BOOL || isIntegerType(type) || isFloatingPointType(type) || type->typeKind == TYPE_POINTER || type->typeKind == TYPE_OPTIONAL;
+}
+
+static bool isNumericType(Type* type)
+{
+	return isIntegerType(type) || isFloatingPointType(type);
+}
+
+static int getFieldIndex(StringView name, int numFields, StringView* fieldNames)
+{
+	for (int i = 0; i < numFields; i++)
+	{
+		if (compareString(name, fieldNames[i]))
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int getEnumValue(StringView name, int numValues, EnumValue** values)
+{
+	for (int i = 0; i < numValues; i++)
+	{
+		if (compareString(name, values[i]->name))
+			return i;
+	}
+	return -1;
+}
+
 static bool isConstant(Expression* expression)
 {
+	Node* node = (Node*)expression;
+
 	if (!expression)
 		return false;
 
@@ -462,7 +506,24 @@ static bool isConstant(Expression* expression)
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
-		return false;
+		Identifier* identifier = &node->identifier;
+		if (SymbolEntry* symbol = getIdentifierSymbol(identifier))
+		{
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				Node* node = symbol->declaration;
+				if (node->type == NODE_VARIABLE_DECLARATION)
+				{
+					VariableDeclaration* variableDeclaration = &node->variableDeclaration;
+					return variableDeclaration->storage & STORAGE_CONSTANT;
+				}
+				else if (node->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* globalVariable = &node->globalVariable;
+					return globalVariable->storage & STORAGE_CONSTANT;
+				}
+			}
+		}
 	}
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
@@ -489,19 +550,36 @@ static bool isConstant(Expression* expression)
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
-		return false;
-	}
-	else if (expression->type == NODE_FUNCTION_CALL)
-	{
-		return false;
-	}
-	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
-	{
-		return false;
+		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
+		return isConstant(unaryOperator->expression);
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
-		return false;
+		MemberAccess* member = &node->memberAccess;
+		Type* operandType = member->expression->inferredType;
+
+		if (member->expression->type == NODE_STRING_LITERAL)
+		{
+			StringLiteral* string = (StringLiteral*)member->expression;
+			if (compareString(member->name, "length"))
+			{
+				return true;
+			}
+		}
+		else if (member->expression->type == NODE_IDENTIFIER)
+		{
+			if (operandType->typeKind == TYPE_TYPE)
+			{
+				Identifier* typeName = (Identifier*)member->expression;
+				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
+				{
+					if (symbol->declaration->type == NODE_ENUM)
+					{
+						return true;
+					}
+				}
+			}
+		}
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
@@ -509,7 +587,6 @@ static bool isConstant(Expression* expression)
 		return isConstant(ternary->condition) && isConstant(ternary->then) && isConstant(ternary->else_);
 	}
 
-	SnekAssert(false);
 	return false;
 }
 
@@ -540,6 +617,275 @@ static bool isLValue(Expression* expression)
 	{
 		CompoundExpression* compound = (CompoundExpression*)expression;
 		return isLValue(compound->value);
+	}
+
+	return false;
+}
+
+static bool constantFold(TypeChecker* tc, Expression* expression, int64_t* value)
+{
+	Node* node = (Node*)expression;
+	if (expression->type == NODE_INT_LITERAL)
+	{
+		*value = (int64_t)node->intLiteral.intValue;
+		return true;
+	}
+	else if (expression->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = &node->identifier;
+		if (SymbolEntry* symbol = getIdentifierSymbol(identifier))
+		{
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				Node* node = symbol->declaration;
+				if (node->type == NODE_VARIABLE_DECLARATION)
+				{
+					VariableDeclaration* variableDeclaration = &node->variableDeclaration;
+					if (variableDeclaration->storage & STORAGE_CONSTANT)
+					{
+						for (int i = 0; i < variableDeclaration->numDeclarators; i++)
+						{
+							if (compareString(variableDeclaration->declarators[i].name, identifier->name))
+							{
+								if (variableDeclaration->declarators[i].value)
+								{
+									SnekAssert(isIntegerType(variableDeclaration->declarators[i].value->inferredType));
+									return constantFold(tc, variableDeclaration->declarators[i].value, value);
+								}
+								break;
+							}
+						}
+					}
+				}
+				else if (node->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* globalVariable = &node->globalVariable;
+					if (globalVariable->storage & STORAGE_CONSTANT)
+					{
+						for (int i = 0; i < globalVariable->numDeclarators; i++)
+						{
+							if (compareString(globalVariable->declarators[i].name, identifier->name))
+							{
+								if (globalVariable->declarators[i].value)
+								{
+									SnekAssert(isIntegerType(globalVariable->declarators[i].value->inferredType));
+									return constantFold(tc, globalVariable->declarators[i].value, value);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	else if (expression->type == NODE_COMPOUND_EXPRESSION)
+	{
+		CompoundExpression* compound = &node->compoundExpression;
+		SnekAssert(isIntegerType(compound->value->inferredType));
+		return constantFold(tc, compound->value, value);
+	}
+	else if (expression->type == NODE_BINARY_OPERATOR)
+	{
+		BinaryOperator* binaryOperator = &node->binaryOperator;
+
+		int64_t left, right;
+		if (constantFold(tc, binaryOperator->left, &left) && constantFold(tc, binaryOperator->right, &right))
+		{
+			if (binaryOperator->op == OPERATOR_MULTIPLY)
+			{
+				*value = left * right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_DIVIDE)
+			{
+				*value = left / right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_MODULO)
+			{
+				*value = left % right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_ADD)
+			{
+				*value = left + right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_SUBTRACT)
+			{
+				*value = left - right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_BITSHIFT_LEFT)
+			{
+				*value = left << right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_BITSHIFT_RIGHT)
+			{
+				*value = left >> right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_LESS)
+			{
+				*value = left < right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_LESS_EQUALS)
+			{
+				*value = left <= right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_GREATER)
+			{
+				*value = left > right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_GREATER_EQUALS)
+			{
+				*value = left >= right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_EQUALS)
+			{
+				*value = left == right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_NOT_EQUALS)
+			{
+				*value = left != right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_BITWISE_AND)
+			{
+				*value = left & right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_BITWISE_XOR)
+			{
+				*value = left ^ right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_BITWISE_OR)
+			{
+				*value = left | right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_LOGICAL_AND)
+			{
+				*value = left && right;
+				return true;
+			}
+			else if (binaryOperator->op == OPERATOR_LOGICAL_OR)
+			{
+				*value = left || right;
+				return true;
+			}
+		}
+	}
+	else if (expression->type == NODE_UNARY_OPERATOR)
+	{
+		UnaryOperator* unaryOperator = &node->unaryOperator;
+
+		int64_t operandValue;
+		if (constantFold(tc, unaryOperator->expression, &operandValue))
+		{
+			if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
+			{
+				*value = operandValue + 1;
+				return true;
+			}
+			else if (unaryOperator->op == OPERATOR_DECREMENT_PREFIX)
+			{
+				*value = operandValue - 1;
+				return true;
+			}
+			else if (unaryOperator->op == OPERATOR_PLUS_PREFIX)
+			{
+				*value = operandValue;
+				return true;
+			}
+			else if (unaryOperator->op == OPERATOR_MINUS_PREFIX)
+			{
+				*value = -operandValue;
+				return true;
+			}
+			else if (unaryOperator->op == OPERATOR_LOGICAL_NOT)
+			{
+				*value = !operandValue;
+				return true;
+			}
+			else if (unaryOperator->op == OPERATOR_BITWISE_NOT)
+			{
+				*value = ~operandValue;
+				return true;
+			}
+		}
+	}
+	else if (expression->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = &node->memberAccess;
+		Type* operandType = member->expression->inferredType;
+
+		if (member->expression->type == NODE_STRING_LITERAL)
+		{
+			StringLiteral* string = (StringLiteral*)member->expression;
+			if (compareString(member->name, "length"))
+			{
+				*value = string->value.length;
+				return true;
+			}
+		}
+		else if (member->expression->type == NODE_IDENTIFIER)
+		{
+			if (operandType->typeKind == TYPE_TYPE)
+			{
+				Identifier* typeName = (Identifier*)member->expression;
+				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
+				{
+					if (symbol->declaration->type == NODE_ENUM)
+					{
+						Enum* enum_ = &symbol->declaration->enum_;
+						int index = getEnumValue(member->name, enum_->numValues, enum_->values);
+						if (index != -1)
+						{
+							EnumValue* enumValue = enum_->values[index];
+							if (enumValue->value)
+							{
+								return constantFold(tc, enumValue->value, value);
+							}
+							else
+							{
+								for (int i = index - 1; i >= 0; i--)
+								{
+									EnumValue* previousEnumValue = enum_->values[i];
+									if (previousEnumValue->value)
+									{
+										int64_t previousValue = constantFold(tc, previousEnumValue->value, value);
+										return previousValue + (index - i);
+									}
+									else if (i == 0)
+									{
+										return index;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	else if (expression->type == NODE_TERNARY_CONDITION)
+	{
+		TernaryCondition* ternary = &node->ternaryCondition;
+
+		int64_t condition, then, else_;
+		if (constantFold(tc, ternary->condition, &condition) && constantFold(tc, ternary->then, &then) && constantFold(tc, ternary->else_, &else_))
+		{
+			*value = condition ? then : else_;
+			return true;
+		}
 	}
 
 	return false;
@@ -804,22 +1150,14 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			elementType = &tc->types->errorType;
 		}
 
-		uint64_t size = 0;
+		int64_t size = 0;
 		if (arrayType->size)
 		{
 			resolveExpression(tc, arrayType->size);
 
-			//if (isConstant(arrayType->size))
-			if (arrayType->size->type == NODE_INT_LITERAL)
+			if (isConstant(arrayType->size) && (isIntegerType(arrayType->size->inferredType) || arrayType->size->inferredType->typeKind == TYPE_ENUM && isIntegerType(arrayType->size->inferredType->enum_.valueType)) && constantFold(tc, arrayType->size, &size))
 			{
-				//size = constantFold(arrayType->size);
-				IntLiteral* sizeNode = (IntLiteral*)arrayType->size;
-
-				bool negative;
-				Type* sizeType;
-				size = stringToIntConstant(tc, (Node*)sizeNode, sizeNode->value, &negative, &sizeType);
-
-				if (negative)
+				if (size < 0)
 				{
 					error(tc, (Node*)arrayType->size, "Array size cannot be negative");
 				}
@@ -862,48 +1200,6 @@ static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 		}
 	}
 
-	return nullptr;
-}
-
-static bool isIntegerType(Type* type)
-{
-	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
-}
-
-static bool isFloatingPointType(Type* type)
-{
-	return type->typeKind > TYPE_FLOAT_START || type->typeKind < TYPE_FLOAT_END;
-}
-
-static bool isTruthyType(Type* type)
-{
-	return type->typeKind == TYPE_BOOL || isIntegerType(type) || isFloatingPointType(type) || type->typeKind == TYPE_POINTER || type->typeKind == TYPE_OPTIONAL;
-}
-
-static bool isNumericType(Type* type)
-{
-	return isIntegerType(type) || isFloatingPointType(type);
-}
-
-static int getFieldIndex(StringView name, int numFields, StringView* fieldNames)
-{
-	for (int i = 0; i < numFields; i++)
-	{
-		if (compareString(name, fieldNames[i]))
-		{
-			return i;
-		}
-	}
-	return -1;
-}
-
-static EnumValue* getEnumValue(StringView name, int numValues, EnumValue** values)
-{
-	for (int i = 0; i < numValues; i++)
-	{
-		if (compareString(name, values[i]->name))
-			return values[i];
-	}
 	return nullptr;
 }
 
@@ -1009,7 +1305,7 @@ static Type* typeCheckComparisonOperator(TypeChecker* tc, BinaryOperator* expres
 
 	if (!commonType)
 	{
-		error(tc, (Node*)expression, "Cannot compare incompatible types");
+		error(tc, (Node*)expression, "Cannot compare incompatible types '%.*s' and '%.*s'", left->name.length, left->name.ptr, right->name.length, right->name.ptr);
 		return &tc->types->errorType;
 	}
 
@@ -1420,6 +1716,17 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			return binaryOperator->inferredType = expression->inferredType = &tc->types->errorType;
 		}
 
+		if (left->typeKind == TYPE_ENUM && left->enum_.valueType == right)
+		{
+			left = left->enum_.valueType;
+			insertImplicitCast(tc, &binaryOperator->left, right);
+		}
+		else if (right->typeKind == TYPE_ENUM && right->enum_.valueType == left)
+		{
+			right = right->enum_.valueType;
+			insertImplicitCast(tc, &binaryOperator->right, left);
+		}
+
 		// todo check operator overload
 
 		if (binaryOperator->op == OPERATOR_ADD || binaryOperator->op == OPERATOR_SUBTRACT || binaryOperator->op == OPERATOR_MULTIPLY || binaryOperator->op == OPERATOR_DIVIDE || binaryOperator->op == OPERATOR_MODULO)
@@ -1697,7 +2004,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			if (symbol->declaration->type == NODE_ENUM)
 			{
 				Enum* enum_ = &symbol->declaration->enum_;
-				if (EnumValue* enumValue = getEnumValue(typeName->name, enum_->numValues, enum_->values))
+				int index = getEnumValue(member->name, enum_->numValues, enum_->values);
+				if (index != -1)
 				{
 					return expression->inferredType = enum_->enumType;
 				}
@@ -2043,7 +2351,36 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		{
 			if (globalVariable->declarators[j].value)
 				resolveExpression(tc, globalVariable->declarators[j].value);
+			else if (globalVariable->storage & STORAGE_CONSTANT)
+			{
+				error(tc, (Node*)globalVariable, "Constant variable must have a value");
+			}
 		}
+	}
+
+	for (int i = 0; i < ast->numEnums; i++)
+	{
+		Enum* enum_ = ast->enums[i];
+
+		Type* valueType = &tc->types->primitiveTypes[TYPE_INT32];
+		if (enum_->valueType)
+		{
+			valueType = resolveType(tc, enum_->valueType);
+		}
+
+		for (int j = 0; j < enum_->numValues; j++)
+		{
+			if (enum_->values[j]->value)
+			{
+				resolveExpression(tc, enum_->values[j]->value);
+				if (!isConstant(enum_->values[j]->value))
+				{
+					error(tc, (Node*)enum_->values[j]->value, "Enum value must be constant");
+				}
+			}
+		}
+
+		resolveEnumType(tc->types, enum_->enumType, valueType);
 	}
 
 	for (int i = 0; i < ast->numStructs; i++)
@@ -2119,31 +2456,6 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		resolveNamedUnionType(tc->types, union_->unionType, numFields, fieldTypes, fieldNames);
 
 		tc->scratch.release(mark);
-	}
-
-	for (int i = 0; i < ast->numEnums; i++)
-	{
-		Enum* enum_ = ast->enums[i];
-
-		Type* valueType = &tc->types->primitiveTypes[TYPE_INT32];
-		if (enum_->valueType)
-		{
-			valueType = resolveType(tc, enum_->valueType);
-		}
-
-		for (int j = 0; j < enum_->numValues; j++)
-		{
-			if (enum_->values[j]->value)
-			{
-				resolveExpression(tc, enum_->values[j]->value);
-				if (!isConstant(enum_->values[j]->value))
-				{
-					error(tc, (Node*)enum_->values[j]->value, "Enum value must be constant");
-				}
-			}
-		}
-
-		resolveEnumType(tc->types, enum_->enumType, valueType);
 	}
 
 	for (int i = 0; i < ast->numTypedefs; i++)

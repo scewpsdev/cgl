@@ -218,6 +218,7 @@ void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
 	initSymbolTable(&scope->symbols, symbolCapacity, arena);
 }
 
+static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 
@@ -282,6 +283,8 @@ static void traverseType(TypeNode* type, Scope* scope, ASTVisitor_t visitor, voi
 		ArrayType* arrayType = (ArrayType*)type;
 		if (arrayType->elementType)
 			traverseType(arrayType->elementType, scope, visitor, userPtr);
+		if (arrayType->size)
+			traverseExpression(arrayType->size, scope, visitor, userPtr);
 	}
 }
 

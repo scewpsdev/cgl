@@ -619,6 +619,7 @@ void TypeCheck(List<Document*> documents)
 	uint64_t afterTypeCheck = GetTimeNS();
 	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;
 	fprintf(stderr, "typechecked %d documents in %.3fms\n", documents.size, ms);
+	fprintf(stderr, "global type arena: %.2f/%.2f kb\n", types.arena.offset / 1024.0f, types.arena.capacity / 1024.0f);
 }
 
 static Document* OpenDocument(std::string uri, std::string text)

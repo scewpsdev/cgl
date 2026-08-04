@@ -544,6 +544,7 @@ struct Node
 		FunctionCall functionCall;
 		ArraySubscript arraySubscript;
 		MemberAccess memberAccess;
+		TernaryCondition ternaryCondition;
 		Cast cast;
 
 		ErrorStatement errorStatement;
