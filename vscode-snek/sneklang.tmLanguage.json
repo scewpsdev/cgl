@@ -103,19 +103,19 @@
         },
         {
           "name": "constant.numeric.integer.hexadecimal.sneklang",
-          "match": "\\b0[xX][0-9a-fA-F]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+          "match": "\\b0[xX][0-9a-fA-F]+(i8|i16|i32|i64|u8|u16|u32|u64|u)?\\b"
         },
         {
           "name": "constant.numeric.integer.binary.sneklang",
-          "match": "\\b0[bB][01]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+          "match": "\\b0[bB][01]+(i8|i16|i32|i64|u8|u16|u32|u64|u)?\\b"
         },
         {
           "name": "constant.numeric.integer.octal.sneklang",
-          "match": "\\b0[0-7]+([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+          "match": "\\b0[0-7]+(i8|i16|i32|i64|u8|u16|u32|u64|u)?\\b"
         },
         {
           "name": "constant.numeric.integer.decimal.sneklang",
-          "match": "\\b(0|[1-9]\\d*)([uU](ll|LL|l|L)?|(ll|LL|l|L)[uU]?)?\\b"
+          "match": "\\b(0|[1-9]\\d*)(i8|i16|i32|i64|u8|u16|u32|u64|u)?\\b"
         }
       ]
     },

@@ -133,9 +133,11 @@ void symbolCollection(TypeChecker* tc, AST* ast)
 		{
 			Struct* struct_ = &declaration->struct_;
 
-			struct_->structType = createNamedStructType(tc->types, struct_->name);
-
-			insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, ast->fileHandle);
+			if (struct_->name.length)
+			{
+				struct_->structType = createNamedStructType(tc->types, struct_->name);
+				insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, ast->fileHandle);
+			}
 
 			ast->structs[numStructs++] = struct_;
 		}
@@ -238,17 +240,17 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 
 	if (str.length >= i + 2 && str[i] == '0')
 	{
-		if (str[i + 1] == 'x')
+		if (tolower(str[i + 1]) == 'x')
 		{
 			base = 16;
 			i += 2;
 		}
-		else if (str[i + 1] == 'b')
+		else if (tolower(str[i + 1]) == 'b')
 		{
 			base = 2;
 			i += 2;
 		}
-		else if (str[i + 1] == 'o')
+		else if (tolower(str[i + 1]) == 'o')
 		{
 			base = 8;
 			i += 2;
@@ -260,7 +262,7 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 
 	for (; i < str.length; i++)
 	{
-		char c = str[i];
+		char c = tolower(str[i]);
 
 		if (c == '_') continue;
 
@@ -290,7 +292,7 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 	else if (str.length - i == 3 && strncmp(&str[i], "u16", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT16];
 	else if (str.length - i == 3 && strncmp(&str[i], "u32", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
 	else if (str.length - i == 3 && strncmp(&str[i], "u64", 3) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT64];
-	else if (str.length - i == 1 && strncmp(&str[i], "u", 1) == 0) *type = &tc->types->primitiveTypes[TYPE_UINT32];
+	else if (str.length - i == 1 && tolower(str[i]) == 'u') *type = &tc->types->primitiveTypes[TYPE_UINT32];
 	else if (str.length - i != 0)
 	{
 		error(tc, CreateString(str.ptr + i, str.length - i), "Undefined integer constant suffix '%.*s'", str.length - i, str.ptr + i);
@@ -2075,7 +2077,10 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
 		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
 
-		resolveNamedStructType(tc->types, struct_->structType, numFields, fieldTypes, fieldNames);
+		if (struct_->structType)
+		{
+			resolveNamedStructType(tc->types, struct_->structType, numFields, fieldTypes, fieldNames);
+		}
 
 		tc->scratch.release(mark);
 	}

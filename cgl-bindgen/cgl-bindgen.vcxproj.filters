@@ -27,5 +27,13 @@
     <ClCompile Include="src\tree_sitter\c-parser\parser.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\StringView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\StringView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

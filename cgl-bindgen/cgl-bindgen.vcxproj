@@ -142,6 +142,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\StringView.cpp" />
     <ClCompile Include="src\tcc\tcc.c" />
     <ClCompile Include="src\tree_sitter\c-parser\parser.c" />
     <ClCompile Include="src\tree_sitter\lib.c" />
@@ -150,6 +151,9 @@
     <ProjectReference Include="..\cgl-core\cgl-core.vcxproj">
       <Project>{544de3f6-d621-404c-92cb-323b709cef7e}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\StringView.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -75,14 +75,11 @@ static const char* getTokenTypeName(int type)
 	tokenNames[TOKEN_MODULE] = "'module'";
 	tokenNames[TOKEN_NAMESPACE] = "'namespace'";
 	tokenNames[TOKEN_IMPORT] = "'import'";
-	tokenNames[TOKEN_VARIABLE] = "'var'";
-	tokenNames[TOKEN_LET] = "'let'";
 	tokenNames[TOKEN_FUNCTION] = "'func'";
 	tokenNames[TOKEN_STRUCT] = "'struct'";
 	tokenNames[TOKEN_CLASS] = "'class'";
 	tokenNames[TOKEN_TYPEDEF] = "'type'";
 	tokenNames[TOKEN_MACRO] = "'macro'";
-	tokenNames[TOKEN_METHOD] = "'method'";
 	tokenNames[TOKEN_ENUM] = "'enum'";
 	tokenNames[TOKEN_UNION] = "'union'";
 	tokenNames[TOKEN_PUBLIC] = "'public'";
@@ -105,10 +102,7 @@ static const char* getTokenTypeName(int type)
 	tokenNames[TOKEN_ASSERT] = "'assert'";
 	tokenNames[TOKEN_AS] = "'as'";
 	tokenNames[TOKEN_SIZEOF] = "'sizeof'";
-	tokenNames[TOKEN_ALLOCA] = "'alloca'";
-	tokenNames[TOKEN_MALLOC] = "'malloc'";
-	tokenNames[TOKEN_STACKNEW] = "'stacknew'";
-	tokenNames[TOKEN_FREE] = "'free'";
+	tokenNames[TOKEN_ALIGNOF] = "'alignof'";
 	tokenNames[TOKEN_TRUE] = "'true'";
 	tokenNames[TOKEN_FALSE] = "'false'";
 	tokenNames[TOKEN_NULL_KEYWORD] = "'null'";
@@ -202,8 +196,8 @@ static Token peekToken(Parser* parser, int offset = 0)
 		parser->lookaheadCount++;
 	}
 
-	if (parser->lookahead[offset].offset > parser->cursor)
-		parser->cursor = parser->lookahead[offset].offset;
+	if (parser->lookahead[0].offset > parser->cursor)
+		parser->cursor = parser->lookahead[0].offset;
 
 	return parser->lookahead[offset];
 }
@@ -632,8 +626,10 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 
 	while (next)
 	{
-		Expression* expression = parseExpression(parser);
-		parser->scratch.add(expression);
+		if (Expression* expression = parseExpression(parser))
+			parser->scratch.add(expression);
+		else
+			parser->scratch.add(getErrorExpression(parser, parser->cursor));
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -1310,6 +1306,7 @@ Expression* parsePrefixOperator(Parser* parser)
 		if (!expression)
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
+			expression = getErrorExpression(parser, parser->cursor);
 		}
 
 		UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
@@ -1514,6 +1511,7 @@ Statement* parseStatement(Parser* parser)
 			else
 			{
 				error(parser, getSourceLocation(parser), "Statement expected");
+				while_->then = getErrorStatement(parser, parser->cursor);
 			}
 		}
 		else
@@ -1963,7 +1961,10 @@ Parameter* parseParameter(Parser* parser)
 	}
 
 	Token nameToken;
-	expectToken(parser, TOKEN_IDENTIFIER, &nameToken);
+	if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
+		nameToken = nextToken(parser);
+	else
+		expectToken(parser, TOKEN_IDENTIFIER, &nameToken);
 
 	parameter->name = getTokenString(nameToken, parser);
 	parameter->variadic = variadic;
@@ -2132,7 +2133,6 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 	if (!nextIs(parser, TOKEN_IDENTIFIER) && !nextIsKeyword(parser))
 	{
 		expectToken(parser, TOKEN_IDENTIFIER);
-		skipPastToken(parser, ';');
 		return nullptr;
 	}
 

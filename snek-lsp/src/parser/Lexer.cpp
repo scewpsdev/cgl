@@ -276,7 +276,8 @@ static bool readNumberLiteral(Lexer* lexer, Token* token)
 		c == 'e' || c == '-' ||
 		c == '_' ||
 		c == 'u' ||
-		c == 'l';
+		c == 'l' ||
+		c == 'i';
 		)
 	{
 		nextCharacter(lexer);
@@ -374,15 +375,6 @@ TokenType getKeywordType(const char* str, int len)
 		case 'i':
 			if (str[1] == 'n' && str[2] == 't') return TOKEN_INT32;
 			break;
-		case 'l':
-			if (str[1] == 'e' && str[2] == 't') return TOKEN_LET;
-			break;
-		case 'n':
-			if (str[1] == 'e' && str[2] == 'w') return TOKEN_MALLOC;
-			break;
-		case 'v':
-			if (str[1] == 'a' && str[2] == 'r') return TOKEN_VARIABLE;
-			break;
 		}
 		break;
 
@@ -411,9 +403,6 @@ TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'n':
 			if (str[1] == 'u' && str[2] == 'l' && str[3] == 'l') return TOKEN_NULL_KEYWORD;
-			break;
-		case 's':
-			if (str[1] == 'n' && str[2] == 'e' && str[3] == 'w') return TOKEN_STACKNEW;
 			break;
 		case 't':
 			if (str[1] == 'r' && str[2] == 'u' && str[3] == 'e') return TOKEN_TRUE;
@@ -472,18 +461,13 @@ TokenType getKeywordType(const char* str, int len)
 		switch (str[0])
 		{
 		case 'a':
-			if (str[1] == 'l' && str[2] == 'l' && str[3] == 'o' && str[4] == 'c' && str[5] == 'a') return TOKEN_ALLOCA;
 			if (str[1] == 's' && str[2] == 's' && str[3] == 'e' && str[4] == 'r' && str[5] == 't') return TOKEN_ASSERT;
 			break;
 		case 'd':
-			if (str[1] == 'e' && str[2] == 'l' && str[3] == 'e' && str[4] == 't' && str[5] == 'e') return TOKEN_FREE;
 			if (str[1] == 'o' && str[2] == 'u' && str[3] == 'b' && str[4] == 'l' && str[5] == 'e') return TOKEN_FLOAT64;
 			break;
 		case 'i':
 			if (str[1] == 'm' && str[2] == 'p' && str[3] == 'o' && str[4] == 'r' && str[5] == 't') return TOKEN_IMPORT;
-			break;
-		case 'm':
-			if (str[1] == 'e' && str[2] == 't' && str[3] == 'h' && str[4] == 'o' && str[5] == 'd') return TOKEN_METHOD;
 			break;
 		case 'p':
 			if (str[1] == 'a' && str[2] == 'c' && str[3] == 'k' && str[4] == 'e' && str[5] == 'd') return TOKEN_PACKED;
@@ -510,6 +494,9 @@ TokenType getKeywordType(const char* str, int len)
 	case 7:
 		switch (str[0])
 		{
+		case 'a':
+			if (str[1] == 'l' && str[2] == 'i' && str[3] == 'g' && str[4] == 'n' && str[5] == 'o' && str[6] == 'f') return TOKEN_ALIGNOF;
+			break;
 		case 'e':
 			if (str[1] == 'x' && str[2] == 't' && str[3] == 'e' && str[4] == 'r' && str[5] == 'n' && str[6] == 'c') return TOKEN_EXTERN;
 			break;

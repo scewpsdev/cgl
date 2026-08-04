@@ -375,6 +375,8 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size)
 
 Type* createNamedStructType(TypeSystem* types, StringView name)
 {
+	SnekAssert(name.length);
+
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.name = name;
@@ -401,6 +403,8 @@ void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type**
 
 Type* createNamedUnionType(TypeSystem* types, StringView name)
 {
+	SnekAssert(name.length);
+
 	Type key = {};
 	key.typeKind = TYPE_UNION;
 	key.union_.name = name;

@@ -706,7 +706,7 @@ void ParserThread()
 		{
 			Document* document = documents[i];
 
-			const int parseDelay = 0;
+			const int parseDelay = 200;
 			if (!document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				Parse(document);
