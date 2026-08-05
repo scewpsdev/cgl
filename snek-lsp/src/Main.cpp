@@ -529,25 +529,29 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	if (document->state >= DOCUMENT_STATE_PARSED)
+	if (document->state < DOCUMENT_STATE_PARSED)
+	{
+		initArena(&document->arena, 2 * 1024 * 1024);
+		initScratchBuffer(&document->scratch, 16);
+	}
+	else
 	{
 		destroyDiagnostics(&document->diagnostics);
-		destroyArena(&document->arena);
 		destroyAST(&document->ast);
 		destroyParser(&document->parser);
-	}
-	if (document->state >= DOCUMENT_STATE_TYPECHECKED)
-	{
-		destroyTypeChecker(&document->typeChecker);
+		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
+			destroyTypeChecker(&document->typeChecker);
+
+		resetArena(&document->arena);
+		resetScratchBuffer(&document->scratch);
 	}
 
 	initAST(&document->ast, document->localPath.c_str());
-	initArena(&document->arena, 2 * 1024 * 1024);
 	initDiagnostics(&document->diagnostics, &document->arena);
 
-	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->diagnostics);
+	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->scratch, &document->diagnostics);
 
-	parse(&document->parser, &document->ast, &document->arena);
+	parse(&document->parser, &document->ast);
 	document->state = DOCUMENT_STATE_PARSED;
 
 	//sendDiagnosticsNotification(&document->diagnostics, document);

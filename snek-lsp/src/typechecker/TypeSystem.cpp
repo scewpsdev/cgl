@@ -474,7 +474,11 @@ Type* createAliasType(TypeSystem* types, StringView name)
 	bool newType;
 	Type* type = internType(types, key, &newType);
 
-	SnekAssert(newType);
+	if (!newType)
+	{
+		free(type->alias.name.ptr);
+		free(type->name.ptr);
+	}
 
 	type->alias.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -484,7 +488,7 @@ Type* createAliasType(TypeSystem* types, StringView name)
 
 void resolveAliasType(TypeSystem* types, Type* type, Type* value)
 {
-	SnekAssert(!type->alias.value);
+	SnekAssert(!type->alias.valueType);
 
-	type->alias.value = value;
+	type->alias.valueType = value;
 }

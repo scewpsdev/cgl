@@ -35,7 +35,7 @@ struct Type
 
 		struct {
 			StringView name;
-			Type* value;
+			Type* valueType;
 		} alias;
 
 		struct {

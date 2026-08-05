@@ -19,17 +19,17 @@ struct Parser
 	int lookaheadCount;
 
 	Arena* arena;
-	ScratchBuffer scratch;
+	ScratchBuffer* scratch;
 
 	Diagnostics* diagnostics;
 };
 
 
-void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics);
+void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics);
 void destroyParser(Parser* parser);
 
 SourceLocation getSourceLocation(Parser* parser);
 SourceLocation getSourceLocation(Parser* parser, Token token);
 void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end);
 
-void parse(Parser* parser, AST* ast, Arena* arena);
+void parse(Parser* parser, AST* ast);

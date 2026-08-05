@@ -137,6 +137,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\codegen\CodeBuffer.cpp" />
+    <ClCompile Include="src\codegen\Codegen.cpp" />
     <ClCompile Include="src\parser\AST.cpp" />
     <ClCompile Include="src\parser\Diagnostics.cpp" />
     <ClCompile Include="src\parser\Lexer.cpp" />
@@ -154,6 +156,8 @@
     <ClCompile Include="src\utils\StringView.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\codegen\CodeBuffer.h" />
+    <ClInclude Include="src\codegen\Codegen.h" />
     <ClInclude Include="src\parser\AST.h" />
     <ClInclude Include="src\parser\Diagnostics.h" />
     <ClInclude Include="src\parser\Keywords.h" />

@@ -58,3 +58,5 @@ struct ScratchBuffer
 
 void initScratchBuffer(ScratchBuffer* buffer, int initialCapacity);
 void destroyScratchBuffer(ScratchBuffer* buffer);
+
+void resetScratchBuffer(ScratchBuffer* buffer);

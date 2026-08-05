@@ -32,9 +32,12 @@ void destroyArena(Arena* arena)
 	arena->capacity = 0;
 }
 
-void Arena::reset()
+void resetArena(Arena* arena)
 {
-	offset = 0;
+	arena->offset = 0;
+#if _DEBUG
+	memset(arena->buffer, 0, arena->offset);
+#endif
 }
 
 void* Arena::alloc(int size)

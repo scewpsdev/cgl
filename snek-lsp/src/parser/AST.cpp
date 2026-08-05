@@ -6,23 +6,6 @@
 #include <stdio.h>
 
 
-FileHandle getFileHandle(const char* localPath)
-{
-	return (FileHandle)hashPath(localPath);
-}
-
-void getLocalPathFromModuleName(char* path, StringView* parts, int numParts)
-{
-	path[0] = 0;
-	for (int i = 0; i < numParts; i++)
-	{
-		strncat(path, parts[i].ptr, parts[i].length);
-		if (i < numParts - 1)
-			strcat(path, "/");
-	}
-	strcat(path, ".src");
-}
-
 void initAST(AST* ast, const char* localPath)
 {
 	*ast = {};
@@ -559,4 +542,21 @@ void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr)
 	{
 		traverseDeclaration(ast->declarations[i], ast->globalScope, visitor, userPtr);
 	}
+}
+
+FileHandle getFileHandle(const char* localPath)
+{
+	return (FileHandle)hashPath(localPath);
+}
+
+void getLocalPathFromModuleName(char* path, StringView* parts, int numParts)
+{
+	path[0] = 0;
+	for (int i = 0; i < numParts; i++)
+	{
+		strncat(path, parts[i].ptr, parts[i].length);
+		if (i < numParts - 1)
+			strcat(path, "/");
+	}
+	strcat(path, ".src");
 }

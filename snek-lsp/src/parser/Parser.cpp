@@ -11,7 +11,7 @@
 #include <stdarg.h>
 
 
-void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
+void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics)
 {
 	*parser = {};
 
@@ -21,13 +21,10 @@ void initParser(Parser* parser, const char* filename, const char* src, int lengt
 	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
 	parser->lastTokenEnd = 0;
-
-	initScratchBuffer(&parser->scratch, 16);
 }
 
 void destroyParser(Parser* parser)
 {
-	destroyScratchBuffer(&parser->scratch);
 	destroyLexer(&parser->lexer);
 }
 
@@ -312,11 +309,11 @@ static T* copyFromScratchBuffer(Parser* parser, int mark, int* outCount)
 {
 	T* nodes = nullptr;
 
-	int count = parser->scratch.count<T>(mark);
+	int count = parser->scratch->count<T>(mark);
 	if (count > 0)
 	{
 		nodes = parser->arena->alloc<T>(count);
-		memcpy(nodes, parser->scratch.memory + mark, count * sizeof(T));
+		memcpy(nodes, parser->scratch->memory + mark, count * sizeof(T));
 	}
 
 	*outCount = count;
@@ -456,7 +453,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		FunctionType* type = parser->arena->alloc<FunctionType>();
 		initType((TypeNode*)type, NODE_FUNCTION_TYPE, TYPE_FUNCTION, start);
 
-		int mark = parser->scratch.mark();
+		int mark = parser->scratch->mark();
 
 		nextToken(parser); // (
 
@@ -464,7 +461,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		while (next)
 		{
 			Parameter* param = parseParameter(parser);
-			parser->scratch.add(param);
+			parser->scratch->add(param);
 
 			next = nextIs(parser, ',');
 			if (next)
@@ -476,7 +473,7 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		type->params = copyFromScratchBuffer<Parameter*>(parser, mark, &type->numParams);
 
-		parser->scratch.release(mark);
+		parser->scratch->release(mark);
 
 		if (nextIs(parser, '-') && nextIs(parser, 1, '>'))
 		{
@@ -498,19 +495,19 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		if (expectToken(parser, '{'))
 		{
-			int mark = parser->scratch.mark();
+			int mark = parser->scratch->mark();
 
 			while (!nextIs(parser, '}'))
 			{
 				if (Field* field = parseField(parser))
-					parser->scratch.add((Node*)field);
+					parser->scratch->add((Node*)field);
 				else
 					skipPastToken(parser, ';');
 			}
 
 			type->fields = copyFromScratchBuffer<Field*>(parser, mark, &type->numFields);
 
-			parser->scratch.release(mark);
+			parser->scratch->release(mark);
 
 			expectToken(parser, '}');
 		}
@@ -526,19 +523,19 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		if (expectToken(parser, '{'))
 		{
-			int mark = parser->scratch.mark();
+			int mark = parser->scratch->mark();
 
 			while (!nextIs(parser, '}'))
 			{
 				if (Field* field = parseField(parser))
-					parser->scratch.add((Node*)field);
+					parser->scratch->add((Node*)field);
 				else
 					skipPastToken(parser, ';');
 			}
 
 			type->fields = copyFromScratchBuffer<Field*>(parser, mark, &type->numFields);
 
-			parser->scratch.release(mark);
+			parser->scratch->release(mark);
 
 			expectToken(parser, '}');
 		}
@@ -611,13 +608,13 @@ TypeNode* parseType(Parser* parser)
 
 static Expression** parseExpressionList(Parser* parser, Expression* firstExpression, int* numExpressions)
 {
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	bool next = !nextIs(parser, ')');
 
 	if (firstExpression)
 	{
-		parser->scratch.add(firstExpression);
+		parser->scratch->add(firstExpression);
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -627,9 +624,9 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 	while (next)
 	{
 		if (Expression* expression = parseExpression(parser))
-			parser->scratch.add(expression);
+			parser->scratch->add(expression);
 		else
-			parser->scratch.add(getErrorExpression(parser, parser->cursor));
+			parser->scratch->add(getErrorExpression(parser, parser->cursor));
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -638,7 +635,7 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 
 	Expression** expressions = copyFromScratchBuffer<Expression*>(parser, mark, numExpressions);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	return expressions;
 }
@@ -1338,6 +1335,11 @@ Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 				if (operatorType == OPERATOR_CAST)
 				{
 					TypeNode* type = parseType(parser);
+					if (!type)
+					{
+						error(parser, getSourceLocation(parser), "Type expected");
+						type = getErrorType(parser, parser->cursor);
+					}
 
 					Cast* cast = parser->arena->alloc<Cast>();
 					initNode((Node*)cast, NODE_CAST, left->start);
@@ -1406,13 +1408,13 @@ Expression* parseExpression(Parser* parser)
 
 static Statement** parseCodeBlock(Parser* parser, int endToken, int* numStatements)
 {
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	while (!nextIs(parser, 0) && !nextIs(parser, endToken))
 	{
 		if (Statement* statement = parseStatement(parser))
 		{
-			parser->scratch.add(statement);
+			parser->scratch->add(statement);
 		}
 		else
 		{
@@ -1426,7 +1428,7 @@ static Statement** parseCodeBlock(Parser* parser, int endToken, int* numStatemen
 
 	Statement** statements = copyFromScratchBuffer<Statement*>(parser, mark, numStatements);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	return statements;
 }
@@ -1645,7 +1647,7 @@ Statement* parseStatement(Parser* parser)
 		{
 			if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
 			{
-				int mark = parser->scratch.mark();
+				int mark = parser->scratch->mark();
 
 				bool next = true;
 				while (next)
@@ -1667,7 +1669,7 @@ Statement* parseStatement(Parser* parser)
 						}
 					}
 
-					parser->scratch.add(declarator);
+					parser->scratch->add(declarator);
 
 					next = nextIs(parser, ',');
 					if (next)
@@ -1684,7 +1686,7 @@ Statement* parseStatement(Parser* parser)
 
 				variableDeclaration->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &variableDeclaration->numDeclarators);
 
-				parser->scratch.release(mark);
+				parser->scratch->release(mark);
 
 				return variableDeclaration;
 			}
@@ -1746,7 +1748,7 @@ Field* parseField(Parser* parser)
 		return field;
 	}
 
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	Token identifier;
 	bool next = nextIs(parser, TOKEN_IDENTIFIER, &identifier) || nextIsKeyword(parser, &identifier);
@@ -1758,7 +1760,7 @@ Field* parseField(Parser* parser)
 		}
 		else if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
 		{
-			parser->scratch.release(mark);
+			parser->scratch->release(mark);
 			skipPastToken(parser, ';');
 			return nullptr;
 		}
@@ -1778,7 +1780,7 @@ Field* parseField(Parser* parser)
 			}
 		}
 
-		parser->scratch.add(declarator);
+		parser->scratch->add(declarator);
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -1790,7 +1792,7 @@ Field* parseField(Parser* parser)
 
 	field->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &field->numDeclarators);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	field->end = parser->lastTokenEnd;
 
@@ -1820,19 +1822,19 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	}
 	else if (expectToken(parser, '{'))
 	{
-		int mark = parser->scratch.mark();
+		int mark = parser->scratch->mark();
 
 		while (hasNext(parser) && !nextIs(parser, '}'))
 		{
 			if (Field* field = parseField(parser))
-				parser->scratch.add((Node*)field);
+				parser->scratch->add((Node*)field);
 			else
 				skipPastToken(parser, ';');
 		}
 
 		struct_->fields = copyFromScratchBuffer<Field*>(parser, mark, &struct_->numFields);
 
-		parser->scratch.release(mark);
+		parser->scratch->release(mark);
 
 		nextToken(parser);
 	}
@@ -1865,19 +1867,19 @@ Union* parseUnion(Parser* parser, uint32_t storage, int start)
 	}
 	else if (expectToken(parser, '{'))
 	{
-		int mark = parser->scratch.mark();
+		int mark = parser->scratch->mark();
 
 		while (hasNext(parser) && !nextIs(parser, '}'))
 		{
 			if (Field* field = parseField(parser))
-				parser->scratch.add((Node*)field);
+				parser->scratch->add((Node*)field);
 			else
 				skipPastToken(parser, ';');
 		}
 
 		union_->fields = copyFromScratchBuffer<Field*>(parser, mark, &union_->numFields);
 
-		parser->scratch.release(mark);
+		parser->scratch->release(mark);
 
 		nextToken(parser);
 	}
@@ -1901,7 +1903,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 
 	expectToken(parser, '{');
 
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	while (nextIs(parser, TOKEN_IDENTIFIER))
 	{
@@ -1917,7 +1919,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 			enumValue->value = parseExpression(parser);
 		}
 
-		parser->scratch.add(enumValue);
+		parser->scratch->add(enumValue);
 
 		if (nextIs(parser, ','))
 			nextToken(parser);
@@ -1925,7 +1927,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 
 	enum_->values = copyFromScratchBuffer<EnumValue*>(parser, mark, &enum_->numValues);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	expectToken(parser, '}');
 
@@ -2006,13 +2008,13 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 
 	if (expectToken(parser, '('))
 	{
-		int mark = parser->scratch.mark();
+		int mark = parser->scratch->mark();
 
 		bool next = !nextIs(parser, ')');
 		while (next)
 		{
 			if (Parameter* parameter = parseParameter(parser))
-				parser->scratch.add((Node*)parameter);
+				parser->scratch->add((Node*)parameter);
 			next = nextIs(parser, ',');
 			if (next) nextToken(parser);
 		}
@@ -2022,7 +2024,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 
 		function->params = copyFromScratchBuffer<Parameter*>(parser, mark, &function->numParams);
 
-		parser->scratch.release(mark);
+		parser->scratch->release(mark);
 	}
 	else
 	{
@@ -2066,7 +2068,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 
 GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t storage, int start)
 {
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	Token identifier;
 	bool next = nextIs(parser, TOKEN_IDENTIFIER, &identifier);
@@ -2074,7 +2076,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 	{
 		if (!expectToken(parser, TOKEN_IDENTIFIER, &identifier))
 		{
-			parser->scratch.release(mark);
+			parser->scratch->release(mark);
 			skipPastToken(parser, ';');
 			return nullptr;
 		}
@@ -2094,7 +2096,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 			}
 		}
 
-		parser->scratch.add(declarator);
+		parser->scratch->add(declarator);
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -2112,7 +2114,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 
 	globalVariable->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &globalVariable->numDeclarators);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	return globalVariable;
 }
@@ -2160,9 +2162,9 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 	Import* import_ = parser->arena->alloc<Import>();
 	initNode((Node*)import_, NODE_IMPORT, start);
 
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
-	parser->scratch.add(getTokenString(identifier, parser));
+	parser->scratch->add(getTokenString(identifier, parser));
 
 	while (nextIs(parser, '.'))
 	{
@@ -2174,12 +2176,12 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 		identifier = nextToken(parser);
 
-		parser->scratch.add(getTokenString(identifier, parser));
+		parser->scratch->add(getTokenString(identifier, parser));
 	}
 
 	import_->path = copyFromScratchBuffer<StringView>(parser, mark, &import_->pathCount);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 
 	if (!expectToken(parser, ';'))
 		skipPastToken(parser, ';');
@@ -2191,7 +2193,7 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 void parseFile(Parser* parser, AST* ast)
 {
-	int mark = parser->scratch.mark();
+	int mark = parser->scratch->mark();
 
 	Token token = {};
 	while ((token = peekToken(parser)).type)
@@ -2210,7 +2212,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Struct* struct_ = parseStruct(parser, storage, start))
 			{
-				parser->scratch.add((Node*)struct_);
+				parser->scratch->add((Node*)struct_);
 				ast->numStructs++;
 			}
 		}
@@ -2218,7 +2220,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Enum* enum_ = parseEnum(parser, storage, start))
 			{
-				parser->scratch.add((Node*)enum_);
+				parser->scratch->add((Node*)enum_);
 				ast->numEnums++;
 			}
 		}
@@ -2226,7 +2228,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Union* union_ = parseUnion(parser, storage, start))
 			{
-				parser->scratch.add((Node*)union_);
+				parser->scratch->add((Node*)union_);
 				ast->numUnions++;
 			}
 		}
@@ -2234,7 +2236,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Typedef* typedef_ = parseTypedef(parser, storage, start))
 			{
-				parser->scratch.add((Node*)typedef_);
+				parser->scratch->add((Node*)typedef_);
 				ast->numTypedefs++;
 			}
 		}
@@ -2242,7 +2244,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Function* function = parseFunction(parser, storage, start))
 			{
-				parser->scratch.add((Node*)function);
+				parser->scratch->add((Node*)function);
 				ast->numFunctions++;
 			}
 		}
@@ -2250,7 +2252,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Macro* macro = parseMacro(parser, storage, start))
 			{
-				parser->scratch.add((Node*)macro);
+				parser->scratch->add((Node*)macro);
 				ast->numMacros++;
 			}
 		}
@@ -2266,7 +2268,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (Import* import = parseImport(parser, storage, start))
 			{
-				parser->scratch.add((Node*)import);
+				parser->scratch->add((Node*)import);
 				ast->numDependencies++;
 			}
 		}
@@ -2274,7 +2276,7 @@ void parseFile(Parser* parser, AST* ast)
 		{
 			if (GlobalVariable* globalVariable = parseGlobalVariable(parser, type, storage, start))
 			{
-				parser->scratch.add((Node*)globalVariable);
+				parser->scratch->add((Node*)globalVariable);
 				ast->numGlobalVariables++;
 			}
 		}
@@ -2296,10 +2298,10 @@ void parseFile(Parser* parser, AST* ast)
 
 	ast->declarations = copyFromScratchBuffer<Node*>(parser, mark, &ast->numDeclarations);
 
-	parser->scratch.release(mark);
+	parser->scratch->release(mark);
 }
 
-void parse(Parser* parser, AST* ast, Arena* arena)
+void parse(Parser* parser, AST* ast)
 {
 	parseFile(parser, ast);
 }

@@ -18,6 +18,14 @@ void destroyScratchBuffer(ScratchBuffer* buffer)
 		free(buffer->memory);
 }
 
+void resetScratchBuffer(ScratchBuffer* buffer)
+{
+	buffer->used = 0;
+#if _DEBUG
+	memset(buffer->memory, 0, buffer->used);
+#endif
+}
+
 static void growScratchBuffer(ScratchBuffer* buffer, int requiredSize)
 {
 	int newCapacity = buffer->capacity;

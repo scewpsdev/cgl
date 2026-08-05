@@ -12,6 +12,8 @@
 #include "parser/Diagnostics.h"
 #include "typechecker/TypeChecker.h"
 #include "utils/List.h"
+#include "utils/Arena.h"
+#include "utils/ScratchBuffer.h"
 
 
 enum LSPTokenType
@@ -116,6 +118,7 @@ struct Document
 	std::mutex astMutex;
 	AST ast;
 	Arena arena;
+	ScratchBuffer scratch;
 	Diagnostics diagnostics;
 	Parser parser;
 	TypeChecker typeChecker;

@@ -21,3 +21,5 @@ struct Arena
 
 void initArena(Arena* arena, int capacity);
 void destroyArena(Arena* arena);
+
+void resetArena(Arena* arena);

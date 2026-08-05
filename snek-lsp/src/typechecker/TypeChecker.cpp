@@ -434,7 +434,7 @@ static bool isIntegerType(Type* type)
 
 static bool isFloatingPointType(Type* type)
 {
-	return type->typeKind > TYPE_FLOAT_START || type->typeKind < TYPE_FLOAT_END;
+	return type->typeKind > TYPE_FLOAT_START && type->typeKind < TYPE_FLOAT_END;
 }
 
 static bool isTruthyType(Type* type)
@@ -959,7 +959,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			{
 				resolveField(tc, structType->fields[i]);
 				for (int j = 0; j < structType->fields[i]->numDeclarators; j++)
-					tc->scratch.add(structType->fields[i]->inferredType);
+					tc->scratch.add(structType->fields[i]->variableType->inferredType);
 			}
 			else
 			{
@@ -1009,7 +1009,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			{
 				resolveField(tc, unionType->fields[i]);
 				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
-					tc->scratch.add(unionType->fields[i]->inferredType);
+					tc->scratch.add(unionType->fields[i]->variableType->inferredType);
 			}
 			else
 			{
@@ -1354,8 +1354,20 @@ static Type* typeCheckLogicalOperator(TypeChecker* tc, BinaryOperator* expressio
 	return &tc->types->primitiveTypes[TYPE_BOOL];
 }
 
+static Type* unwrapType(Type* type)
+{
+	if (type->typeKind == TYPE_ENUM)
+		return type->enum_.valueType;
+	if (type->typeKind == TYPE_ALIAS)
+		return type->alias.valueType;
+	return type;
+}
+
 static bool isCastLegal(Type* expressionType, Type* targetType)
 {
+	expressionType = unwrapType(expressionType);
+	targetType = unwrapType(targetType);
+
 	if (expressionType == targetType)
 		return true;
 
@@ -1368,6 +1380,9 @@ static bool isCastLegal(Type* expressionType, Type* targetType)
 	if (expressionType->typeKind == TYPE_POINTER && isIntegerType(targetType))
 		return true;
 	if (isIntegerType(expressionType) && targetType->typeKind == TYPE_POINTER)
+		return true;
+
+	if (expressionType->typeKind == TYPE_ANY || targetType->typeKind == TYPE_ANY)
 		return true;
 
 	return false;
@@ -2135,13 +2150,16 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			resolveStatement(tc, if_->else_);
 		}
 
-		if (!isTruthyType(conditionType))
+		if (conditionType != &tc->types->errorType)
 		{
-			error(tc, (Node*)if_->condition, "if condition must be bool or scalar");
-		}
-		else
-		{
-			insertImplicitCast(tc, &if_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
+			if (!isTruthyType(conditionType))
+			{
+				error(tc, (Node*)if_->condition, "if condition must be bool or scalar");
+			}
+			else
+			{
+				insertImplicitCast(tc, &if_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
+			}
 		}
 	}
 	else if (statement->type == NODE_WHILE)
@@ -2321,11 +2339,11 @@ static Type* resolveField(TypeChecker* tc, Field* field)
 {
 	if (field->variableType)
 	{
-		return field->inferredType = resolveType(tc, field->variableType);
+		return resolveType(tc, field->variableType);
 	}
 	else
 	{
-		return field->inferredType = &tc->types->errorType;
+		return &tc->types->errorType;
 	}
 }
 
@@ -2393,7 +2411,7 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		{
 			resolveField(tc, struct_->fields[j]);
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-				tc->scratch.add(struct_->fields[j]->inferredType);
+				tc->scratch.add(struct_->fields[j]->variableType->inferredType);
 		}
 
 		int numFields = tc->scratch.count<Type*>(mark);
@@ -2432,7 +2450,7 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 		{
 			resolveField(tc, union_->fields[j]);
 			for (int k = 0; k < union_->fields[j]->numDeclarators; k++)
-				tc->scratch.add(union_->fields[j]->inferredType);
+				tc->scratch.add(union_->fields[j]->variableType->inferredType);
 		}
 
 		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
