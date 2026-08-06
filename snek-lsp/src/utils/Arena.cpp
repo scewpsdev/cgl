@@ -1,70 +1,81 @@
 #include "Arena.h"
 
 #include <stdlib.h>
-
-#ifdef _WIN32
-#include <Windows.h>
-#endif
+#include <string.h>
 
 
-void initArena(Arena* arena, int capacity)
+void initGlobalBlockPool(GlobalBlockPool* pool, int numBlocks)
+{
+	*pool = {};
+
+	pool->freeList = nullptr;
+	for (int i = 0; i < numBlocks; i++)
+	{
+		MemoryBlock* block = (MemoryBlock*)malloc(sizeof(MemoryBlock));
+		block->next = pool->freeList;
+		pool->freeList = block;
+	}
+}
+
+MemoryBlock* acquireMemoryBlock(GlobalBlockPool* pool)
+{
+	if (!pool->freeList)
+		return (MemoryBlock*)malloc(sizeof(MemoryBlock));
+
+	MemoryBlock* block = pool->freeList;
+	pool->freeList = block->next;
+	block->next = nullptr;
+	return block;
+}
+
+void initArena(Arena* arena, GlobalBlockPool* blockPool)
 {
 	*arena = {};
-	arena->capacity = capacity;
-	arena->committed = 0;
-	arena->offset = 0;
 
-#ifdef _WIN32
-	arena->buffer = (char*)VirtualAlloc(NULL, capacity, MEM_RESERVE, PAGE_READWRITE);
-#else
-	arena->buffer = (char*)malloc(capacity);
-#endif
+	arena->blockPool = blockPool;
+	arena->head = nullptr;
+	arena->offset = 0;
 }
 
 void destroyArena(Arena* arena)
 {
-#ifdef _WIN32
-	VirtualFree(arena->buffer, 0, MEM_RELEASE);
-#else
-	free(arena->buffer);
-#endif
-
-	arena->capacity = 0;
+	resetArena(arena);
 }
 
 void resetArena(Arena* arena)
 {
+	if (!arena->head)
+		return;
+
+	MemoryBlock* tail = arena->head;
+	while (tail->next)
+	{
+		tail = tail->next;
+	}
+
+	tail->next = arena->blockPool->freeList;
+	arena->blockPool->freeList = arena->head;
+
+	arena->head = nullptr;
 	arena->offset = 0;
-#if _DEBUG
-	memset(arena->buffer, 0, arena->offset);
-#endif
 }
 
 void* Arena::alloc(int size)
 {
 	int alignedSize = (size + 7) & ~7;
-	if (offset + alignedSize > capacity)
-		return nullptr;
 
-#ifdef _WIN32
-	if (offset + alignedSize > committed)
+	if (!head || offset + alignedSize > MEMORY_BLOCK_SIZE)
 	{
-		const int pageSize = 4096;
-		int neededCommit = offset + alignedSize;
-		int alignedCommit = (neededCommit + (pageSize - 1)) & ~(pageSize - 1);
-
-		int sizeToCommit = alignedCommit - committed;
-		void* commitAddress = &buffer[committed];
-
-		void* result = VirtualAlloc(commitAddress, sizeToCommit, MEM_COMMIT, PAGE_READWRITE);
-
-		committed = alignedCommit;
+		MemoryBlock* block = acquireMemoryBlock(blockPool);
+		block->next = head;
+		head = block;
+		offset = 0;
 	}
-#endif
 
-	void* ptr = &buffer[offset];
-	memset(ptr, 0, alignedSize);
-
+	void* data = head->data + offset;
 	offset += alignedSize;
-	return ptr;
+
+	memset(data, 0, alignedSize);
+
+	return data;
 }

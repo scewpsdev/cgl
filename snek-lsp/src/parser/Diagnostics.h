@@ -36,4 +36,6 @@ struct Diagnostics
 void initDiagnostics(Diagnostics* diagnostics, Arena* arena);
 void destroyDiagnostics(Diagnostics* diagnostics);
 
+void resetDiagnostics(Diagnostics* diagnostics);
+
 void logMessage(Diagnostics* diagnostics, const char* message, int startLine, int startCol, int endLine, int endCol, uint8_t severity);

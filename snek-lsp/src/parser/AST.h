@@ -664,8 +664,6 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
 SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h);
 
-void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena);
-
 void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr);
 
 void getLocalPathFromModuleName(char* path, StringView* parts, int numParts);

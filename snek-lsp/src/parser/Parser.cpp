@@ -18,6 +18,7 @@ void initParser(Parser* parser, const char* filename, const char* src, int lengt
 	initLexer(&parser->lexer, filename, src, length, arena, diagnostics);
 
 	parser->arena = arena;
+	parser->scratch = scratch;
 	parser->diagnostics = diagnostics;
 	parser->lookaheadCount = 0;
 	parser->lastTokenEnd = 0;

@@ -1,12 +1,15 @@
 #pragma once
 
 #include "parser/TypeKind.h"
+#include "parser/AST.h"
 
 #include "utils/Arena.h"
 #include "utils/HashMap.h"
 
 #include <stdint.h>
 
+
+struct AST;
 
 struct Type
 {
@@ -63,6 +66,7 @@ struct TypeEntry
 {
 	uint64_t key;
 	Type* value;
+	FileHandle file;
 };
 
 struct TypeTable
@@ -74,8 +78,6 @@ struct TypeTable
 
 struct TypeSystem
 {
-	Arena arena;
-
 	Type errorType;
 	Type primitiveTypes[TYPE_COUNT];
 
@@ -86,21 +88,23 @@ struct TypeSystem
 void initTypeSystem(TypeSystem* types);
 void destroyTypeSystem(TypeSystem* types);
 
-Type* getPointerType(TypeSystem* types, Type* elementType);
-Type* getOptionalType(TypeSystem* types, Type* elementType);
-Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames);
-Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes);
-Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size);
+void freeTypesFromFile(FileHandle fileHandle);
 
-Type* createNamedStructType(TypeSystem* types, StringView name);
+Type* getPointerType(TypeSystem* types, Type* elementType, Arena* arena, FileHandle file);
+Type* getOptionalType(TypeSystem* types, Type* elementType, Arena* arena, FileHandle file);
+Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, Arena* arena, FileHandle file);
+Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, Arena* arena, FileHandle file);
+Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, Arena* arena, FileHandle file);
+Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, Arena* arena, FileHandle file);
+
+Type* createNamedStructType(TypeSystem* types, StringView name, Arena* arena);
 void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
 
-Type* createNamedUnionType(TypeSystem* types, StringView name);
+Type* createNamedUnionType(TypeSystem* types, StringView name, Arena* arena);
 void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
 
-Type* createEnumType(TypeSystem* types, StringView name);
+Type* createEnumType(TypeSystem* types, StringView name, Arena* arena);
 void resolveEnumType(TypeSystem* types, Type* type, Type* valueType);
 
-Type* createAliasType(TypeSystem* types, StringView name);
+Type* createAliasType(TypeSystem* types, StringView name, Arena* arena);
 void resolveAliasType(TypeSystem* types, Type* type, Type* value);

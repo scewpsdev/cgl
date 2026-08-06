@@ -16,7 +16,7 @@ struct Identifier;
 struct TypeChecker
 {
 	Arena* arena;
-	ScratchBuffer scratch;
+	ScratchBuffer* scratch;
 	Lexer* lexer;
 	Diagnostics* diagnostics;
 	TypeSystem* types;
@@ -28,7 +28,7 @@ struct TypeChecker
 };
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types);
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types);
 void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, AST* ast);

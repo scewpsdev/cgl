@@ -14,6 +14,11 @@ void destroyDiagnostics(Diagnostics* diagnostics)
 	FreeList(&diagnostics->items);
 }
 
+void resetDiagnostics(Diagnostics* diagnostics)
+{
+	diagnostics->items.clear();
+}
+
 void logMessage(Diagnostics* diagnostics, const char* message, int startLine, int startCol, int endLine, int endCol, uint8_t severity)
 {
 	DiagnosticsItem item = {};

@@ -193,14 +193,6 @@ SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h)
 	return nullptr;
 }
 
-void initScope(Scope* scope, Scope* parent, bool isGlobal, Arena* arena)
-{
-	scope->parent = parent;
-
-	int symbolCapacity = isGlobal ? 1024 : 16;
-	initSymbolTable(&scope->symbols, symbolCapacity, arena);
-}
-
 static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void* userPtr);
 static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t visitor, void* userPtr);

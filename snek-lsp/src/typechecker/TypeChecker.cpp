@@ -12,19 +12,19 @@
 #include <math.h>
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types)
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types)
 {
+	*tc = {};
+
 	tc->arena = arena;
+	tc->scratch = scratch;
 	tc->lexer = lexer;
 	tc->diagnostics = diagnostics;
 	tc->types = types;
-
-	initScratchBuffer(&tc->scratch, 16);
 }
 
 void destroyTypeChecker(TypeChecker* tc)
 {
-	destroyScratchBuffer(&tc->scratch);
 }
 
 static void getSourceLocation(TypeChecker* tc, Node* node, SourceLocation* start, SourceLocation* end)
@@ -90,6 +90,7 @@ static Scope* pushScope(TypeChecker* tc, Scope* scope = nullptr)
 		initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, tc->arena);
 	}
 
+	SnekAssert(scope->parent != scope);
 	tc->currentScope = scope;
 
 	return scope;
@@ -951,7 +952,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		StructType* structType = (StructType*)type;
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int i = 0; i < structType->numFields; i++)
 		{
@@ -959,17 +960,17 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			{
 				resolveField(tc, structType->fields[i]);
 				for (int j = 0; j < structType->fields[i]->numDeclarators; j++)
-					tc->scratch.add(structType->fields[i]->variableType->inferredType);
+					tc->scratch->add(structType->fields[i]->variableType->inferredType);
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
 
-		int mark2 = tc->scratch.mark();
+		int mark2 = tc->scratch->mark();
 
 		for (int i = 0; i < structType->numFields; i++)
 		{
@@ -978,22 +979,22 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 				for (int j = 0; j < structType->fields[i]->numDeclarators; j++)
 				{
 					if (structType->fields[i]->declarators[j].name.length)
-						tc->scratch.add(structType->fields[i]->declarators[j].name);
+						tc->scratch->add(structType->fields[i]->declarators[j].name);
 					else
-						tc->scratch.add(nullptr);
+						tc->scratch->add(nullptr);
 				}
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
 		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes, fieldNames);
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		return type->inferredType;
 	}
@@ -1001,7 +1002,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		UnionType* unionType = (UnionType*)type;
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int i = 0; i < unionType->numFields; i++)
 		{
@@ -1009,17 +1010,17 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			{
 				resolveField(tc, unionType->fields[i]);
 				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
-					tc->scratch.add(unionType->fields[i]->variableType->inferredType);
+					tc->scratch->add(unionType->fields[i]->variableType->inferredType);
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
+		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
 
-		int mark2 = tc->scratch.mark();
+		int mark2 = tc->scratch->mark();
 
 		for (int i = 0; i < unionType->numFields; i++)
 		{
@@ -1028,22 +1029,22 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
 				{
 					if (unionType->fields[i]->declarators[j].name.length)
-						tc->scratch.add(unionType->fields[i]->declarators[j].name);
+						tc->scratch->add(unionType->fields[i]->declarators[j].name);
 					else
-						tc->scratch.add(nullptr);
+						tc->scratch->add(nullptr);
 				}
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
 		type->inferredType = getAnonymousUnionType(tc->types, unionType->numFields, fieldTypes, fieldNames);
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		return type->inferredType;
 	}
@@ -1085,14 +1086,14 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		FunctionType* functionType = (FunctionType*)type;
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < functionType->numParams; j++)
 		{
 			if (functionType->params[j])
 			{
 				resolveParameter(tc, functionType->params[j]);
-				tc->scratch.add(functionType->params[j]->paramType->inferredType);
+				tc->scratch->add(functionType->params[j]->paramType->inferredType);
 			}
 		}
 
@@ -1103,9 +1104,9 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			returnType = functionType->returnType->inferredType;
 		}
 
-		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch.getData<Type*>(mark));
+		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch->getData<Type*>(mark));
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		return type->inferredType;
 	}
@@ -1113,25 +1114,25 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		TupleType* tupleType = (TupleType*)type;
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int i = 0; i < tupleType->numElementTypes; i++)
 		{
 			if (tupleType->elementTypes[i])
 			{
 				resolveType(tc, tupleType->elementTypes[i]);
-				tc->scratch.add(tupleType->elementTypes[i]->inferredType);
+				tc->scratch->add(tupleType->elementTypes[i]->inferredType);
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		Type** elementTypes = tc->scratch.getData<Type*>(mark);
+		Type** elementTypes = tc->scratch->getData<Type*>(mark);
 		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes, nullptr);
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		return type->inferredType;
 	}
@@ -1178,6 +1179,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 {
 	Scope* scope = tc->currentScope;
+	SnekAssert(scope->parent != scope);
 	while (scope)
 	{
 		if (SymbolEntry* symbol = lookupSymbol(&scope->symbols, identifier))
@@ -1472,7 +1474,7 @@ static void selectFunctionOverloads(TypeChecker* tc, FunctionSet* functionSet, i
 
 		if (matches)
 		{
-			tc->scratch.add(overload);
+			tc->scratch->add(overload);
 		}
 	}
 }
@@ -1555,22 +1557,22 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 				{
 					Function* overload = nullptr;
 
-					int mark = tc->scratch.mark();
+					int mark = tc->scratch->mark();
 
 					selectFunctionOverloads(tc, &symbol->functionSet, numArgs, args, true);
-					int count = tc->scratch.count<Function*>(mark);
+					int count = tc->scratch->count<Function*>(mark);
 
 					/*
 					if (count == 0)
 					{
 						selectFunctionOverloads(tc, &symbol->functionSet, numArgs, args, false);
-						count = tc->scratch.count<Function*>(mark);
+						count = tc->scratch->count<Function*>(mark);
 					}
 					*/
 
-					Function** overloads = tc->scratch.getData<Function*>(mark);
+					Function** overloads = tc->scratch->getData<Function*>(mark);
 
-					tc->scratch.release(mark);
+					tc->scratch->release(mark);
 
 					if (count == 1)
 					{
@@ -1696,26 +1698,26 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 	{
 		ExpressionList* expressionList = (ExpressionList*)expression;
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int i = 0; i < expressionList->numValues; i++)
 		{
 			if (expressionList->values[i])
 			{
 				resolveExpression(tc, expressionList->values[i]);
-				tc->scratch.add(expressionList->values[i]);
+				tc->scratch->add(expressionList->values[i]);
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
-		Type** valueTypes = tc->scratch.getData<Type*>(mark);
+		Type** valueTypes = tc->scratch->getData<Type*>(mark);
 
 		expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr);
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		return expression->inferredType;
 	}
@@ -2405,75 +2407,75 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 	{
 		Struct* struct_ = ast->structs[i];
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < struct_->numFields; j++)
 		{
 			resolveField(tc, struct_->fields[j]);
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-				tc->scratch.add(struct_->fields[j]->variableType->inferredType);
+				tc->scratch->add(struct_->fields[j]->variableType->inferredType);
 		}
 
-		int numFields = tc->scratch.count<Type*>(mark);
+		int numFields = tc->scratch->count<Type*>(mark);
 
-		int mark2 = tc->scratch.mark();
+		int mark2 = tc->scratch->mark();
 
 		for (int j = 0; j < struct_->numFields; j++)
 		{
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
 			{
 				if (struct_->fields[j]->declarators[k].name.length)
-					tc->scratch.add(struct_->fields[j]->declarators[k].name);
+					tc->scratch->add(struct_->fields[j]->declarators[k].name);
 				else
-					tc->scratch.add(nullptr);
+					tc->scratch->add(nullptr);
 			}
 		}
 
-		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
-		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
+		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
 		if (struct_->structType)
 		{
 			resolveNamedStructType(tc->types, struct_->structType, numFields, fieldTypes, fieldNames);
 		}
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 	}
 
 	for (int i = 0; i < ast->numUnions; i++)
 	{
 		Union* union_ = ast->unions[i];
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < union_->numFields; j++)
 		{
 			resolveField(tc, union_->fields[j]);
 			for (int k = 0; k < union_->fields[j]->numDeclarators; k++)
-				tc->scratch.add(union_->fields[j]->variableType->inferredType);
+				tc->scratch->add(union_->fields[j]->variableType->inferredType);
 		}
 
-		Type** fieldTypes = tc->scratch.getData<Type*>(mark);
-		int numFields = tc->scratch.count<Type*>(mark);
+		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
+		int numFields = tc->scratch->count<Type*>(mark);
 
-		int mark2 = tc->scratch.mark();
+		int mark2 = tc->scratch->mark();
 
 		for (int j = 0; j < union_->numFields; j++)
 		{
 			for (int k = 0; k < union_->fields[j]->numDeclarators; k++)
 			{
 				if (union_->fields[j]->declarators[k].name.length)
-					tc->scratch.add(union_->fields[j]->declarators[k].name);
+					tc->scratch->add(union_->fields[j]->declarators[k].name);
 				else
-					tc->scratch.add(nullptr);
+					tc->scratch->add(nullptr);
 			}
 		}
 
-		StringView* fieldNames = tc->scratch.getData<StringView>(mark2);
+		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
 		resolveNamedUnionType(tc->types, union_->unionType, numFields, fieldTypes, fieldNames);
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 	}
 
 	for (int i = 0; i < ast->numTypedefs; i++)
@@ -2491,7 +2493,7 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 
 		function->scope = pushScope(tc);
 
-		int mark = tc->scratch.mark();
+		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < function->numParams; j++)
 		{
@@ -2502,13 +2504,13 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 				insertSymbol(&function->scope->symbols, function->params[j]->name, SYMBOL_VARIABLE, (Node*)function->params[j], ast->fileHandle);
 
 				if (function->params[j]->type)
-					tc->scratch.add(function->params[j]->paramType->inferredType);
+					tc->scratch->add(function->params[j]->paramType->inferredType);
 				else
-					tc->scratch.add(nullptr);
+					tc->scratch->add(nullptr);
 			}
 			else
 			{
-				tc->scratch.add(nullptr);
+				tc->scratch->add(nullptr);
 			}
 		}
 
@@ -2530,9 +2532,9 @@ void symbolResolution(TypeChecker* tc, AST* ast)
 			returnType = function->returnType->inferredType;
 		}
 
-		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch.getData<Type*>(mark));
+		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark));
 
-		tc->scratch.release(mark);
+		tc->scratch->release(mark);
 
 		/*
 		else

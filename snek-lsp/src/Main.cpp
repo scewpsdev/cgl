@@ -529,26 +529,23 @@ void Parse(Document* document)
 
 	document->astMutex.lock();
 
-	if (document->state < DOCUMENT_STATE_PARSED)
-	{
+	if (!document->arena.buffer)
 		initArena(&document->arena, 2 * 1024 * 1024);
+	if (!document->scratch.memory)
 		initScratchBuffer(&document->scratch, 16);
-	}
-	else
-	{
-		destroyDiagnostics(&document->diagnostics);
+	if (!document->diagnostics.arena)
+		initDiagnostics(&document->diagnostics, &document->arena);
+
+	resetArena(&document->arena);
+	resetScratchBuffer(&document->scratch);
+	resetDiagnostics(&document->diagnostics);
+
+	if (document->ast.fileHandle)
 		destroyAST(&document->ast);
-		destroyParser(&document->parser);
-		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
-			destroyTypeChecker(&document->typeChecker);
-
-		resetArena(&document->arena);
-		resetScratchBuffer(&document->scratch);
-	}
-
 	initAST(&document->ast, document->localPath.c_str());
-	initDiagnostics(&document->diagnostics, &document->arena);
 
+	if (document->parser.arena)
+		destroyParser(&document->parser);
 	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->scratch, &document->diagnostics);
 
 	parse(&document->parser, &document->ast);
@@ -576,13 +573,10 @@ void TypeCheck(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
-		{
+		if (document->typeChecker.arena)
 			destroyTypeChecker(&document->typeChecker);
-		}
 
-		document->typeChecker = {};
-		initTypeChecker(&document->typeChecker, &document->arena, &document->parser.lexer, &document->diagnostics, &types);
+		initTypeChecker(&document->typeChecker, &document->arena, &document->scratch, &document->parser.lexer, &document->diagnostics, &types);
 
 		symbolCollection(&document->typeChecker, &document->ast);
 
