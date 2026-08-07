@@ -582,10 +582,11 @@ void TypeCheck(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		clearInternedTypes(&document->file, &types);
-
 		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
+		{
+			clearInternedTypes(&document->file, &types);
 			resetAST(&document->file.ast);
+		}
 
 		if (document->file.typeChecker.arena)
 			destroyTypeChecker(&document->file.typeChecker);
@@ -625,6 +626,14 @@ void TypeCheck(List<Document*> documents)
 		sendDiagnosticsNotification(&document->file.diagnostics, document);
 
 		document->astMutex.unlock();
+
+		if (document->file.diagnostics.items.size == 0)
+		{
+			std::string outPath = document->localPath;
+			outPath = outPath.substr(0, outPath.find('.'));
+			outPath = rootPath + "/tmp/" + outPath + ".c";
+			emitFile(&document->file.codegen, &document->file.ast, document->localPath.c_str(), outPath.c_str());
+		}
 	}
 
 	sendRequest("workspace/semanticTokens/refresh", nullptr);

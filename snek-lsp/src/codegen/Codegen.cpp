@@ -1,6 +1,7 @@
 #include "Codegen.h"
 
 #include "parser/AST.h"
+#include "typechecker/TypeSystem.h"
 
 #include <stdio.h>
 
@@ -32,7 +33,153 @@ static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
-	
+	if (type->typeKind == TYPE_VOID)
+	{
+		emitString(buffer, "void");
+	}
+	else if (type->typeKind == TYPE_INT8)
+	{
+		emitString(buffer, "i8");
+	}
+	else if (type->typeKind == TYPE_INT16)
+	{
+		emitString(buffer, "i16");
+	}
+	else if (type->typeKind == TYPE_INT32)
+	{
+		emitString(buffer, "i32");
+	}
+	else if (type->typeKind == TYPE_INT64)
+	{
+		emitString(buffer, "i64");
+	}
+	else if (type->typeKind == TYPE_UINT8)
+	{
+		emitString(buffer, "u8");
+	}
+	else if (type->typeKind == TYPE_UINT16)
+	{
+		emitString(buffer, "u16");
+	}
+	else if (type->typeKind == TYPE_UINT32)
+	{
+		emitString(buffer, "u32");
+	}
+	else if (type->typeKind == TYPE_UINT64)
+	{
+		emitString(buffer, "u64");
+	}
+	else if (type->typeKind == TYPE_FLOAT)
+	{
+		emitString(buffer, "float");
+	}
+	else if (type->typeKind == TYPE_DOUBLE)
+	{
+		emitString(buffer, "double");
+	}
+	else if (type->typeKind == TYPE_BOOL)
+	{
+		emitString(buffer, "bool");
+	}
+	else if (type->typeKind == TYPE_ANY)
+	{
+		emitString(buffer, "any");
+	}
+	else if (type->typeKind == TYPE_STRING)
+	{
+		emitString(buffer, "string");
+	}
+	else if (type->typeKind == TYPE_STRUCT)
+	{
+		if (type->struct_.name.length)
+		{
+			emitString(buffer, "struct ");
+			emitString(buffer, type->struct_.name);
+		}
+		else
+		{
+			emitString(buffer, "struct{\n");
+
+			codegen->indentation++;
+			for (int i = 0; i < type->struct_.numFields; i++)
+			{
+				emitIndentation(codegen, buffer);
+				emitType(codegen, type->struct_.fieldTypes[i], buffer);
+				emitChar(buffer, ' ');
+				if (type->struct_.fieldNames)
+					emitString(buffer, type->struct_.fieldNames[i]);
+				else
+				{
+					emitChar(buffer, '_');
+					emitInteger(buffer, i);
+				}
+				emitString(buffer, ";\n");
+			}
+			codegen->indentation--;
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "}");
+		}
+	}
+	else if (type->typeKind == TYPE_UNION)
+	{
+		if (type->union_.name.length)
+		{
+			emitString(buffer, "union ");
+			emitString(buffer, type->union_.name);
+		}
+		else
+		{
+			emitString(buffer, "union{\n");
+
+			codegen->indentation++;
+			for (int i = 0; i < type->union_.numFields; i++)
+			{
+				emitIndentation(codegen, buffer);
+				emitType(codegen, type->union_.fieldTypes[i], buffer);
+				emitChar(buffer, ' ');
+				if (type->union_.fieldNames)
+					emitString(buffer, type->union_.fieldNames[i]);
+				else
+				{
+					emitChar(buffer, '_');
+					emitInteger(buffer, i);
+				}
+				emitString(buffer, ";\n");
+			}
+			codegen->indentation--;
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "}");
+		}
+	}
+	else if (type->typeKind == TYPE_ENUM)
+	{
+		emitString(buffer, "enum ");
+		emitString(buffer, type->enum_.name);
+	}
+	else if (type->typeKind == TYPE_ALIAS)
+	{
+		emitString(buffer, type->enum_.name);
+	}
+	else if (type->typeKind == TYPE_POINTER)
+	{
+		emitType(codegen, type->pointer.elementType, buffer);
+		emitChar(buffer, '*');
+	}
+	else if (type->typeKind == TYPE_OPTIONAL)
+	{
+		
+	}
+	else if (type->typeKind == TYPE_FUNCTION)
+	{
+	}
+	else if (type->typeKind == TYPE_ARRAY)
+	{
+	}
+	else if (type->typeKind == TYPE_TYPE)
+	{
+	}
 }
 
 static void emitField(Codegen* codegen, Field* field, CodeBuffer* buffer)

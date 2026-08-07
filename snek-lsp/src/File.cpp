@@ -14,12 +14,15 @@ void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool)
 	initArena(&file->arena, blockPool);
 	initScratchBuffer(&file->scratch, 16);
 	initDiagnostics(&file->diagnostics, &file->arena);
+
+	initCodegen(&file->codegen, blockPool);
 }
 
-void addInternedType(File* file, uint64_t key)
+void addInternedType(File* file, uint64_t key, Type* type)
 {
 	InternedType* interned = file->arena.alloc<InternedType>();
 	interned->key = key;
+	interned->type = type;
 	interned->next = file->internedTypes;
 	file->internedTypes = interned;
 }
@@ -29,8 +32,8 @@ void clearInternedTypes(File* file, TypeSystem* types)
 	InternedType* interned = file->internedTypes;
 	while (interned)
 	{
-		bool removed = removeInternedType(&types->typeTable, interned->key);
-		//SnekAssert(removed);
+		bool removed = removeInternedType(&types->typeTable, interned->key, interned->type);
+		SnekAssert(removed);
 		interned = interned->next;
 	}
 	file->internedTypes = nullptr;

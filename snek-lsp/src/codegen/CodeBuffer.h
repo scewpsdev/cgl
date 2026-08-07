@@ -2,6 +2,8 @@
 
 #include "utils/StringView.h"
 
+#include <stdint.h>
+
 
 struct Arena;
 
@@ -12,11 +14,6 @@ struct CodeBuffer
 	int count;
 
 	Arena* arena;
-
-
-	void emitString(const char* str);
-	void emitString(StringView str);
-	void emitChar(char c);
 };
 
 
@@ -26,3 +23,4 @@ void resetCodeBuffer(CodeBuffer* buffer);
 void emitString(CodeBuffer* buffer, const char* str);
 void emitString(CodeBuffer* buffer, StringView str);
 void emitChar(CodeBuffer* buffer, char c);
+void emitInteger(CodeBuffer* buffer, int64_t i);

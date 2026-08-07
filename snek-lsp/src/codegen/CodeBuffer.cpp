@@ -3,6 +3,7 @@
 #include "utils/Arena.h"
 
 #include <string.h>
+#include <stdio.h>
 
 
 void initCodeBuffer(CodeBuffer* buffer, Arena* arena, int initialCapacity)
@@ -54,4 +55,11 @@ void emitChar(CodeBuffer* buffer, char c)
 {
 	reserve(buffer, 1);
 	buffer->data[buffer->count++] = c;
+}
+
+void emitInteger(CodeBuffer* buffer, int64_t i)
+{
+	char str[64] = "";
+	sprintf(str, "%ll", i);
+	emitString(buffer, str);
 }

@@ -477,6 +477,8 @@ static void resetDeclaration(Node* declaration)
 	{
 		Function* function = (Function*)declaration;
 
+		function->scope = nullptr;
+
 		if (function->returnType)
 		{
 			resetType(function->returnType);
@@ -520,6 +522,8 @@ static void resetDeclaration(Node* declaration)
 
 void resetAST(AST* ast)
 {
+	ast->globalScope = nullptr;
+
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
 		resetDeclaration(ast->declarations[i]);
@@ -682,6 +686,7 @@ static void traverseStatement(Statement* statement, Scope* scope, ASTVisitor_t v
 	if (statement->type == NODE_BLOCK_STATEMENT)
 	{
 		BlockStatement* block = (BlockStatement*)statement;
+		block->scope = nullptr;
 		for (int i = 0; i < block->numStatements; i++)
 		{
 			if (block->statements[i])
@@ -709,6 +714,7 @@ static void traverseStatement(Statement* statement, Scope* scope, ASTVisitor_t v
 	else if (statement->type == NODE_FOR)
 	{
 		For* for_ = (For*)statement;
+		for_->scope = nullptr;
 		if (for_->startValue)
 			traverseExpression(for_->startValue, for_->scope, visitor, userPtr);
 		if (for_->compareValue)

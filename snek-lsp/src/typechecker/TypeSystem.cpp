@@ -120,23 +120,6 @@ static bool compareTypes(Type* a, Type* b)
 	}
 }
 
-bool removeInternedType(TypeTable* table, uint64_t key)
-{
-	uint64_t h = key;
-	int index = h & (table->capacity - 1);
-	while (table->entries[index].key)
-	{
-		if (table->entries[index].key == h)
-		{
-			table->entries[index].key = 0;
-			table->entries[index].value = nullptr;
-			return true;
-		}
-		index = (index + 1) & (table->capacity - 1);
-	}
-	return false;
-}
-
 void initTypeSystem(TypeSystem* types)
 {
 	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>") };
@@ -167,17 +150,18 @@ void destroyTypeSystem(TypeSystem* types)
 
 static void growTypeTable(TypeTable* table)
 {
-	int newCapacity = table->capacity * 2;
+	int newCapacity = table->capacity == 0 ? 16 : table->capacity * 2;
 	TypeEntry* newEntries = (TypeEntry*)calloc(newCapacity, sizeof(TypeEntry));
+	int newMask = newCapacity - 1;
 
 	for (int i = 0; i < table->capacity; i++)
 	{
-		if (table->entries[i].key)
+		if (table->entries[i].value)
 		{
-			int index = table->entries[i].key & (newCapacity - 1);
-			while (newEntries[index].key)
+			int index = table->entries[i].key & newMask;
+			while (newEntries[index].value)
 			{
-				index = (index + 1) & (newCapacity - 1);
+				index = (index + 1) & newMask;
 			}
 			newEntries[index] = table->entries[i];
 		}
@@ -197,19 +181,19 @@ static Type* internType(TypeSystem* types, Type key, File* file, bool* newType)
 		growTypeTable(table);
 	}
 
-	uint64_t h = hashType(&key);
-	int index = h & (table->capacity - 1);
-	while (table->entries[index].key)
+	uint64_t h = __max(hashType(&key), 1);
+	int mask = table->capacity - 1;
+	int index = h & mask;
+	while (table->entries[index].value)
 	{
 		if (table->entries[index].key == h && compareTypes(table->entries[index].value, &key))
 		{
 			*newType = false;
 			return table->entries[index].value;
 		}
-		index = (index + 1) & (table->capacity - 1);
+		index = (index + 1) & mask;
 	}
 
-	// this leaks memory quickly for big files todo fix
 	Type* type = file->arena.alloc<Type>();
 	*type = key;
 
@@ -217,11 +201,49 @@ static Type* internType(TypeSystem* types, Type key, File* file, bool* newType)
 	table->entries[index].value = type;
 	table->count++;
 
-	addInternedType(file, h);
+	addInternedType(file, h, type);
 
 	*newType = true;
-
 	return type;
+}
+
+bool removeInternedType(TypeTable* table, uint64_t key, Type* type)
+{
+	if (table->capacity == 0)
+		return false;
+
+	uint64_t h = key;
+	int mask = table->capacity - 1;
+	int index = h & mask;
+
+	while (table->entries[index].value)
+	{
+		if (table->entries[index].key == h && compareTypes(table->entries[index].value, type))
+		{
+			table->count--;
+
+			int j = index;
+			int next = (index + 1) & mask;
+
+			while (table->entries[next].value)
+			{
+				int r = table->entries[next].key & mask;
+
+				if ((j <= next) ? (r <= j || r > next) : (r <= j && r > next))
+				{
+					table->entries[j] = table->entries[next];
+					j = next;
+				}
+				next = (next + 1) & mask;
+			}
+
+			table->entries[j].key = 0;
+			table->entries[j].value = nullptr;
+			return true;
+		}
+		index = (index + 1) & mask;
+	}
+	return false;
 }
 
 static StringView createTypeString(TypeSystem* types, const char* fmt, ...)

@@ -5,6 +5,7 @@
 #include "parser/AST.h"
 #include "parser/Diagnostics.h"
 #include "typechecker/TypeChecker.h"
+#include "codegen/Codegen.h"
 #include "utils/List.h"
 #include "utils/Arena.h"
 #include "utils/ScratchBuffer.h"
@@ -18,6 +19,7 @@ struct GlobalBlockPool;
 struct InternedType
 {
 	uint64_t key;
+	Type* type;
 	InternedType* next;
 };
 
@@ -31,6 +33,7 @@ struct File
 
 	Parser parser;
 	TypeChecker typeChecker;
+	Codegen codegen;
 
 	AST ast;
 
@@ -42,7 +45,7 @@ struct File
 
 void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool);
 
-void addInternedType(File* file, uint64_t key);
+void addInternedType(File* file, uint64_t key, Type* type);
 void clearInternedTypes(File* file, TypeSystem* types);
 
 FileHandle getFileHandle(const char* localPath);
