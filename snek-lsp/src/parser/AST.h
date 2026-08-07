@@ -17,6 +17,7 @@ enum NodeType : uint8_t
 	NODE_ERROR_EXPRESSION,
 	NODE_ERROR_STATEMENT,
 
+	NODE_TYPE_START,
 	NODE_PRIMITIVE_TYPE,
 	NODE_NAMED_TYPE,
 	NODE_STRUCT_TYPE,
@@ -26,7 +27,9 @@ enum NodeType : uint8_t
 	NODE_FUNCTION_TYPE,
 	NODE_TUPLE_TYPE,
 	NODE_ARRAY_TYPE,
+	NODE_TYPE_END,
 
+	NODE_EXPRESSION_START,
 	NODE_INT_LITERAL,
 	NODE_FLOAT_LITERAL,
 	NODE_STRING_LITERAL,
@@ -44,7 +47,9 @@ enum NodeType : uint8_t
 	NODE_MEMBER_ACCESS,
 	NODE_TERNARY_CONDITION,
 	NODE_CAST,
+	NODE_EXPRESSION_END,
 
+	NODE_STATEMENT_START,
 	NODE_BLOCK_STATEMENT,
 	NODE_IF,
 	NODE_WHILE,
@@ -56,6 +61,7 @@ enum NodeType : uint8_t
 	NODE_VARIABLE_DECLARATION,
 	NODE_ASSIGNMENT,
 	NODE_EXPRESSION_STATEMENT,
+	NODE_STATEMENT_END,
 
 	NODE_FIELD,
 	NODE_PARAMETER,
@@ -92,6 +98,8 @@ struct NodeBase
 	int start, end;
 };
 
+
+typedef uint64_t FileHandle;
 
 struct Node;
 struct Type;
@@ -208,8 +216,6 @@ struct CharLiteral : Expression
 {
 	StringView value;
 };
-
-typedef uint64_t FileHandle;
 
 struct SymbolHandle
 {
@@ -347,6 +353,7 @@ struct Cast : Expression
 {
 	Expression* expression;
 	TypeNode* targetType;
+	bool implicit;
 };
 
 
@@ -625,8 +632,6 @@ struct Scope
 
 struct AST
 {
-	FileHandle fileHandle;
-
 	Node** declarations;
 	int numDeclarations;
 
@@ -644,17 +649,14 @@ struct AST
 	int numMacros;
 	GlobalVariable** globalVariables;
 	int numGlobalVariables;
-	Import** dependencies;
-	int numDependencies;
+	Import** imports;
+	int numImports;
 
 	Scope* globalScope;
 };
 
-typedef void(*ASTVisitor_t)(Node* node, Scope* scope, void* userPtr);
+typedef void(*ASTVisitor_t)(Node* nodeRef, Scope* scope, void* userPtr);
 
-
-void initAST(AST* ast, const char* localPath);
-void destroyAST(AST* ast);
 
 void initNode(Node* node, NodeType type, int start);
 void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
@@ -664,7 +666,8 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
 SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h);
 
+void resetAST(AST* ast);
+
 void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr);
 
 void getLocalPathFromModuleName(char* path, StringView* parts, int numParts);
-FileHandle getFileHandle(const char* localPath);

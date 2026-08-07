@@ -20,7 +20,7 @@ struct Codegen
 };
 
 
-void initCodegen(Codegen* codegen);
+void initCodegen(Codegen* codegen, GlobalBlockPool* blockPool);
 void destroyCodegen(Codegen* codegen);
 
-bool emitFile(Codegen* codegen, AST* ast, const char* out);
+bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out);

@@ -6,14 +6,7 @@
 
 #include "nlohmann/json.hpp"
 
-#include "parser/Lexer.h"
-#include "parser/Parser.h"
-#include "parser/AST.h"
-#include "parser/Diagnostics.h"
-#include "typechecker/TypeChecker.h"
-#include "utils/List.h"
-#include "utils/Arena.h"
-#include "utils/ScratchBuffer.h"
+#include "File.h"
 
 
 enum LSPTokenType
@@ -103,6 +96,8 @@ enum DocumentState
 	DOCUMENT_STATE_TYPECHECKED,
 };
 
+struct GlobalBlockPool;
+
 struct Document
 {
 	std::string uri;
@@ -112,23 +107,19 @@ struct Document
 
 	bool open;
 	DocumentState state;
+	bool needsTypeCheck;
 	uint64_t lastChange = 0;
 
 	std::string text;
 	std::mutex astMutex;
-	AST ast;
-	Arena arena;
-	ScratchBuffer scratch;
-	Diagnostics diagnostics;
-	Parser parser;
-	TypeChecker typeChecker;
+	File file;
 
 
-	void init(const std::string& text);
+	void init(const std::string& text, GlobalBlockPool* blockPool);
 	void onOpen(std::string& text);
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);
 };
 
 
-AST* getAST(FileHandle fileHandle);
+File* getFileFromHandle(FileHandle fileHandle);

@@ -7,13 +7,14 @@ struct MemoryBlock
 {
 	MemoryBlock* next;
 
-#define MEMORY_BLOCK_SIZE 64 * 1024
+#define MEMORY_BLOCK_SIZE (256 * 1024)
 	uint8_t data[MEMORY_BLOCK_SIZE];
 };
 
 struct GlobalBlockPool
 {
 	MemoryBlock* freeList;
+	int blockCount;
 };
 
 struct Arena

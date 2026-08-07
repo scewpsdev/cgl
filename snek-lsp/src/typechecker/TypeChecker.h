@@ -3,7 +3,7 @@
 #include "utils/ScratchBuffer.h"
 
 
-struct AST;
+struct File;
 struct Function;
 struct Arena;
 struct Lexer;
@@ -21,7 +21,7 @@ struct TypeChecker
 	Diagnostics* diagnostics;
 	TypeSystem* types;
 
-	AST* ast;
+	File* currentFile;
 	Scope* currentScope;
 	Function* currentFunction;
 	int loopDepth;
@@ -31,8 +31,8 @@ struct TypeChecker
 void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types);
 void destroyTypeChecker(TypeChecker* tc);
 
-void symbolCollection(TypeChecker* tc, AST* ast);
-void symbolResolution(TypeChecker* tc, AST* ast);
-void typeCheckFunction(TypeChecker* tc, Function* function, AST* ast);
+void symbolCollection(TypeChecker* tc, File* file);
+void symbolResolution(TypeChecker* tc, File* file);
+void typeCheckFunction(TypeChecker* tc, Function* function, File* file);
 
 SymbolEntry* getIdentifierSymbol(Identifier* identifier);

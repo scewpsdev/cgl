@@ -1,5 +1,7 @@
 #include "Arena.h"
 
+#include "utils/Log.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,6 +11,8 @@ void initGlobalBlockPool(GlobalBlockPool* pool, int numBlocks)
 	*pool = {};
 
 	pool->freeList = nullptr;
+	pool->blockCount = numBlocks;
+
 	for (int i = 0; i < numBlocks; i++)
 	{
 		MemoryBlock* block = (MemoryBlock*)malloc(sizeof(MemoryBlock));
@@ -20,7 +24,10 @@ void initGlobalBlockPool(GlobalBlockPool* pool, int numBlocks)
 MemoryBlock* acquireMemoryBlock(GlobalBlockPool* pool)
 {
 	if (!pool->freeList)
+	{
+		pool->blockCount++;
 		return (MemoryBlock*)malloc(sizeof(MemoryBlock));
+	}
 
 	MemoryBlock* block = pool->freeList;
 	pool->freeList = block->next;
@@ -50,8 +57,10 @@ void resetArena(Arena* arena)
 	MemoryBlock* tail = arena->head;
 	while (tail->next)
 	{
+		memset(tail->data, 0, sizeof(tail->data));
 		tail = tail->next;
 	}
+	memset(tail->data, 0, sizeof(tail->data));
 
 	tail->next = arena->blockPool->freeList;
 	arena->blockPool->freeList = arena->head;
@@ -64,6 +73,7 @@ void* Arena::alloc(int size)
 {
 	int alignedSize = (size + 7) & ~7;
 
+	SnekAssert(size <= MEMORY_BLOCK_SIZE);
 	if (!head || offset + alignedSize > MEMORY_BLOCK_SIZE)
 	{
 		MemoryBlock* block = acquireMemoryBlock(blockPool);
@@ -72,7 +82,7 @@ void* Arena::alloc(int size)
 		offset = 0;
 	}
 
-	void* data = head->data + offset;
+	void* data = &head->data[offset];
 	offset += alignedSize;
 
 	memset(data, 0, alignedSize);

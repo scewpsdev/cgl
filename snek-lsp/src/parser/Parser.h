@@ -4,6 +4,7 @@
 #include "utils/ScratchBuffer.h"
 
 
+struct File;
 struct AST;
 struct Node;
 struct Arena;
@@ -33,3 +34,5 @@ SourceLocation getSourceLocation(Parser* parser, Token token);
 void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end);
 
 void parse(Parser* parser, AST* ast);
+
+void resolveDependencies(Parser* parser, File* file);

@@ -3,6 +3,7 @@
 #include "Lexer.h"
 #include "AST.h"
 #include "Diagnostics.h"
+#include "Document.h"
 
 #include "utils/Log.h"
 #include "utils/Arena.h"
@@ -153,6 +154,25 @@ static void error(Parser* parser, SourceLocation location, const char* fmt, ...)
 	va_end(args);
 
 	logMessage(parser->diagnostics, msg, location.line, location.col, location.line, location.col + 1, DIAGNOSTICS_ERROR);
+}
+
+static void error(Parser* parser, Node* node, const char* fmt, ...)
+{
+	if (!parser->diagnostics) return;
+
+	va_list args;
+	va_start(args, fmt);
+
+	int length = vsnprintf(nullptr, 0, fmt, args);
+	char* msg = (char*)parser->arena->alloc(length + 1);
+	vsnprintf(msg, length + 1, fmt, args);
+
+	va_end(args);
+
+	SourceLocation start = getSourceLocation(&parser->lexer, node->start);
+	SourceLocation end = getSourceLocation(&parser->lexer, node->end);
+
+	logMessage(parser->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
 }
 
 static bool hasNext(Parser* parser)
@@ -2270,7 +2290,7 @@ void parseFile(Parser* parser, AST* ast)
 			if (Import* import = parseImport(parser, storage, start))
 			{
 				parser->scratch->add((Node*)import);
-				ast->numDependencies++;
+				ast->numImports++;
 			}
 		}
 		else if (TypeNode* type = parseType(parser))
@@ -2305,4 +2325,24 @@ void parseFile(Parser* parser, AST* ast)
 void parse(Parser* parser, AST* ast)
 {
 	parseFile(parser, ast);
+}
+
+void resolveDependencies(Parser* parser, File* file)
+{
+	for (int i = 0; i < file->ast.numDeclarations; i++)
+	{
+		Node* declaration = file->ast.declarations[i];
+		if (declaration->type == NODE_IMPORT)
+		{
+			char buffer[256];
+			getLocalPathFromModuleName(buffer, declaration->import.path, declaration->import.pathCount);
+			FileHandle fileHandle = getFileHandle(buffer);
+			if (getFileFromHandle(fileHandle))
+				file->dependencies.add(fileHandle);
+			else
+			{
+				error(parser, declaration, "Undefined module '%s'", buffer);
+			}
+		}
+	}
 }

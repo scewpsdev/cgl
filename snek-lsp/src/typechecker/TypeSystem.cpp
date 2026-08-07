@@ -1,5 +1,6 @@
 #include "TypeSystem.h"
 
+#include "File.h"
 #include "utils/Arena.h"
 #include "utils/Hash.h"
 #include "utils/Log.h"
@@ -19,50 +20,6 @@ static void destroyTypeTable(TypeTable* table)
 {
 	if (table->entries)
 		free(table->entries);
-}
-
-void initTypeSystem(TypeSystem* types, GlobalBlockPool* blockPool)
-{
-	initArena(&types->arena, blockPool);
-
-	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>") };
-
-	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void") };
-	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8") };
-	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16") };
-	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32") };
-	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64") };
-	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8") };
-	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16") };
-	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32") };
-	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64") };
-	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float") };
-	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double") };
-	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool") };
-	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
-	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
-	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type") };
-
-	initTypeTable(&types->typeTable, 64);
-}
-
-void destroyTypeSystem(TypeSystem* types)
-{
-	destroyTypeTable(&types->typeTable);
-	destroyArena(&types->arena);
-}
-
-void freeTypesFromFile(TypeSystem* types, FileHandle fileHandle)
-{
-	for (int i = 0; i < types->typeTable.capacity; i++)
-	{
-		if (types->typeTable.entries[i].file == fileHandle)
-		{
-			types->typeTable.entries[i].key = 0;
-			types->typeTable.entries[i].value = nullptr;
-			types->typeTable.entries[i].file = 0;
-		}
-	}
 }
 
 static uint64_t hashType(Type* type)
@@ -163,6 +120,51 @@ static bool compareTypes(Type* a, Type* b)
 	}
 }
 
+bool removeInternedType(TypeTable* table, uint64_t key)
+{
+	uint64_t h = key;
+	int index = h & (table->capacity - 1);
+	while (table->entries[index].key)
+	{
+		if (table->entries[index].key == h)
+		{
+			table->entries[index].key = 0;
+			table->entries[index].value = nullptr;
+			return true;
+		}
+		index = (index + 1) & (table->capacity - 1);
+	}
+	return false;
+}
+
+void initTypeSystem(TypeSystem* types)
+{
+	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>") };
+
+	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void") };
+	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8") };
+	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16") };
+	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32") };
+	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64") };
+	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8") };
+	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16") };
+	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32") };
+	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64") };
+	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float") };
+	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double") };
+	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool") };
+	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
+	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
+	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type") };
+
+	initTypeTable(&types->typeTable, 64);
+}
+
+void destroyTypeSystem(TypeSystem* types)
+{
+	destroyTypeTable(&types->typeTable);
+}
+
 static void growTypeTable(TypeTable* table)
 {
 	int newCapacity = table->capacity * 2;
@@ -170,10 +172,10 @@ static void growTypeTable(TypeTable* table)
 
 	for (int i = 0; i < table->capacity; i++)
 	{
-		if (table->entries[i].value)
+		if (table->entries[i].key)
 		{
 			int index = table->entries[i].key & (newCapacity - 1);
-			while (newEntries[index].value)
+			while (newEntries[index].key)
 			{
 				index = (index + 1) & (newCapacity - 1);
 			}
@@ -186,7 +188,7 @@ static void growTypeTable(TypeTable* table)
 	table->capacity = newCapacity;
 }
 
-static Type* internType(TypeSystem* types, Type key, Arena* arena, FileHandle file, bool* newType)
+static Type* internType(TypeSystem* types, Type key, File* file, bool* newType)
 {
 	TypeTable* table = &types->typeTable;
 
@@ -197,7 +199,7 @@ static Type* internType(TypeSystem* types, Type key, Arena* arena, FileHandle fi
 
 	uint64_t h = hashType(&key);
 	int index = h & (table->capacity - 1);
-	while (table->entries[index].value)
+	while (table->entries[index].key)
 	{
 		if (table->entries[index].key == h && compareTypes(table->entries[index].value, &key))
 		{
@@ -208,13 +210,14 @@ static Type* internType(TypeSystem* types, Type key, Arena* arena, FileHandle fi
 	}
 
 	// this leaks memory quickly for big files todo fix
-	Type* type = arena->alloc<Type>();
+	Type* type = file->arena.alloc<Type>();
 	*type = key;
 
 	table->entries[index].key = h;
 	table->entries[index].value = type;
-	table->entries[index].file = file;
 	table->count++;
+
+	addInternedType(file, h);
 
 	*newType = true;
 
@@ -250,14 +253,14 @@ static StringView* copyNames(TypeSystem* types, int numElements, StringView* ele
 	return newElements;
 }
 
-Type* getPointerType(TypeSystem* types, Type* elementType, Arena* arena, FileHandle file)
+Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_POINTER;
 	key.pointer.elementType = elementType;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -267,14 +270,14 @@ Type* getPointerType(TypeSystem* types, Type* elementType, Arena* arena, FileHan
 	return type;
 }
 
-Type* getOptionalType(TypeSystem* types, Type* elementType, Arena* arena, FileHandle file)
+Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_OPTIONAL;
 	key.optional.elementType = elementType;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -284,7 +287,7 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, Arena* arena, FileHa
 	return type;
 }
 
-Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, Arena* arena, FileHandle file)
+Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
@@ -293,7 +296,7 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 	key.struct_.fieldNames = fieldNames;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -307,7 +310,7 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 	return type;
 }
 
-Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, Arena* arena, FileHandle file)
+Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_UNION;
@@ -316,7 +319,7 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 	key.union_.fieldNames = fieldNames;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -330,7 +333,7 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 	return type;
 }
 
-Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, Arena* arena, FileHandle file)
+Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_FUNCTION;
@@ -339,7 +342,7 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 	key.function.paramTypes = paramTypes;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -368,7 +371,7 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 	return type;
 }
 
-Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, Arena* arena, FileHandle file)
+Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_ARRAY;
@@ -376,7 +379,7 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, Arena* a
 	key.array.size = size;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
 	if (newType)
 	{
@@ -389,20 +392,16 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, Arena* a
 	return type;
 }
 
-Type* createNamedStructType(TypeSystem* types, StringView name, Arena* arena, FileHandle file)
+Type* createNamedStructType(TypeSystem* types, StringView name, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.name = name;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
-	if (!newType)
-	{
-		free(type->struct_.name.ptr);
-		free(type->name.ptr);
-	}
+	SnekAssert(newType);
 
 	type->struct_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -417,20 +416,16 @@ void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type**
 	type->struct_.fieldNames = copyNames(types, numFields, fieldNames);
 }
 
-Type* createNamedUnionType(TypeSystem* types, StringView name, Arena* arena, FileHandle file)
+Type* createNamedUnionType(TypeSystem* types, StringView name, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_UNION;
 	key.union_.name = name;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
-	if (!newType)
-	{
-		free(type->union_.name.ptr);
-		free(type->name.ptr);
-	}
+	SnekAssert(newType);
 
 	type->union_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -445,20 +440,16 @@ void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** 
 	type->union_.fieldNames = copyNames(types, numFields, fieldNames);
 }
 
-Type* createEnumType(TypeSystem* types, StringView name, Arena* arena, FileHandle file)
+Type* createEnumType(TypeSystem* types, StringView name, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_ENUM;
 	key.enum_.name = name;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
-	if (!newType)
-	{
-		free(type->enum_.name.ptr);
-		free(type->name.ptr);
-	}
+	SnekAssert(newType);
 
 	type->enum_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -471,20 +462,16 @@ void resolveEnumType(TypeSystem* types, Type* type, Type* valueType)
 	type->enum_.valueType = valueType;
 }
 
-Type* createAliasType(TypeSystem* types, StringView name, Arena* arena, FileHandle file)
+Type* createAliasType(TypeSystem* types, StringView name, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_ALIAS;
 	key.alias.name = name;
 
 	bool newType;
-	Type* type = internType(types, key, arena, file, &newType);
+	Type* type = internType(types, key, file, &newType);
 
-	if (!newType)
-	{
-		free(type->alias.name.ptr);
-		free(type->name.ptr);
-	}
+	SnekAssert(newType);
 
 	type->alias.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);

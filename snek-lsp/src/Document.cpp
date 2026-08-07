@@ -42,7 +42,7 @@ static void textToLines(const std::string& text, List<char*>& lines)
 	}
 }
 
-void Document::init(const std::string& text)
+void Document::init(const std::string& text, GlobalBlockPool* blockPool)
 {
 	textToLines(text, lines);
 
@@ -51,6 +51,8 @@ void Document::init(const std::string& text)
 	lastChange = GetTimeNS();
 
 	state = DOCUMENT_STATE_UNPARSED;
+
+	initFile(&file, localPath.c_str(), blockPool);
 }
 
 void Document::onOpen(std::string& text)
@@ -125,8 +127,7 @@ static void getCoordFromOffset(int offset, const char* src, int* line, int* col)
 
 struct ASTVisitorData
 {
-	AST* ast;
-	Parser* parser;
+	File* file;
 	List<LSPToken>* lspTokens;
 };
 
@@ -161,7 +162,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		Identifier* identifier = &node->identifier;
 
 		int start, end;
-		getStringRange(identifier->name, data->parser, &start, &end);
+		getStringRange(identifier->name, &data->file->parser, &start, &end);
 		int len = end - start;
 
 		SymbolEntry* symbol = getIdentifierSymbol(identifier);
@@ -212,7 +213,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		MemberAccess* member = &node->memberAccess;
 
 		int start, end;
-		getStringRange(member->name, data->parser, &start, &end);
+		getStringRange(member->name, &data->file->parser, &start, &end);
 
 		Type* operandType = member->expression->inferredType;
 		if (operandType->typeKind == TYPE_TYPE)
@@ -234,27 +235,27 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		For* for_ = &node->for_;
 		int start, end;
-		getStringRange(for_->iteratorName, data->parser, &start, &end);
+		getStringRange(for_->iteratorName, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, 0 });
 	}
 	else if (node->type == NODE_STRUCT)
 	{
 		Struct* struct_ = &node->struct_;
 		int start, end;
-		getStringRange(struct_->name, data->parser, &start, &end);
+		getStringRange(struct_->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_ENUM)
 	{
 		Enum* enum_ = &node->enum_;
 		int start, end;
-		getStringRange(enum_->name, data->parser, &start, &end);
+		getStringRange(enum_->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM, LSP_TOKEN_MODIFIER_DECLARATION });
 
 		for (int i = 0; i < enum_->numValues; i++)
 		{
 			int start, end;
-			getStringRange(enum_->values[i]->name, data->parser, &start, &end);
+			getStringRange(enum_->values[i]->name, &data->file->parser, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 		}
 	}
@@ -262,14 +263,14 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		Typedef* typedef_ = &node->typedef_;
 		int start, end;
-		getStringRange(typedef_->name, data->parser, &start, &end);
+		getStringRange(typedef_->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_TYPE, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_FUNCTION)
 	{
 		Function* function = &node->function;
 		int start, end;
-		getStringRange(function->name, data->parser, &start, &end);
+		getStringRange(function->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_FUNCTION, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_IMPORT)
@@ -282,7 +283,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		for (int i = 0; i < field->numDeclarators; i++)
 		{
 			int start, end;
-			getStringRange(field->declarators[i].name, data->parser, &start, &end);
+			getStringRange(field->declarators[i].name, &data->file->parser, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
 		}
 	}
@@ -290,14 +291,14 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		Parameter* parameter = &node->parameter;
 		int start, end;
-		getStringRange(parameter->name, data->parser, &start, &end);
+		getStringRange(parameter->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_PARAMETER, 0 });
 	}
 	else if (node->type == NODE_ENUM_VALUE)
 	{
 		EnumValue* enumValue = &node->enumValue;
 		int start, end;
-		getStringRange(enumValue->name, data->parser, &start, &end);
+		getStringRange(enumValue->name, &data->file->parser, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 	}
 	else if (node->type == NODE_GLOBAL_VARIABLE)
@@ -306,7 +307,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		for (int i = 0; i < globalVariable->numDeclarators; i++)
 		{
 			int start, end;
-			getStringRange(globalVariable->declarators[i].name, data->parser, &start, &end);
+			getStringRange(globalVariable->declarators[i].name, &data->file->parser, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, LSP_TOKEN_MODIFIER_DECLARATION });
 		}
 	}
@@ -322,10 +323,9 @@ void Document::getTokens(std::vector<int>& data)
 	astMutex.lock();
 
 	ASTVisitorData visitorData = {};
-	visitorData.ast = &ast;
-	visitorData.parser = &parser;
+	visitorData.file = &file;
 	visitorData.lspTokens = &lspTokens;
-	traverseAST(&ast, (ASTVisitor_t)getNodeTokens, &visitorData);
+	traverseAST(&file.ast, (ASTVisitor_t)getNodeTokens, &visitorData);
 
 	astMutex.unlock();
 
@@ -335,7 +335,7 @@ void Document::getTokens(std::vector<int>& data)
 	for (int i = 0; i < lspTokens.size; i++)
 	{
 		LSPToken token = lspTokens[i];
-		SourceLocation location = getSourceLocation(&parser.lexer, token.offset);
+		SourceLocation location = getSourceLocation(&file.parser.lexer, token.offset);
 		int len = token.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
@@ -352,12 +352,12 @@ void Document::getTokens(std::vector<int>& data)
 	FreeList(&lspTokens);
 }
 
-AST* getAST(FileHandle fileHandle)
+File* getFileFromHandle(FileHandle fileHandle)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->ast.fileHandle == fileHandle)
-			return &documents[i]->ast;
+		if (documents[i]->file.handle == fileHandle)
+			return &documents[i]->file;
 	}
 	return nullptr;
 }

@@ -26,6 +26,7 @@ std::string rootPath;
 std::string mainFilePath;
 std::thread parserThread;
 
+GlobalBlockPool blockPool;
 TypeSystem types;
 List<Document*> documents;
 std::map<std::string, int> uriMap;
@@ -508,61 +509,69 @@ void printCapabilities(const json& j, const std::string& prefix = "") {
 	}
 }
 
-void Parse(Document* document)
+void Parse(List<Document*> documents)
 {
-	std::ostringstream stream;
-
-	document->linesMutex.lock();
-
-	for (int i = 0; i < document->lines.size; i++)
-	{
-		stream << document->lines[i];
-		if (i < document->lines.size - 1)
-			stream << '\n';
-	}
-
-	document->linesMutex.unlock();
-
-	document->text = stream.str();
+	if (documents.size == 0)
+		return;
 
 	uint64_t beforeParse = GetTimeNS();
 
-	document->astMutex.lock();
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
 
-	if (!document->arena.buffer)
-		initArena(&document->arena, 2 * 1024 * 1024);
-	if (!document->scratch.memory)
-		initScratchBuffer(&document->scratch, 16);
-	if (!document->diagnostics.arena)
-		initDiagnostics(&document->diagnostics, &document->arena);
+		document->linesMutex.lock();
 
-	resetArena(&document->arena);
-	resetScratchBuffer(&document->scratch);
-	resetDiagnostics(&document->diagnostics);
+		std::ostringstream stream;
+		for (int i = 0; i < document->lines.size; i++)
+		{
+			stream << document->lines[i];
+			if (i < document->lines.size - 1)
+				stream << '\n';
+		}
 
-	if (document->ast.fileHandle)
-		destroyAST(&document->ast);
-	initAST(&document->ast, document->localPath.c_str());
+		document->linesMutex.unlock();
 
-	if (document->parser.arena)
-		destroyParser(&document->parser);
-	initParser(&document->parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->arena, &document->scratch, &document->diagnostics);
+		document->text = stream.str();
+		stream.clear();
 
-	parse(&document->parser, &document->ast);
-	document->state = DOCUMENT_STATE_PARSED;
+		document->astMutex.lock();
 
-	//sendDiagnosticsNotification(&document->diagnostics, document);
+		clearInternedTypes(&document->file, &types);
 
-	document->astMutex.unlock();
+		resetArena(&document->file.arena);
+		resetScratchBuffer(&document->file.scratch);
+		resetDiagnostics(&document->file.diagnostics);
+
+		document->file.ast = {};
+
+		document->file.dependencies.clear();
+
+		if (document->file.parser.arena)
+			destroyParser(&document->file.parser);
+		initParser(&document->file.parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->file.arena, &document->file.scratch, &document->file.diagnostics);
+
+		parse(&document->file.parser, &document->file.ast);
+		document->state = DOCUMENT_STATE_PARSED;
+		document->needsTypeCheck = true;
+
+		resolveDependencies(&document->file.parser, &document->file);
+
+		//sendDiagnosticsNotification(&document->diagnostics, document);
+
+		document->astMutex.unlock();
+	}
 
 	uint64_t afterParse = GetTimeNS();
 	float ms = (afterParse - beforeParse) / 1e6f;
-	fprintf(stderr, "parsed '%s' in %.3fms\n", document->uri.c_str(), ms);
-	fprintf(stderr, "%.2f/%.2f kb arena memory used\n", document->arena.offset / 1024.0f, document->arena.capacity / 1024.0f);
+	fprintf(stderr, "parsed %d documents in %.3fms\n", documents.size, ms);
 }
 
 void TypeCheck(List<Document*> documents)
 {
+	if (documents.size == 0)
+		return;
+
 	uint64_t beforeTypeCheck = GetTimeNS();
 
 	for (int i = 0; i < documents.size; i++)
@@ -573,23 +582,17 @@ void TypeCheck(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		if (document->typeChecker.arena)
-			destroyTypeChecker(&document->typeChecker);
+		clearInternedTypes(&document->file, &types);
 
-		initTypeChecker(&document->typeChecker, &document->arena, &document->scratch, &document->parser.lexer, &document->diagnostics, &types);
+		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
+			resetAST(&document->file.ast);
 
-		symbolCollection(&document->typeChecker, &document->ast);
+		if (document->file.typeChecker.arena)
+			destroyTypeChecker(&document->file.typeChecker);
 
-		document->astMutex.unlock();
-	}
+		initTypeChecker(&document->file.typeChecker, &document->file.arena, &document->file.scratch, &document->file.parser.lexer, &document->file.diagnostics, &types);
 
-	for (int i = 0; i < documents.size; i++)
-	{
-		Document* document = documents[i];
-
-		document->astMutex.lock();
-
-		symbolResolution(&document->typeChecker, &document->ast);
+		symbolCollection(&document->file.typeChecker, &document->file);
 
 		document->astMutex.unlock();
 	}
@@ -600,14 +603,26 @@ void TypeCheck(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		for (int j = 0; j < document->ast.numFunctions; j++)
+		symbolResolution(&document->file.typeChecker, &document->file);
+
+		document->astMutex.unlock();
+	}
+
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
+
+		document->astMutex.lock();
+
+		for (int j = 0; j < document->file.ast.numFunctions; j++)
 		{
-			typeCheckFunction(&document->typeChecker, document->ast.functions[j], &document->ast);
+			typeCheckFunction(&document->file.typeChecker, document->file.ast.functions[j], &document->file);
 		}
 
 		document->state = DOCUMENT_STATE_TYPECHECKED;
+		document->needsTypeCheck = false;
 
-		sendDiagnosticsNotification(&document->diagnostics, document);
+		sendDiagnosticsNotification(&document->file.diagnostics, document);
 
 		document->astMutex.unlock();
 	}
@@ -617,7 +632,8 @@ void TypeCheck(List<Document*> documents)
 	uint64_t afterTypeCheck = GetTimeNS();
 	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;
 	fprintf(stderr, "typechecked %d documents in %.3fms\n", documents.size, ms);
-	fprintf(stderr, "global type arena: %.2f/%.2f kb\n", types.arena.offset / 1024.0f, types.arena.capacity / 1024.0f);
+	fprintf(stderr, "memory blocks allocated: %d\n", blockPool.blockCount);
+	fprintf(stderr, "type table size: %d/%d\n", types.typeTable.count, types.typeTable.capacity);
 }
 
 static Document* OpenDocument(std::string uri, std::string text)
@@ -632,9 +648,12 @@ static Document* OpenDocument(std::string uri, std::string text)
 	Document* document = new Document();
 	document->uri = uri;
 	document->localPath = localPath.string();
+
 	documents.add(document);
 	uriMap.emplace(document->uri, documents.size - 1);
-	document->init(text);
+
+	document->init(text, &blockPool);
+
 	return document;
 }
 
@@ -693,6 +712,40 @@ static bool ScanSourceFolder(const char* folder, const char* extension, bool rec
 	return result;
 }
 
+static Document* getDocument(FileHandle file)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->file.handle == file)
+			return documents[i];
+	}
+	return nullptr;
+}
+
+static bool containsFile(List<Document*>& documents, FileHandle file)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->file.handle == file)
+			return true;
+	}
+	return false;
+}
+
+static bool areDependenciesParsed(File* file)
+{
+	for (int i = 0; i < file->dependencies.size; i++)
+	{
+		FileHandle dependency = file->dependencies[i];
+		if (Document* document = getDocument(dependency))
+		{
+			if (document->state < DOCUMENT_STATE_PARSED)
+				return false;
+		}
+	}
+	return true;
+}
+
 void ParserThread()
 {
 	bool running = true;
@@ -700,42 +753,53 @@ void ParserThread()
 	{
 		uint64_t now = GetTimeNS();
 
-		bool allDocumentsParsed = true;
+		static List<Document*> parseList;
+		static List<Document*> typeCheckList;
+
+		parseList.clear();
+		typeCheckList.clear();
+
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
 
 			const int parseDelay = 200;
-			if (!document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
+			if (document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
-				Parse(document);
+				parseList.add(document);
 				document->lastChange = 0;
 			}
-
-			allDocumentsParsed = allDocumentsParsed && document->state >= DOCUMENT_STATE_PARSED;
 		}
-
-		List<Document*> typeCheckList;
 
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
 
-			if (document->state == DOCUMENT_STATE_PARSED)
+			for (int j = 0; j < document->file.dependencies.size; j++)
 			{
-				// for now we just wait until all documents have been parsed
-				if (allDocumentsParsed)
+				FileHandle dependency = document->file.dependencies[j];
+				if (containsFile(parseList, dependency))
 				{
-					typeCheckList.add(document);
+					document->needsTypeCheck = true;
+					break;
 				}
 			}
 		}
 
-		if (typeCheckList.size > 0)
+		Parse(parseList);
+
+		for (int i = 0; i < documents.size; i++)
 		{
-			TypeCheck(typeCheckList);
-			FreeList(&typeCheckList);
+			Document* document = documents[i];
+
+			if (document->needsTypeCheck && areDependenciesParsed(&document->file))
+			{
+				if (!typeCheckList.contains(document))
+					typeCheckList.add(document);
+			}
 		}
+
+		TypeCheck(typeCheckList);
 
 		SleepMS(10);
 	}
@@ -746,6 +810,7 @@ int main()
 	SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
+	initGlobalBlockPool(&blockPool, 16);
 	initTypeSystem(&types);
 
 	while (true)

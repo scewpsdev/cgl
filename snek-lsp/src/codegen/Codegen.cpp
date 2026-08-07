@@ -5,9 +5,9 @@
 #include <stdio.h>
 
 
-void initCodegen(Codegen* codegen)
+void initCodegen(Codegen* codegen, GlobalBlockPool* blockPool)
 {
-	initArena(&codegen->arena, 1024 * 1024);
+	initArena(&codegen->arena, blockPool);
 
 	initCodeBuffer(&codegen->types, &codegen->arena, 1024);
 	initCodeBuffer(&codegen->prototypes, &codegen->arena, 1024);
