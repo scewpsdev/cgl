@@ -661,7 +661,7 @@ static Document* OpenDocument(std::string uri, std::string text)
 	documents.add(document);
 	uriMap.emplace(document->uri, documents.size - 1);
 
-	document->init(text, &blockPool);
+	document->init(text, &types, &blockPool);
 
 	return document;
 }

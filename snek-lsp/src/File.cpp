@@ -4,7 +4,7 @@
 #include "utils/Hash.h"
 
 
-void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool)
+void initFile(File* file, const char* localPath, TypeSystem* types, GlobalBlockPool* blockPool)
 {
 	*file = {};
 
@@ -15,7 +15,7 @@ void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool)
 	initScratchBuffer(&file->scratch, 16);
 	initDiagnostics(&file->diagnostics, &file->arena);
 
-	initCodegen(&file->codegen, blockPool);
+	initCodegen(&file->codegen, types, blockPool);
 }
 
 void addInternedType(File* file, uint64_t key, Type* type)

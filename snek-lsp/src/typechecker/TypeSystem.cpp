@@ -122,23 +122,23 @@ static bool compareTypes(Type* a, Type* b)
 
 void initTypeSystem(TypeSystem* types)
 {
-	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>") };
+	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>"), .mangledName = CreateString("error") };
 
-	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void") };
-	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8") };
-	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16") };
-	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32") };
-	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64") };
-	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8") };
-	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16") };
-	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32") };
-	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64") };
-	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float") };
-	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double") };
-	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool") };
-	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any") };
-	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string") };
-	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type") };
+	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void"), .mangledName = CreateString("void") };
+	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8"), .mangledName = CreateString("int8") };
+	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16"), .mangledName = CreateString("int16") };
+	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32"), .mangledName = CreateString("int32") };
+	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64"), .mangledName = CreateString("int64") };
+	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8"), .mangledName = CreateString("uint8") };
+	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16"), .mangledName = CreateString("uint16") };
+	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32"), .mangledName = CreateString("uint32") };
+	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64"), .mangledName = CreateString("uint64") };
+	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float"), .mangledName = CreateString("float") };
+	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double"), .mangledName = CreateString("double") };
+	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool"), .mangledName = CreateString("bool") };
+	types->primitiveTypes[TYPE_ANY] = { .typeKind = TYPE_ANY, .name = CreateString("any"), .mangledName = CreateString("any") };
+	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string"), .mangledName = CreateString("string") };
+	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type"), .mangledName = CreateString("type") };
 
 	initTypeTable(&types->typeTable, 64);
 }
@@ -287,6 +287,8 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 	if (newType)
 	{
 		type->name = createTypeString(types, "%.*s*", elementType->name.length, elementType->name.ptr);
+
+		type->mangledName = createTypeString(types, "ptr_%.*s", elementType->mangledName.length, elementType->mangledName.ptr);
 	}
 
 	return type;
@@ -304,6 +306,8 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 	if (newType)
 	{
 		type->name = createTypeString(types, "%.*s?", elementType->name.length, elementType->name.ptr);
+
+		type->mangledName = createTypeString(types, "opt_%.*s", elementType->mangledName.length, elementType->mangledName.ptr);
 	}
 
 	return type;
@@ -327,6 +331,16 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 			type->struct_.fieldNames = copyNames(types, numElements, fieldNames);
 
 		type->name = createTypeString(types, "<struct>");
+
+		char elementTypes[256] = "";
+		for (int i = 0; i < type->struct_.numFields; i++)
+		{
+			Type* fieldType = type->struct_.fieldTypes[i];
+			strncat(elementTypes, fieldType->mangledName.ptr, fieldType->mangledName.length);
+			if (i < type->struct_.numFields - 1)
+				strcat(elementTypes, "_");
+		}
+		type->mangledName = createTypeString(types, "struct_%s", elementTypes);
 	}
 
 	return type;
@@ -350,6 +364,16 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 			type->union_.fieldNames = copyNames(types, numElements, fieldNames);
 
 		type->name = createTypeString(types, "<union>");
+
+		char elementTypes[256] = "";
+		for (int i = 0; i < type->union_.numFields; i++)
+		{
+			Type* fieldType = type->union_.fieldTypes[i];
+			strncat(elementTypes, fieldType->mangledName.ptr, fieldType->mangledName.length);
+			if (i < type->union_.numFields - 1)
+				strcat(elementTypes, "_");
+		}
+		type->mangledName = createTypeString(types, "union_%s", elementTypes);
 	}
 
 	return type;
@@ -388,6 +412,17 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 		}
 
 		type->name = createTypeString(types, "%s", buffer);
+
+		char paramTypes[256] = "";
+		for (int i = 0; i < type->function.numParams; i++)
+		{
+			Type* paramType = type->function.paramTypes[i];
+			strncat(paramTypes, paramType->mangledName.ptr, paramType->mangledName.length);
+			if (i < type->function.numParams - 1)
+				strcat(paramTypes, "_");
+		}
+		StringView returnTypeStr = type->function.returnType ? type->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
+		type->mangledName = createTypeString(types, "union_%d_%s_%.*s", type->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
 	}
 
 	return type;
@@ -409,6 +444,8 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 			type->name = createTypeString(types, "%.*s[%ull]", elementType->name.length, elementType->name.ptr, size);
 		else
 			type->name = createTypeString(types, "%.*s[]", elementType->name.length, elementType->name.ptr);
+
+		type->mangledName = createTypeString(types, "arr_%ull_%.*s", type->array.size, elementType->mangledName.length, elementType->mangledName.ptr);
 	}
 
 	return type;
@@ -427,6 +464,8 @@ Type* createNamedStructType(TypeSystem* types, StringView name, File* file)
 
 	type->struct_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	return type;
 }
@@ -452,6 +491,8 @@ Type* createNamedUnionType(TypeSystem* types, StringView name, File* file)
 	type->union_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
+	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
+
 	return type;
 }
 
@@ -476,6 +517,8 @@ Type* createEnumType(TypeSystem* types, StringView name, File* file)
 	type->enum_.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
+	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
+
 	return type;
 }
 
@@ -497,6 +540,8 @@ Type* createAliasType(TypeSystem* types, StringView name, File* file)
 
 	type->alias.name = copy(name);
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
+
+	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	return type;
 }

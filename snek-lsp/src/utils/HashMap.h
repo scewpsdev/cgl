@@ -59,7 +59,7 @@ template<typename KEY_TYPE, typename VALUE_TYPE, int CAPACITY>
 inline VALUE_TYPE* HashMapAdd(HashMap<KEY_TYPE, VALUE_TYPE, CAPACITY>* map, const KEY_TYPE& key, const VALUE_TYPE& value)
 {
 	SnekAssert(map->capacity);
-	
+
 	if (map->numUsedSlots + map->numTombstones == CAPACITY)
 		return nullptr;
 

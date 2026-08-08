@@ -16,6 +16,7 @@ struct Type
 {
 	TypeKind typeKind;
 	StringView name;
+	StringView mangledName;
 
 	union {
 		struct {

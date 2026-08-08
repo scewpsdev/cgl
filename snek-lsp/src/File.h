@@ -43,7 +43,7 @@ struct File
 };
 
 
-void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool);
+void initFile(File* file, const char* localPath, TypeSystem* types, GlobalBlockPool* blockPool);
 
 void addInternedType(File* file, uint64_t key, Type* type);
 void clearInternedTypes(File* file, TypeSystem* types);

@@ -42,7 +42,7 @@ static void textToLines(const std::string& text, List<char*>& lines)
 	}
 }
 
-void Document::init(const std::string& text, GlobalBlockPool* blockPool)
+void Document::init(const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool)
 {
 	textToLines(text, lines);
 
@@ -52,7 +52,7 @@ void Document::init(const std::string& text, GlobalBlockPool* blockPool)
 
 	state = DOCUMENT_STATE_UNPARSED;
 
-	initFile(&file, localPath.c_str(), blockPool);
+	initFile(&file, localPath.c_str(), types, blockPool);
 }
 
 void Document::onOpen(std::string& text)

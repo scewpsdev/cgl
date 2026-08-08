@@ -96,6 +96,7 @@ enum DocumentState
 	DOCUMENT_STATE_TYPECHECKED,
 };
 
+struct TypeSystem;
 struct GlobalBlockPool;
 
 struct Document
@@ -115,7 +116,7 @@ struct Document
 	File file;
 
 
-	void init(const std::string& text, GlobalBlockPool* blockPool);
+	void init(const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool);
 	void onOpen(std::string& text);
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);

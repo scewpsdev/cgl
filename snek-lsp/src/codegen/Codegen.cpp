@@ -6,16 +6,20 @@
 #include <stdio.h>
 
 
-void initCodegen(Codegen* codegen, GlobalBlockPool* blockPool)
+void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool)
 {
+	codegen->types = types;
+
 	initArena(&codegen->arena, blockPool);
 
-	initCodeBuffer(&codegen->types, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->prototypes, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->globals, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->functions, &codegen->arena, 1024);
+	initCodeBuffer(&codegen->typesBuffer, &codegen->arena, 1024);
+	initCodeBuffer(&codegen->prototypesBuffer, &codegen->arena, 1024);
+	initCodeBuffer(&codegen->globalsBuffer, &codegen->arena, 1024);
+	initCodeBuffer(&codegen->functionsBuffer, &codegen->arena, 1024);
 
 	codegen->indentation = 0;
+
+	initHashSet(&codegen->declaredTypes);
 }
 
 void destroyCodegen(Codegen* codegen)
@@ -23,12 +27,118 @@ void destroyCodegen(Codegen* codegen)
 	destroyArena(&codegen->arena);
 }
 
+static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer);
+
 static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 {
 	for (int i = 0; i < codegen->indentation; i++)
 	{
 		emitString(buffer, "\t");
 	}
+}
+
+static void declareAnonymousStructType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+{
+	emitString(buffer, "typedef struct{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < type->struct_.numFields; i++)
+	{
+		emitIndentation(codegen, buffer);
+		emitType(codegen, type->struct_.fieldTypes[i], buffer);
+		emitChar(buffer, ' ');
+		if (type->struct_.fieldNames)
+			emitString(buffer, type->struct_.fieldNames[i]);
+		else
+		{
+			emitChar(buffer, '_');
+			emitInteger(buffer, i);
+		}
+		emitString(buffer, ";\n");
+	}
+	codegen->indentation--;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "} ");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ";\n\n");
+
+	codegen->declaredTypes.add(type);
+}
+
+static void declareAnonymousUnionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+{
+	emitString(buffer, "typedef union{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < type->union_.numFields; i++)
+	{
+		emitIndentation(codegen, buffer);
+		emitType(codegen, type->union_.fieldTypes[i], buffer);
+		emitChar(buffer, ' ');
+		if (type->union_.fieldNames)
+			emitString(buffer, type->union_.fieldNames[i]);
+		else
+		{
+			emitChar(buffer, '_');
+			emitInteger(buffer, i);
+		}
+		emitString(buffer, ";\n");
+	}
+	codegen->indentation--;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "} ");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ";\n\n");
+
+	codegen->declaredTypes.add(type);
+}
+
+static void declareOptionalType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+{
+	emitString(buffer, "typedef struct{");
+	emitString(buffer, type->optional.elementType->mangledName);
+	emitString(buffer, " value;u8 flag;}");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ";\n\n");
+}
+
+static void declareFunctionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+{
+	emitString(buffer, "typedef ");
+	emitString(buffer, type->function.returnType ? type->function.returnType->mangledName : codegen->types->primitiveTypes[TYPE_VOID].mangledName);
+	emitString(buffer, "(*");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ")(");
+	for (int i = 0; i < type->function.numParams; i++)
+	{
+		emitString(buffer, type->function.paramTypes[i]->mangledName);
+		if (i < type->function.numParams - 1)
+			emitChar(buffer, ',');
+	}
+	emitChar(buffer, ')');
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ";\n\n");
+}
+
+static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+{
+	emitString(buffer, "typedef struct{");
+	if (type->array.size)
+	{
+		emitString(buffer, type->array.elementType->mangledName);
+		emitString(buffer, " data[");
+		emitInteger(buffer, type->array.size);
+		emitString(buffer, "];u64 length;}");
+	}
+	else
+	{
+		emitString(buffer, type->array.elementType->mangledName);
+		emitString(buffer, "* data;u64 length;}");
+	}
+	emitString(buffer, type->mangledName);
+	emitString(buffer, ";\n\n");
 }
 
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -98,27 +208,10 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		}
 		else
 		{
-			emitString(buffer, "struct{\n");
+			if (!codegen->declaredTypes.contains(type))
+				declareAnonymousStructType(codegen, type, &codegen->typesBuffer);
 
-			codegen->indentation++;
-			for (int i = 0; i < type->struct_.numFields; i++)
-			{
-				emitIndentation(codegen, buffer);
-				emitType(codegen, type->struct_.fieldTypes[i], buffer);
-				emitChar(buffer, ' ');
-				if (type->struct_.fieldNames)
-					emitString(buffer, type->struct_.fieldNames[i]);
-				else
-				{
-					emitChar(buffer, '_');
-					emitInteger(buffer, i);
-				}
-				emitString(buffer, ";\n");
-			}
-			codegen->indentation--;
-
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "}");
+			emitString(buffer, type->mangledName);
 		}
 	}
 	else if (type->typeKind == TYPE_UNION)
@@ -130,27 +223,10 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		}
 		else
 		{
-			emitString(buffer, "union{\n");
+			if (!codegen->declaredTypes.contains(type))
+				declareAnonymousUnionType(codegen, type, &codegen->typesBuffer);
 
-			codegen->indentation++;
-			for (int i = 0; i < type->union_.numFields; i++)
-			{
-				emitIndentation(codegen, buffer);
-				emitType(codegen, type->union_.fieldTypes[i], buffer);
-				emitChar(buffer, ' ');
-				if (type->union_.fieldNames)
-					emitString(buffer, type->union_.fieldNames[i]);
-				else
-				{
-					emitChar(buffer, '_');
-					emitInteger(buffer, i);
-				}
-				emitString(buffer, ";\n");
-			}
-			codegen->indentation--;
-
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "}");
+			emitString(buffer, type->mangledName);
 		}
 	}
 	else if (type->typeKind == TYPE_ENUM)
@@ -169,16 +245,28 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 	else if (type->typeKind == TYPE_OPTIONAL)
 	{
-		
+		if (!codegen->declaredTypes.contains(type))
+			declareOptionalType(codegen, type, &codegen->typesBuffer);
+
+		emitString(buffer, type->mangledName);
 	}
 	else if (type->typeKind == TYPE_FUNCTION)
 	{
+		if (!codegen->declaredTypes.contains(type))
+			declareFunctionType(codegen, type, &codegen->typesBuffer);
+
+		emitString(buffer, type->mangledName);
 	}
 	else if (type->typeKind == TYPE_ARRAY)
 	{
+		if (!codegen->declaredTypes.contains(type))
+			declareArrayType(codegen, type, &codegen->typesBuffer);
+
+		emitString(buffer, type->mangledName);
 	}
 	else if (type->typeKind == TYPE_TYPE)
 	{
+		emitString(buffer, "type");
 	}
 }
 
@@ -254,10 +342,10 @@ bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out
 	if (!file)
 		return false;
 
-	resetCodeBuffer(&codegen->types);
-	resetCodeBuffer(&codegen->prototypes);
-	resetCodeBuffer(&codegen->globals);
-	resetCodeBuffer(&codegen->functions);
+	resetCodeBuffer(&codegen->typesBuffer);
+	resetCodeBuffer(&codegen->prototypesBuffer);
+	resetCodeBuffer(&codegen->globalsBuffer);
+	resetCodeBuffer(&codegen->functionsBuffer);
 
 	char prologue[256];
 	prologue[0] = 0;
@@ -273,52 +361,52 @@ bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
-			emitStruct(codegen, &declaration->struct_, &codegen->types);
+			emitStruct(codegen, &declaration->struct_, &codegen->typesBuffer);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
-			emitUnion(codegen, &declaration->union_, &codegen->types);
+			emitUnion(codegen, &declaration->union_, &codegen->typesBuffer);
 		}
 		else if (declaration->type == NODE_ENUM)
 		{
-			emitEnum(codegen, &declaration->enum_, &codegen->types);
+			emitEnum(codegen, &declaration->enum_, &codegen->typesBuffer);
 		}
 		else if (declaration->type == NODE_TYPEDEF)
 		{
-			emitTypedef(codegen, &declaration->typedef_, &codegen->types);
+			emitTypedef(codegen, &declaration->typedef_, &codegen->typesBuffer);
 		}
 		else if (declaration->type == NODE_FUNCTION)
 		{
-			emitFunctionDeclaration(codegen, &declaration->function, &codegen->prototypes);
-			emitFunction(codegen, &declaration->function, &codegen->functions);
+			emitFunctionDeclaration(codegen, &declaration->function, &codegen->prototypesBuffer);
+			emitFunction(codegen, &declaration->function, &codegen->functionsBuffer);
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
-			emitGlobalVariable(codegen, &declaration->globalVariable, &codegen->globals);
+			emitGlobalVariable(codegen, &declaration->globalVariable, &codegen->globalsBuffer);
 		}
 	}
 
 	SnekAssert(codegen->indentation == 0);
 
-	if (codegen->types.count)
+	if (codegen->typesBuffer.count)
 	{
 		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->types.data, 1, codegen->types.count, file);
+		fwrite(codegen->typesBuffer.data, 1, codegen->typesBuffer.count, file);
 	}
-	if (codegen->prototypes.count)
+	if (codegen->prototypesBuffer.count)
 	{
 		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->prototypes.data, 1, codegen->prototypes.count, file);
+		fwrite(codegen->prototypesBuffer.data, 1, codegen->prototypesBuffer.count, file);
 	}
-	if (codegen->globals.count)
+	if (codegen->globalsBuffer.count)
 	{
 		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->globals.data, 1, codegen->globals.count, file);
+		fwrite(codegen->globalsBuffer.data, 1, codegen->globalsBuffer.count, file);
 	}
-	if (codegen->functions.count)
+	if (codegen->functionsBuffer.count)
 	{
 		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->functions.data, 1, codegen->functions.count, file);
+		fwrite(codegen->functionsBuffer.data, 1, codegen->functionsBuffer.count, file);
 	}
 
 	fclose(file);
