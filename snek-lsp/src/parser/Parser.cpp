@@ -2060,6 +2060,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 	{
 		nextToken(parser);
 		nextToken(parser);
+		function->hasBody = true;
 		function->value = parseExpression(parser);
 		expectToken(parser, ';');
 	}
@@ -2077,6 +2078,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 		else
 		{
 			expectToken(parser, '{');
+			function->hasBody = true;
 			function->statements = parseCodeBlock(parser, '}', &function->numStatements);
 			expectToken(parser, '}');
 		}

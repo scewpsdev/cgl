@@ -485,6 +485,7 @@ struct Function : NodeBase
 	int numParams;
 	TypeNode* returnType;
 
+	bool hasBody;
 	Statement** statements;
 	int numStatements;
 	Expression* value;

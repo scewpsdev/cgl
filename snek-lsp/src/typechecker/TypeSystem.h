@@ -91,6 +91,8 @@ void destroyTypeSystem(TypeSystem* types);
 
 bool removeInternedType(TypeTable* table, uint64_t key, Type* type);
 
+uint64_t hash(Type* type);
+
 Type* getPointerType(TypeSystem* types, Type* elementType, File* file);
 Type* getOptionalType(TypeSystem* types, Type* elementType, File* file);
 Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file);

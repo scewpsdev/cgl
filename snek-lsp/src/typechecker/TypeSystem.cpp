@@ -22,7 +22,7 @@ static void destroyTypeTable(TypeTable* table)
 		free(table->entries);
 }
 
-static uint64_t hashType(Type* type)
+uint64_t hash(Type* type)
 {
 	uint64_t hash = 14695981039346656037ULL; // FNV offset basis
 
@@ -125,14 +125,14 @@ void initTypeSystem(TypeSystem* types)
 	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>"), .mangledName = CreateString("error") };
 
 	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void"), .mangledName = CreateString("void") };
-	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8"), .mangledName = CreateString("int8") };
-	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16"), .mangledName = CreateString("int16") };
-	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32"), .mangledName = CreateString("int32") };
-	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64"), .mangledName = CreateString("int64") };
-	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8"), .mangledName = CreateString("uint8") };
-	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16"), .mangledName = CreateString("uint16") };
-	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32"), .mangledName = CreateString("uint32") };
-	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64"), .mangledName = CreateString("uint64") };
+	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8"), .mangledName = CreateString("i8") };
+	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16"), .mangledName = CreateString("i16") };
+	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32"), .mangledName = CreateString("i32") };
+	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64"), .mangledName = CreateString("i64") };
+	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8"), .mangledName = CreateString("u8") };
+	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16"), .mangledName = CreateString("u16") };
+	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32"), .mangledName = CreateString("u32") };
+	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64"), .mangledName = CreateString("u64") };
 	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float"), .mangledName = CreateString("float") };
 	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double"), .mangledName = CreateString("double") };
 	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool"), .mangledName = CreateString("bool") };
@@ -181,7 +181,7 @@ static Type* internType(TypeSystem* types, Type key, File* file, bool* newType)
 		growTypeTable(table);
 	}
 
-	uint64_t h = __max(hashType(&key), 1);
+	uint64_t h = __max(hash(&key), 1);
 	int mask = table->capacity - 1;
 	int index = h & mask;
 	while (table->entries[index].value)
@@ -422,7 +422,7 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 				strcat(paramTypes, "_");
 		}
 		StringView returnTypeStr = type->function.returnType ? type->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
-		type->mangledName = createTypeString(types, "union_%d_%s_%.*s", type->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
+		type->mangledName = createTypeString(types, "func_%d_%s_%.*s", type->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
 	}
 
 	return type;

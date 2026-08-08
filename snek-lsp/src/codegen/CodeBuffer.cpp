@@ -40,14 +40,14 @@ void emitString(CodeBuffer* buffer, const char* str)
 {
 	int len = (int)strlen(str);
 	reserve(buffer, len);
-	memcpy(buffer->data, str, len);
+	memcpy(buffer->data + buffer->count, str, len);
 	buffer->count += len;
 }
 
 void emitString(CodeBuffer* buffer, StringView str)
 {
 	reserve(buffer, str.length);
-	memcpy(buffer->data, str.ptr, str.length);
+	memcpy(buffer->data + buffer->count, str.ptr, str.length);
 	buffer->count += str.length;
 }
 
@@ -60,6 +60,6 @@ void emitChar(CodeBuffer* buffer, char c)
 void emitInteger(CodeBuffer* buffer, int64_t i)
 {
 	char str[64] = "";
-	sprintf(str, "%ll", i);
+	sprintf(str, "%lld", i);
 	emitString(buffer, str);
 }

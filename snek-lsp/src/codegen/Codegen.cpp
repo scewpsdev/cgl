@@ -61,9 +61,7 @@ static void declareAnonymousStructType(Codegen* codegen, Type* type, CodeBuffer*
 	emitIndentation(codegen, buffer);
 	emitString(buffer, "} ");
 	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n\n");
-
-	codegen->declaredTypes.add(type);
+	emitString(buffer, ";\n");
 }
 
 static void declareAnonymousUnionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -90,9 +88,7 @@ static void declareAnonymousUnionType(Codegen* codegen, Type* type, CodeBuffer* 
 	emitIndentation(codegen, buffer);
 	emitString(buffer, "} ");
 	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n\n");
-
-	codegen->declaredTypes.add(type);
+	emitString(buffer, ";\n");
 }
 
 static void declareOptionalType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -101,7 +97,7 @@ static void declareOptionalType(Codegen* codegen, Type* type, CodeBuffer* buffer
 	emitString(buffer, type->optional.elementType->mangledName);
 	emitString(buffer, " value;u8 flag;}");
 	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n\n");
+	emitString(buffer, ";\n");
 }
 
 static void declareFunctionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -117,9 +113,7 @@ static void declareFunctionType(Codegen* codegen, Type* type, CodeBuffer* buffer
 		if (i < type->function.numParams - 1)
 			emitChar(buffer, ',');
 	}
-	emitChar(buffer, ')');
-	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n\n");
+	emitString(buffer, ");\n");
 }
 
 static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -138,7 +132,65 @@ static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		emitString(buffer, "* data;u64 length;}");
 	}
 	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n\n");
+	emitString(buffer, ";\n");
+}
+
+static void declareType(Codegen* codegen, Type* type)
+{
+	if (codegen->declaredTypes.contains(type))
+		return;
+
+	if (type->typeKind == TYPE_STRUCT && !type->struct_.name.length)
+	{
+		for (int i = 0; i < type->struct_.numFields; i++)
+		{
+			declareType(codegen, type->struct_.fieldTypes[i]);
+		}
+
+		declareAnonymousStructType(codegen, type, &codegen->typesBuffer);
+
+		codegen->declaredTypes.add(type);
+	}
+	else if (type->typeKind == TYPE_UNION && !type->union_.name.length)
+	{
+		for (int i = 0; i < type->union_.numFields; i++)
+		{
+			declareType(codegen, type->union_.fieldTypes[i]);
+		}
+
+		declareAnonymousUnionType(codegen, type, &codegen->typesBuffer);
+
+		codegen->declaredTypes.add(type);
+	}
+	else if (type->typeKind == TYPE_OPTIONAL)
+	{
+		declareType(codegen, type->optional.elementType);
+
+		declareOptionalType(codegen, type, &codegen->typesBuffer);
+
+		codegen->declaredTypes.add(type);
+	}
+	else if (type->typeKind == TYPE_FUNCTION)
+	{
+		if (type->function.returnType)
+			declareType(codegen, type->function.returnType);
+		for (int i = 0; i < type->function.numParams; i++)
+		{
+			declareType(codegen, type->function.paramTypes[i]);
+		}
+
+		declareFunctionType(codegen, type, &codegen->typesBuffer);
+
+		codegen->declaredTypes.add(type);
+	}
+	else if (type->typeKind == TYPE_ARRAY)
+	{
+		declareType(codegen, type->array.elementType);
+
+		declareArrayType(codegen, type, &codegen->typesBuffer);
+
+		codegen->declaredTypes.add(type);
+	}
 }
 
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
@@ -208,8 +260,7 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		}
 		else
 		{
-			if (!codegen->declaredTypes.contains(type))
-				declareAnonymousStructType(codegen, type, &codegen->typesBuffer);
+			SnekAssert(codegen->declaredTypes.contains(type));
 
 			emitString(buffer, type->mangledName);
 		}
@@ -223,8 +274,7 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		}
 		else
 		{
-			if (!codegen->declaredTypes.contains(type))
-				declareAnonymousUnionType(codegen, type, &codegen->typesBuffer);
+			SnekAssert(codegen->declaredTypes.contains(type));
 
 			emitString(buffer, type->mangledName);
 		}
@@ -245,22 +295,19 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 	else if (type->typeKind == TYPE_OPTIONAL)
 	{
-		if (!codegen->declaredTypes.contains(type))
-			declareOptionalType(codegen, type, &codegen->typesBuffer);
+		SnekAssert(codegen->declaredTypes.contains(type));
 
 		emitString(buffer, type->mangledName);
 	}
 	else if (type->typeKind == TYPE_FUNCTION)
 	{
-		if (!codegen->declaredTypes.contains(type))
-			declareFunctionType(codegen, type, &codegen->typesBuffer);
+		SnekAssert(codegen->declaredTypes.contains(type));
 
 		emitString(buffer, type->mangledName);
 	}
 	else if (type->typeKind == TYPE_ARRAY)
 	{
-		if (!codegen->declaredTypes.contains(type))
-			declareArrayType(codegen, type, &codegen->typesBuffer);
+		SnekAssert(codegen->declaredTypes.contains(type));
 
 		emitString(buffer, type->mangledName);
 	}
@@ -270,12 +317,30 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 }
 
+static void emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
+{
+
+}
+
+static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* buffer)
+{
+
+}
+
 static void emitField(Codegen* codegen, Field* field, CodeBuffer* buffer)
 {
 	for (int i = 0; i < field->numDeclarators; i++)
 	{
 		emitIndentation(codegen, buffer);
 		emitType(codegen, field->variableType->inferredType, buffer);
+		emitString(buffer, " ");
+		emitString(buffer, field->declarators[i].name);
+		if (field->declarators[i].value)
+		{
+			emitString(buffer, "=");
+			emitExpression(codegen, field->declarators[i].value, buffer);
+		}
+		emitString(buffer, ";\n");
 	}
 }
 
@@ -288,9 +353,14 @@ static void emitStructDeclaration(Codegen* codegen, Struct* struct_, CodeBuffer*
 
 static void emitStruct(Codegen* codegen, Struct* struct_, CodeBuffer* buffer)
 {
+	for (int i = 0; i < struct_->numFields; i++)
+	{
+		declareType(codegen, struct_->fields[i]->variableType->inferredType);
+	}
+
 	emitString(buffer, "struct ");
 	emitString(buffer, struct_->name);
-	emitString(buffer, " {\n");
+	emitString(buffer, "{\n");
 
 	codegen->indentation++;
 	for (int i = 0; i < struct_->numFields; i++)
@@ -299,36 +369,156 @@ static void emitStruct(Codegen* codegen, Struct* struct_, CodeBuffer* buffer)
 		emitField(codegen, field, buffer);
 	}
 	codegen->indentation--;
+
+	emitString(buffer, "};\n");
 }
 
 static void emitUnionDeclaration(Codegen* codegen, Union* union_, CodeBuffer* buffer)
 {
-
+	emitString(buffer, "union ");
+	emitString(buffer, union_->name);
+	emitString(buffer, ";\n");
 }
 
 static void emitUnion(Codegen* codegen, Union* union_, CodeBuffer* buffer)
 {
+	for (int i = 0; i < union_->numFields; i++)
+	{
+		declareType(codegen, union_->fields[i]->variableType->inferredType);
+	}
 
+	emitString(buffer, "union ");
+	emitString(buffer, union_->name);
+	emitString(buffer, "{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < union_->numFields; i++)
+	{
+		Field* field = union_->fields[i];
+		emitField(codegen, field, buffer);
+	}
+	codegen->indentation--;
+
+	emitString(buffer, "};\n");
 }
 
 static void emitEnum(Codegen* codegen, Enum* enum_, CodeBuffer* buffer)
 {
+	declareType(codegen, enum_->enumType->enum_.valueType);
 
+	emitString(buffer, "enum ");
+	emitString(buffer, enum_->name);
+	emitString(buffer, ":");
+	emitType(codegen, enum_->enumType->enum_.valueType, buffer);
+	emitString(buffer, "{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < enum_->numValues; i++)
+	{
+		emitIndentation(codegen, buffer);
+		EnumValue* value = enum_->values[i];
+		emitString(buffer, value->name);
+		if (value->value)
+		{
+			emitString(buffer, "=");
+			emitExpression(codegen, value->value, buffer);
+		}
+		emitString(buffer, ",\n");
+	}
+	codegen->indentation--;
+
+	emitString(buffer, "};\n");
 }
 
 static void emitTypedef(Codegen* codegen, Typedef* typedef_, CodeBuffer* buffer)
 {
+	declareType(codegen, typedef_->value->inferredType);
 
+	emitString(buffer, "typedef ");
+	emitType(codegen, typedef_->value->inferredType, buffer);
+	emitString(buffer, " ");
+	emitString(buffer, typedef_->name);
+	emitString(buffer, ";\n");
 }
 
 static void emitFunctionDeclaration(Codegen* codegen, Function* function, CodeBuffer* buffer)
 {
+	if (function->functionType->function.returnType)
+		declareType(codegen, function->functionType->function.returnType);
 
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+	{
+		declareType(codegen, function->functionType->function.paramTypes[i]);
+	}
+
+	emitType(codegen, function->functionType->function.returnType ? function->functionType->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
+	emitString(buffer, " ");
+	emitString(buffer, function->name); // todo mangled name
+	emitString(buffer, "(");
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+	{
+		emitType(codegen, function->functionType->function.paramTypes[i], buffer);
+		if (function->params[i]->name.length)
+		{
+			emitString(buffer, " ");
+			emitString(buffer, function->params[i]->name);
+		}
+		if (i < function->functionType->function.numParams - 1)
+			emitString(buffer, ",");
+	}
+	emitString(buffer, ");\n");
 }
 
 static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffer)
 {
+	if (function->functionType->function.returnType)
+		declareType(codegen, function->functionType->function.returnType);
 
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+	{
+		declareType(codegen, function->functionType->function.paramTypes[i]);
+	}
+
+	emitType(codegen, function->functionType->function.returnType ? function->functionType->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
+	emitString(buffer, " ");
+	emitString(buffer, function->name); // todo mangled name
+	emitString(buffer, "(");
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+	{
+		emitType(codegen, function->functionType->function.paramTypes[i], buffer);
+		if (function->params[i]->name.length)
+		{
+			emitString(buffer, " ");
+			emitString(buffer, function->params[i]->name);
+		}
+		if (i < function->functionType->function.numParams - 1)
+			emitString(buffer, ",");
+	}
+	emitString(buffer, "){\n");
+
+	if (function->value)
+	{
+		codegen->indentation++;
+		for (int i = 0; i < function->numStatements; i++)
+		{
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "return ");
+			emitExpression(codegen, function->value, buffer);
+			emitString(buffer, ";\n");
+		}
+		codegen->indentation--;
+	}
+	else
+	{
+		codegen->indentation++;
+		for (int i = 0; i < function->numStatements; i++)
+		{
+			emitStatement(codegen, function->statements[i], buffer);
+		}
+		codegen->indentation--;
+	}
+
+	emitString(buffer, "}\n");
 }
 
 static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable, CodeBuffer* buffer)
@@ -338,6 +528,8 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 
 bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out)
 {
+	codegen->declaredTypes.clear();
+
 	FILE* file = fopen(out, "wb");
 	if (!file)
 		return false;
@@ -361,6 +553,19 @@ bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
+			emitStructDeclaration(codegen, &declaration->struct_, &codegen->typesBuffer);
+		}
+		else if (declaration->type == NODE_UNION)
+		{
+			emitUnionDeclaration(codegen, &declaration->union_, &codegen->typesBuffer);
+		}
+	}
+
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		Node* declaration = ast->declarations[i];
+		if (declaration->type == NODE_STRUCT)
+		{
 			emitStruct(codegen, &declaration->struct_, &codegen->typesBuffer);
 		}
 		else if (declaration->type == NODE_UNION)
@@ -378,7 +583,8 @@ bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out
 		else if (declaration->type == NODE_FUNCTION)
 		{
 			emitFunctionDeclaration(codegen, &declaration->function, &codegen->prototypesBuffer);
-			emitFunction(codegen, &declaration->function, &codegen->functionsBuffer);
+			if (declaration->function.hasBody)
+				emitFunction(codegen, &declaration->function, &codegen->functionsBuffer);
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
