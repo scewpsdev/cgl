@@ -1,5 +1,6 @@
 #include "Codegen.h"
 
+#include "File.h"
 #include "parser/AST.h"
 #include "typechecker/TypeSystem.h"
 
@@ -18,6 +19,8 @@ void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool
 	initCodeBuffer(&codegen->functionsBuffer, &codegen->arena, 1024);
 
 	codegen->indentation = 0;
+	codegen->nextGlobalID = 1;
+	codegen->nextLocalID = 1;
 
 	initHashSet(&codegen->declaredTypes);
 }
@@ -317,14 +320,226 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 }
 
-static void emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
+struct Value
 {
+	char name[32];
+	Type* type;
+};
 
+static Value createGlobalValue(Codegen* codegen, Type* type)
+{
+	Value value = {};
+	value.type = type;
+	sprintf(value.name, "_G%d", codegen->nextGlobalID++);
+	return value;
+}
+
+static Value createLocalValue(Codegen* codegen, Type* type)
+{
+	Value value = {};
+	value.type = type;
+	sprintf(value.name, "_%d", codegen->nextLocalID++);
+	return value;
+}
+
+static void emitValue(CodeBuffer* buffer, Value value)
+{
+	emitString(buffer, value.name);
+}
+
+static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
+{
+	if (expression->type == NODE_INT_LITERAL)
+	{
+		IntLiteral* intLiteral = (IntLiteral*)expression;
+		Value value = {};
+		value.type = expression->inferredType;
+		sprintf(value.name, intLiteral->negative ? "-%llu" : "%llu", intLiteral->intValue);
+		return value;
+	}
+	else if (expression->type == NODE_FLOAT_LITERAL)
+	{
+		FloatLiteral* floatLiteral = (FloatLiteral*)expression;
+		Value value = {};
+		value.type = expression->inferredType;
+		sprintf(value.name, "%f", floatLiteral->floatValue);
+		return value;
+	}
+	else if (expression->type == NODE_STRING_LITERAL)
+	{
+		StringLiteral* stringLiteral = (StringLiteral*)expression;
+
+		Value ptr = createGlobalValue(codegen, nullptr);
+
+		emitString(&codegen->globalsBuffer, "const i8* ");
+		emitValue(&codegen->globalsBuffer, ptr);
+		emitString(&codegen->globalsBuffer, "=\"");
+		emitString(&codegen->globalsBuffer, stringLiteral->value);
+		emitString(&codegen->globalsBuffer, "\";\n");
+
+		Value str = createLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING]);
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "const string ");
+		emitValue(buffer, str);
+		emitString(buffer, "={");
+		emitValue(buffer, ptr);
+		emitString(buffer, ",");
+		emitInteger(buffer, stringLiteral->value.length);
+		emitString(buffer, "};\n");
+
+		return str;
+	}
+	else if (expression->type == NODE_CHAR_LITERAL)
+	{
+		CharLiteral* charLiteral = (CharLiteral*)expression;
+		Value value = {};
+		value.type = expression->inferredType;
+		sprintf(value.name, "'%.*s'", charLiteral->value.length, charLiteral->value.ptr);
+		return value;
+	}
+	else if (expression->type == NODE_TRUE)
+	{
+		Value value = {};
+		value.type = expression->inferredType;
+		strcat(value.name, "true");
+		return value;
+	}
+	else if (expression->type == NODE_FALSE)
+	{
+		Value value = {};
+		value.type = expression->inferredType;
+		strcat(value.name, "false");
+		return value;
+	}
+	else if (expression->type == NODE_NULL_LITERAL)
+	{
+		Value value = {};
+		value.type = expression->inferredType;
+		strcat(value.name, "{0}");
+		return value;
+	}
+	else if (expression->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = (Identifier*)expression;
+		Value value = {};
+		value.type = expression->inferredType;
+		sprintf(value.name, "%.*s", identifier->name.length, identifier->name.ptr);
+		return value;
+	}
+	else if (expression->type == NODE_COMPOUND_EXPRESSION)
+	{
+		CompoundExpression* compound = (CompoundExpression*)expression;
+		return emitExpression(codegen, compound->value, buffer);
+	}
+	else if (expression->type == NODE_EXPRESSION_LIST)
+	{
+	}
+	else if (expression->type == NODE_BINARY_OPERATOR)
+	{
+	}
+	else if (expression->type == NODE_UNARY_OPERATOR)
+	{
+	}
+	else if (expression->type == NODE_FUNCTION_CALL)
+	{
+	}
+	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
+	{
+	}
+	else if (expression->type == NODE_MEMBER_ACCESS)
+	{
+	}
+	else if (expression->type == NODE_TERNARY_CONDITION)
+	{
+	}
+	else if (expression->type == NODE_CAST)
+	{
+	}
 }
 
 static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* buffer)
 {
+	if (statement->type == NODE_BLOCK_STATEMENT)
+	{
+		BlockStatement* block = (BlockStatement*)statement;
+		for (int i = 0; i < block->numStatements; i++)
+		{
+			emitStatement(codegen, block->statements[i], buffer);
+		}
+	}
+	else if (statement->type == NODE_IF)
+	{
+		If* if_ = (If*)statement;
+		Value condition = emitExpression(codegen, if_->condition, buffer);
 
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "if(");
+		emitValue(buffer, condition);
+		emitString(buffer, "){\n");
+
+		codegen->indentation++;
+		emitStatement(codegen, if_->then, buffer);
+		codegen->indentation--;
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "}");
+
+		if (if_->else_)
+		{
+			emitString(buffer, "else{\n");
+
+			codegen->indentation++;
+			emitStatement(codegen, if_->else_, buffer);
+			codegen->indentation--;
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "}");
+		}
+
+		emitString(buffer, "\n");
+	}
+	else if (statement->type == NODE_WHILE)
+	{
+		While* while_ = (While*)statement;
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "while(1){\n");
+
+		codegen->indentation++;
+		Value condition = emitExpression(codegen, while_->condition, buffer);
+		emitString(buffer, "if(!");
+		emitValue(buffer, condition);
+		emitString(buffer, ")break;");
+		emitStatement(codegen, while_->then, buffer);
+		codegen->indentation--;
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "}\n");
+	}
+	else if (statement->type == NODE_FOR)
+	{
+	}
+	else if (statement->type == NODE_RETURN)
+	{
+	}
+	else if (statement->type == NODE_BREAK)
+	{
+	}
+	else if (statement->type == NODE_CONTINUE)
+	{
+	}
+	else if (statement->type == NODE_DEFER)
+	{
+	}
+	else if (statement->type == NODE_VARIABLE_DECLARATION)
+	{
+	}
+	else if (statement->type == NODE_ASSIGNMENT)
+	{
+	}
+	else if (statement->type == NODE_EXPRESSION_STATEMENT)
+	{
+	}
 }
 
 static void emitField(Codegen* codegen, Field* field, CodeBuffer* buffer)
@@ -526,9 +741,12 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 
 }
 
-bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out)
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 {
 	codegen->declaredTypes.clear();
+	codegen->currentFile = f;
+
+	AST* ast = &f->ast;
 
 	FILE* file = fopen(out, "wb");
 	if (!file)

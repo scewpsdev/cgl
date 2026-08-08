@@ -6,7 +6,7 @@
 #include "utils/HashSet.h"
 
 
-struct AST;
+struct File;
 struct Type;
 struct TypeSystem;
 
@@ -21,7 +21,11 @@ struct Codegen
 	CodeBuffer globalsBuffer;
 	CodeBuffer functionsBuffer;
 
+	File* currentFile;
+
 	int indentation;
+	int nextGlobalID;
+	int nextLocalID;
 
 	HashSet<Type*> declaredTypes;
 };
@@ -30,4 +34,4 @@ struct Codegen
 void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool);
 void destroyCodegen(Codegen* codegen);
 
-bool emitFile(Codegen* codegen, AST* ast, const char* localPath, const char* out);
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out);
