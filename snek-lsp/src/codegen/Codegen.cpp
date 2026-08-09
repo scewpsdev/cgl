@@ -12,6 +12,7 @@ void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool
 	codegen->types = types;
 
 	initArena(&codegen->arena, blockPool);
+	initScratchBuffer(&codegen->scratch, 16);
 
 	initCodeBuffer(&codegen->typesBuffer, &codegen->arena, 1024);
 	initCodeBuffer(&codegen->prototypesBuffer, &codegen->arena, 1024);
@@ -28,6 +29,7 @@ void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool
 void destroyCodegen(Codegen* codegen)
 {
 	destroyArena(&codegen->arena);
+	destroyScratchBuffer(&codegen->scratch);
 }
 
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer);
@@ -127,7 +129,7 @@ static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		emitString(buffer, type->array.elementType->mangledName);
 		emitString(buffer, " data[");
 		emitInteger(buffer, type->array.size);
-		emitString(buffer, "];u64 length;}");
+		emitString(buffer, "];}");
 	}
 	else
 	{
@@ -324,6 +326,7 @@ struct Value
 {
 	char name[32];
 	Type* type;
+	bool lvalue;
 };
 
 static Value createGlobalValue(Codegen* codegen, Type* type)
@@ -334,17 +337,69 @@ static Value createGlobalValue(Codegen* codegen, Type* type)
 	return value;
 }
 
-static Value createLocalValue(Codegen* codegen, Type* type)
+static void emitValue(CodeBuffer* buffer, Value value)
+{
+	emitString(buffer, value.name);
+}
+
+static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
 	Value value = {};
 	value.type = type;
 	sprintf(value.name, "_%d", codegen->nextLocalID++);
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "const ");
+	emitType(codegen, type, buffer);
+	emitChar(buffer, ' ');
+	emitValue(buffer, value);
+	emitChar(buffer, '=');
+
 	return value;
 }
 
-static void emitValue(CodeBuffer* buffer, Value value)
+static void emitOperator(CodeBuffer* buffer, OperatorType op)
 {
-	emitString(buffer, value.name);
+	if (op == OPERATOR_MULTIPLY)
+		emitChar(buffer, '*');
+	else if (op == OPERATOR_DIVIDE)
+		emitChar(buffer, '/');
+	else if (op == OPERATOR_MODULO)
+		emitChar(buffer, '%');
+	else if (op == OPERATOR_ADD)
+		emitChar(buffer, '+');
+	else if (op == OPERATOR_SUBTRACT)
+		emitChar(buffer, '-');
+	else if (op == OPERATOR_BITSHIFT_LEFT)
+		emitString(buffer, "<<");
+	else if (op == OPERATOR_BITSHIFT_RIGHT)
+		emitString(buffer, ">>");
+	else if (op == OPERATOR_LESS)
+		emitChar(buffer, '<');
+	else if (op == OPERATOR_LESS_EQUALS)
+		emitString(buffer, "<=");
+	else if (op == OPERATOR_GREATER)
+		emitChar(buffer, '>');
+	else if (op == OPERATOR_GREATER_EQUALS)
+		emitString(buffer, ">=");
+	else if (op == OPERATOR_EQUALS)
+		emitString(buffer, "==");
+	else if (op == OPERATOR_NOT_EQUALS)
+		emitString(buffer, "!=");
+	else if (op == OPERATOR_BITWISE_AND)
+		emitChar(buffer, '&');
+	else if (op == OPERATOR_BITWISE_XOR)
+		emitChar(buffer, '^');
+	else if (op == OPERATOR_BITWISE_OR)
+		emitChar(buffer, '|');
+	else if (op == OPERATOR_LOGICAL_AND)
+		emitString(buffer, "&&");
+	else if (op == OPERATOR_LOGICAL_OR)
+		emitString(buffer, "||");
+	else
+	{
+		SnekAssert(false);
+	}
 }
 
 static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
@@ -377,13 +432,10 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		emitString(&codegen->globalsBuffer, stringLiteral->value);
 		emitString(&codegen->globalsBuffer, "\";\n");
 
-		Value str = createLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING]);
-		emitIndentation(codegen, buffer);
-		emitString(buffer, "const string ");
-		emitValue(buffer, str);
-		emitString(buffer, "={");
+		Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
+		emitChar(buffer, '{');
 		emitValue(buffer, ptr);
-		emitString(buffer, ",");
+		emitChar(buffer, ',');
 		emitInteger(buffer, stringLiteral->value.length);
 		emitString(buffer, "};\n");
 
@@ -423,6 +475,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Identifier* identifier = (Identifier*)expression;
 		Value value = {};
 		value.type = expression->inferredType;
+		value.lvalue = true;
 		sprintf(value.name, "%.*s", identifier->name.length, identifier->name.ptr);
 		return value;
 	}
@@ -433,28 +486,461 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	}
 	else if (expression->type == NODE_EXPRESSION_LIST)
 	{
+		ExpressionList* expressionList = (ExpressionList*)expression;
+
+		int mark = codegen->scratch.mark();
+		for (int i = 0; i < expressionList->numValues; i++)
+		{
+			Value value = emitExpression(codegen, expressionList->values[i], buffer);
+			codegen->scratch.add(value);
+		}
+
+		Value* values = codegen->scratch.getData<Value>(mark);
+
+		Value tuple = declareLocalValue(codegen, expressionList->inferredType, buffer);
+		emitChar(buffer, '{');
+
+		for (int i = 0; i < expressionList->numValues; i++)
+		{
+			Value value = values[i];
+			emitValue(buffer, value);
+			if (i < expressionList->numValues - 1)
+				emitChar(buffer, ',');
+		}
+
+		emitString(buffer, "};\n");
+
+		codegen->scratch.release(mark);
+
+		return tuple;
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
+		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
+
+		Value left = emitExpression(codegen, binaryOperator->left, buffer);
+		Value right = emitExpression(codegen, binaryOperator->right, buffer);
+
+		Value result = declareLocalValue(codegen, binaryOperator->inferredType, buffer);
+
+		emitValue(buffer, left);
+		emitOperator(buffer, binaryOperator->op);
+		emitValue(buffer, right);
+		emitString(buffer, ";\n");
+
+		return result;
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
+		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
+
+		Value operand = emitExpression(codegen, unaryOperator->operand, buffer);
+
+		if (unaryOperator->op == OPERATOR_INCREMENT_POSTFIX)
+		{
+			SnekAssert(operand.lvalue);
+
+			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
+
+			emitIndentation(codegen, buffer);
+			emitValue(buffer, operand);
+			emitChar(buffer, '=');
+			emitValue(buffer, operand);
+			emitString(buffer, "+1;\n");
+
+			return oldValue;
+		}
+		else if (unaryOperator->op == OPERATOR_DECREMENT_POSTFIX)
+		{
+			SnekAssert(operand.lvalue);
+
+			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
+
+			emitIndentation(codegen, buffer);
+			emitValue(buffer, operand);
+			emitChar(buffer, '=');
+			emitValue(buffer, operand);
+			emitString(buffer, "-1;\n");
+
+			return oldValue;
+		}
+		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
+		{
+			SnekAssert(operand.lvalue);
+
+			emitIndentation(codegen, buffer);
+			emitValue(buffer, operand);
+			emitChar(buffer, '=');
+			emitValue(buffer, operand);
+			emitString(buffer, "+1;\n");
+
+			return operand;
+		}
+		else if (unaryOperator->op == OPERATOR_DECREMENT_PREFIX)
+		{
+			SnekAssert(operand.lvalue);
+
+			emitIndentation(codegen, buffer);
+			emitValue(buffer, operand);
+			emitChar(buffer, '=');
+			emitValue(buffer, operand);
+			emitString(buffer, "-1;\n");
+
+			return operand;
+		}
+		else if (unaryOperator->op == OPERATOR_PLUS_PREFIX)
+		{
+			return operand;
+		}
+		else if (unaryOperator->op == OPERATOR_MINUS_PREFIX)
+		{
+			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitChar(buffer, '-');
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
+
+			return result;
+		}
+		else if (unaryOperator->op == OPERATOR_LOGICAL_NOT)
+		{
+			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitChar(buffer, '!');
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
+
+			return result;
+		}
+		else if (unaryOperator->op == OPERATOR_BITWISE_NOT)
+		{
+			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitChar(buffer, '~');
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
+
+			return result;
+		}
+		else if (unaryOperator->op == OPERATOR_DEREFERENCE)
+		{
+			Value result = {};
+			result.type = unaryOperator->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", operand.name);
+
+			return result;
+		}
+		else if (unaryOperator->op == OPERATOR_ADDRESS)
+		{
+			Value result = {};
+			result.type = unaryOperator->inferredType;
+			sprintf(result.name, "(&%s)", operand.name);
+
+			return result;
+		}
+		else
+		{
+			SnekAssert(false);
+			return {};
+		}
 	}
 	else if (expression->type == NODE_FUNCTION_CALL)
 	{
+		FunctionCall* functionCall = (FunctionCall*)expression;
+
+		Value operand = emitExpression(codegen, functionCall->expression, buffer);
+
+		int mark = codegen->scratch.mark();
+		for (int i = 0; i < functionCall->numArgs; i++)
+		{
+			Value arg = emitExpression(codegen, functionCall->args[i], buffer);
+			codegen->scratch.add(arg);
+		}
+
+		Value* args = codegen->scratch.getData<Value>(mark);
+
+		Value result = {};
+		if (functionCall->inferredType)
+			result = declareLocalValue(codegen, functionCall->inferredType, buffer);
+		else
+			emitIndentation(codegen, buffer);
+
+		emitValue(buffer, operand);
+		emitChar(buffer, '(');
+		for (int i = 0; i < functionCall->numArgs; i++)
+		{
+			emitValue(buffer, args[i]);
+			if (i < functionCall->numArgs - 1)
+				emitChar(buffer, ',');
+		}
+		emitString(buffer, ");\n");
+
+		codegen->scratch.release(mark);
+
+		return result;
 	}
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
+		ArraySubscript* subscript = (ArraySubscript*)expression;
+
+		Value operand = emitExpression(codegen, subscript->operand, buffer);
+
+		if (operand.type->typeKind == TYPE_STRING)
+		{
+			SnekAssert(subscript->numArgs == 1);
+			Value index = emitExpression(codegen, subscript->args[0], buffer);
+
+			Type* charPtrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
+			Value charPtr = declareLocalValue(codegen, charPtrType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitString(buffer, ".ptr[");
+			emitValue(buffer, index);
+			emitString(buffer, "];\n");
+
+			Value result = {};
+			result.type = subscript->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", charPtr.name);
+
+			return result;
+		}
+		else if (operand.type->typeKind == TYPE_ARRAY)
+		{
+			SnekAssert(subscript->numArgs == 1);
+			Value index = emitExpression(codegen, subscript->args[0], buffer);
+
+			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
+			Value ptr = declareLocalValue(codegen, ptrType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitString(buffer, ".data[");
+			emitValue(buffer, index);
+			emitString(buffer, "];\n");
+
+			Value result = {};
+			result.type = subscript->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", ptr.name);
+
+			return result;
+		}
+		else if (operand.type->typeKind == TYPE_POINTER)
+		{
+			SnekAssert(subscript->numArgs == 1);
+			Value index = emitExpression(codegen, subscript->args[0], buffer);
+
+			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
+			Value ptr = declareLocalValue(codegen, ptrType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitChar(buffer, '[');
+			emitValue(buffer, index);
+			emitString(buffer, "];\n");
+
+			Value result = {};
+			result.type = subscript->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", ptr.name);
+
+			return result;
+		}
+		else
+		{
+			SnekAssert(false);
+			return {};
+		}
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
+		MemberAccess* member = (MemberAccess*)expression;
+
+		Value operand = emitExpression(codegen, member->operand, buffer);
+		Type* operandType = member->operand->inferredType;
+
+		bool pointer = operandType->typeKind == TYPE_POINTER;
+		if (pointer)
+			operandType = operandType->pointer.elementType;
+
+		if (operandType->typeKind == TYPE_STRUCT)
+		{
+			Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+			Value ptr = declareLocalValue(codegen, ptrType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitChar(buffer, '.');
+			emitString(buffer, operandType->struct_.fieldNames[member->index]);
+			emitString(buffer, ";\n");
+
+			Value result = {};
+			result.type = member->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", ptr.name);
+
+			return result;
+		}
+		else if (operandType->typeKind == TYPE_UNION)
+		{
+			Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+			Value ptr = declareLocalValue(codegen, ptrType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitChar(buffer, '.');
+			emitString(buffer, operandType->union_.fieldNames[member->index]);
+			emitString(buffer, ";\n");
+
+			Value result = {};
+			result.type = member->inferredType;
+			result.lvalue = true;
+			sprintf(result.name, "(*%s)", ptr.name);
+
+			return result;
+		}
+		else if (operandType->typeKind == TYPE_STRING)
+		{
+			if (member->index == 0)
+			{
+				Value length = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".length;\n");
+
+				return length;
+			}
+			else if (member->index == 1)
+			{
+				Value data = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".ptr;\n");
+
+				return data;
+			}
+			else
+			{
+				SnekAssert(false);
+				return {};
+			}
+		}
+		else if (operandType->typeKind == TYPE_ARRAY)
+		{
+			if (member->index == 0)
+			{
+				if (operandType->array.size)
+				{
+					Value value = {};
+					value.type = member->inferredType;
+					sprintf(value.name, "%llu", operandType->array.size);
+
+					return value;
+				}
+				else
+				{
+					Value length = declareLocalValue(codegen, member->inferredType, buffer);
+					emitValue(buffer, operand);
+					emitString(buffer, ".length;\n");
+
+					return length;
+				}
+			}
+			else if (member->index == 1)
+			{
+				Value data = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".data;\n");
+
+				return data;
+			}
+			else
+			{
+				SnekAssert(false);
+				return {};
+			}
+		}
+		else if (operandType->typeKind == TYPE_ANY)
+		{
+			if (member->index == 0)
+			{
+				Value type = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".type;\n");
+
+				return type;
+			}
+			else
+			{
+				SnekAssert(false);
+				return {};
+			}
+		}
+		else if (operandType->typeKind == TYPE_TYPE)
+		{
+			SnekAssert(member->operand->type == NODE_IDENTIFIER);
+
+			Identifier* typeName = (Identifier*)member->operand;
+			SymbolEntry* symbol = getIdentifierSymbol(typeName);
+			SnekAssert(symbol);
+
+			if (symbol->declaration->type == NODE_ENUM)
+			{
+				Enum* enum_ = &symbol->declaration->enum_;
+
+				EnumValue* enumValue = enum_->values[member->index];
+
+				Value value = {};
+				value.type = member->inferredType;
+				sprintf(value.name, "%lld", enumValue->intValue);
+
+				return value;
+			}
+			else
+			{
+				SnekAssert(false);
+				return {};
+			}
+		}
+		else
+		{
+			SnekAssert(false);
+			return {};
+		}
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
+		TernaryCondition* ternary = (TernaryCondition*)expression;
+
+		Value condition = emitExpression(codegen, ternary->condition, buffer);
+		Value then = emitExpression(codegen, ternary->then, buffer);
+		Value else_ = emitExpression(codegen, ternary->else_, buffer);
+
+		Value result = declareLocalValue(codegen, ternary->inferredType, buffer);
+		emitValue(buffer, condition);
+		emitChar(buffer, '?');
+		emitValue(buffer, then);
+		emitChar(buffer, ':');
+		emitValue(buffer, else_);
+		emitString(buffer, ";\n");
+
+		return result;
 	}
 	else if (expression->type == NODE_CAST)
 	{
+		Cast* cast = (Cast*)expression;
+
+		Value expression = emitExpression(codegen, cast->expression, buffer);
+
+		Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+		emitChar(buffer, '(');
+		emitType(codegen, result.type, buffer);
+		emitChar(buffer, ')');
+		emitValue(buffer, expression);
+		emitString(buffer, ";\n");
+
+		return result;
 	}
+
+	SnekAssert(false);
+	return {};
 }
 
 static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* buffer)
@@ -506,11 +992,15 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		emitString(buffer, "while(1){\n");
 
 		codegen->indentation++;
+
 		Value condition = emitExpression(codegen, while_->condition, buffer);
+		emitIndentation(codegen, buffer);
 		emitString(buffer, "if(!");
 		emitValue(buffer, condition);
-		emitString(buffer, ")break;");
+		emitString(buffer, ")break;\n");
+
 		emitStatement(codegen, while_->then, buffer);
+
 		codegen->indentation--;
 
 		emitIndentation(codegen, buffer);
@@ -539,6 +1029,8 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	}
 	else if (statement->type == NODE_EXPRESSION_STATEMENT)
 	{
+		ExpressionStatement* expression = (ExpressionStatement*)statement;
+		emitExpression(codegen, expression->expression, buffer);
 	}
 }
 
@@ -686,6 +1178,8 @@ static void emitFunctionDeclaration(Codegen* codegen, Function* function, CodeBu
 
 static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffer)
 {
+	codegen->nextLocalID = 1;
+
 	if (function->functionType->function.returnType)
 		declareType(codegen, function->functionType->function.returnType);
 
@@ -745,6 +1239,8 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 {
 	codegen->declaredTypes.clear();
 	codegen->currentFile = f;
+
+	codegen->nextGlobalID = 1;
 
 	AST* ast = &f->ast;
 

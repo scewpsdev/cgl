@@ -215,11 +215,11 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		int start, end;
 		getStringRange(member->name, &data->file->parser, &start, &end);
 
-		Type* operandType = member->expression->inferredType;
+		Type* operandType = member->operand->inferredType;
 		if (operandType->typeKind == TYPE_TYPE)
 		{
-			SnekAssert(member->expression->type == NODE_IDENTIFIER);
-			Identifier* typeName = (Identifier*)member->expression;
+			SnekAssert(member->operand->type == NODE_IDENTIFIER);
+			Identifier* typeName = (Identifier*)member->operand;
 			if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
 			{
 				if (symbol->declaration->type == NODE_ENUM)

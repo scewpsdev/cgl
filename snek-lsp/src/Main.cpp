@@ -632,7 +632,7 @@ void TypeCheck(List<Document*> documents)
 			std::string outPath = document->localPath;
 			outPath = outPath.substr(0, outPath.find('.'));
 			outPath = rootPath + "/tmp/" + outPath + ".c";
-			emitFile(&document->file.codegen, &document->file.ast, document->localPath.c_str(), outPath.c_str());
+			emitFile(&document->file.codegen, &document->file, document->localPath.c_str(), outPath.c_str());
 		}
 	}
 

@@ -544,26 +544,26 @@ static bool isConstant(Expression* expression)
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-		return isConstant(unaryOperator->expression);
+		return isConstant(unaryOperator->operand);
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* member = &node->memberAccess;
-		Type* operandType = member->expression->inferredType;
+		Type* operandType = member->operand->inferredType;
 
-		if (member->expression->type == NODE_STRING_LITERAL)
+		if (member->operand->type == NODE_STRING_LITERAL)
 		{
-			StringLiteral* string = (StringLiteral*)member->expression;
+			StringLiteral* string = (StringLiteral*)member->operand;
 			if (compareString(member->name, "length"))
 			{
 				return true;
 			}
 		}
-		else if (member->expression->type == NODE_IDENTIFIER)
+		else if (member->operand->type == NODE_IDENTIFIER)
 		{
 			if (operandType->typeKind == TYPE_TYPE)
 			{
-				Identifier* typeName = (Identifier*)member->expression;
+				Identifier* typeName = (Identifier*)member->operand;
 				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
 				{
 					if (symbol->declaration->type == NODE_ENUM)
@@ -781,7 +781,7 @@ static bool constantFold(TypeChecker* tc, Expression* expression, int64_t* value
 		UnaryOperator* unaryOperator = &node->unaryOperator;
 
 		int64_t operandValue;
-		if (constantFold(tc, unaryOperator->expression, &operandValue))
+		if (constantFold(tc, unaryOperator->operand, &operandValue))
 		{
 			if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
 			{
@@ -818,22 +818,22 @@ static bool constantFold(TypeChecker* tc, Expression* expression, int64_t* value
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* member = &node->memberAccess;
-		Type* operandType = member->expression->inferredType;
+		Type* operandType = member->operand->inferredType;
 
-		if (member->expression->type == NODE_STRING_LITERAL)
+		if (member->operand->type == NODE_STRING_LITERAL)
 		{
-			StringLiteral* string = (StringLiteral*)member->expression;
+			StringLiteral* string = (StringLiteral*)member->operand;
 			if (compareString(member->name, "length"))
 			{
 				*value = string->value.length;
 				return true;
 			}
 		}
-		else if (member->expression->type == NODE_IDENTIFIER)
+		else if (member->operand->type == NODE_IDENTIFIER)
 		{
 			if (operandType->typeKind == TYPE_TYPE)
 			{
-				Identifier* typeName = (Identifier*)member->expression;
+				Identifier* typeName = (Identifier*)member->operand;
 				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
 				{
 					if (symbol->declaration->type == NODE_ENUM)
@@ -1756,7 +1756,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
 
-		Type* operandType = resolveExpression(tc, unaryOperator->expression);
+		Type* operandType = resolveExpression(tc, unaryOperator->operand);
 
 		if (operandType == &tc->types->errorType)
 			return unaryOperator->inferredType = operandType;
@@ -1765,12 +1765,12 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (!isTruthyType(operandType))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Operand of logical not operator must be a bool or number");
+				error(tc, (Node*)unaryOperator->operand, "Operand of logical not operator must be a bool or number");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
 			if (operandType->typeKind != TYPE_BOOL)
-				insertImplicitCast(tc, &unaryOperator->expression, &tc->types->primitiveTypes[TYPE_BOOL]);
+				insertImplicitCast(tc, &unaryOperator->operand, &tc->types->primitiveTypes[TYPE_BOOL]);
 
 			return unaryOperator->inferredType = &tc->types->primitiveTypes[TYPE_BOOL];
 		}
@@ -1778,7 +1778,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (!isIntegerType(operandType))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Operand of bitwise not operator must be an integer");
+				error(tc, (Node*)unaryOperator->operand, "Operand of bitwise not operator must be an integer");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1788,7 +1788,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (!isNumericType(operandType))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Operand of negate operator must be a number");
+				error(tc, (Node*)unaryOperator->operand, "Operand of negate operator must be a number");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1798,7 +1798,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (!isIntegerType(operandType))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Operand of plus operator must be an integer");
+				error(tc, (Node*)unaryOperator->operand, "Operand of plus operator must be an integer");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1808,7 +1808,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			if (operandType->typeKind != TYPE_POINTER)
 			{
-				error(tc, (Node*)unaryOperator->expression, "Cannot deference non-pointer type");
+				error(tc, (Node*)unaryOperator->operand, "Cannot deference non-pointer type");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1824,9 +1824,9 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		}
 		else if (unaryOperator->op == OPERATOR_ADDRESS)
 		{
-			if (!isLValue(unaryOperator->expression))
+			if (!isLValue(unaryOperator->operand))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Cannot take address of rvalue expression");
+				error(tc, (Node*)unaryOperator->operand, "Cannot take address of rvalue expression");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1835,15 +1835,15 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX || unaryOperator->op == OPERATOR_DECREMENT_PREFIX
 			|| unaryOperator->op == OPERATOR_INCREMENT_POSTFIX || unaryOperator->op == OPERATOR_DECREMENT_POSTFIX)
 		{
-			if (!isLValue(unaryOperator->expression))
+			if (!isLValue(unaryOperator->operand))
 			{
-				error(tc, (Node*)unaryOperator->expression, "Cannot increment/decrement rvalue expression");
+				error(tc, (Node*)unaryOperator->operand, "Cannot increment/decrement rvalue expression");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
 			if (!isIntegerType(operandType) && !isFloatingPointType(operandType) && operandType->typeKind != TYPE_POINTER)
 			{
-				error(tc, (Node*)unaryOperator->expression, "Increment/decrement operator requires scalar or pointer type");
+				error(tc, (Node*)unaryOperator->operand, "Increment/decrement operator requires scalar or pointer type");
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
@@ -1887,7 +1887,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 	{
 		ArraySubscript* subscript = (ArraySubscript*)expression;
 
-		Type* operandType = resolveExpression(tc, subscript->expression);
+		Type* operandType = resolveExpression(tc, subscript->operand);
 		for (int i = 0; i < subscript->numArgs; i++)
 		{
 			resolveExpression(tc, subscript->args[i]);
@@ -1907,7 +1907,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		}
 		else
 		{
-			error(tc, (Node*)subscript->expression, "Operand of subscript operator must be one of array, string, pointer");
+			error(tc, (Node*)subscript->operand, "Operand of subscript operator must be one of array, string, pointer");
 			return expression->inferredType = &tc->types->errorType;
 		}
 	}
@@ -1915,7 +1915,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 	{
 		MemberAccess* member = (MemberAccess*)expression;
 
-		Type* operandType = resolveExpression(tc, member->expression);
+		Type* operandType = resolveExpression(tc, member->operand);
 
 		if (operandType == &tc->types->errorType)
 		{
@@ -1974,10 +1974,10 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 				member->index = 0;
 				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
 			}
-			else if (compareString(member->name, "ptr"))
+			else if (compareString(member->name, "data"))
 			{
 				member->index = 1;
-				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
+				return expression->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
 			}
 			else
 			{
@@ -2000,9 +2000,9 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		}
 		else if (operandType->typeKind == TYPE_TYPE)
 		{
-			SnekAssert(member->expression->type == NODE_IDENTIFIER);
+			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
-			Identifier* typeName = (Identifier*)member->expression;
+			Identifier* typeName = (Identifier*)member->operand;
 			SymbolEntry* symbol = getIdentifierSymbol(typeName);
 			if (!symbol)
 			{
@@ -2014,6 +2014,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			{
 				Enum* enum_ = &symbol->declaration->enum_;
 				int index = getEnumValue(member->name, enum_->numValues, enum_->values);
+				member->index = index;
+
 				if (index != -1)
 				{
 					return expression->inferredType = enum_->enumType;
@@ -2026,13 +2028,13 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			}
 			else
 			{
-				error(tc, (Node*)member->expression, "Undefined namespace '%.*s'", typeName->name.length, typeName->name.ptr);
+				error(tc, (Node*)member->operand, "Undefined namespace '%.*s'", typeName->name.length, typeName->name.ptr);
 				return expression->inferredType = &tc->types->errorType;
 			}
 		}
 		else
 		{
-			error(tc, (Node*)member->expression, "Operand of member access must be one of struct, union, string, array, any");
+			error(tc, (Node*)member->operand, "Operand of member access must be one of struct, union, string, array, any");
 			return expression->inferredType = &tc->types->errorType;
 		}
 	}
@@ -2048,7 +2050,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 		{
 			error(tc, (Node*)ternary->condition, "Ternary condition must be bool or scalar");
 		}
-		else if (conditionType != &tc->types->primitiveTypes[TYPE_BOOL])
+		else if (conditionType->typeKind != TYPE_BOOL)
 		{
 			insertImplicitCast(tc, &ternary->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
 		}
@@ -2150,7 +2152,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			{
 				error(tc, (Node*)if_->condition, "if condition must be bool or scalar");
 			}
-			else
+			else if (conditionType->typeKind != TYPE_BOOL)
 			{
 				insertImplicitCast(tc, &if_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
 			}
@@ -2170,7 +2172,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		{
 			error(tc, (Node*)while_->condition, "while condition must be bool or scalar");
 		}
-		else
+		else if (conditionType->typeKind != TYPE_BOOL)
 		{
 			insertImplicitCast(tc, &while_->condition, &tc->types->primitiveTypes[TYPE_BOOL]);
 		}
@@ -2380,16 +2382,41 @@ void symbolResolution(TypeChecker* tc, File* file)
 		if (enum_->valueType)
 		{
 			valueType = resolveType(tc, enum_->valueType);
+
+			if (!isIntegerType(valueType))
+			{
+				error(tc, (Node*)enum_->valueType, "Enum type must be an integer");
+			}
 		}
 
+		int lastWithValue = -1;
 		for (int j = 0; j < enum_->numValues; j++)
 		{
-			if (enum_->values[j]->value)
+			EnumValue* enumValue = enum_->values[j];
+			if (enumValue->value)
 			{
-				resolveExpression(tc, enum_->values[j]->value);
-				if (!isConstant(enum_->values[j]->value))
+				resolveExpression(tc, enumValue->value);
+				if (!isConstant(enumValue->value))
 				{
-					error(tc, (Node*)enum_->values[j]->value, "Enum value must be constant");
+					error(tc, (Node*)enumValue->value, "Enum value must be constant");
+				}
+				else
+				{
+					constantFold(tc, enumValue->value, &enumValue->intValue);
+				}
+
+				lastWithValue = j;
+			}
+			else
+			{
+				if (lastWithValue != -1)
+				{
+					int64_t previousValue = enum_->values[lastWithValue]->intValue;
+					enumValue->intValue = previousValue + (j - lastWithValue);
+				}
+				else
+				{
+					enumValue->intValue = j;
 				}
 			}
 		}

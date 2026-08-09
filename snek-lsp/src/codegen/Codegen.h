@@ -3,6 +3,7 @@
 #include "CodeBuffer.h"
 
 #include "utils/Arena.h"
+#include "utils/ScratchBuffer.h"
 #include "utils/HashSet.h"
 
 
@@ -15,6 +16,7 @@ struct Codegen
 	TypeSystem* types;
 
 	Arena arena;
+	ScratchBuffer scratch;
 
 	CodeBuffer typesBuffer;
 	CodeBuffer prototypesBuffer;

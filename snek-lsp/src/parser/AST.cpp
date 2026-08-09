@@ -299,8 +299,8 @@ static void resetExpression(Expression** ref)
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-		if (unaryOperator->expression)
-			resetExpression(&unaryOperator->expression);
+		if (unaryOperator->operand)
+			resetExpression(&unaryOperator->operand);
 	}
 	else if (expression->type == NODE_FUNCTION_CALL)
 	{
@@ -316,8 +316,8 @@ static void resetExpression(Expression** ref)
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
 		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
-		if (arraySubscript->expression)
-			resetExpression(&arraySubscript->expression);
+		if (arraySubscript->operand)
+			resetExpression(&arraySubscript->operand);
 		for (int i = 0; i < arraySubscript->numArgs; i++)
 		{
 			if (arraySubscript->args[i])
@@ -327,8 +327,8 @@ static void resetExpression(Expression** ref)
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* memberAccess = (MemberAccess*)expression;
-		if (memberAccess->expression)
-			resetExpression(&memberAccess->expression);
+		if (memberAccess->operand)
+			resetExpression(&memberAccess->operand);
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
@@ -638,8 +638,8 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-		if (unaryOperator->expression)
-			traverseExpression(unaryOperator->expression, scope, visitor, userPtr);
+		if (unaryOperator->operand)
+			traverseExpression(unaryOperator->operand, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_FUNCTION_CALL)
 	{
@@ -655,8 +655,8 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
 		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
-		if (arraySubscript->expression)
-			traverseExpression(arraySubscript->expression, scope, visitor, userPtr);
+		if (arraySubscript->operand)
+			traverseExpression(arraySubscript->operand, scope, visitor, userPtr);
 		for (int i = 0; i < arraySubscript->numArgs; i++)
 		{
 			if (arraySubscript->args[i])
@@ -666,8 +666,8 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* memberAccess = (MemberAccess*)expression;
-		if (memberAccess->expression)
-			traverseExpression(memberAccess->expression, scope, visitor, userPtr);
+		if (memberAccess->operand)
+			traverseExpression(memberAccess->operand, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{

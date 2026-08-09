@@ -1197,7 +1197,7 @@ Expression* parsePostfixOperator(Parser* parser)
 			{
 				ArraySubscript* subscript = parser->arena->alloc<ArraySubscript>();
 				initNode((Node*)subscript, NODE_ARRAY_SUBSCRIPT, expression->start);
-				subscript->expression = expression;
+				subscript->operand = expression;
 
 				subscript->args = parseExpressionList(parser, nullptr, &subscript->numArgs);
 
@@ -1211,7 +1211,7 @@ Expression* parsePostfixOperator(Parser* parser)
 			{
 				MemberAccess* member = parser->arena->alloc<MemberAccess>();
 				initNode((Node*)member, NODE_MEMBER_ACCESS, expression->start);
-				member->expression = expression;
+				member->operand = expression;
 
 				if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
 				{
@@ -1241,7 +1241,7 @@ Expression* parsePostfixOperator(Parser* parser)
 				UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
 				initNode((Node*)op, NODE_UNARY_OPERATOR, expression->start);
 				op->op = operatorType;
-				op->expression = expression;
+				op->operand = expression;
 				op->end = parser->lastTokenEnd;
 
 				expression = op;
@@ -1330,7 +1330,7 @@ Expression* parsePrefixOperator(Parser* parser)
 		UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
 		initNode((Node*)op, NODE_UNARY_OPERATOR, start);
 		op->op = operatorType;
-		op->expression = expression;
+		op->operand = expression;
 		op->end = parser->lastTokenEnd;
 
 		return op;

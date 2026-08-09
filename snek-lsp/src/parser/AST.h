@@ -319,7 +319,7 @@ struct BinaryOperator : Expression
 struct UnaryOperator : Expression
 {
 	OperatorType op;
-	Expression* expression;
+	Expression* operand;
 };
 
 struct FunctionCall : Expression
@@ -331,14 +331,14 @@ struct FunctionCall : Expression
 
 struct ArraySubscript : Expression
 {
-	Expression* expression;
+	Expression* operand;
 	Expression** args;
 	int numArgs;
 };
 
 struct MemberAccess : Expression
 {
-	Expression* expression;
+	Expression* operand;
 	StringView name;
 	int64_t index;
 };
@@ -453,6 +453,8 @@ struct EnumValue : NodeBase
 {
 	StringView name;
 	Expression* value;
+
+	int64_t intValue;
 };
 
 struct Enum : NodeBase
