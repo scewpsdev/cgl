@@ -165,7 +165,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		getStringRange(identifier->name, &data->file->parser, &start, &end);
 		int len = end - start;
 
-		SymbolEntry* symbol = getIdentifierSymbol(identifier);
+		Symbol* symbol = getIdentifierSymbol(identifier);
 
 		if (symbol)
 		{
@@ -220,7 +220,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		{
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 			Identifier* typeName = (Identifier*)member->operand;
-			if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
+			if (Symbol* symbol = getIdentifierSymbol(typeName))
 			{
 				if (symbol->declaration->type == NODE_ENUM)
 					data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });

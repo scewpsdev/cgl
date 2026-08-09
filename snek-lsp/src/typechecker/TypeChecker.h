@@ -1,16 +1,16 @@
 #pragma once
 
-#include "utils/ScratchBuffer.h"
-
 
 struct File;
 struct Function;
 struct Arena;
+struct ScratchBuffer;
 struct Lexer;
 struct Diagnostics;
 struct TypeSystem;
 struct Scope;
-struct SymbolEntry;
+struct Symbol;
+struct Expression;
 struct Identifier;
 
 struct TypeChecker
@@ -35,4 +35,4 @@ void symbolCollection(TypeChecker* tc, File* file);
 void symbolResolution(TypeChecker* tc, File* file);
 void typeCheckFunction(TypeChecker* tc, Function* function, File* file);
 
-SymbolEntry* getIdentifierSymbol(Identifier* identifier);
+Symbol* getIdentifierSymbol(Identifier* identifier);

@@ -1572,12 +1572,13 @@ Statement* parseStatement(Parser* parser)
 
 		expectToken(parser, ',');
 
-		OperatorType compareType = OPERATOR_LESS;
+		bool equals = false;
 		if (nextIs(parser, '='))
 		{
 			nextToken(parser);
-			compareType = OPERATOR_LESS_EQUALS;
+			equals = true;
 		}
+		for_->equals = equals;
 
 		Expression* compareValue = parseExpression(parser);
 		if (!compareValue)

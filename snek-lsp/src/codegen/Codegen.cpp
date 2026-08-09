@@ -32,7 +32,29 @@ void destroyCodegen(Codegen* codegen)
 	destroyScratchBuffer(&codegen->scratch);
 }
 
+struct Value
+{
+	char name[32];
+	Type* type;
+	bool lvalue;
+};
+
+static void declareType(Codegen* codegen, Type* type);
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer);
+static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer);
+
+static Value createGlobalValue(Codegen* codegen, Type* type)
+{
+	Value value = {};
+	value.type = type;
+	sprintf(value.name, "_G%d", codegen->nextGlobalID++);
+	return value;
+}
+
+static void emitValue(CodeBuffer* buffer, Value value)
+{
+	emitString(buffer, value.name);
+}
 
 static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 {
@@ -42,8 +64,39 @@ static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 	}
 }
 
-static void declareAnonymousStructType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
+	Value value = {};
+	value.type = type;
+	sprintf(value.name, "_%d", codegen->nextLocalID++);
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "const ");
+	emitType(codegen, type, buffer);
+	emitChar(buffer, ' ');
+	emitValue(buffer, value);
+	emitChar(buffer, '=');
+
+	return value;
+}
+
+static void declareAnonymousStructType(Codegen* codegen, Type* type)
+{
+	if (codegen->declaredTypes.contains(type))
+		return;
+
+	codegen->declaredTypes.add(type);
+
+	for (int i = 0; i < type->struct_.numFields; i++)
+	{
+		declareType(codegen, type->struct_.fieldTypes[i]);
+	}
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	int lastIndentation = codegen->indentation;
+	codegen->indentation = 0;
+
 	emitString(buffer, "typedef struct{\n");
 
 	codegen->indentation++;
@@ -67,10 +120,83 @@ static void declareAnonymousStructType(Codegen* codegen, Type* type, CodeBuffer*
 	emitString(buffer, "} ");
 	emitString(buffer, type->mangledName);
 	emitString(buffer, ";\n");
+
+	codegen->indentation = lastIndentation;
 }
 
-static void declareAnonymousUnionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+static void declareNamedStructStub(Codegen* codegen, Struct* struct_)
 {
+	if (codegen->declaredTypeStubs.contains(struct_->structType))
+		return;
+
+	codegen->declaredTypeStubs.add(struct_->structType);
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	emitString(buffer, "struct ");
+	emitString(buffer, struct_->name);
+	emitString(buffer, ";\n");
+}
+
+static void declareNamedStruct(Codegen* codegen, Struct* struct_)
+{
+	if (codegen->declaredTypes.contains(struct_->structType))
+		return;
+
+	codegen->declaredTypes.add(struct_->structType);
+
+	for (int i = 0; i < struct_->numFields; i++)
+	{
+		declareType(codegen, struct_->fields[i]->variableType->inferredType);
+	}
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	int lastIndentation = codegen->indentation;
+	codegen->indentation = 0;
+
+	emitString(buffer, "struct ");
+	emitString(buffer, struct_->name);
+	emitString(buffer, "{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < struct_->numFields; i++)
+	{
+		Field* field = struct_->fields[i];
+		for (int j = 0; j < field->numDeclarators; j++)
+		{
+			emitIndentation(codegen, buffer);
+			emitType(codegen, field->variableType->inferredType, buffer);
+			emitChar(buffer, ' ');
+			emitString(buffer, field->declarators[j].name);
+			emitString(buffer, ";\n");
+		}
+	}
+	codegen->indentation--;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "};\n");
+
+	codegen->indentation = lastIndentation;
+}
+
+static void declareAnonymousUnionType(Codegen* codegen, Type* type)
+{
+	if (codegen->declaredTypes.contains(type))
+		return;
+
+	codegen->declaredTypes.add(type);
+
+	for (int i = 0; i < type->union_.numFields; i++)
+	{
+		declareType(codegen, type->union_.fieldTypes[i]);
+	}
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	int lastIndentation = codegen->indentation;
+	codegen->indentation = 0;
+
 	emitString(buffer, "typedef union{\n");
 
 	codegen->indentation++;
@@ -94,10 +220,130 @@ static void declareAnonymousUnionType(Codegen* codegen, Type* type, CodeBuffer* 
 	emitString(buffer, "} ");
 	emitString(buffer, type->mangledName);
 	emitString(buffer, ";\n");
+
+	codegen->indentation = lastIndentation;
 }
 
-static void declareOptionalType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+static void declareNamedUnionStub(Codegen* codegen, Union* union_)
 {
+	if (codegen->declaredTypeStubs.contains(union_->unionType))
+		return;
+
+	codegen->declaredTypes.add(union_->unionType);
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	emitString(buffer, "union ");
+	emitString(buffer, union_->name);
+	emitString(buffer, ";\n");
+}
+
+static void declareNamedUnion(Codegen* codegen, Union* union_)
+{
+	if (codegen->declaredTypes.contains(union_->unionType))
+		return;
+
+	codegen->declaredTypes.add(union_->unionType);
+
+	for (int i = 0; i < union_->numFields; i++)
+	{
+		declareType(codegen, union_->fields[i]->variableType->inferredType);
+	}
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	int lastIndentation = codegen->indentation;
+	codegen->indentation = 0;
+
+	emitString(buffer, "union ");
+	emitString(buffer, union_->name);
+	emitString(buffer, "{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < union_->numFields; i++)
+	{
+		Field* field = union_->fields[i];
+		for (int j = 0; j < field->numDeclarators; j++)
+		{
+			emitIndentation(codegen, buffer);
+			emitType(codegen, field->variableType->inferredType, buffer);
+			emitChar(buffer, ' ');
+			emitString(buffer, field->declarators[j].name);
+			emitString(buffer, ";\n");
+		}
+	}
+	codegen->indentation--;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "};\n");
+
+	codegen->indentation = lastIndentation;
+}
+
+static void declareEnum(Codegen* codegen, Enum* enum_)
+{
+	if (codegen->declaredTypes.contains(enum_->enumType))
+		return;
+
+	codegen->declaredTypes.add(enum_->enumType);
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	int lastIndentation = codegen->indentation;
+	codegen->indentation = 0;
+
+	declareType(codegen, enum_->enumType->enum_.valueType);
+
+	emitString(buffer, "enum ");
+	emitString(buffer, enum_->name);
+	emitString(buffer, ":");
+	emitType(codegen, enum_->enumType->enum_.valueType, buffer);
+	emitString(buffer, "{\n");
+
+	codegen->indentation++;
+	for (int i = 0; i < enum_->numValues; i++)
+	{
+		emitIndentation(codegen, buffer);
+		EnumValue* value = enum_->values[i];
+		emitString(buffer, value->name);
+		/*
+		if (value->value)
+		{
+			emitString(buffer, "=");
+			emitExpression(codegen, value->value, buffer);
+		}
+		*/
+		emitString(buffer, ",\n");
+	}
+	codegen->indentation--;
+
+	emitString(buffer, "};\n");
+
+	codegen->indentation = lastIndentation;
+}
+
+static void declareTypedef(Codegen* codegen, Typedef* typedef_)
+{
+	if (codegen->declaredTypes.contains(typedef_->aliasType))
+		return;
+
+	codegen->declaredTypes.add(typedef_->aliasType);
+
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	declareType(codegen, typedef_->value->inferredType);
+
+	emitString(buffer, "typedef ");
+	emitType(codegen, typedef_->value->inferredType, buffer);
+	emitString(buffer, " ");
+	emitString(buffer, typedef_->name);
+	emitString(buffer, ";\n");
+}
+
+static void declareOptionalType(Codegen* codegen, Type* type)
+{
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
 	emitString(buffer, "typedef struct{");
 	emitString(buffer, type->optional.elementType->mangledName);
 	emitString(buffer, " value;u8 flag;}");
@@ -105,8 +351,10 @@ static void declareOptionalType(Codegen* codegen, Type* type, CodeBuffer* buffer
 	emitString(buffer, ";\n");
 }
 
-static void declareFunctionType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+static void declareFunctionType(Codegen* codegen, Type* type)
 {
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
 	emitString(buffer, "typedef ");
 	emitString(buffer, type->function.returnType ? type->function.returnType->mangledName : codegen->types->primitiveTypes[TYPE_VOID].mangledName);
 	emitString(buffer, "(*");
@@ -121,8 +369,10 @@ static void declareFunctionType(Codegen* codegen, Type* type, CodeBuffer* buffer
 	emitString(buffer, ");\n");
 }
 
-static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
+static void declareArrayType(Codegen* codegen, Type* type)
 {
+	CodeBuffer* buffer = &codegen->typesBuffer;
+
 	emitString(buffer, "typedef struct{");
 	if (type->array.size)
 	{
@@ -140,123 +390,102 @@ static void declareArrayType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	emitString(buffer, ";\n");
 }
 
+static void declareTypeStub(Codegen* codegen, Type* type)
+{
+	if (codegen->declaredTypeStubs.contains(type) || codegen->declaredTypes.contains(type))
+		return;
+
+	if (type->typeKind == TYPE_STRUCT)
+	{
+		codegen->declaredTypeStubs.add(type);
+
+		if (type->struct_.name.length)
+			declareNamedStructStub(codegen, type->struct_.declaration);
+	}
+	else if (type->typeKind == TYPE_UNION)
+	{
+		codegen->declaredTypeStubs.add(type);
+
+		if (type->union_.name.length)
+			declareNamedUnionStub(codegen, type->union_.declaration);
+	}
+	else if (type->typeKind == TYPE_ENUM)
+	{
+	}
+	else if (type->typeKind == TYPE_ALIAS)
+	{
+	}
+}
+
 static void declareType(Codegen* codegen, Type* type)
 {
 	if (codegen->declaredTypes.contains(type))
 		return;
 
-	if (type->typeKind == TYPE_STRUCT && !type->struct_.name.length)
+	if (type->typeKind == TYPE_STRUCT)
 	{
-		for (int i = 0; i < type->struct_.numFields; i++)
-		{
-			declareType(codegen, type->struct_.fieldTypes[i]);
-		}
-
-		declareAnonymousStructType(codegen, type, &codegen->typesBuffer);
-
-		codegen->declaredTypes.add(type);
+		if (!type->struct_.name.length)
+			declareAnonymousStructType(codegen, type);
+		else if (type->struct_.declaration)
+			declareNamedStruct(codegen, type->struct_.declaration);
 	}
-	else if (type->typeKind == TYPE_UNION && !type->union_.name.length)
+	else if (type->typeKind == TYPE_UNION)
 	{
-		for (int i = 0; i < type->union_.numFields; i++)
-		{
-			declareType(codegen, type->union_.fieldTypes[i]);
-		}
-
-		declareAnonymousUnionType(codegen, type, &codegen->typesBuffer);
-
+		if (!type->union_.name.length)
+			declareAnonymousUnionType(codegen, type);
+		else if (type->union_.declaration)
+			declareNamedUnion(codegen, type->union_.declaration);
+	}
+	else if (type->typeKind == TYPE_ENUM)
+	{
+		declareEnum(codegen, type->enum_.declaration);
+	}
+	else if (type->typeKind == TYPE_ALIAS)
+	{
+		declareTypedef(codegen, type->alias.declaration);
+	}
+	else if (type->typeKind == TYPE_POINTER)
+	{
 		codegen->declaredTypes.add(type);
+
+		declareTypeStub(codegen, type->pointer.elementType);
+
+		//declarePointerType(codegen, type);
 	}
 	else if (type->typeKind == TYPE_OPTIONAL)
 	{
+		codegen->declaredTypes.add(type);
+
 		declareType(codegen, type->optional.elementType);
 
-		declareOptionalType(codegen, type, &codegen->typesBuffer);
-
-		codegen->declaredTypes.add(type);
+		declareOptionalType(codegen, type);
 	}
 	else if (type->typeKind == TYPE_FUNCTION)
 	{
+		codegen->declaredTypes.add(type);
+
 		if (type->function.returnType)
-			declareType(codegen, type->function.returnType);
+			declareTypeStub(codegen, type->function.returnType);
 		for (int i = 0; i < type->function.numParams; i++)
 		{
-			declareType(codegen, type->function.paramTypes[i]);
+			declareTypeStub(codegen, type->function.paramTypes[i]);
 		}
 
-		declareFunctionType(codegen, type, &codegen->typesBuffer);
-
-		codegen->declaredTypes.add(type);
+		declareFunctionType(codegen, type);
 	}
 	else if (type->typeKind == TYPE_ARRAY)
 	{
+		codegen->declaredTypes.add(type);
+
 		declareType(codegen, type->array.elementType);
 
-		declareArrayType(codegen, type, &codegen->typesBuffer);
-
-		codegen->declaredTypes.add(type);
+		declareArrayType(codegen, type);
 	}
 }
 
 static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
-	if (type->typeKind == TYPE_VOID)
-	{
-		emitString(buffer, "void");
-	}
-	else if (type->typeKind == TYPE_INT8)
-	{
-		emitString(buffer, "i8");
-	}
-	else if (type->typeKind == TYPE_INT16)
-	{
-		emitString(buffer, "i16");
-	}
-	else if (type->typeKind == TYPE_INT32)
-	{
-		emitString(buffer, "i32");
-	}
-	else if (type->typeKind == TYPE_INT64)
-	{
-		emitString(buffer, "i64");
-	}
-	else if (type->typeKind == TYPE_UINT8)
-	{
-		emitString(buffer, "u8");
-	}
-	else if (type->typeKind == TYPE_UINT16)
-	{
-		emitString(buffer, "u16");
-	}
-	else if (type->typeKind == TYPE_UINT32)
-	{
-		emitString(buffer, "u32");
-	}
-	else if (type->typeKind == TYPE_UINT64)
-	{
-		emitString(buffer, "u64");
-	}
-	else if (type->typeKind == TYPE_FLOAT)
-	{
-		emitString(buffer, "float");
-	}
-	else if (type->typeKind == TYPE_DOUBLE)
-	{
-		emitString(buffer, "double");
-	}
-	else if (type->typeKind == TYPE_BOOL)
-	{
-		emitString(buffer, "bool");
-	}
-	else if (type->typeKind == TYPE_ANY)
-	{
-		emitString(buffer, "any");
-	}
-	else if (type->typeKind == TYPE_STRING)
-	{
-		emitString(buffer, "string");
-	}
-	else if (type->typeKind == TYPE_STRUCT)
+	if (type->typeKind == TYPE_STRUCT)
 	{
 		if (type->struct_.name.length)
 		{
@@ -316,46 +545,51 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 
 		emitString(buffer, type->mangledName);
 	}
-	else if (type->typeKind == TYPE_TYPE)
+	else
 	{
-		emitString(buffer, "type");
+		emitString(buffer, type->mangledName);
 	}
 }
 
-struct Value
+static void declareGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable, CodeBuffer* buffer)
 {
-	char name[32];
-	Type* type;
-	bool lvalue;
-};
-
-static Value createGlobalValue(Codegen* codegen, Type* type)
-{
-	Value value = {};
-	value.type = type;
-	sprintf(value.name, "_G%d", codegen->nextGlobalID++);
-	return value;
+	for (int i = 0; i < globalVariable->numDeclarators; i++)
+	{
+		VariableDeclarator* declarator = &globalVariable->declarators[i];
+		emitString(buffer, "extern ");
+		emitType(codegen, globalVariable->variableType->inferredType, buffer);
+		emitChar(buffer, ' ');
+		emitString(buffer, declarator->name);
+		emitString(buffer, ";\n");
+	}
 }
 
-static void emitValue(CodeBuffer* buffer, Value value)
+static void declareFunction(Codegen* codegen, Function* function, CodeBuffer* buffer)
 {
-	emitString(buffer, value.name);
-}
+	if (function->functionType->function.returnType)
+		declareType(codegen, function->functionType->function.returnType);
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+		declareType(codegen, function->functionType->function.paramTypes[i]);
 
-static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
-{
-	Value value = {};
-	value.type = type;
-	sprintf(value.name, "_%d", codegen->nextLocalID++);
-
-	emitIndentation(codegen, buffer);
-	emitString(buffer, "const ");
-	emitType(codegen, type, buffer);
+	emitString(buffer, "extern ");
+	emitType(codegen, function->functionType->function.returnType ? function->functionType->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
 	emitChar(buffer, ' ');
-	emitValue(buffer, value);
-	emitChar(buffer, '=');
+	emitString(buffer, function->name);
+	emitChar(buffer, '(');
+	for (int i = 0; i < function->functionType->function.numParams; i++)
+	{
+		emitType(codegen, function->functionType->function.paramTypes[i], buffer);
 
-	return value;
+		if (function->params[i]->name.length)
+		{
+			emitChar(buffer, ' ');
+			emitString(buffer, function->params[i]->name);
+		}
+
+		if (i < function->functionType->function.numParams - 1)
+			emitChar(buffer, ',');
+	}
+	emitString(buffer, ");\n");
 }
 
 static void emitOperator(CodeBuffer* buffer, OperatorType op)
@@ -396,6 +630,32 @@ static void emitOperator(CodeBuffer* buffer, OperatorType op)
 		emitString(buffer, "&&");
 	else if (op == OPERATOR_LOGICAL_OR)
 		emitString(buffer, "||");
+	else if (op == OPERATOR_ASSIGN)
+		emitChar(buffer, '=');
+	else if (op == OPERATOR_ADD_ASSIGN)
+		emitString(buffer, "+=");
+	else if (op == OPERATOR_SUBTRACT_ASSIGN)
+		emitString(buffer, "-=");
+	else if (op == OPERATOR_MULTIPLY_ASSIGN)
+		emitString(buffer, "*=");
+	else if (op == OPERATOR_DIVIDE_ASSIGN)
+		emitString(buffer, "/=");
+	else if (op == OPERATOR_MODULO_ASSIGN)
+		emitString(buffer, "%=");
+	else if (op == OPERATOR_BITSHIFT_LEFT_ASSIGN)
+		emitString(buffer, "<<=");
+	else if (op == OPERATOR_BITSHIFT_RIGHT_ASSIGN)
+		emitString(buffer, ">>=");
+	else if (op == OPERATOR_BITWISE_AND_ASSIGN)
+		emitString(buffer, "&=");
+	else if (op == OPERATOR_BITWISE_XOR_ASSIGN)
+		emitString(buffer, "^=");
+	else if (op == OPERATOR_BITWISE_OR_ASSIGN)
+		emitString(buffer, "|=");
+	else if (op == OPERATOR_LOGICAL_AND_ASSIGN)
+		emitString(buffer, "&&=");
+	else if (op == OPERATOR_LOGICAL_OR_ASSIGN)
+		emitString(buffer, "||=");
 	else
 	{
 		SnekAssert(false);
@@ -473,10 +733,44 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	else if (expression->type == NODE_IDENTIFIER)
 	{
 		Identifier* identifier = (Identifier*)expression;
+
+		Symbol* symbol = getIdentifierSymbol(identifier);
+		if (symbol->file != codegen->currentFile->handle)
+		{
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				Node* declaration = symbol->declaration;
+				SnekAssert(declaration->type == NODE_GLOBAL_VARIABLE);
+				GlobalVariable* globalVariable = &declaration->globalVariable;
+				if (!codegen->declaredVariables.contains(globalVariable))
+				{
+					declareGlobalVariable(codegen, globalVariable, &codegen->globalsBuffer);
+					codegen->declaredVariables.add(globalVariable);
+				}
+			}
+			else if (symbol->type == SYMBOL_TYPE)
+			{
+			}
+			else if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				SnekAssert(identifier->functionOverload);
+				Function* function = identifier->functionOverload->declaration;
+				if (!codegen->declaredFunctions.contains(function))
+				{
+					declareFunction(codegen, identifier->functionOverload->declaration, &codegen->prototypesBuffer);
+					codegen->declaredFunctions.add(function);
+				}
+			}
+			else if (symbol->type == SYMBOL_MACRO)
+			{
+			}
+		}
+
 		Value value = {};
 		value.type = expression->inferredType;
 		value.lvalue = true;
 		sprintf(value.name, "%.*s", identifier->name.length, identifier->name.ptr);
+
 		return value;
 	}
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
@@ -878,7 +1172,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
 			Identifier* typeName = (Identifier*)member->operand;
-			SymbolEntry* symbol = getIdentifierSymbol(typeName);
+			Symbol* symbol = getIdentifierSymbol(typeName);
 			SnekAssert(symbol);
 
 			if (symbol->declaration->type == NODE_ENUM)
@@ -926,6 +1220,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	else if (expression->type == NODE_CAST)
 	{
 		Cast* cast = (Cast*)expression;
+
+		if (cast->targetType)
+			declareType(codegen, cast->targetType->inferredType);
 
 		Value expression = emitExpression(codegen, cast->expression, buffer);
 
@@ -1008,144 +1305,151 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	}
 	else if (statement->type == NODE_FOR)
 	{
+		For* for_ = (For*)statement;
+
+		if (isConstant(for_->startValue) && isConstant(for_->compareValue))
+		{
+			int64_t startValue, compareValue;
+			constantFold(for_->startValue, &startValue);
+			constantFold(for_->compareValue, &compareValue);
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "for(int ");
+			emitString(buffer, for_->iteratorName);
+			emitChar(buffer, '=');
+			emitInteger(buffer, startValue);
+			emitChar(buffer, ';');
+			emitString(buffer, for_->iteratorName);
+			emitChar(buffer, compareValue > startValue ? '<' : '>');
+			if (for_->equals)
+				emitChar(buffer, '=');
+			emitInteger(buffer, compareValue);
+			emitChar(buffer, ';');
+			emitString(buffer, for_->iteratorName);
+			emitString(buffer, compareValue > startValue ? "++" : "--");
+		}
+		else
+		{
+			Value startValue = emitExpression(codegen, for_->startValue, buffer);
+			Value compareValue = emitExpression(codegen, for_->compareValue, buffer);
+
+			Value sign = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_INT32], buffer);
+
+			emitValue(buffer, compareValue);
+			emitString(buffer, ">=");
+			emitValue(buffer, startValue);
+			emitString(buffer, "?1:-1;\n");
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "for(int ");
+			emitString(buffer, for_->iteratorName);
+			emitChar(buffer, '=');
+			emitValue(buffer, startValue);
+			emitChar(buffer, ';');
+			emitString(buffer, for_->iteratorName);
+			emitChar(buffer, '*');
+			emitValue(buffer, sign);
+			emitChar(buffer, '<');
+			if (for_->equals)
+				emitChar(buffer, '=');
+			emitValue(buffer, compareValue);
+			emitChar(buffer, '*');
+			emitValue(buffer, sign);
+			emitChar(buffer, ';');
+			emitString(buffer, for_->iteratorName);
+			emitString(buffer, "+=");
+			emitValue(buffer, sign);
+		}
+
+		emitString(buffer, "){\n");
+
+		codegen->indentation++;
+		emitStatement(codegen, for_->body, buffer);
+		codegen->indentation--;
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "}\n");
 	}
 	else if (statement->type == NODE_RETURN)
 	{
+		Return* return_ = (Return*)statement;
+
+		Value value = {};
+		if (return_->value)
+			value = emitExpression(codegen, return_->value, buffer);
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "return");
+
+		if (return_->value)
+		{
+			emitChar(buffer, ' ');
+			emitValue(buffer, value);
+		}
+
+		emitString(buffer, ";\n");
 	}
 	else if (statement->type == NODE_BREAK)
 	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "break;\n");
 	}
 	else if (statement->type == NODE_CONTINUE)
 	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "continue;\n");
 	}
 	else if (statement->type == NODE_DEFER)
 	{
 	}
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{
+		VariableDeclaration* variable = (VariableDeclaration*)statement;
+
+		declareType(codegen, variable->variableType->inferredType);
+
+		for (int i = 0; i < variable->numDeclarators; i++)
+		{
+			VariableDeclarator* declarator = &variable->declarators[i];
+
+			Value value = {};
+			if (declarator->value)
+				value = emitExpression(codegen, declarator->value, buffer);
+
+			emitIndentation(codegen, buffer);
+			emitType(codegen, variable->variableType->inferredType, buffer);
+			emitChar(buffer, ' ');
+			emitString(buffer, declarator->name);
+
+			if (declarator->value)
+			{
+				emitChar(buffer, '=');
+				emitValue(buffer, value);
+			}
+
+			emitString(buffer, ";\n");
+		}
 	}
 	else if (statement->type == NODE_ASSIGNMENT)
 	{
+		Assignment* assignment = (Assignment*)statement;
+
+		Value expression = emitExpression(codegen, assignment->expression, buffer);
+		Value value = emitExpression(codegen, assignment->value, buffer);
+
+		emitIndentation(codegen, buffer);
+		emitValue(buffer, expression);
+		if (assignment->op)
+			emitOperator(buffer, assignment->op);
+		emitChar(buffer, '=');
+		emitValue(buffer, value);
+		emitString(buffer, ";\n");
 	}
 	else if (statement->type == NODE_EXPRESSION_STATEMENT)
 	{
 		ExpressionStatement* expression = (ExpressionStatement*)statement;
 		emitExpression(codegen, expression->expression, buffer);
 	}
-}
-
-static void emitField(Codegen* codegen, Field* field, CodeBuffer* buffer)
-{
-	for (int i = 0; i < field->numDeclarators; i++)
-	{
-		emitIndentation(codegen, buffer);
-		emitType(codegen, field->variableType->inferredType, buffer);
-		emitString(buffer, " ");
-		emitString(buffer, field->declarators[i].name);
-		if (field->declarators[i].value)
-		{
-			emitString(buffer, "=");
-			emitExpression(codegen, field->declarators[i].value, buffer);
-		}
-		emitString(buffer, ";\n");
-	}
-}
-
-static void emitStructDeclaration(Codegen* codegen, Struct* struct_, CodeBuffer* buffer)
-{
-	emitString(buffer, "struct ");
-	emitString(buffer, struct_->name);
-	emitString(buffer, ";\n");
-}
-
-static void emitStruct(Codegen* codegen, Struct* struct_, CodeBuffer* buffer)
-{
-	for (int i = 0; i < struct_->numFields; i++)
-	{
-		declareType(codegen, struct_->fields[i]->variableType->inferredType);
-	}
-
-	emitString(buffer, "struct ");
-	emitString(buffer, struct_->name);
-	emitString(buffer, "{\n");
-
-	codegen->indentation++;
-	for (int i = 0; i < struct_->numFields; i++)
-	{
-		Field* field = struct_->fields[i];
-		emitField(codegen, field, buffer);
-	}
-	codegen->indentation--;
-
-	emitString(buffer, "};\n");
-}
-
-static void emitUnionDeclaration(Codegen* codegen, Union* union_, CodeBuffer* buffer)
-{
-	emitString(buffer, "union ");
-	emitString(buffer, union_->name);
-	emitString(buffer, ";\n");
-}
-
-static void emitUnion(Codegen* codegen, Union* union_, CodeBuffer* buffer)
-{
-	for (int i = 0; i < union_->numFields; i++)
-	{
-		declareType(codegen, union_->fields[i]->variableType->inferredType);
-	}
-
-	emitString(buffer, "union ");
-	emitString(buffer, union_->name);
-	emitString(buffer, "{\n");
-
-	codegen->indentation++;
-	for (int i = 0; i < union_->numFields; i++)
-	{
-		Field* field = union_->fields[i];
-		emitField(codegen, field, buffer);
-	}
-	codegen->indentation--;
-
-	emitString(buffer, "};\n");
-}
-
-static void emitEnum(Codegen* codegen, Enum* enum_, CodeBuffer* buffer)
-{
-	declareType(codegen, enum_->enumType->enum_.valueType);
-
-	emitString(buffer, "enum ");
-	emitString(buffer, enum_->name);
-	emitString(buffer, ":");
-	emitType(codegen, enum_->enumType->enum_.valueType, buffer);
-	emitString(buffer, "{\n");
-
-	codegen->indentation++;
-	for (int i = 0; i < enum_->numValues; i++)
-	{
-		emitIndentation(codegen, buffer);
-		EnumValue* value = enum_->values[i];
-		emitString(buffer, value->name);
-		if (value->value)
-		{
-			emitString(buffer, "=");
-			emitExpression(codegen, value->value, buffer);
-		}
-		emitString(buffer, ",\n");
-	}
-	codegen->indentation--;
-
-	emitString(buffer, "};\n");
-}
-
-static void emitTypedef(Codegen* codegen, Typedef* typedef_, CodeBuffer* buffer)
-{
-	declareType(codegen, typedef_->value->inferredType);
-
-	emitString(buffer, "typedef ");
-	emitType(codegen, typedef_->value->inferredType, buffer);
-	emitString(buffer, " ");
-	emitString(buffer, typedef_->name);
-	emitString(buffer, ";\n");
 }
 
 static void emitFunctionDeclaration(Codegen* codegen, Function* function, CodeBuffer* buffer)
@@ -1207,14 +1511,13 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 
 	if (function->value)
 	{
+		Value value = emitExpression(codegen, function->value, buffer);
+
 		codegen->indentation++;
-		for (int i = 0; i < function->numStatements; i++)
-		{
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "return ");
-			emitExpression(codegen, function->value, buffer);
-			emitString(buffer, ";\n");
-		}
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "return ");
+		emitValue(buffer, value);
+		emitString(buffer, ";\n");
 		codegen->indentation--;
 	}
 	else
@@ -1232,15 +1535,34 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 
 static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable, CodeBuffer* buffer)
 {
-
+	for (int i = 0; i < globalVariable->numDeclarators; i++)
+	{
+		VariableDeclarator* declarator = &globalVariable->declarators[i];
+		emitType(codegen, globalVariable->variableType->inferredType, buffer);
+		emitChar(buffer, ' ');
+		emitString(buffer, declarator->name);
+		/*
+		if (declarator->value)
+		{
+			emitChar(buffer, '=');
+			emitExpression(codegen, declarator->value, buffer);
+		}
+		*/
+		emitString(buffer, ";\n");
+	}
 }
 
 bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 {
 	codegen->declaredTypes.clear();
+	codegen->declaredTypeStubs.clear();
+	codegen->declaredVariables.clear();
+	codegen->declaredFunctions.clear();
+
 	codegen->currentFile = f;
 
 	codegen->nextGlobalID = 1;
+	codegen->nextLocalID = 1;
 
 	AST* ast = &f->ast;
 
@@ -1267,11 +1589,11 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
-			emitStructDeclaration(codegen, &declaration->struct_, &codegen->typesBuffer);
+			declareNamedStructStub(codegen, &declaration->struct_);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
-			emitUnionDeclaration(codegen, &declaration->union_, &codegen->typesBuffer);
+			declareNamedUnionStub(codegen, &declaration->union_);
 		}
 	}
 
@@ -1280,19 +1602,19 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
-			emitStruct(codegen, &declaration->struct_, &codegen->typesBuffer);
+			declareNamedStruct(codegen, &declaration->struct_);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
-			emitUnion(codegen, &declaration->union_, &codegen->typesBuffer);
+			declareNamedUnion(codegen, &declaration->union_);
 		}
 		else if (declaration->type == NODE_ENUM)
 		{
-			emitEnum(codegen, &declaration->enum_, &codegen->typesBuffer);
+			declareEnum(codegen, &declaration->enum_);
 		}
 		else if (declaration->type == NODE_TYPEDEF)
 		{
-			emitTypedef(codegen, &declaration->typedef_, &codegen->typesBuffer);
+			declareTypedef(codegen, &declaration->typedef_);
 		}
 		else if (declaration->type == NODE_FUNCTION)
 		{

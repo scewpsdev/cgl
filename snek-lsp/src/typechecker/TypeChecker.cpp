@@ -1,12 +1,14 @@
 #include "TypeChecker.h"
 
 #include "TypeSystem.h"
+#include "Document.h"
 
 #include "parser/AST.h"
 #include "parser/Diagnostics.h"
 #include "parser/Lexer.h"
 
-#include "Document.h"
+#include "utils/Arena.h"
+#include "utils/ScratchBuffer.h"
 
 #include <stdarg.h>
 #include <math.h>
@@ -138,7 +140,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 
 			if (struct_->name.length)
 			{
-				struct_->structType = createNamedStructType(tc->types, struct_->name, tc->currentFile);
+				struct_->structType = createNamedStructType(tc->types, struct_->name, tc->currentFile, struct_);
 				insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, tc->currentFile->handle);
 			}
 
@@ -148,7 +150,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 		{
 			Union* union_ = &declaration->union_;
 
-			union_->unionType = createNamedUnionType(tc->types, union_->name, tc->currentFile);
+			union_->unionType = createNamedUnionType(tc->types, union_->name, tc->currentFile, union_);
 
 			insertSymbol(&tc->currentScope->symbols, union_->name, SYMBOL_TYPE, declaration, tc->currentFile->handle);
 
@@ -158,7 +160,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 		{
 			Enum* enum_ = &declaration->enum_;
 
-			enum_->enumType = createEnumType(tc->types, enum_->name, tc->currentFile);
+			enum_->enumType = createEnumType(tc->types, enum_->name, tc->currentFile, enum_);
 
 			insertSymbol(&tc->currentScope->symbols, enum_->name, SYMBOL_TYPE, declaration, tc->currentFile->handle);
 			ast->enums[numEnums++] = enum_;
@@ -167,7 +169,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 		{
 			Typedef* typedef_ = &declaration->typedef_;
 
-			typedef_->aliasType = createAliasType(tc->types, typedef_->name, tc->currentFile);
+			typedef_->aliasType = createAliasType(tc->types, typedef_->name, tc->currentFile, typedef_);
 
 			insertSymbol(&tc->currentScope->symbols, typedef_->name, SYMBOL_TYPE, declaration, tc->currentFile->handle);
 
@@ -420,474 +422,10 @@ static double stringToFloatConstant(TypeChecker* tc, Node* node, StringView str,
 	return value;
 }
 
-static bool isIntegerType(Type* type)
-{
-	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
-}
-
-static bool isFloatingPointType(Type* type)
-{
-	return type->typeKind > TYPE_FLOAT_START && type->typeKind < TYPE_FLOAT_END;
-}
-
-static bool isTruthyType(Type* type)
-{
-	return type->typeKind == TYPE_BOOL || isIntegerType(type) || isFloatingPointType(type) || type->typeKind == TYPE_POINTER || type->typeKind == TYPE_OPTIONAL;
-}
-
-static bool isNumericType(Type* type)
-{
-	return isIntegerType(type) || isFloatingPointType(type);
-}
-
-static int getFieldIndex(StringView name, int numFields, StringView* fieldNames)
-{
-	for (int i = 0; i < numFields; i++)
-	{
-		if (compareString(name, fieldNames[i]))
-		{
-			return i;
-		}
-	}
-	return -1;
-}
-
-static int getEnumValue(StringView name, int numValues, EnumValue** values)
-{
-	for (int i = 0; i < numValues; i++)
-	{
-		if (compareString(name, values[i]->name))
-			return i;
-	}
-	return -1;
-}
-
-static bool isConstant(Expression* expression)
-{
-	Node* node = (Node*)expression;
-
-	if (!expression)
-		return false;
-
-	if (expression->type == NODE_INT_LITERAL)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_FLOAT_LITERAL)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_STRING_LITERAL)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_CHAR_LITERAL)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_TRUE)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_FALSE)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_NULL_LITERAL)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_IDENTIFIER)
-	{
-		Identifier* identifier = &node->identifier;
-		if (SymbolEntry* symbol = getIdentifierSymbol(identifier))
-		{
-			if (symbol->type == SYMBOL_VARIABLE)
-			{
-				Node* node = symbol->declaration;
-				if (node->type == NODE_VARIABLE_DECLARATION)
-				{
-					VariableDeclaration* variableDeclaration = &node->variableDeclaration;
-					return variableDeclaration->storage & STORAGE_CONSTANT;
-				}
-				else if (node->type == NODE_GLOBAL_VARIABLE)
-				{
-					GlobalVariable* globalVariable = &node->globalVariable;
-					return globalVariable->storage & STORAGE_CONSTANT;
-				}
-			}
-		}
-	}
-	else if (expression->type == NODE_COMPOUND_EXPRESSION)
-	{
-		return isConstant(((CompoundExpression*)expression)->value);
-	}
-	else if (expression->type == NODE_EXPRESSION_LIST)
-	{
-		ExpressionList* expressionList = (ExpressionList*)expression;
-		for (int i = 0; i < expressionList->numValues; i++)
-		{
-			if (!isConstant(expressionList->values[i]))
-				return false;
-		}
-		return true;
-	}
-	else if (expression->type == NODE_BINARY_OPERATOR)
-	{
-		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
-		return isConstant(binaryOperator->left) && isConstant(binaryOperator->right);
-	}
-	else if (expression->type == NODE_CAST)
-	{
-		return isConstant(((Cast*)expression)->expression);
-	}
-	else if (expression->type == NODE_UNARY_OPERATOR)
-	{
-		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-		return isConstant(unaryOperator->operand);
-	}
-	else if (expression->type == NODE_MEMBER_ACCESS)
-	{
-		MemberAccess* member = &node->memberAccess;
-		Type* operandType = member->operand->inferredType;
-
-		if (member->operand->type == NODE_STRING_LITERAL)
-		{
-			StringLiteral* string = (StringLiteral*)member->operand;
-			if (compareString(member->name, "length"))
-			{
-				return true;
-			}
-		}
-		else if (member->operand->type == NODE_IDENTIFIER)
-		{
-			if (operandType->typeKind == TYPE_TYPE)
-			{
-				Identifier* typeName = (Identifier*)member->operand;
-				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
-				{
-					if (symbol->declaration->type == NODE_ENUM)
-					{
-						return true;
-					}
-				}
-			}
-		}
-	}
-	else if (expression->type == NODE_TERNARY_CONDITION)
-	{
-		TernaryCondition* ternary = (TernaryCondition*)expression;
-		return isConstant(ternary->condition) && isConstant(ternary->then) && isConstant(ternary->else_);
-	}
-
-	return false;
-}
-
-static bool isLValue(Expression* expression)
-{
-	if (expression->type == NODE_IDENTIFIER)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_MEMBER_ACCESS)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
-	{
-		return true;
-	}
-	else if (expression->type == NODE_UNARY_OPERATOR)
-	{
-		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-
-		if (unaryOperator->op == OPERATOR_DEREFERENCE)
-			return true;
-		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX || unaryOperator->op == OPERATOR_DECREMENT_PREFIX)
-			return true;
-	}
-	else if (expression->type == NODE_COMPOUND_EXPRESSION)
-	{
-		CompoundExpression* compound = (CompoundExpression*)expression;
-		return isLValue(compound->value);
-	}
-
-	return false;
-}
-
-static bool constantFold(TypeChecker* tc, Expression* expression, int64_t* value)
-{
-	Node* node = (Node*)expression;
-	if (expression->type == NODE_INT_LITERAL)
-	{
-		*value = (int64_t)node->intLiteral.intValue;
-		return true;
-	}
-	else if (expression->type == NODE_IDENTIFIER)
-	{
-		Identifier* identifier = &node->identifier;
-		if (SymbolEntry* symbol = getIdentifierSymbol(identifier))
-		{
-			if (symbol->type == SYMBOL_VARIABLE)
-			{
-				Node* node = symbol->declaration;
-				if (node->type == NODE_VARIABLE_DECLARATION)
-				{
-					VariableDeclaration* variableDeclaration = &node->variableDeclaration;
-					if (variableDeclaration->storage & STORAGE_CONSTANT)
-					{
-						for (int i = 0; i < variableDeclaration->numDeclarators; i++)
-						{
-							if (compareString(variableDeclaration->declarators[i].name, identifier->name))
-							{
-								if (variableDeclaration->declarators[i].value)
-								{
-									SnekAssert(isIntegerType(variableDeclaration->declarators[i].value->inferredType));
-									return constantFold(tc, variableDeclaration->declarators[i].value, value);
-								}
-								break;
-							}
-						}
-					}
-				}
-				else if (node->type == NODE_GLOBAL_VARIABLE)
-				{
-					GlobalVariable* globalVariable = &node->globalVariable;
-					if (globalVariable->storage & STORAGE_CONSTANT)
-					{
-						for (int i = 0; i < globalVariable->numDeclarators; i++)
-						{
-							if (compareString(globalVariable->declarators[i].name, identifier->name))
-							{
-								if (globalVariable->declarators[i].value)
-								{
-									SnekAssert(isIntegerType(globalVariable->declarators[i].value->inferredType));
-									return constantFold(tc, globalVariable->declarators[i].value, value);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else if (expression->type == NODE_COMPOUND_EXPRESSION)
-	{
-		CompoundExpression* compound = &node->compoundExpression;
-		SnekAssert(isIntegerType(compound->value->inferredType));
-		return constantFold(tc, compound->value, value);
-	}
-	else if (expression->type == NODE_BINARY_OPERATOR)
-	{
-		BinaryOperator* binaryOperator = &node->binaryOperator;
-
-		int64_t left, right;
-		if (constantFold(tc, binaryOperator->left, &left) && constantFold(tc, binaryOperator->right, &right))
-		{
-			if (binaryOperator->op == OPERATOR_MULTIPLY)
-			{
-				*value = left * right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_DIVIDE)
-			{
-				*value = left / right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_MODULO)
-			{
-				*value = left % right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_ADD)
-			{
-				*value = left + right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_SUBTRACT)
-			{
-				*value = left - right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_BITSHIFT_LEFT)
-			{
-				*value = left << right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_BITSHIFT_RIGHT)
-			{
-				*value = left >> right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_LESS)
-			{
-				*value = left < right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_LESS_EQUALS)
-			{
-				*value = left <= right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_GREATER)
-			{
-				*value = left > right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_GREATER_EQUALS)
-			{
-				*value = left >= right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_EQUALS)
-			{
-				*value = left == right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_NOT_EQUALS)
-			{
-				*value = left != right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_BITWISE_AND)
-			{
-				*value = left & right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_BITWISE_XOR)
-			{
-				*value = left ^ right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_BITWISE_OR)
-			{
-				*value = left | right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_LOGICAL_AND)
-			{
-				*value = left && right;
-				return true;
-			}
-			else if (binaryOperator->op == OPERATOR_LOGICAL_OR)
-			{
-				*value = left || right;
-				return true;
-			}
-		}
-	}
-	else if (expression->type == NODE_UNARY_OPERATOR)
-	{
-		UnaryOperator* unaryOperator = &node->unaryOperator;
-
-		int64_t operandValue;
-		if (constantFold(tc, unaryOperator->operand, &operandValue))
-		{
-			if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
-			{
-				*value = operandValue + 1;
-				return true;
-			}
-			else if (unaryOperator->op == OPERATOR_DECREMENT_PREFIX)
-			{
-				*value = operandValue - 1;
-				return true;
-			}
-			else if (unaryOperator->op == OPERATOR_PLUS_PREFIX)
-			{
-				*value = operandValue;
-				return true;
-			}
-			else if (unaryOperator->op == OPERATOR_MINUS_PREFIX)
-			{
-				*value = -operandValue;
-				return true;
-			}
-			else if (unaryOperator->op == OPERATOR_LOGICAL_NOT)
-			{
-				*value = !operandValue;
-				return true;
-			}
-			else if (unaryOperator->op == OPERATOR_BITWISE_NOT)
-			{
-				*value = ~operandValue;
-				return true;
-			}
-		}
-	}
-	else if (expression->type == NODE_MEMBER_ACCESS)
-	{
-		MemberAccess* member = &node->memberAccess;
-		Type* operandType = member->operand->inferredType;
-
-		if (member->operand->type == NODE_STRING_LITERAL)
-		{
-			StringLiteral* string = (StringLiteral*)member->operand;
-			if (compareString(member->name, "length"))
-			{
-				*value = string->value.length;
-				return true;
-			}
-		}
-		else if (member->operand->type == NODE_IDENTIFIER)
-		{
-			if (operandType->typeKind == TYPE_TYPE)
-			{
-				Identifier* typeName = (Identifier*)member->operand;
-				if (SymbolEntry* symbol = getIdentifierSymbol(typeName))
-				{
-					if (symbol->declaration->type == NODE_ENUM)
-					{
-						Enum* enum_ = &symbol->declaration->enum_;
-						int index = getEnumValue(member->name, enum_->numValues, enum_->values);
-						if (index != -1)
-						{
-							EnumValue* enumValue = enum_->values[index];
-							if (enumValue->value)
-							{
-								return constantFold(tc, enumValue->value, value);
-							}
-							else
-							{
-								for (int i = index - 1; i >= 0; i--)
-								{
-									EnumValue* previousEnumValue = enum_->values[i];
-									if (previousEnumValue->value)
-									{
-										int64_t previousValue = constantFold(tc, previousEnumValue->value, value);
-										return previousValue + (index - i);
-									}
-									else if (i == 0)
-									{
-										return index;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else if (expression->type == NODE_TERNARY_CONDITION)
-	{
-		TernaryCondition* ternary = &node->ternaryCondition;
-
-		int64_t condition, then, else_;
-		if (constantFold(tc, ternary->condition, &condition) && constantFold(tc, ternary->then, &then) && constantFold(tc, ternary->else_, &else_))
-		{
-			*value = condition ? then : else_;
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static Type* resolveExpression(TypeChecker* tc, Expression* expression);
 static Type* resolveField(TypeChecker* tc, Field* field);
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter);
-static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier);
+static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier);
 
 static Type* resolveType(TypeChecker* tc, TypeNode* type)
 {
@@ -905,7 +443,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		NamedType* namedType = (NamedType*)type;
 
-		SymbolEntry* symbol = resolveSymbol(tc, namedType->name);
+		Symbol* symbol = resolveSymbol(tc, namedType->name);
 		if (symbol && symbol->type == SYMBOL_TYPE)
 		{
 			Node* node = symbol->declaration;
@@ -1148,7 +686,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		{
 			resolveExpression(tc, arrayType->size);
 
-			if (isConstant(arrayType->size) && (isIntegerType(arrayType->size->inferredType) || arrayType->size->inferredType->typeKind == TYPE_ENUM && isIntegerType(arrayType->size->inferredType->enum_.valueType)) && constantFold(tc, arrayType->size, &size))
+			if (isConstant(arrayType->size) && (isIntegerType(arrayType->size->inferredType) || arrayType->size->inferredType->typeKind == TYPE_ENUM && isIntegerType(arrayType->size->inferredType->enum_.valueType)) && constantFold(arrayType->size, &size))
 			{
 				if (size < 0)
 				{
@@ -1168,13 +706,13 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	return type->inferredType = &tc->types->errorType;
 }
 
-static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
+static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier)
 {
 	Scope* scope = tc->currentScope;
 	SnekAssert(scope->parent != scope);
 	while (scope)
 	{
-		if (SymbolEntry* symbol = lookupSymbol(&scope->symbols, identifier))
+		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier))
 		{
 			return symbol;
 		}
@@ -1186,7 +724,7 @@ static SymbolEntry* resolveSymbol(TypeChecker* tc, StringView identifier)
 		FileHandle dependency = tc->currentFile->dependencies[i];
 		if (File* file = getFileFromHandle(dependency))
 		{
-			if (SymbolEntry* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
+			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
 			{
 				return symbol;
 			}
@@ -1444,19 +982,20 @@ static void selectFunctionOverloads(TypeChecker* tc, FunctionSet* functionSet, i
 {
 	for (int i = 0; i < functionSet->count; i++)
 	{
-		Function* overload = &functionSet->overloads[i].declaration->function;
-		if (overload->numParams != numArgs)
+		FunctionOverload* overload = &functionSet->overloads[i];
+		Function* function = overload->declaration;
+		if (function->numParams != numArgs)
 			continue;
 
 		// function has not been resolved yet, eg while evaluating inline function return expressions
-		if (!overload->functionType)
+		if (!function->functionType)
 			continue;
 
 		bool matches = true;
 		for (int j = 0; j < numArgs; j++)
 		{
 			Type* argType = args[j]->inferredType;
-			Type* paramType = overload->params[j]->paramType->inferredType;
+			Type* paramType = function->params[j]->paramType->inferredType;
 			if (argType != paramType && exact || !isAssignable(tc, argType, paramType, nullptr))
 			{
 				matches = false;
@@ -1471,7 +1010,7 @@ static void selectFunctionOverloads(TypeChecker* tc, FunctionSet* functionSet, i
 	}
 }
 
-static SymbolHandle getSymbolHandle(TypeChecker* tc, SymbolEntry* symbol)
+static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
 {
 	SymbolHandle handle = {};
 	handle.file = symbol->file;
@@ -1479,20 +1018,9 @@ static SymbolHandle getSymbolHandle(TypeChecker* tc, SymbolEntry* symbol)
 	return handle;
 }
 
-SymbolEntry* getIdentifierSymbol(Identifier* identifier)
-{
-	if (identifier->resolvedSymbol)
-		return identifier->resolvedSymbol;
-	if (File* file = getFileFromHandle(identifier->resolvedSymbolHandle.file))
-	{
-		return lookupSymbol(&file->ast.globalScope->symbols, identifier->resolvedSymbolHandle.symbol);
-	}
-	return nullptr;
-}
-
 static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool hasArgs, int numArgs, Expression** args)
 {
-	if (SymbolEntry* symbol = resolveSymbol(tc, identifier->name))
+	if (Symbol* symbol = resolveSymbol(tc, identifier->name))
 	{
 		if (symbol->file == tc->currentFile->handle)
 			identifier->resolvedSymbol = symbol;
@@ -1534,35 +1062,32 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 		}
 		else if (symbol->type == SYMBOL_FUNCTION_SET)
 		{
-			Function* function = nullptr;
+			FunctionOverload* function = nullptr;
 
 			if (symbol->functionSet.count == 1)
 			{
-				Node* node = symbol->functionSet.overloads[0].declaration;
-				SnekAssert(node->type == NODE_FUNCTION);
+				function = &symbol->functionSet.overloads[0];
 
-				function = &node->function;
+				SnekAssert(function->declaration->type == NODE_FUNCTION);
 			}
 			else
 			{
 				if (hasArgs)
 				{
-					Function* overload = nullptr;
-
 					int mark = tc->scratch->mark();
 
 					selectFunctionOverloads(tc, &symbol->functionSet, numArgs, args, true);
-					int count = tc->scratch->count<Function*>(mark);
+					int count = tc->scratch->count<FunctionOverload*>(mark);
 
 					/*
 					if (count == 0)
 					{
 						selectFunctionOverloads(tc, &symbol->functionSet, numArgs, args, false);
-						count = tc->scratch->count<Function*>(mark);
+						count = tc->scratch->count<FunctionOverload*>(mark);
 					}
 					*/
 
-					Function** overloads = tc->scratch->getData<Function*>(mark);
+					FunctionOverload** overloads = tc->scratch->getData<FunctionOverload*>(mark);
 
 					tc->scratch->release(mark);
 
@@ -1610,14 +1135,16 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 				}
 			}
 
-			if (!function->functionType)
+			identifier->functionOverload = function;
+
+			if (!function->declaration->functionType)
 			{
 				error(tc, (Node*)identifier, "Function '%.*s' referenced in type-defining inline expression must be declared above", identifier->name.length, identifier->name.ptr);
 				return identifier->inferredType = &tc->types->errorType;
 			}
 			else
 			{
-				return identifier->inferredType = function->functionType;
+				return identifier->inferredType = function->declaration->functionType;
 			}
 		}
 		else if (symbol->type == SYMBOL_TYPE)
@@ -2003,7 +1530,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression)
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
 			Identifier* typeName = (Identifier*)member->operand;
-			SymbolEntry* symbol = getIdentifierSymbol(typeName);
+			Symbol* symbol = getIdentifierSymbol(typeName);
 			if (!symbol)
 			{
 				error(tc, typeName->name, "Unknown symbol '%.*s', workspace might be out of sync", typeName->name.length, typeName->name.ptr);
@@ -2269,7 +1796,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
 		{
-			SymbolEntry* symbol = lookupSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name);
+			Symbol* symbol = lookupSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name);
 			if (symbol)
 			{
 				error(tc, variableDeclaration->declarators[i].name, "Redeclaration of variable '%.*s'", variableDeclaration->declarators[i].name.length, variableDeclaration->declarators[i].name.ptr);
@@ -2402,7 +1929,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 				}
 				else
 				{
-					constantFold(tc, enumValue->value, &enumValue->intValue);
+					constantFold(enumValue->value, &enumValue->intValue);
 				}
 
 				lastWithValue = j;

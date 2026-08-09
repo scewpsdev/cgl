@@ -10,6 +10,9 @@
 struct File;
 struct Type;
 struct TypeSystem;
+struct Symbol;
+struct GlobalVariable;
+struct Function;
 
 struct Codegen
 {
@@ -30,6 +33,9 @@ struct Codegen
 	int nextLocalID;
 
 	HashSet<Type*> declaredTypes;
+	HashSet<Type*> declaredTypeStubs;
+	HashSet<GlobalVariable*> declaredVariables;
+	HashSet<Function*> declaredFunctions;
 };
 
 

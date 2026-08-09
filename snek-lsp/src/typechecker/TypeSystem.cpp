@@ -22,6 +22,26 @@ static void destroyTypeTable(TypeTable* table)
 		free(table->entries);
 }
 
+bool isIntegerType(Type* type)
+{
+	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
+}
+
+bool isFloatingPointType(Type* type)
+{
+	return type->typeKind > TYPE_FLOAT_START && type->typeKind < TYPE_FLOAT_END;
+}
+
+bool isTruthyType(Type* type)
+{
+	return type->typeKind == TYPE_BOOL || isIntegerType(type) || isFloatingPointType(type) || type->typeKind == TYPE_POINTER || type->typeKind == TYPE_OPTIONAL;
+}
+
+bool isNumericType(Type* type)
+{
+	return isIntegerType(type) || isFloatingPointType(type);
+}
+
 uint64_t hash(Type* type)
 {
 	uint64_t hash = 14695981039346656037ULL; // FNV offset basis
@@ -125,14 +145,14 @@ void initTypeSystem(TypeSystem* types)
 	types->errorType = { .typeKind = TYPE_NULL, .name = CreateString("<error>"), .mangledName = CreateString("error") };
 
 	types->primitiveTypes[TYPE_VOID] = { .typeKind = TYPE_VOID, .name = CreateString("void"), .mangledName = CreateString("void") };
-	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8"), .mangledName = CreateString("i8") };
-	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16"), .mangledName = CreateString("i16") };
-	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32"), .mangledName = CreateString("i32") };
-	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64"), .mangledName = CreateString("i64") };
-	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8"), .mangledName = CreateString("u8") };
-	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16"), .mangledName = CreateString("u16") };
-	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32"), .mangledName = CreateString("u32") };
-	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64"), .mangledName = CreateString("u64") };
+	types->primitiveTypes[TYPE_INT8] = { .typeKind = TYPE_INT8, .name = CreateString("int8"), .mangledName = CreateString("char") };
+	types->primitiveTypes[TYPE_INT16] = { .typeKind = TYPE_INT16, .name = CreateString("int16"), .mangledName = CreateString("short") };
+	types->primitiveTypes[TYPE_INT32] = { .typeKind = TYPE_INT32, .name = CreateString("int32"), .mangledName = CreateString("int") };
+	types->primitiveTypes[TYPE_INT64] = { .typeKind = TYPE_INT64, .name = CreateString("int64"), .mangledName = CreateString("long long") };
+	types->primitiveTypes[TYPE_UINT8] = { .typeKind = TYPE_UINT8, .name = CreateString("uint8"), .mangledName = CreateString("unsigned char") };
+	types->primitiveTypes[TYPE_UINT16] = { .typeKind = TYPE_UINT16, .name = CreateString("uint16"), .mangledName = CreateString("unsigned short") };
+	types->primitiveTypes[TYPE_UINT32] = { .typeKind = TYPE_UINT32, .name = CreateString("uint32"), .mangledName = CreateString("unsigned int") };
+	types->primitiveTypes[TYPE_UINT64] = { .typeKind = TYPE_UINT64, .name = CreateString("uint64"), .mangledName = CreateString("unsigned long long") };
 	types->primitiveTypes[TYPE_FLOAT] = { .typeKind = TYPE_FLOAT, .name = CreateString("float"), .mangledName = CreateString("float") };
 	types->primitiveTypes[TYPE_DOUBLE] = { .typeKind = TYPE_DOUBLE, .name = CreateString("double"), .mangledName = CreateString("double") };
 	types->primitiveTypes[TYPE_BOOL] = { .typeKind = TYPE_BOOL, .name = CreateString("bool"), .mangledName = CreateString("bool") };
@@ -451,7 +471,7 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 	return type;
 }
 
-Type* createNamedStructType(TypeSystem* types, StringView name, File* file)
+Type* createNamedStructType(TypeSystem* types, StringView name, File* file, Struct* declaration)
 {
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
@@ -463,6 +483,7 @@ Type* createNamedStructType(TypeSystem* types, StringView name, File* file)
 	SnekAssert(newType);
 
 	type->struct_.name = copy(name);
+	type->struct_.declaration = declaration;
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -477,7 +498,7 @@ void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type**
 	type->struct_.fieldNames = copyNames(types, numFields, fieldNames);
 }
 
-Type* createNamedUnionType(TypeSystem* types, StringView name, File* file)
+Type* createNamedUnionType(TypeSystem* types, StringView name, File* file, Union* declaration)
 {
 	Type key = {};
 	key.typeKind = TYPE_UNION;
@@ -489,6 +510,7 @@ Type* createNamedUnionType(TypeSystem* types, StringView name, File* file)
 	SnekAssert(newType);
 
 	type->union_.name = copy(name);
+	type->union_.declaration = declaration;
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -503,7 +525,7 @@ void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** 
 	type->union_.fieldNames = copyNames(types, numFields, fieldNames);
 }
 
-Type* createEnumType(TypeSystem* types, StringView name, File* file)
+Type* createEnumType(TypeSystem* types, StringView name, File* file, Enum* declaration)
 {
 	Type key = {};
 	key.typeKind = TYPE_ENUM;
@@ -515,6 +537,7 @@ Type* createEnumType(TypeSystem* types, StringView name, File* file)
 	SnekAssert(newType);
 
 	type->enum_.name = copy(name);
+	type->enum_.declaration = declaration;
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);
@@ -527,7 +550,7 @@ void resolveEnumType(TypeSystem* types, Type* type, Type* valueType)
 	type->enum_.valueType = valueType;
 }
 
-Type* createAliasType(TypeSystem* types, StringView name, File* file)
+Type* createAliasType(TypeSystem* types, StringView name, File* file, Typedef* declaration)
 {
 	Type key = {};
 	key.typeKind = TYPE_ALIAS;
@@ -539,6 +562,7 @@ Type* createAliasType(TypeSystem* types, StringView name, File* file)
 	SnekAssert(newType);
 
 	type->alias.name = copy(name);
+	type->alias.declaration = declaration;
 	type->name = createTypeString(types, "%.*s", name.length, name.ptr);
 
 	type->mangledName = createTypeString(types, "%.*s", name.length, name.ptr);

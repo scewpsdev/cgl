@@ -105,7 +105,8 @@ struct Node;
 struct Type;
 struct Expression;
 struct Scope;
-struct SymbolEntry;
+struct Symbol;
+struct FunctionOverload;
 
 struct TypeNode : NodeBase
 {
@@ -227,8 +228,9 @@ struct Identifier : Expression
 {
 	StringView name;
 
-	SymbolEntry* resolvedSymbol;
+	Symbol* resolvedSymbol;
 	SymbolHandle resolvedSymbolHandle;
+	FunctionOverload* functionOverload;
 };
 
 struct CompoundExpression : Expression
@@ -389,7 +391,7 @@ struct For : Statement
 {
 	StringView iteratorName;
 	Expression* startValue;
-	OperatorType compareType;
+	bool equals;
 	Expression* compareValue;
 	Statement* body;
 
@@ -595,7 +597,7 @@ enum SymbolType : uint8_t
 
 struct FunctionOverload
 {
-	Node* declaration;
+	Function* declaration;
 };
 
 struct FunctionSet
@@ -605,7 +607,7 @@ struct FunctionSet
 	int capacity;
 };
 
-struct SymbolEntry
+struct Symbol
 {
 	uint32_t key;
 	SymbolType type;
@@ -620,7 +622,7 @@ struct SymbolEntry
 
 struct SymbolTable
 {
-	SymbolEntry* slots;
+	Symbol* slots;
 	int capacity;
 	int count;
 
@@ -666,8 +668,17 @@ void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file);
-SymbolEntry* lookupSymbol(SymbolTable* symbols, StringView identifier);
-SymbolEntry* lookupSymbol(SymbolTable* symbols, uint32_t h);
+Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier);
+Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h);
+
+Symbol* getIdentifierSymbol(Identifier* identifier);
+
+int getFieldIndex(StringView name, int numFields, StringView* fieldNames);
+int getEnumValue(StringView name, int numValues, EnumValue** values);
+
+bool isConstant(Expression* expression);
+bool isLValue(Expression* expression);
+bool constantFold(Expression* expression, int64_t* value);
 
 void resetAST(AST* ast);
 
