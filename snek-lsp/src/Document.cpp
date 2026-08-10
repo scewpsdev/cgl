@@ -52,7 +52,7 @@ void Document::init(const std::string& text, TypeSystem* types, GlobalBlockPool*
 
 	state = DOCUMENT_STATE_UNPARSED;
 
-	initFile(&file, localPath.c_str(), types, blockPool);
+	initFile(&file, localPath.c_str(), blockPool);
 }
 
 void Document::onOpen(std::string& text)
@@ -216,7 +216,7 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		getStringRange(member->name, &data->file->parser, &start, &end);
 
 		Type* operandType = member->operand->inferredType;
-		if (operandType->typeKind == TYPE_TYPE)
+		if (operandType && operandType->typeKind == TYPE_TYPE)
 		{
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 			Identifier* typeName = (Identifier*)member->operand;
@@ -350,14 +350,4 @@ void Document::getTokens(std::vector<int>& data)
 	}
 
 	FreeList(&lspTokens);
-}
-
-File* getFileFromHandle(FileHandle fileHandle)
-{
-	for (int i = 0; i < documents.size; i++)
-	{
-		if (documents[i]->file.handle == fileHandle)
-			return &documents[i]->file;
-	}
-	return nullptr;
 }

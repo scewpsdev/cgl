@@ -1,0 +1,15 @@
+D:\Dev\2023\CGL\snek\src\codegen\CodeBuffer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\CodeBuffer.obj
+D:\Dev\2023\CGL\snek\src\codegen\Codegen.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Codegen.obj
+D:\Dev\2023\CGL\snek\src\File.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\File.obj
+D:\Dev\2023\CGL\snek\src\parser\AST.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\AST.obj
+D:\Dev\2023\CGL\snek\src\parser\Diagnostics.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Diagnostics.obj
+D:\Dev\2023\CGL\snek\src\parser\Lexer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Lexer.obj
+D:\Dev\2023\CGL\snek\src\parser\Parser.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Parser.obj
+D:\Dev\2023\CGL\snek\src\Platform.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Platform.obj
+D:\Dev\2023\CGL\snek\src\typechecker\TypeChecker.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\TypeChecker.obj
+D:\Dev\2023\CGL\snek\src\typechecker\TypeSystem.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\TypeSystem.obj
+D:\Dev\2023\CGL\snek\src\utils\Arena.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Arena.obj
+D:\Dev\2023\CGL\snek\src\utils\Hash.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Hash.obj
+D:\Dev\2023\CGL\snek\src\utils\ScratchBuffer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\ScratchBuffer.obj
+D:\Dev\2023\CGL\snek\src\utils\StringBuffer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\StringBuffer.obj
+D:\Dev\2023\CGL\snek\src\utils\StringView.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\StringView.obj

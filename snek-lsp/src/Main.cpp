@@ -28,6 +28,8 @@ std::thread parserThread;
 
 GlobalBlockPool blockPool;
 TypeSystem types;
+Codegen codegen;
+
 List<Document*> documents;
 std::map<std::string, int> uriMap;
 
@@ -537,11 +539,14 @@ void Parse(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		clearInternedTypes(&document->file, &types);
+		//clearInternedTypes(&document->file, &types);
+		clearTypeTable(&document->file.typeTable);
 
 		resetArena(&document->file.arena);
 		resetScratchBuffer(&document->file.scratch);
-		resetDiagnostics(&document->file.diagnostics);
+		resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_PARSER_STAGE);
+
+		document->file.diagnostics.stage = DIAGNOSTICS_PARSER_STAGE;
 
 		document->file.ast = {};
 
@@ -584,9 +589,14 @@ void TypeCheck(List<Document*> documents)
 
 		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
 		{
-			clearInternedTypes(&document->file, &types);
+			//clearInternedTypes(&document->file, &types);
+			clearTypeTable(&document->file.typeTable);
 			resetAST(&document->file.ast);
+
+			resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_TYPECHECK_STAGE);
 		}
+
+		document->file.diagnostics.stage = DIAGNOSTICS_TYPECHECK_STAGE;
 
 		if (document->file.typeChecker.arena)
 			destroyTypeChecker(&document->file.typeChecker);
@@ -632,7 +642,7 @@ void TypeCheck(List<Document*> documents)
 			std::string outPath = document->localPath;
 			outPath = outPath.substr(0, outPath.find('.'));
 			outPath = rootPath + "/tmp/" + outPath + ".c";
-			emitFile(&document->file.codegen, &document->file, document->localPath.c_str(), outPath.c_str());
+			emitFile(&codegen, &document->file, document->localPath.c_str(), outPath.c_str());
 		}
 	}
 
@@ -671,6 +681,16 @@ static Document* GetDocument(std::string uri)
 	auto it = uriMap.find(uri);
 	if (it != uriMap.end())
 		return documents[it->second];
+	return nullptr;
+}
+
+File* getFileFromHandle(FileHandle fileHandle)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->file.handle == fileHandle)
+			return &documents[i]->file;
+	}
 	return nullptr;
 }
 
@@ -751,6 +771,10 @@ static bool areDependenciesParsed(File* file)
 			if (document->state < DOCUMENT_STATE_PARSED)
 				return false;
 		}
+		else
+		{
+			return false;
+		}
 	}
 	return true;
 }
@@ -821,6 +845,7 @@ int main()
 
 	initGlobalBlockPool(&blockPool, 16);
 	initTypeSystem(&types);
+	initCodegen(&codegen, &types, &blockPool);
 
 	while (true)
 	{
@@ -1071,4 +1096,5 @@ int main()
 	}
 
 	destroyTypeSystem(&types);
+	destroyCodegen(&codegen);
 }
