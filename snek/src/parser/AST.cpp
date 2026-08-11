@@ -646,7 +646,6 @@ bool constantFold(Expression* expression, int64_t* value)
 
 static void resetField(Field* field);
 static void resetParameter(Parameter* parameter);
-static void resetExpression(Expression** ref);
 
 static void resetType(TypeNode* type)
 {
@@ -714,7 +713,7 @@ static void resetType(TypeNode* type)
 	}
 }
 
-static void resetExpression(Expression** ref)
+void resetExpression(Expression** ref)
 {
 	Expression* expression = *ref;
 
@@ -746,16 +745,15 @@ static void resetExpression(Expression** ref)
 	else if (expression->type == NODE_CAST)
 	{
 		Cast* cast = (Cast*)expression;
+
+		if (cast->expression)
+			resetExpression(&cast->expression);
+		if (cast->targetType)
+			resetType(cast->targetType);
+
 		if (cast->implicit)
 		{
 			*ref = cast->expression;
-		}
-		else
-		{
-			if (cast->expression)
-				resetExpression(&cast->expression);
-			if (cast->targetType)
-				resetType(cast->targetType);
 		}
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)

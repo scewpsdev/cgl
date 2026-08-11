@@ -27,6 +27,7 @@ std::string mainFilePath;
 std::thread parserThread;
 
 GlobalBlockPool blockPool;
+Arena globalArena;
 TypeSystem types;
 Codegen codegen;
 
@@ -539,9 +540,6 @@ void Parse(List<Document*> documents)
 
 		document->astMutex.lock();
 
-		//clearInternedTypes(&document->file, &types);
-		clearTypeTable(&document->file.typeTable);
-
 		resetArena(&document->file.arena);
 		resetScratchBuffer(&document->file.scratch);
 		resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_PARSER_STAGE);
@@ -590,7 +588,6 @@ void TypeCheck(List<Document*> documents)
 		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
 		{
 			//clearInternedTypes(&document->file, &types);
-			clearTypeTable(&document->file.typeTable);
 			resetAST(&document->file.ast);
 
 			resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_TYPECHECK_STAGE);
@@ -600,6 +597,8 @@ void TypeCheck(List<Document*> documents)
 
 		if (document->file.typeChecker.arena)
 			destroyTypeChecker(&document->file.typeChecker);
+
+		initTypeTable(&document->file.typeTable, &document->file.arena, 64);
 
 		initTypeChecker(&document->file.typeChecker, &document->file.arena, &document->file.scratch, &document->file.parser.lexer, &document->file.diagnostics, &types);
 
@@ -844,8 +843,9 @@ int main()
 	fprintf(stderr, "Starting LSP Server\n");
 
 	initGlobalBlockPool(&blockPool, 16);
-	initTypeSystem(&types);
-	initCodegen(&codegen, &types, &blockPool);
+	initArena(&globalArena, &blockPool);
+	initTypeSystem(&types, &globalArena);
+	initCodegen(&codegen, &types, &globalArena);
 
 	while (true)
 	{
@@ -1096,5 +1096,4 @@ int main()
 	}
 
 	destroyTypeSystem(&types);
-	destroyCodegen(&codegen);
 }

@@ -18,7 +18,7 @@ struct Codegen
 {
 	TypeSystem* types;
 
-	Arena arena;
+	Arena* arena;
 	ScratchBuffer scratch;
 
 	CodeBuffer typesBuffer;
@@ -39,7 +39,7 @@ struct Codegen
 };
 
 
-void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool);
+void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena);
 void destroyCodegen(Codegen* codegen);
 
 bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out);

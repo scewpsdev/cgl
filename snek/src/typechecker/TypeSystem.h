@@ -77,6 +77,7 @@ struct TypeEntry
 
 struct TypeTable
 {
+	Arena* arena;
 	TypeEntry* entries;
 	int count;
 	int capacity;
@@ -87,16 +88,12 @@ struct TypeSystem
 	Type errorType;
 	Type primitiveTypes[TYPE_COUNT];
 
+	Arena* arena;
 	TypeTable typeTable;
 };
 
 
-void initTypeTable(TypeTable* table, int initialCapacity);
-void destroyTypeTable(TypeTable* table);
-void clearTypeTable(TypeTable* table);
-
-Type* internType(TypeTable* table, Type key, Arena* arena, bool* newType);
-bool removeInternedType(TypeTable* table, uint64_t key, Type* type);
+void initTypeTable(TypeTable* table, Arena* arena, int initialCapacity);
 
 bool isIntegerType(Type* type);
 bool isFloatingPointType(Type* type);
@@ -104,8 +101,9 @@ bool isTruthyType(Type* type);
 bool isNumericType(Type* type);
 
 uint64_t hash(Type* type);
+bool compareTypes(Type* a, Type* b);
 
-void initTypeSystem(TypeSystem* types);
+void initTypeSystem(TypeSystem* types, Arena* globalArena);
 void destroyTypeSystem(TypeSystem* types);
 
 Type* getPointerType(TypeSystem* types, Type* elementType, File* file);
@@ -115,14 +113,14 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, File* file);
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file);
 
-Type* createNamedStructType(TypeSystem* types, StringView name, File* file, Struct* declaration);
-void resolveNamedStructType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
+Type* createNamedStructType(File* file, StringView name, Struct* declaration);
+void resolveNamedStructType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file);
 
-Type* createNamedUnionType(TypeSystem* types, StringView name, File* file, Union* declaration);
-void resolveNamedUnionType(TypeSystem* types, Type* type, int numFields, Type** fieldTypes, StringView* fieldNames);
+Type* createNamedUnionType(File* file, StringView name, Union* declaration);
+void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file);
 
-Type* createEnumType(TypeSystem* types, StringView name, File* file, Enum* declaration);
-void resolveEnumType(TypeSystem* types, Type* type, Type* valueType);
+Type* createEnumType(File* file, StringView name, Enum* declaration);
+void resolveEnumType(Type* type, Type* valueType);
 
-Type* createAliasType(TypeSystem* types, StringView name, File* file, Typedef* declaration);
-void resolveAliasType(TypeSystem* types, Type* type, Type* value);
+Type* createAliasType(File* file, StringView name, Typedef* declaration);
+void resolveAliasType(Type* type, Type* value);

@@ -14,8 +14,6 @@ void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool)
 	initArena(&file->arena, blockPool);
 	initScratchBuffer(&file->scratch, 16);
 	initDiagnostics(&file->diagnostics, &file->arena);
-
-	initTypeTable(&file->typeTable, 64);
 }
 
 FileHandle getFileHandle(const char* localPath)

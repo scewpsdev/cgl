@@ -7,17 +7,17 @@
 #include <stdio.h>
 
 
-void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool)
+void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena)
 {
 	codegen->types = types;
+	codegen->arena = globalArena;
 
-	initArena(&codegen->arena, blockPool);
 	initScratchBuffer(&codegen->scratch, 16);
 
-	initCodeBuffer(&codegen->typesBuffer, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->prototypesBuffer, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->globalsBuffer, &codegen->arena, 1024);
-	initCodeBuffer(&codegen->functionsBuffer, &codegen->arena, 1024);
+	initCodeBuffer(&codegen->typesBuffer, codegen->arena, 1024);
+	initCodeBuffer(&codegen->prototypesBuffer, codegen->arena, 1024);
+	initCodeBuffer(&codegen->globalsBuffer, codegen->arena, 1024);
+	initCodeBuffer(&codegen->functionsBuffer, codegen->arena, 1024);
 
 	codegen->indentation = 0;
 	codegen->nextGlobalID = 1;
@@ -28,7 +28,6 @@ void initCodegen(Codegen* codegen, TypeSystem* types, GlobalBlockPool* blockPool
 
 void destroyCodegen(Codegen* codegen)
 {
-	destroyArena(&codegen->arena);
 	destroyScratchBuffer(&codegen->scratch);
 }
 
@@ -47,7 +46,7 @@ static Value createGlobalValue(Codegen* codegen, Type* type)
 {
 	Value value = {};
 	value.type = type;
-	sprintf(value.name, "_G%d", codegen->nextGlobalID++);
+	snprintf(value.name, sizeof(value.name), "_G%d", codegen->nextGlobalID++);
 	return value;
 }
 
@@ -68,7 +67,7 @@ static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
 	Value value = {};
 	value.type = type;
-	sprintf(value.name, "_%d", codegen->nextLocalID++);
+	snprintf(value.name, sizeof(value.name), "_%d", codegen->nextLocalID++);
 
 	emitIndentation(codegen, buffer);
 	emitString(buffer, "const ");
@@ -557,6 +556,8 @@ static void declareGlobalVariable(Codegen* codegen, GlobalVariable* globalVariab
 	{
 		VariableDeclarator* declarator = &globalVariable->declarators[i];
 		emitString(buffer, "extern ");
+		if (globalVariable->storage & STORAGE_CONSTANT)
+			emitString(buffer, "const ");
 		emitType(codegen, globalVariable->variableType->inferredType, buffer);
 		emitChar(buffer, ' ');
 		emitString(buffer, declarator->name);
@@ -667,17 +668,47 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	if (expression->type == NODE_INT_LITERAL)
 	{
 		IntLiteral* intLiteral = (IntLiteral*)expression;
+
 		Value value = {};
 		value.type = expression->inferredType;
-		sprintf(value.name, intLiteral->negative ? "-%llu" : "%llu", intLiteral->intValue);
+
+		SnekAssert(isIntegerType(expression->inferredType));
+
+		switch (expression->inferredType->typeKind)
+		{
+		case TYPE_INT8:
+		case TYPE_UINT8:
+		case TYPE_INT16:
+		case TYPE_UINT16:
+			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "(%.*s)-%llu" : "(%.*s)%llu", expression->inferredType->mangledName.length, expression->inferredType->mangledName.ptr, intLiteral->intValue);
+			break;
+		case TYPE_INT32:
+			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%llu" : "%llu", intLiteral->intValue);
+			break;
+		case TYPE_UINT32:
+			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%lluu" : "%lluu", intLiteral->intValue);
+			break;
+		case TYPE_INT64:
+			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%lluLL" : "%lluLL", intLiteral->intValue);
+			break;
+		case TYPE_UINT64:
+			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%lluLLU" : "%lluLLU", intLiteral->intValue);
+			break;
+		default:
+			SnekAssert(false);
+			break;
+		}
+
 		return value;
 	}
 	else if (expression->type == NODE_FLOAT_LITERAL)
 	{
 		FloatLiteral* floatLiteral = (FloatLiteral*)expression;
+
 		Value value = {};
 		value.type = expression->inferredType;
-		sprintf(value.name, "%f", floatLiteral->floatValue);
+		snprintf(value.name, sizeof(value.name), expression->inferredType->typeKind == TYPE_DOUBLE ? "%f" : "%ff", floatLiteral->floatValue);
+
 		return value;
 	}
 	else if (expression->type == NODE_STRING_LITERAL)
@@ -692,21 +723,29 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		emitString(&codegen->globalsBuffer, stringLiteral->value);
 		emitString(&codegen->globalsBuffer, "\";\n");
 
-		Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
-		emitChar(buffer, '{');
-		emitValue(buffer, ptr);
-		emitChar(buffer, ',');
-		emitInteger(buffer, stringLiteral->value.length);
-		emitString(buffer, "};\n");
+		if (expression->inferredType->typeKind == TYPE_STRING)
+		{
+			Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
 
-		return str;
+			emitString(buffer, "{(i8*)");
+			emitValue(buffer, ptr);
+			emitChar(buffer, ',');
+			emitInteger(buffer, stringLiteral->value.length);
+			emitString(buffer, "};\n");
+
+			return str;
+		}
+		else
+		{
+			return ptr;
+		}
 	}
 	else if (expression->type == NODE_CHAR_LITERAL)
 	{
 		CharLiteral* charLiteral = (CharLiteral*)expression;
 		Value value = {};
 		value.type = expression->inferredType;
-		sprintf(value.name, "'%.*s'", charLiteral->value.length, charLiteral->value.ptr);
+		snprintf(value.name, sizeof(value.name), "'%.*s'", charLiteral->value.length, charLiteral->value.ptr);
 		return value;
 	}
 	else if (expression->type == NODE_TRUE)
@@ -769,7 +808,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value value = {};
 		value.type = expression->inferredType;
 		value.lvalue = true;
-		sprintf(value.name, "%.*s", identifier->name.length, identifier->name.ptr);
+		snprintf(value.name, sizeof(value.name), "%.*s", identifier->name.length, identifier->name.ptr);
 
 		return value;
 	}
@@ -922,7 +961,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = unaryOperator->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", operand.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", operand.name);
 
 			return result;
 		}
@@ -930,7 +969,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			Value result = {};
 			result.type = unaryOperator->inferredType;
-			sprintf(result.name, "(&%s)", operand.name);
+			snprintf(result.name, sizeof(result.name), "(&%s)", operand.name);
 
 			return result;
 		}
@@ -997,7 +1036,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = subscript->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", charPtr.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", charPtr.name);
 
 			return result;
 		}
@@ -1017,7 +1056,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = subscript->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", ptr.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
 
 			return result;
 		}
@@ -1037,7 +1076,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = subscript->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", ptr.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
 
 			return result;
 		}
@@ -1071,7 +1110,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = member->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", ptr.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
 
 			return result;
 		}
@@ -1088,7 +1127,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value result = {};
 			result.type = member->inferredType;
 			result.lvalue = true;
-			sprintf(result.name, "(*%s)", ptr.name);
+			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
 
 			return result;
 		}
@@ -1124,7 +1163,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				{
 					Value value = {};
 					value.type = member->inferredType;
-					sprintf(value.name, "%llu", operandType->array.size);
+					snprintf(value.name, sizeof(value.name), "%llu", operandType->array.size);
 
 					return value;
 				}
@@ -1183,7 +1222,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 				Value value = {};
 				value.type = member->inferredType;
-				sprintf(value.name, "%lld", enumValue->intValue);
+				snprintf(value.name, sizeof(value.name), "%lld", enumValue->intValue);
 
 				return value;
 			}
@@ -1538,16 +1577,20 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 	for (int i = 0; i < globalVariable->numDeclarators; i++)
 	{
 		VariableDeclarator* declarator = &globalVariable->declarators[i];
+
+		if (globalVariable->storage & STORAGE_CONSTANT)
+			emitString(buffer, "const ");
+
 		emitType(codegen, globalVariable->variableType->inferredType, buffer);
 		emitChar(buffer, ' ');
 		emitString(buffer, declarator->name);
-		/*
+
 		if (declarator->value)
 		{
 			emitChar(buffer, '=');
 			emitExpression(codegen, declarator->value, buffer);
 		}
-		*/
+
 		emitString(buffer, ";\n");
 	}
 }

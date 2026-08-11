@@ -680,6 +680,7 @@ bool isConstant(Expression* expression);
 bool isLValue(Expression* expression);
 bool constantFold(Expression* expression, int64_t* value);
 
+void resetExpression(Expression** ref);
 void resetAST(AST* ast);
 
 void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr);

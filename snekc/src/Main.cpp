@@ -153,10 +153,10 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 	}
 
 	initGlobalBlockPool(&compiler->blockPool, 16);
-	initTypeSystem(&compiler->types);
 	initArena(&compiler->arena, &compiler->blockPool);
+	initTypeSystem(&compiler->types, &compiler->arena);
 
-	initCodegen(&compiler->codegen, &compiler->types, &compiler->blockPool);
+	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena);
 
 	const char* cmd = argv[1]; // build
 
@@ -255,6 +255,7 @@ static void symbolCollectFilesRange(List<SourceFile*>& files, int start, int end
 	{
 		SourceFile* file = files[i];
 
+		initTypeTable(&file->file.typeTable, &file->file.arena, 64);
 		initTypeChecker(&file->file.typeChecker, &file->file.arena, &file->file.scratch, &file->file.parser.lexer, &file->file.diagnostics, &compiler.types);
 		symbolCollection(&file->file.typeChecker, &file->file);
 	}
@@ -385,6 +386,7 @@ static void outputBinary(const char* out)
 	}
 
 	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
+	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
 
 	createDirectories(out);
 	int result = tcc_output_file(tcc, out);
