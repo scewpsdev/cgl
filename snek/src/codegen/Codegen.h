@@ -5,6 +5,7 @@
 #include "utils/Arena.h"
 #include "utils/ScratchBuffer.h"
 #include "utils/HashSet.h"
+#include "utils/TypeSet.h"
 
 
 struct File;
@@ -32,8 +33,8 @@ struct Codegen
 	int nextGlobalID;
 	int nextLocalID;
 
-	HashSet<Type*> declaredTypes;
-	HashSet<Type*> declaredTypeStubs;
+	TypeSet declaredTypes;
+	TypeSet declaredTypeStubs;
 	HashSet<GlobalVariable*> declaredVariables;
 	HashSet<Function*> declaredFunctions;
 };

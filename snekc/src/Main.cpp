@@ -375,6 +375,11 @@ static void outputBinary(const char* out)
 
 	tcc_add_library_path(tcc, ".");
 
+	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
+	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
+	tcc_define_symbol(tcc, "true", "1");
+	tcc_define_symbol(tcc, "false", "0");
+
 	tcc_set_output_type(tcc, TCC_OUTPUT_EXE);
 
 	localFilePath(buffer, "lib/snek.c");
@@ -384,9 +389,6 @@ static void outputBinary(const char* out)
 	{
 		tcc_add_file(tcc, compiler.sourceFiles[i]->outPath);
 	}
-
-	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
-	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
 
 	createDirectories(out);
 	int result = tcc_output_file(tcc, out);

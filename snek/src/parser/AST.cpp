@@ -222,6 +222,26 @@ int getEnumValue(StringView name, int numValues, EnumValue** values)
 	return -1;
 }
 
+VariableDeclarator* getDeclarator(VariableDeclaration* variable, StringView name)
+{
+	for (int i = 0; i < variable->numDeclarators; i++)
+	{
+		if (compareString(variable->declarators[i].name, name))
+			return &variable->declarators[i];
+	}
+	return nullptr;
+}
+
+VariableDeclarator* getDeclarator(GlobalVariable* variable, StringView name)
+{
+	for (int i = 0; i < variable->numDeclarators; i++)
+	{
+		if (compareString(variable->declarators[i].name, name))
+			return &variable->declarators[i];
+	}
+	return nullptr;
+}
+
 bool isConstant(Expression* expression)
 {
 	Node* node = (Node*)expression;
@@ -347,7 +367,39 @@ bool isLValue(Expression* expression)
 {
 	if (expression->type == NODE_IDENTIFIER)
 	{
-		return true;
+		Identifier* identifier = (Identifier*)expression;
+		if (Symbol* symbol = getIdentifierSymbol(identifier))
+		{
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				Node* declaration = symbol->declaration;
+				if (declaration->type == NODE_VARIABLE_DECLARATION)
+				{
+					VariableDeclaration* variable = &declaration->variableDeclaration;
+					bool isConstant = variable->storage & STORAGE_CONSTANT;
+					return !isConstant;
+				}
+				else if (declaration->type == NODE_PARAMETER)
+				{
+					return true;
+				}
+				else if (declaration->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* globalVariable = &declaration->globalVariable;
+					bool isConstant = globalVariable->storage & STORAGE_CONSTANT;
+					return !isConstant;
+				}
+				else if (declaration->type == NODE_FOR)
+				{
+					return true;
+				}
+				else
+				{
+					SnekAssert(false);
+				}
+			}
+		}
+		return false;
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
@@ -356,6 +408,29 @@ bool isLValue(Expression* expression)
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
 		return true;
+	}
+	else if (expression->type == NODE_CAST)
+	{
+		Cast* cast = (Cast*)expression;
+		if (cast->targetType)
+		{
+			switch (cast->targetType->inferredType->typeKind)
+			{
+			case TYPE_ANY:
+			case TYPE_STRING:
+			case TYPE_STRUCT:
+			case TYPE_UNION:
+			case TYPE_ENUM:
+			case TYPE_ALIAS:
+			case TYPE_POINTER:
+			case TYPE_OPTIONAL:
+			case TYPE_FUNCTION:
+			case TYPE_ARRAY:
+				return true;
+			default:
+				return false;
+			}
+		}
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{

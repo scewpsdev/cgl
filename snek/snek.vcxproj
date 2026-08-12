@@ -150,6 +150,7 @@
     <ClCompile Include="src\utils\ScratchBuffer.cpp" />
     <ClCompile Include="src\utils\StringBuffer.cpp" />
     <ClCompile Include="src\utils\StringView.cpp" />
+    <ClCompile Include="src\utils\TypeSet.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\codegen\CodeBuffer.h" />
@@ -174,6 +175,7 @@
     <ClInclude Include="src\utils\ScratchBuffer.h" />
     <ClInclude Include="src\utils\StringBuffer.h" />
     <ClInclude Include="src\utils\StringView.h" />
+    <ClInclude Include="src\utils\TypeSet.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

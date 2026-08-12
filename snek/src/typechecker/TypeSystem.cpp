@@ -39,7 +39,7 @@ bool isNumericType(Type* type)
 	return isIntegerType(type) || isFloatingPointType(type);
 }
 
-uint64_t hash(Type* type)
+uint64_t hashType(Type* type)
 {
 	uint64_t h = 14695981039346656037ULL; // FNV offset basis
 
@@ -80,6 +80,7 @@ uint64_t hash(Type* type)
 			h = (h ^ type->function.returnType->hash) * 1099511628211ULL;
 		for (int i = 0; i < type->function.numParams; i++)
 			h = (h ^ type->function.paramTypes[i]->hash) * 1099511628211ULL;
+		h = (h ^ (uint64_t)type->function.variadic) * 1099511628211ULL;
 		break;
 	default:
 		break;
@@ -137,6 +138,8 @@ bool compareTypes(Type* a, Type* b)
 			if (compareTypes(a->function.paramTypes[i], b->function.paramTypes[i]))
 				return false;
 		}
+		if (a->function.variadic != b->function.variadic)
+			return false;
 		return true;
 	default:
 		return true;
@@ -186,7 +189,7 @@ static Type* getType(TypeTable* table, uint64_t hash, Type key)
 
 static Type* internType(TypeTable* table, Type key, Arena* arena, bool* newType)
 {
-	uint64_t h = hash(&key);
+	uint64_t h = hashType(&key);
 
 	if (Type* type = getType(table, h, key))
 	{
@@ -274,21 +277,21 @@ void initTypeSystem(TypeSystem* types, Arena* globalArena)
 	types->primitiveTypes[TYPE_STRING] = { .typeKind = TYPE_STRING, .name = CreateString("string"), .mangledName = CreateString("string") };
 	types->primitiveTypes[TYPE_TYPE] = { .typeKind = TYPE_TYPE, .name = CreateString("type"), .mangledName = CreateString("type") };
 
-	types->primitiveTypes[TYPE_VOID].hash = hash(&types->primitiveTypes[TYPE_VOID]);
-	types->primitiveTypes[TYPE_INT8].hash = hash(&types->primitiveTypes[TYPE_INT8]);
-	types->primitiveTypes[TYPE_INT16].hash = hash(&types->primitiveTypes[TYPE_INT16]);
-	types->primitiveTypes[TYPE_INT32].hash = hash(&types->primitiveTypes[TYPE_INT32]);
-	types->primitiveTypes[TYPE_INT64].hash = hash(&types->primitiveTypes[TYPE_INT64]);
-	types->primitiveTypes[TYPE_UINT8].hash = hash(&types->primitiveTypes[TYPE_UINT8]);
-	types->primitiveTypes[TYPE_UINT16].hash = hash(&types->primitiveTypes[TYPE_UINT16]);
-	types->primitiveTypes[TYPE_UINT32].hash = hash(&types->primitiveTypes[TYPE_UINT32]);
-	types->primitiveTypes[TYPE_UINT64].hash = hash(&types->primitiveTypes[TYPE_UINT64]);
-	types->primitiveTypes[TYPE_FLOAT].hash = hash(&types->primitiveTypes[TYPE_FLOAT]);
-	types->primitiveTypes[TYPE_DOUBLE].hash = hash(&types->primitiveTypes[TYPE_DOUBLE]);
-	types->primitiveTypes[TYPE_BOOL].hash = hash(&types->primitiveTypes[TYPE_BOOL]);
-	types->primitiveTypes[TYPE_ANY].hash = hash(&types->primitiveTypes[TYPE_ANY]);
-	types->primitiveTypes[TYPE_STRING].hash = hash(&types->primitiveTypes[TYPE_STRING]);
-	types->primitiveTypes[TYPE_TYPE].hash = hash(&types->primitiveTypes[TYPE_TYPE]);
+	types->primitiveTypes[TYPE_VOID].hash = hashType(&types->primitiveTypes[TYPE_VOID]);
+	types->primitiveTypes[TYPE_INT8].hash = hashType(&types->primitiveTypes[TYPE_INT8]);
+	types->primitiveTypes[TYPE_INT16].hash = hashType(&types->primitiveTypes[TYPE_INT16]);
+	types->primitiveTypes[TYPE_INT32].hash = hashType(&types->primitiveTypes[TYPE_INT32]);
+	types->primitiveTypes[TYPE_INT64].hash = hashType(&types->primitiveTypes[TYPE_INT64]);
+	types->primitiveTypes[TYPE_UINT8].hash = hashType(&types->primitiveTypes[TYPE_UINT8]);
+	types->primitiveTypes[TYPE_UINT16].hash = hashType(&types->primitiveTypes[TYPE_UINT16]);
+	types->primitiveTypes[TYPE_UINT32].hash = hashType(&types->primitiveTypes[TYPE_UINT32]);
+	types->primitiveTypes[TYPE_UINT64].hash = hashType(&types->primitiveTypes[TYPE_UINT64]);
+	types->primitiveTypes[TYPE_FLOAT].hash = hashType(&types->primitiveTypes[TYPE_FLOAT]);
+	types->primitiveTypes[TYPE_DOUBLE].hash = hashType(&types->primitiveTypes[TYPE_DOUBLE]);
+	types->primitiveTypes[TYPE_BOOL].hash = hashType(&types->primitiveTypes[TYPE_BOOL]);
+	types->primitiveTypes[TYPE_ANY].hash = hashType(&types->primitiveTypes[TYPE_ANY]);
+	types->primitiveTypes[TYPE_STRING].hash = hashType(&types->primitiveTypes[TYPE_STRING]);
+	types->primitiveTypes[TYPE_TYPE].hash = hashType(&types->primitiveTypes[TYPE_TYPE]);
 
 	types->arena = globalArena;
 	initTypeTable(&types->typeTable, globalArena, 64);
@@ -506,13 +509,14 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 	return type;
 }
 
-Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, File* file)
+Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file)
 {
 	Type key = {};
 	key.typeKind = TYPE_FUNCTION;
 	key.function.returnType = returnType;
 	key.function.numParams = numParams;
 	key.function.paramTypes = paramTypes;
+	key.function.variadic = variadic;
 
 	bool primitive = isPrimitiveDerivative(&key);
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
@@ -552,7 +556,9 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 			if (i < type->function.numParams - 1)
 				strcat(paramTypes, "_");
 		}
+
 		StringView returnTypeStr = type->function.returnType ? type->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
+
 		type->mangledName = createTypeString(arena, "func_%d_%s_%.*s", type->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
 	}
 
@@ -576,11 +582,11 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 	if (newType)
 	{
 		if (size)
-			type->name = createTypeString(arena, "%.*s[%ull]", elementType->name.length, elementType->name.ptr, size);
+			type->name = createTypeString(arena, "%.*s[%llu]", elementType->name.length, elementType->name.ptr, size);
 		else
 			type->name = createTypeString(arena, "%.*s[]", elementType->name.length, elementType->name.ptr);
 
-		type->mangledName = createTypeString(arena, "arr_%ull_%.*s", type->array.size, elementType->mangledName.length, elementType->mangledName.ptr);
+		type->mangledName = createTypeString(arena, "arr_%llu_%.*s", type->array.size, elementType->mangledName.length, elementType->mangledName.ptr);
 	}
 
 	return type;
@@ -698,4 +704,20 @@ Type* createAliasType(File* file, StringView name, Typedef* declaration)
 void resolveAliasType(Type* type, Type* value)
 {
 	type->alias.valueType = value;
+}
+
+StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena)
+{
+	char paramTypes[256] = "";
+	for (int i = 0; i < functionType->function.numParams; i++)
+	{
+		Type* paramType = functionType->function.paramTypes[i];
+		strncat(paramTypes, paramType->mangledName.ptr, paramType->mangledName.length);
+		if (i < functionType->function.numParams - 1)
+			strcat(paramTypes, "_");
+	}
+
+	StringView returnTypeStr = functionType->function.returnType ? functionType->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
+
+	return createTypeString(arena, "%.*s_%d_%s_%.*s", name.length, name.ptr, functionType->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
 }

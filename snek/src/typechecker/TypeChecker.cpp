@@ -617,14 +617,26 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		FunctionType* functionType = (FunctionType*)type;
 
+		bool variadic = false;
+
 		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < functionType->numParams; j++)
 		{
 			if (functionType->params[j])
 			{
-				resolveParameter(tc, functionType->params[j]);
-				tc->scratch->add(functionType->params[j]->paramType->inferredType);
+				Type* paramType = resolveParameter(tc, functionType->params[j]);
+				tc->scratch->add(paramType);
+
+				if (functionType->params[j]->variadic)
+				{
+					if (j == functionType->numParams - 1)
+						variadic = true;
+					else
+					{
+						error(tc, (Node*)functionType->params[j], "Only the last parameter can be declared as variadic");
+					}
+				}
 			}
 		}
 
@@ -635,7 +647,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			returnType = functionType->returnType->inferredType;
 		}
 
-		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch->getData<Type*>(mark), tc->currentFile);
+		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
 
 		tc->scratch->release(mark);
 
@@ -952,6 +964,13 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 		{
 			return false;
 		}
+	}
+
+	if (targetType->typeKind == TYPE_ANY)
+	{
+		if (ref)
+			insertImplicitCast(tc, ref, targetType);
+		return true;
 	}
 
 	if (targetType->typeKind == TYPE_ALIAS)
@@ -1455,28 +1474,28 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		else
 			resolveExpression(tc, functionCall->expression);
 
-		Type* operandType = functionCall->expression->inferredType;
+		Type* functionType = functionCall->expression->inferredType;
 
 		for (int i = 0; i < functionCall->numArgs; i++)
 		{
 			resetExpression(&functionCall->args[i]);
-			resolveExpression(tc, functionCall->args[i], operandType->function.paramTypes[i]);
+			resolveExpression(tc, functionCall->args[i], functionType->function.paramTypes[i]);
 		}
 
-		if (operandType == &tc->types->errorType)
+		if (functionType == &tc->types->errorType)
 		{
 			return expression->inferredType = &tc->types->errorType;
 		}
-		else if (operandType->typeKind != TYPE_FUNCTION)
+		else if (functionType->typeKind != TYPE_FUNCTION)
 		{
 			error(tc, (Node*)functionCall->expression, "Operand of function call must be of type function");
 			return expression->inferredType = &tc->types->errorType;
 		}
 		else
 		{
-			if (functionCall->numArgs != operandType->function.numParams)
+			if (functionCall->numArgs != functionType->function.numParams)
 			{
-				error(tc, (Node*)functionCall, "Incorrect number of function arguments: %d, should be %d", functionCall->numArgs, operandType->function.numParams);
+				error(tc, (Node*)functionCall, "Incorrect number of function arguments: %d, should be %d", functionCall->numArgs, functionType->function.numParams);
 			}
 
 			for (int i = 0; i < functionCall->numArgs; i++)
@@ -1485,17 +1504,21 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				if (argType == &tc->types->errorType)
 					continue;
 
-				if (i < operandType->function.numParams)
+				Type* paramType = functionType->function.paramTypes[i];
+
+				if (functionType->function.variadic && i >= functionType->function.numParams - 1)
 				{
-					Type* paramType = operandType->function.paramTypes[i];
-					if (!isAssignable(tc, argType, paramType, &functionCall->args[i]))
-					{
-						error(tc, (Node*)functionCall->args[i], "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
-					}
+					SnekAssert(functionType->function.paramTypes[functionType->function.numParams - 1]->typeKind == TYPE_ARRAY);
+					paramType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
+				}
+
+				if (!isAssignable(tc, argType, paramType, &functionCall->args[i]))
+				{
+					error(tc, (Node*)functionCall->args[i], "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
 				}
 			}
 
-			return expression->inferredType = operandType->function.returnType;
+			return expression->inferredType = functionType->function.returnType;
 		}
 	}
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
@@ -1602,9 +1625,14 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else if (operandType->typeKind == TYPE_ANY)
 		{
-			if (compareString(member->name, "type"))
+			if (compareString(member->name, "value"))
 			{
 				member->index = 0;
+				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->currentFile);
+			}
+			else if (compareString(member->name, "type"))
+			{
+				member->index = 1;
 				return expression->inferredType = &tc->types->primitiveTypes[TYPE_INT32];
 			}
 			else
@@ -2017,7 +2045,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 			EnumValue* enumValue = enum_->values[j];
 			if (enumValue->value)
 			{
-				resolveExpression(tc, enumValue->value);
+				resolveExpression(tc, enumValue->value, valueType);
 				if (!isConstant(enumValue->value))
 				{
 					error(tc, (Node*)enumValue->value, "Enum value must be constant");
@@ -2136,27 +2164,6 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 		function->scope = pushScope(tc);
 
-		int mark = tc->scratch->mark();
-
-		for (int j = 0; j < function->numParams; j++)
-		{
-			if (function->params[j])
-			{
-				resolveParameter(tc, function->params[j]);
-
-				insertSymbol(&function->scope->symbols, function->params[j]->name, SYMBOL_VARIABLE, (Node*)function->params[j], file->handle);
-
-				if (function->params[j]->type)
-					tc->scratch->add(function->params[j]->paramType->inferredType);
-				else
-					tc->scratch->add(nullptr);
-			}
-			else
-			{
-				tc->scratch->add(nullptr);
-			}
-		}
-
 		Type* returnType = nullptr;
 		if (function->value)
 		{
@@ -2175,20 +2182,43 @@ void symbolResolution(TypeChecker* tc, File* file)
 			returnType = function->returnType->inferredType;
 		}
 
-		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), tc->currentFile);
+		bool variadic = false;
 
-		tc->scratch->release(mark);
+		int mark = tc->scratch->mark();
 
-		/*
-		else
+		for (int j = 0; j < function->numParams; j++)
 		{
-			for (int j = 0; j < function->numStatements; j++)
+			if (function->params[j])
 			{
-				if (function->statements[j])
-					resolveStatement(tc, function->statements[j]);
+				Type* paramType = resolveParameter(tc, function->params[j]);
+				tc->scratch->add(paramType);
+
+				insertSymbol(&function->scope->symbols, function->params[j]->name, SYMBOL_VARIABLE, (Node*)function->params[j], file->handle);
+
+				if (function->params[j]->variadic)
+				{
+					if (j == function->numParams - 1)
+						variadic = true;
+					else
+					{
+						error(tc, (Node*)function->params[j], "Only the last parameter can be declared as variadic");
+					}
+				}
+			}
+			else
+			{
+				tc->scratch->add(nullptr);
 			}
 		}
-		*/
+
+		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
+
+		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT) || compareString(function->name, "main"))
+			function->mangledName = copy(function->name);
+		else
+			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, &file->arena);
+
+		tc->scratch->release(mark);
 
 		popScope(tc);
 	}

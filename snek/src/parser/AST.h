@@ -495,6 +495,8 @@ struct Function : NodeBase
 	Expression* value;
 
 	Type* functionType;
+	StringView mangledName;
+
 	Scope* scope;
 };
 
@@ -675,6 +677,8 @@ Symbol* getIdentifierSymbol(Identifier* identifier);
 
 int getFieldIndex(StringView name, int numFields, StringView* fieldNames);
 int getEnumValue(StringView name, int numValues, EnumValue** values);
+VariableDeclarator* getDeclarator(VariableDeclaration* variable, StringView name);
+VariableDeclarator* getDeclarator(GlobalVariable* variable, StringView name);
 
 bool isConstant(Expression* expression);
 bool isLValue(Expression* expression);

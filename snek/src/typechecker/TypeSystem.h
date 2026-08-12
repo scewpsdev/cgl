@@ -60,6 +60,7 @@ struct Type
 			Type* returnType;
 			int numParams;
 			Type** paramTypes;
+			bool variadic;
 		} function;
 
 		struct {
@@ -100,7 +101,7 @@ bool isFloatingPointType(Type* type);
 bool isTruthyType(Type* type);
 bool isNumericType(Type* type);
 
-uint64_t hash(Type* type);
+uint64_t hashType(Type* type);
 bool compareTypes(Type* a, Type* b);
 
 void initTypeSystem(TypeSystem* types, Arena* globalArena);
@@ -110,7 +111,7 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file);
 Type* getOptionalType(TypeSystem* types, Type* elementType, File* file);
 Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file);
 Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file);
-Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, File* file);
+Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file);
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file);
 
 Type* createNamedStructType(File* file, StringView name, Struct* declaration);
@@ -124,3 +125,5 @@ void resolveEnumType(Type* type, Type* valueType);
 
 Type* createAliasType(File* file, StringView name, Typedef* declaration);
 void resolveAliasType(Type* type, Type* value);
+
+StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena);

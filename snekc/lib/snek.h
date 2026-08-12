@@ -18,7 +18,15 @@ typedef _Bool bool;
 
 
 typedef struct { char* ptr; long length; } string;
-typedef struct { void* type; void* value; } any;
+typedef struct {
+    union {
+        i64 int_;
+        double float_;
+        bool bool_;
+        void* ptr;
+    };
+    i32 type;
+} any;
 
 #define __INT8_MIN -0x80
 #define __INT8_MAX 0x7f

@@ -13,3 +13,4 @@ D:\Dev\2023\CGL\snek\src\utils\Hash.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\Hash.
 D:\Dev\2023\CGL\snek\src\utils\ScratchBuffer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\ScratchBuffer.obj
 D:\Dev\2023\CGL\snek\src\utils\StringBuffer.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\StringBuffer.obj
 D:\Dev\2023\CGL\snek\src\utils\StringView.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\StringView.obj
+D:\Dev\2023\CGL\snek\src\utils\TypeSet.cpp;D:\Dev\2023\CGL\snek\obj\x64\Debug\TypeSet.obj

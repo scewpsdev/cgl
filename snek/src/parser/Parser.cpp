@@ -1458,6 +1458,13 @@ Statement* parseStatement(Parser* parser)
 {
 	int start = parser->cursor;
 
+	uint32_t storage = 0;
+	while (StorageSpecifier storageSpecifier = getStorageSpecifier(peekToken(parser).type))
+	{
+		storage |= storageSpecifier;
+		nextToken(parser);
+	}
+
 	if (nextIs(parser, '{'))
 	{
 		nextToken(parser);
@@ -1702,7 +1709,7 @@ Statement* parseStatement(Parser* parser)
 
 				VariableDeclaration* variableDeclaration = parser->arena->alloc<VariableDeclaration>();
 				initNode((Node*)variableDeclaration, NODE_VARIABLE_DECLARATION, start);
-				//variableDeclaration->storage = storage;
+				variableDeclaration->storage = storage;
 				variableDeclaration->variableType = type;
 				variableDeclaration->end = parser->lastTokenEnd;
 
