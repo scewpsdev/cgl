@@ -361,7 +361,7 @@ static void declareOptionalType(Codegen* codegen, Type* type)
 	CodeBuffer* buffer = &codegen->typesBuffer;
 
 	emitString(buffer, "typedef struct{");
-	emitString(buffer, type->optional.elementType->mangledName);
+	emitType(codegen, type->optional.elementType, buffer);
 	emitString(buffer, " value;u8 flag;}");
 	emitString(buffer, type->mangledName);
 	emitString(buffer, ";\n");
@@ -372,13 +372,13 @@ static void declareFunctionType(Codegen* codegen, Type* type)
 	CodeBuffer* buffer = &codegen->typesBuffer;
 
 	emitString(buffer, "typedef ");
-	emitString(buffer, type->function.returnType ? type->function.returnType->mangledName : codegen->types->primitiveTypes[TYPE_VOID].mangledName);
+	emitType(codegen, type->function.returnType ? type->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
 	emitString(buffer, "(*");
 	emitString(buffer, type->mangledName);
 	emitString(buffer, ")(");
 	for (int i = 0; i < type->function.numParams; i++)
 	{
-		emitString(buffer, type->function.paramTypes[i]->mangledName);
+		emitType(codegen, type->function.paramTypes[i], buffer);
 		if (i < type->function.numParams - 1)
 			emitChar(buffer, ',');
 	}
@@ -392,14 +392,14 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	emitString(buffer, "typedef struct{");
 	if (type->array.size)
 	{
-		emitString(buffer, type->array.elementType->mangledName);
+		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, " data[");
 		emitInteger(buffer, type->array.size);
 		emitString(buffer, "];}");
 	}
 	else
 	{
-		emitString(buffer, type->array.elementType->mangledName);
+		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, "* data;u64 length;}");
 	}
 	emitString(buffer, type->mangledName);
@@ -590,11 +590,11 @@ static void declareFunction(Codegen* codegen, Function* function, CodeBuffer* bu
 		declareType(codegen, function->functionType->function.paramTypes[i]);
 
 	if (function->storage & STORAGE_DLLIMPORT)
-		emitString(buffer, "DLLIMPORT extern ");
+		emitString(buffer, "DLLIMPORT ");
 	else if (function->storage & STORAGE_DLLEXPORT)
-		emitString(buffer, "DLLEXPORT extern ");
-	else
-		emitString(buffer, "extern ");
+		emitString(buffer, "DLLEXPORT ");
+
+	emitString(buffer, "extern ");
 
 	emitType(codegen, function->functionType->function.returnType ? function->functionType->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
 	emitChar(buffer, ' ');
@@ -697,28 +697,40 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		SnekAssert(isIntegerType(expression->inferredType));
 
-		switch (expression->inferredType->typeKind)
+		if (intLiteral->negative)
+			strcat(value.name, "-");
+
+		if (intLiteral->base == 2)
 		{
-		case TYPE_INT8:
-		case TYPE_INT16:
-		case TYPE_INT32:
-			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%llu" : "%llu", intLiteral->intValue);
-			break;
-		case TYPE_UINT8:
-		case TYPE_UINT16:
-		case TYPE_UINT32:
-			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%lluu" : "%lluu", intLiteral->intValue);
-			break;
-		case TYPE_INT64:
-			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%llull" : "%llull", intLiteral->intValue);
-			break;
-		case TYPE_UINT64:
-			snprintf(value.name, sizeof(value.name), intLiteral->negative ? "-%llullu" : "%llullu", intLiteral->intValue);
-			break;
-		default:
-			SnekAssert(false);
-			break;
+			strcat(value.name, "0b");
+
+			uint64_t tmp = intLiteral->intValue;
+			while (tmp)
+			{
+				int digit = tmp % 2;
+				size_t len = strlen(value.name);
+				value.name[len] = '0' + digit;
+				value.name[len + 1] = 0;
+				tmp /= 2;
+			}
 		}
+		else if (intLiteral->base == 8)
+		{
+			snprintf(value.name + strlen(value.name), sizeof(value.name) - strlen(value.name), "0%llo", intLiteral->intValue);
+		}
+		else if (intLiteral->base == 16)
+		{
+			snprintf(value.name + strlen(value.name), sizeof(value.name) - strlen(value.name), "0x%llx", intLiteral->intValue);
+		}
+		else
+		{
+			snprintf(value.name + strlen(value.name), sizeof(value.name) - strlen(value.name), "%llu", intLiteral->intValue);
+		}
+
+		if (expression->inferredType->typeKind == TYPE_INT64 || expression->inferredType->typeKind == TYPE_UINT64)
+			strcat(value.name, "ll");
+		if (isUnsignedType(expression->inferredType))
+			strcat(value.name, "u");
 
 		return value;
 	}
@@ -726,10 +738,10 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	{
 		FloatLiteral* floatLiteral = (FloatLiteral*)expression;
 
+		emitString(buffer, floatLiteral->value);
+
 		Value value = {};
 		value.type = expression->inferredType;
-		snprintf(value.name, sizeof(value.name), expression->inferredType->typeKind == TYPE_DOUBLE ? "%f" : "%ff", floatLiteral->floatValue);
-
 		return value;
 	}
 	else if (expression->type == NODE_STRING_LITERAL)
@@ -738,7 +750,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value ptr = createGlobalValue(codegen, nullptr);
 
-		emitString(&codegen->globalsBuffer, "i8* const ");
+		emitString(&codegen->globalsBuffer, "static i8* const ");
 		emitValue(&codegen->globalsBuffer, ptr);
 		emitString(&codegen->globalsBuffer, "=\"");
 		emitString(&codegen->globalsBuffer, stringLiteral->value);
@@ -748,7 +760,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
 
-			emitString(buffer, "{(i8*)");
+			emitChar(buffer, '{');
 			emitValue(buffer, ptr);
 			emitChar(buffer, ',');
 			emitInteger(buffer, stringLiteral->value.length);
@@ -1736,6 +1748,8 @@ static void emitFunctionDeclaration(Codegen* codegen, Function* function, CodeBu
 		emitString(buffer, "DLLIMPORT extern ");
 	else if (function->storage & STORAGE_DLLEXPORT)
 		emitString(buffer, "DLLEXPORT extern ");
+	else if (function->storage & STORAGE_EXTERN)
+		emitString(buffer, "extern ");
 	else if (function->storage & STORAGE_PRIVATE)
 		emitString(buffer, "static ");
 
@@ -1773,6 +1787,8 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 		emitString(buffer, "DLLIMPORT extern ");
 	else if (function->storage & STORAGE_DLLEXPORT)
 		emitString(buffer, "DLLEXPORT extern ");
+	else if (function->storage & STORAGE_EXTERN)
+		emitString(buffer, "extern ");
 	else if (function->storage & STORAGE_PRIVATE)
 		emitString(buffer, "static ");
 
@@ -1841,7 +1857,8 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 		if (declarator->value)
 		{
 			emitChar(buffer, '=');
-			emitExpression(codegen, declarator->value, buffer);
+			Value value = emitExpression(codegen, declarator->value, buffer);
+			emitValue(buffer, value);
 		}
 
 		emitString(buffer, ";\n");

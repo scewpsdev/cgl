@@ -8,6 +8,9 @@ struct StringView
 
 
 	char& operator[](int idx);
+	bool startsWith(const char* str);
+	bool endsWith(const char* str);
+	StringView substring(int offset, int count = -1);
 };
 
 
@@ -16,6 +19,7 @@ StringView CreateString(const char* start, int length);
 StringView CreateString(const char* ptr);
 
 StringView copy(StringView from);
+void destroy(StringView str);
 
 bool compareString(StringView a, StringView b);
 bool compareString(StringView a, const char* b);

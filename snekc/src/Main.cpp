@@ -46,8 +46,11 @@ struct Compiler
 
 	char* mainFilePath;
 	const char* outPath;
+	bool run;
 
 	List<SourceFile*> sourceFiles;
+	List<const char*> libraryFiles;
+	List<const char*> dllFiles;
 };
 
 
@@ -78,6 +81,56 @@ static char* getOutPath(const char* localPath)
 	outPath = outPath.substr(0, outPath.find('.'));
 	outPath = "tmp/" + outPath + ".c";
 	return _strdup(outPath.c_str());
+}
+
+static const char* getExtension(const char* path)
+{
+	const char* ext = strrchr(path, '.');
+	if (ext)
+		ext++;
+	else
+		ext = path + strlen(path);
+
+	return ext;
+}
+
+static StringView getDirectory(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (!slash)
+		slash = path;
+
+	int length = (int)(slash - path);
+
+	if (length == 0)
+	{
+		return CreateString(".");
+	}
+	else
+	{
+		return CreateString(path, length);
+	}
+}
+
+static StringView getFilename(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
+	const char* dot = strrchr(slash, '.');
+	if (!dot)
+		dot = slash + strlen(slash);
+
+	int length = (int)(dot - slash);
+
+	return CreateString(slash, length);
 }
 
 static char* readText(const char* path, int* length)
@@ -159,8 +212,15 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena);
 
 	const char* cmd = argv[1]; // build
-
-	compiler->outPath = "bin/a.exe";
+	if (strcmp(cmd, "build") == 0)
+		compiler->outPath = "bin/a.exe";
+	else if (strcmp(cmd, "run") == 0)
+		compiler->run = true;
+	else
+	{
+		// error
+		exit(1);
+	}
 
 	for (int i = 2; i < argc; i++)
 	{
@@ -171,15 +231,33 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		else
 		{
 			// file path
-			if (!compiler->mainFilePath)
+
+			const char* extension = getExtension(arg);
+			if (strcmp(extension, "src") == 0)
 			{
-				compiler->mainFilePath = _strdup(arg);
+				if (!compiler->mainFilePath)
+				{
+					compiler->mainFilePath = _strdup(arg);
+				}
+
+				char localPath[256] = "";
+				getLocalPath(localPath, arg, compiler->mainFilePath);
+
+				addSourceFile(compiler, localPath);
 			}
-
-			char localPath[256] = "";
-			getLocalPath(localPath, arg, compiler->mainFilePath);
-
-			addSourceFile(compiler, localPath);
+			else if (strcmp(extension, "a") == 0 || strcmp(extension, "lib") == 0)
+			{
+				compiler->libraryFiles.add(arg);
+			}
+			else if (strcmp(extension, "dll") == 0)
+			{
+				compiler->dllFiles.add(arg);
+			}
+			else
+			{
+				// error
+				exit(1);
+			}
 		}
 	}
 }
@@ -355,7 +433,7 @@ static void localFilePath(char* result, const char* path)
 	strcat(result, path);
 }
 
-static void outputBinary(const char* out)
+static int outputBinary(const char* out, bool run)
 {
 	TCCState* tcc = tcc_new();
 
@@ -380,7 +458,7 @@ static void outputBinary(const char* out)
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
-	tcc_set_output_type(tcc, TCC_OUTPUT_EXE);
+	tcc_set_output_type(tcc, run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
 
 	localFilePath(buffer, "lib/snek.c");
 	tcc_add_file(tcc, buffer);
@@ -390,10 +468,52 @@ static void outputBinary(const char* out)
 		tcc_add_file(tcc, compiler.sourceFiles[i]->outPath);
 	}
 
-	createDirectories(out);
-	int result = tcc_output_file(tcc, out);
+	for (int i = 0; i < compiler.libraryFiles.size; i++)
+	{
+		const char* library = compiler.libraryFiles[i];
+		StringView directory = getDirectory(library);
+		StringView name = getFilename(library);
 
-	tcc_delete(tcc);
+		if (name.startsWith("lib"))
+			name = name.substring(3);
+		if (name.endsWith(".dll"))
+			name = name.substring(0, name.length - 4);
+
+		directory = copy(directory);
+		name = copy(name);
+
+		tcc_add_library_path(tcc, directory.ptr);
+		tcc_add_library(tcc, name.ptr);
+
+		destroy(directory);
+		destroy(name);
+	}
+
+	for (int i = 0; i < compiler.dllFiles.size; i++)
+	{
+		tcc_add_file(tcc, compiler.dllFiles[i]);
+	}
+
+	if (run)
+	{
+		tcc_relocate(tcc);
+
+		int(*entrypoint)(int, char**) = (int(*)(int, char**))tcc_get_symbol(tcc, "main");
+		int result = entrypoint(0, nullptr);
+
+		tcc_delete(tcc);
+
+		return result;
+	}
+	else
+	{
+		createDirectories(out);
+		int result = tcc_output_file(tcc, out);
+
+		tcc_delete(tcc);
+
+		return result;
+	}
 }
 
 int main(int argc, const char* argv[])
@@ -477,6 +597,7 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	int result = 0;
 	if (!hasError)
 	{
 		for (int i = 0; i < compiler.sourceFiles.size; i++)
@@ -487,10 +608,10 @@ int main(int argc, const char* argv[])
 			file->state = FILE_STATE_OUTPUT;
 		}
 
-		outputBinary(compiler.outPath);
+		result = outputBinary(compiler.outPath, compiler.run);
 	}
 
 	destroyCompiler(&compiler);
 
-	return EXIT_SUCCESS;
+	return result;
 }

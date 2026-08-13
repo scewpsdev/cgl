@@ -12,6 +12,26 @@ char& StringView::operator[](int idx)
 	return ptr[idx];
 }
 
+bool StringView::startsWith(const char* str)
+{
+	int len = (int)strlen(str);
+	return length >= len && strncmp(ptr, str, len) == 0;
+}
+
+bool StringView::endsWith(const char* str)
+{
+	int len = (int)strlen(str);
+	return length >= len && strncmp(ptr + (length - len), str, len) == 0;
+}
+
+StringView StringView::substring(int offset, int count)
+{
+	if (count == -1)
+		count = length - offset;
+
+	return CreateString(ptr + offset, count);
+}
+
 StringView CreateString(const char* start, const char* end)
 {
 	StringView str = {};
@@ -44,6 +64,13 @@ StringView copy(StringView from)
 	memcpy(str.ptr, from.ptr, from.length);
 	str.ptr[str.length] = 0;
 	return str;
+}
+
+void destroy(StringView str)
+{
+	free(str.ptr);
+	str.ptr = nullptr;
+	str.length = 0;
 }
 
 bool compareString(StringView a, StringView b)

@@ -220,7 +220,7 @@ static int charToDigit(char c)
 	return -1;
 }
 
-static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str, bool* negative, Type** type)
+static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str, bool* negative, int* outBase, Type** type)
 {
 	*negative = false;
 
@@ -316,6 +316,8 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 			}
 		}
 	}
+
+	*outBase = base;
 
 	if ((*type)->typeKind == TYPE_INT8 && value > INT8_MAX)
 	{
@@ -1240,7 +1242,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			}
 		}
 
-		intLiteral->intValue = stringToIntConstant(tc, (Node*)intLiteral, intLiteral->value, &intLiteral->negative, &intType);
+		intLiteral->intValue = stringToIntConstant(tc, (Node*)intLiteral, intLiteral->value, &intLiteral->negative, &intLiteral->base, &intType);
 
 		return expression->inferredType = intType;
 	}
@@ -2213,7 +2215,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
 
-		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT) || compareString(function->name, "main"))
+		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT | STORAGE_EXTERN) || compareString(function->name, "main"))
 			function->mangledName = copy(function->name);
 		else
 			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, &file->arena);

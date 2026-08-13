@@ -97,6 +97,7 @@ struct TypeSystem
 void initTypeTable(TypeTable* table, Arena* arena, int initialCapacity);
 
 bool isIntegerType(Type* type);
+bool isUnsignedType(Type* type);
 bool isFloatingPointType(Type* type);
 bool isTruthyType(Type* type);
 bool isNumericType(Type* type);

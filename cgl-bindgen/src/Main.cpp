@@ -645,9 +645,10 @@ static void outputTypeNode(TSNode type, int pointers, const char* src, FILE* fil
 
 	uint32_t nameHash = hashNodeValue(type, src);
 
-	if (nameLength == 4 && strncmp(name, "void", 4) == 0 && pointers)
-		fprintf(file, "byte");
-	else if (typedefs.find(nameHash) != typedefs.end())
+	//if (nameLength == 4 && strncmp(name, "void", 4) == 0 && pointers)
+	//	fprintf(file, "byte");
+	//else
+	if (typedefs.find(nameHash) != typedefs.end())
 	{
 		TSNode value = {};
 		int nameLength = 0;
@@ -959,7 +960,7 @@ static void parseFunction(TSNode node, const char* src, FILE* file)
 		fprintf(file, ")");
 
 		TSNode returnType = getTypeNode(node, src);
-		if (!ts_node_is_null(returnType) && !compareString(getNodeString(returnType, src), "void"))
+		if (!ts_node_is_null(returnType) && (pointers || !compareString(getNodeString(returnType, src), "void")))
 		{
 			fprintf(file, " ");
 			outputTypeNode(returnType, pointers, src, file, 0);

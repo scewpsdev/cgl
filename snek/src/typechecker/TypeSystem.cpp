@@ -24,6 +24,11 @@ bool isIntegerType(Type* type)
 	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
 }
 
+bool isUnsignedType(Type* type)
+{
+	return type->typeKind >= TYPE_UINT8 && type->typeKind < TYPE_INT_END;
+}
+
 bool isFloatingPointType(Type* type)
 {
 	return type->typeKind > TYPE_FLOAT_START && type->typeKind < TYPE_FLOAT_END;

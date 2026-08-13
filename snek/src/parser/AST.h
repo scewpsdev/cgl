@@ -200,6 +200,7 @@ struct IntLiteral : Expression
 	StringView value;
 	uint64_t intValue;
 	bool negative;
+	int base;
 };
 
 struct FloatLiteral : Expression
