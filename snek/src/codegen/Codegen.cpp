@@ -1879,9 +1879,11 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 	}
 
 	emitType(codegen, function->functionType->function.returnType ? function->functionType->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
+
 	emitString(buffer, " ");
 	emitString(buffer, function->mangledName);
 	emitString(buffer, "(");
+
 	for (int i = 0; i < function->functionType->function.numParams; i++)
 	{
 		emitType(codegen, function->functionType->function.paramTypes[i], buffer);
@@ -1893,6 +1895,7 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 		if (i < function->functionType->function.numParams - 1)
 			emitString(buffer, ",");
 	}
+
 	emitString(buffer, "){\n");
 
 	if (function->value)
@@ -1913,6 +1916,7 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 		{
 			emitStatement(codegen, function->statements[i], buffer);
 		}
+
 		codegen->indentation--;
 	}
 

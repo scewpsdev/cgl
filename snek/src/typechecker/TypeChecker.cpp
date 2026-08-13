@@ -497,7 +497,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -514,12 +514,12 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 					if (structType->fields[i]->declarators[j].name.length)
 						tc->scratch->add(structType->fields[i]->declarators[j].name);
 					else
-						tc->scratch->add(nullptr);
+						tc->scratch->add(getErrorType(tc->types));
 				}
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -547,7 +547,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -564,12 +564,12 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 					if (unionType->fields[i]->declarators[j].name.length)
 						tc->scratch->add(unionType->fields[i]->declarators[j].name);
 					else
-						tc->scratch->add(nullptr);
+						tc->scratch->add(getErrorType(tc->types));
 				}
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -670,7 +670,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -1308,7 +1308,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 
@@ -2142,7 +2142,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 				if (struct_->fields[j]->declarators[k].name.length)
 					tc->scratch->add(struct_->fields[j]->declarators[k].name);
 				else
-					tc->scratch->add(nullptr);
+					tc->scratch->add(StringView{});
 			}
 		}
 
@@ -2182,7 +2182,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 				if (union_->fields[j]->declarators[k].name.length)
 					tc->scratch->add(union_->fields[j]->declarators[k].name);
 				else
-					tc->scratch->add(nullptr);
+					tc->scratch->add(StringView{});
 			}
 		}
 
@@ -2232,7 +2232,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 			}
 			else
 			{
-				tc->scratch->add(nullptr);
+				tc->scratch->add(getErrorType(tc->types));
 			}
 		}
 

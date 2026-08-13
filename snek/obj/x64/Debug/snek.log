@@ -1,9 +1,4 @@
-﻿  File.cpp
-  Codegen.cpp
-  AST.cpp
-  Parser.cpp
+﻿  Codegen.cpp
   TypeChecker.cpp
-  TypeSystem.cpp
-  TypeSet.cpp
   Generating Code...
   snek.vcxproj -> D:\Dev\2023\CGL\bin\x64\Debug\snek.lib
