@@ -1263,7 +1263,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			return expression->inferredType = expectedType;
 		else
 		{
-			return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
+			return expression->inferredType = &tc->types->primitiveTypes[TYPE_STRING];
 		}
 	}
 	else if (expression->type == NODE_CHAR_LITERAL)
@@ -1304,7 +1304,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			if (expressionList->values[i])
 			{
 				resolveExpression(tc, expressionList->values[i]);
-				tc->scratch->add(expressionList->values[i]);
+				tc->scratch->add(expressionList->values[i]->inferredType);
 			}
 			else
 			{
@@ -1478,17 +1478,18 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 		Type* functionType = functionCall->expression->inferredType;
 
+		if (functionType == &tc->types->errorType)
+		{
+			return expression->inferredType = &tc->types->errorType;
+		}
+
 		for (int i = 0; i < functionCall->numArgs; i++)
 		{
 			resetExpression(&functionCall->args[i]);
 			resolveExpression(tc, functionCall->args[i], functionType->function.paramTypes[i]);
 		}
 
-		if (functionType == &tc->types->errorType)
-		{
-			return expression->inferredType = &tc->types->errorType;
-		}
-		else if (functionType->typeKind != TYPE_FUNCTION)
+		if (functionType->typeKind != TYPE_FUNCTION)
 		{
 			error(tc, (Node*)functionCall->expression, "Operand of function call must be of type function");
 			return expression->inferredType = &tc->types->errorType;
@@ -1506,7 +1507,9 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				if (argType == &tc->types->errorType)
 					continue;
 
-				Type* paramType = functionType->function.paramTypes[i];
+				Type* paramType = nullptr;
+				if (i < functionType->function.numParams)
+					paramType = functionType->function.paramTypes[i];
 
 				if (functionType->function.variadic && i >= functionType->function.numParams - 1)
 				{
@@ -1514,13 +1517,13 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 					paramType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
 				}
 
-				if (!isAssignable(tc, argType, paramType, &functionCall->args[i]))
+				if (paramType && !isAssignable(tc, argType, paramType, &functionCall->args[i]))
 				{
 					error(tc, (Node*)functionCall->args[i], "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
 				}
 			}
 
-			return expression->inferredType = functionType->function.returnType;
+			return expression->inferredType = (functionType->function.returnType ? functionType->function.returnType : getVoidType(tc->types));
 		}
 	}
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
@@ -1738,10 +1741,42 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 		Type* targetType = resolveType(tc, cast->targetType);
 		Type* expressionType = resolveExpression(tc, cast->expression);
+		Type* expressionType2 = cast->expression2 ? resolveExpression(tc, cast->expression2) : nullptr;
 
-		if (targetType == &tc->types->errorType || expressionType == &tc->types->errorType)
+		if (isErrorType(targetType) || isErrorType(expressionType) || expressionType2 && isErrorType(expressionType2))
 		{
 			return expression->inferredType = &tc->types->errorType;
+		}
+
+		if (targetType->typeKind == TYPE_STRING)
+		{
+			if (expressionType2)
+			{
+				if (isCharPointerType(expressionType) && isIntegerType(expressionType2))
+				{
+					return expression->inferredType = targetType;
+				}
+				else
+				{
+					error(tc, (Node*)expression, "String initializer arguments must be 'int8*' and 'int'");
+					return expression->inferredType = getErrorType(tc->types);
+				}
+			}
+			else
+			{
+				if (isCharPointerType(expressionType))
+				{
+					return expression->inferredType = targetType;
+				}
+			}
+		}
+		else
+		{
+			if (expressionType2)
+			{
+				error(tc, (Node*)expression, "Too many arguments for cast to '%.*s'", targetType->name.length, targetType->name.ptr);
+				return expression->inferredType = getErrorType(tc->types);
+			}
 		}
 
 		if (!isCastLegal(expressionType, targetType))
@@ -1866,7 +1901,11 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 				if (valueType == &tc->types->errorType)
 					return;
 
-				if (!isAssignable(tc, valueType, returnType, &return_->value))
+				if (!returnType)
+				{
+					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function without return value", valueType->name.length, valueType->name.ptr);
+				}
+				else if (!isAssignable(tc, valueType, returnType, &return_->value))
 				{
 					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
 				}
@@ -1875,7 +1914,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			{
 				if (returnType)
 				{
-					error(tc, (Node*)return_->value, "Must return value of type '%.*s'", returnType->name.length, returnType->name.ptr);
+					error(tc, (Node*)return_, "Must return value of type '%.*s'", returnType->name.length, returnType->name.ptr);
 				}
 			}
 		}
@@ -1927,7 +1966,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			if (variableDeclaration->declarators[i].value)
 			{
 				Type* initializerType = resolveExpression(tc, variableDeclaration->declarators[i].value, variableType);
-				if (!isAssignable(tc, initializerType, variableType, &variableDeclaration->declarators[i].value))
+				if (!isErrorType(initializerType) && !isAssignable(tc, initializerType, variableType, &variableDeclaration->declarators[i].value))
 				{
 					error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize variable of type '%.*s' with value of type '%.*s'", variableType->name.length, variableType->name.ptr, initializerType->name.length, initializerType->name.ptr);
 				}
@@ -1945,6 +1984,9 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		{
 			error(tc, (Node*)assignment->expression, "Cannot assign value to non-lvalue expression");
 		}
+
+		if (isErrorType(valueType))
+			return;
 
 		if (assignment->op == OPERATOR_ASSIGN)
 		{
@@ -2166,28 +2208,9 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 		function->scope = pushScope(tc);
 
-		Type* returnType = nullptr;
-		if (function->value)
-		{
-			Function* lastFunction = tc->currentFunction;
-			tc->currentFunction = function;
-
-			resolveExpression(tc, function->value);
-
-			tc->currentFunction = lastFunction;
-
-			returnType = function->value->inferredType;
-		}
-		else if (function->returnType)
-		{
-			resolveType(tc, function->returnType);
-			returnType = function->returnType->inferredType;
-		}
-
-		bool variadic = false;
-
 		int mark = tc->scratch->mark();
 
+		bool variadic = false;
 		for (int j = 0; j < function->numParams; j++)
 		{
 			if (function->params[j])
@@ -2213,14 +2236,32 @@ void symbolResolution(TypeChecker* tc, File* file)
 			}
 		}
 
+		Type* returnType = nullptr;
+		if (function->value)
+		{
+			Function* lastFunction = tc->currentFunction;
+			tc->currentFunction = function;
+
+			resolveExpression(tc, function->value);
+
+			tc->currentFunction = lastFunction;
+
+			returnType = function->value->inferredType;
+		}
+		else if (function->returnType)
+		{
+			resolveType(tc, function->returnType);
+			returnType = function->returnType->inferredType;
+		}
+
 		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
+
+		tc->scratch->release(mark);
 
 		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT | STORAGE_EXTERN) || compareString(function->name, "main"))
 			function->mangledName = copy(function->name);
 		else
 			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, &file->arena);
-
-		tc->scratch->release(mark);
 
 		popScope(tc);
 	}

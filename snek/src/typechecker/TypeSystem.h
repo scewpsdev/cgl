@@ -96,11 +96,18 @@ struct TypeSystem
 
 void initTypeTable(TypeTable* table, Arena* arena, int initialCapacity);
 
+bool isVoidType(Type* type);
 bool isIntegerType(Type* type);
 bool isUnsignedType(Type* type);
 bool isFloatingPointType(Type* type);
 bool isTruthyType(Type* type);
 bool isNumericType(Type* type);
+bool isErrorType(Type* type);
+bool isCharPointerType(Type* type);
+
+Type* getVoidType(TypeSystem* types);
+Type* getStringType(TypeSystem* types);
+Type* getErrorType(TypeSystem* types);
 
 uint64_t hashType(Type* type);
 bool compareTypes(Type* a, Type* b);

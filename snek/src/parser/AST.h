@@ -355,6 +355,7 @@ struct TernaryCondition : Expression
 struct Cast : Expression
 {
 	Expression* expression;
+	Expression* expression2;
 	TypeNode* targetType;
 	bool implicit;
 };

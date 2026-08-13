@@ -19,6 +19,11 @@ void initTypeTable(TypeTable* table, Arena* arena, int initialCapacity)
 	table->count = 0;
 }
 
+bool isVoidType(Type* type)
+{
+	return type->typeKind == TYPE_VOID;
+}
+
 bool isIntegerType(Type* type)
 {
 	return type->typeKind > TYPE_INT_START && type->typeKind < TYPE_INT_END;
@@ -42,6 +47,31 @@ bool isTruthyType(Type* type)
 bool isNumericType(Type* type)
 {
 	return isIntegerType(type) || isFloatingPointType(type);
+}
+
+bool isErrorType(Type* type)
+{
+	return type->typeKind == TYPE_NULL;
+}
+
+bool isCharPointerType(Type* type)
+{
+	return type->typeKind == TYPE_POINTER && type->pointer.elementType->typeKind == TYPE_INT8;
+}
+
+Type* getVoidType(TypeSystem* types)
+{
+	return &types->primitiveTypes[TYPE_VOID];
+}
+
+Type* getStringType(TypeSystem* types)
+{
+	return &types->primitiveTypes[TYPE_STRING];
+}
+
+Type* getErrorType(TypeSystem* types)
+{
+	return &types->errorType;
 }
 
 uint64_t hashType(Type* type)
@@ -711,18 +741,99 @@ void resolveAliasType(Type* type, Type* value)
 	type->alias.valueType = value;
 }
 
+static void appendTypeCharacter(char* buffer, Type* type)
+{
+	switch (type->typeKind)
+	{
+	case TYPE_VOID:
+		strcat(buffer, "v");
+		break;
+	case TYPE_INT8:
+		strcat(buffer, "c");
+		break;
+	case TYPE_INT16:
+		strcat(buffer, "sh");
+		break;
+	case TYPE_INT32:
+		strcat(buffer, "i");
+		break;
+	case TYPE_INT64:
+		strcat(buffer, "l");
+		break;
+	case TYPE_UINT8:
+		strcat(buffer, "uc");
+		break;
+	case TYPE_UINT16:
+		strcat(buffer, "us");
+		break;
+	case TYPE_UINT32:
+		strcat(buffer, "ui");
+		break;
+	case TYPE_UINT64:
+		strcat(buffer, "ul");
+		break;
+	case TYPE_FLOAT:
+		strcat(buffer, "f");
+		break;
+	case TYPE_DOUBLE:
+		strcat(buffer, "d");
+		break;
+	case TYPE_BOOL:
+		strcat(buffer, "b");
+		break;
+	case TYPE_ANY:
+		strcat(buffer, "a");
+		break;
+	case TYPE_STRING:
+		strcat(buffer, "st");
+		break;
+	case TYPE_STRUCT:
+		strcat(buffer, "S");
+		break;
+	case TYPE_UNION:
+		strcat(buffer, "U");
+		break;
+	case TYPE_ENUM:
+		strcat(buffer, "E");
+		break;
+	case TYPE_ALIAS:
+		strcat(buffer, "t");
+		break;
+	case TYPE_POINTER:
+		strcat(buffer, "p");
+		break;
+	case TYPE_OPTIONAL:
+		strcat(buffer, "o");
+		break;
+	case TYPE_FUNCTION:
+		strcat(buffer, "F");
+		break;
+	case TYPE_ARRAY:
+		strcat(buffer, "A");
+		break;
+	case TYPE_TYPE:
+		strcat(buffer, "T");
+		break;
+	default:
+		break;
+	}
+}
+
 StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena)
 {
 	char paramTypes[256] = "";
 	for (int i = 0; i < functionType->function.numParams; i++)
 	{
 		Type* paramType = functionType->function.paramTypes[i];
-		strncat(paramTypes, paramType->mangledName.ptr, paramType->mangledName.length);
-		if (i < functionType->function.numParams - 1)
-			strcat(paramTypes, "_");
+		appendTypeCharacter(paramTypes, paramType);
 	}
 
-	StringView returnTypeStr = functionType->function.returnType ? functionType->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
+	StringView mangledName = createTypeString(arena, "_%.*s_%d%s", name.length, name.ptr, functionType->function.numParams, paramTypes);
+	if (functionType->function.returnType)
+	{
+		strcat(mangledName.ptr, "_");
+		appendTypeCharacter(mangledName.ptr, functionType->function.returnType);
+	}
 
-	return createTypeString(arena, "%.*s_%d_%s_%.*s", name.length, name.ptr, functionType->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
+	return mangledName;
 }

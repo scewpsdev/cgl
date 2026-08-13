@@ -1172,6 +1172,16 @@ Expression* parsePostfixOperator(Parser* parser)
 					cast->targetType = castType;
 
 					cast->expression = parseExpression(parser);
+
+					if (castType->typeKind == TYPE_STRING)
+					{
+						if (nextIs(parser, ','))
+						{
+							nextToken(parser);
+							cast->expression2 = parseExpression(parser);
+						}
+					}
+
 					expectToken(parser, ')');
 
 					cast->end = parser->lastTokenEnd;
@@ -1929,6 +1939,12 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 	Token identifier;
 	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
 	enum_->name = getTokenString(identifier, parser);
+
+	if (nextIs(parser, '='))
+	{
+		nextToken(parser);
+		enum_->valueType = parseType(parser);
+	}
 
 	expectToken(parser, '{');
 

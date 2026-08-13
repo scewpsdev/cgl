@@ -36,9 +36,13 @@ void destroyCodegen(Codegen* codegen)
 
 struct Value
 {
-	char name[32];
+	union {
+		char name[32];
+		StringView identifier;
+	};
 	Type* type;
 	bool lvalue;
+	bool isIdentifier;
 };
 
 static void declareType(Codegen* codegen, Type* type);
@@ -55,7 +59,14 @@ static Value createGlobalValue(Codegen* codegen, Type* type)
 
 static void emitValue(CodeBuffer* buffer, Value value)
 {
-	emitString(buffer, value.name);
+	if (value.isIdentifier)
+	{
+		emitString(buffer, value.identifier);
+	}
+	else
+	{
+		emitString(buffer, value.name);
+	}
 }
 
 static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
@@ -738,10 +749,10 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	{
 		FloatLiteral* floatLiteral = (FloatLiteral*)expression;
 
-		emitString(buffer, floatLiteral->value);
-
 		Value value = {};
 		value.type = expression->inferredType;
+		value.isIdentifier = true;
+		value.identifier = floatLiteral->value;
 		return value;
 	}
 	else if (expression->type == NODE_STRING_LITERAL)
@@ -864,7 +875,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 			Value value = {};
 			value.type = expression->inferredType;
-			snprintf(value.name, sizeof(value.name), "%.*s", function->mangledName.length, function->mangledName.ptr);
+			value.isIdentifier = true;
+			value.identifier = function->mangledName;
 
 			return value;
 		}
@@ -875,7 +887,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value value = {};
 		value.type = expression->inferredType;
 		value.lvalue = true;
-		snprintf(value.name, sizeof(value.name), "%.*s", identifier->name.length, identifier->name.ptr);
+		value.isIdentifier = true;
+		value.identifier = identifier->name;
 
 		return value;
 	}
@@ -1025,18 +1038,47 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_DEREFERENCE)
 		{
-			Value result = {};
-			result.type = unaryOperator->inferredType;
-			result.lvalue = true;
-			snprintf(result.name, sizeof(result.name), "(*%s)", operand.name);
+			if (!operand.isIdentifier)
+			{
+				Value result = {};
+				result.type = unaryOperator->inferredType;
+				result.lvalue = true;
+				snprintf(result.name, sizeof(result.name), "(*%s)", operand.name);
 
-			return result;
+				return result;
+			}
+			else if (operand.identifier.length <= 28)
+			{
+				Value result = {};
+				result.type = unaryOperator->inferredType;
+				result.lvalue = true;
+				snprintf(result.name, sizeof(result.name), "(*%.*s)", operand.identifier.length, operand.identifier.ptr);
+
+				return result;
+			}
+			else
+			{
+				// make sure the name fits by copying it to a new variable
+
+				Value result = declareLocalValue(codegen, getPointerType(codegen->types, unaryOperator->inferredType, codegen->currentFile), buffer);
+				emitChar(buffer, '&');
+				emitValue(buffer, operand);
+				emitString(buffer, ";\n");
+
+				Value deref = {};
+				deref.type = unaryOperator->inferredType;
+				deref.lvalue = true;
+				snprintf(deref.name, sizeof(deref.name), "(*%s)", deref.name);
+
+				return deref;
+			}
 		}
 		else if (unaryOperator->op == OPERATOR_ADDRESS)
 		{
-			Value result = {};
-			result.type = unaryOperator->inferredType;
-			snprintf(result.name, sizeof(result.name), "(&%s)", operand.name);
+			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
+			emitChar(buffer, '&');
+			emitValue(buffer, operand);
+			emitString(buffer, ";\n");
 
 			return result;
 		}
@@ -1101,7 +1143,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 
 		Value result = {};
-		if (functionCall->inferredType)
+		if (!isVoidType(functionCall->inferredType))
 			result = declareLocalValue(codegen, functionCall->inferredType, buffer);
 		else
 			emitIndentation(codegen, buffer);
@@ -1385,7 +1427,91 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value expression = emitExpression(codegen, cast->expression, buffer);
 
-		if (cast->expression->inferredType->typeKind == TYPE_ANY)
+		if (cast->inferredType->typeKind == TYPE_STRING)
+		{
+			if (cast->expression2)
+			{
+				Value expression2 = emitExpression(codegen, cast->expression2, buffer);
+
+				Value str = declareLocalValue(codegen, getStringType(codegen->types), buffer);
+
+				emitChar(buffer, '{');
+				emitValue(buffer, expression);
+				emitChar(buffer, ',');
+				emitValue(buffer, expression2);
+				emitString(buffer, "};\n");
+
+				return str;
+			}
+			else if (isCharPointerType(cast->expression->inferredType))
+			{
+				Value str = declareLocalValue(codegen, getStringType(codegen->types), buffer);
+
+				emitChar(buffer, '{');
+				emitValue(buffer, expression);
+				emitString(buffer, ",__cstrl(");
+				emitValue(buffer, expression);
+				emitString(buffer, ")};\n");
+
+				return str;
+			}
+		}
+		else if (cast->inferredType->typeKind == TYPE_ANY)
+		{
+			if (isIntegerType(cast->expression->inferredType))
+			{
+				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+
+				emitString(buffer, "{.int_=");
+				if (cast->expression->inferredType->typeKind != TYPE_INT64)
+					emitString(buffer, "(i64)");
+				emitValue(buffer, expression);
+				emitString(buffer, ",.type=");
+				emitInteger(buffer, (int64_t)TYPE_INT_START);
+				emitString(buffer, "};\n");
+
+				return result;
+			}
+			else if (isFloatingPointType(cast->expression->inferredType))
+			{
+				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+
+				emitString(buffer, "{.float_=");
+				if (cast->expression->inferredType->typeKind != TYPE_DOUBLE)
+					emitString(buffer, "(double)");
+				emitValue(buffer, expression);
+				emitString(buffer, ",.type=");
+				emitInteger(buffer, (int64_t)TYPE_FLOAT_START);
+				emitString(buffer, "};\n");
+
+				return result;
+			}
+			else if (cast->expression->inferredType->typeKind == TYPE_BOOL)
+			{
+				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+
+				emitString(buffer, "{.bool_=");
+				emitValue(buffer, expression);
+				emitString(buffer, ",.type=");
+				emitInteger(buffer, (int64_t)TYPE_BOOL);
+				emitString(buffer, "};\n");
+
+				return result;
+			}
+			else
+			{
+				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+
+				emitString(buffer, "{.ptr=&");
+				emitValue(buffer, expression);
+				emitString(buffer, ",.type=");
+				emitInteger(buffer, (int)cast->expression->inferredType->typeKind);
+				emitString(buffer, "};\n");
+
+				return result;
+			}
+		}
+		else if (cast->expression->inferredType->typeKind == TYPE_ANY)
 		{
 			if (isIntegerType(cast->inferredType))
 			{
@@ -1462,67 +1588,16 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				return result;
 			}
 		}
-		else if (cast->inferredType->typeKind == TYPE_ANY)
-		{
-			if (isIntegerType(cast->expression->inferredType))
-			{
-				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
 
-				emitString(buffer, "{.int_=");
-				if (cast->expression->inferredType->typeKind != TYPE_INT64)
-					emitString(buffer, "(i64)");
-				emitValue(buffer, expression);
-				emitString(buffer, ",.type=2};\n");
+		Value result = declareLocalValue(codegen, cast->inferredType, buffer);
 
-				return result;
-			}
-			else if (isFloatingPointType(cast->expression->inferredType))
-			{
-				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
+		emitChar(buffer, '(');
+		emitType(codegen, cast->inferredType, buffer);
+		emitChar(buffer, ')');
+		emitValue(buffer, expression);
+		emitString(buffer, ";\n");
 
-				emitString(buffer, "{.float_=");
-				if (cast->expression->inferredType->typeKind != TYPE_DOUBLE)
-					emitString(buffer, "(double)");
-				emitValue(buffer, expression);
-				emitString(buffer, ",.type=3};\n");
-
-				return result;
-			}
-			else if (cast->expression->inferredType->typeKind == TYPE_BOOL)
-			{
-				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
-
-				emitString(buffer, "{.bool_=");
-				emitValue(buffer, expression);
-				emitString(buffer, ",.type=4};\n");
-
-				return result;
-			}
-			else
-			{
-				Value result = declareLocalValue(codegen, cast->inferredType, buffer);
-
-				emitString(buffer, "{.ptr=&");
-				emitValue(buffer, expression);
-				emitString(buffer, ",.type=");
-				emitInteger(buffer, (int)cast->expression->inferredType->typeKind);
-				emitString(buffer, "};\n");
-
-				return result;
-			}
-		}
-		else
-		{
-			Value result = declareLocalValue(codegen, cast->inferredType, buffer);
-
-			emitChar(buffer, '(');
-			emitType(codegen, cast->inferredType, buffer);
-			emitChar(buffer, ')');
-			emitValue(buffer, expression);
-			emitString(buffer, ";\n");
-
-			return result;
-		}
+		return result;
 	}
 
 	SnekAssert(false);
@@ -1717,9 +1792,12 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			{
 				emitChar(buffer, '=');
 				emitValue(buffer, value);
+				emitString(buffer, ";\n");
 			}
-
-			emitString(buffer, ";\n");
+			else
+			{
+				emitString(buffer, "={0};\n");
+			}
 		}
 	}
 	else if (statement->type == NODE_ASSIGNMENT)

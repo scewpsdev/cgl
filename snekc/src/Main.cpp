@@ -518,8 +518,12 @@ static int outputBinary(const char* out, bool run)
 
 int main(int argc, const char* argv[])
 {
+	uint64_t t0 = GetTimeNS();
+
 	compiler = {};
 	initCompiler(&compiler, argc, argv);
+
+	uint64_t t1 = GetTimeNS();
 
 	List<SourceFile*> filesToParse;
 	List<SourceFile*> filesToTypeCheck;
@@ -557,15 +561,13 @@ int main(int argc, const char* argv[])
 					FileHandle fileHandle = getFileHandle(localPath);
 					if (!getFileFromHandle(fileHandle))
 					{
-						if (addSourceFile(&compiler, localPath))
-						{
-							file->file.dependencies.add(fileHandle);
-						}
-						else
+						if (!addSourceFile(&compiler, localPath))
 						{
 							error(&file->file.parser, declaration, "Undefined module '%s'", localPath);
 						}
 					}
+
+					file->file.dependencies.add(fileHandle);
 				}
 			}
 		}
@@ -581,9 +583,13 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	uint64_t t2 = GetTimeNS();
+
 	symbolCollectFiles(compiler.sourceFiles);
 	symbolResolveFiles(compiler.sourceFiles);
 	typeCheckFunctions(compiler.sourceFiles);
+
+	uint64_t t3 = GetTimeNS();
 
 	bool hasError = false;
 	for (int i = 0; i < compiler.sourceFiles.size; i++)
@@ -597,7 +603,9 @@ int main(int argc, const char* argv[])
 		}
 	}
 
-	int result = 0;
+	uint64_t t4 = GetTimeNS();
+
+	int result = 1;
 	if (!hasError)
 	{
 		for (int i = 0; i < compiler.sourceFiles.size; i++)
@@ -608,10 +616,34 @@ int main(int argc, const char* argv[])
 			file->state = FILE_STATE_OUTPUT;
 		}
 
+		t4 = GetTimeNS();
+
 		result = outputBinary(compiler.outPath, compiler.run);
 	}
 
 	destroyCompiler(&compiler);
+
+	uint64_t t5 = GetTimeNS();
+	float ms = (t5 - t0) / 1e6f;
+
+	if (result == 0)
+	{
+		fprintf(stderr, "Compilation completed in %.2f ms.\n", ms);
+
+		float parseMs = (t2 - t1) / 1e6f;
+		float typeCheckMs = (t3 - t2) / 1e6f;
+		float codegenMs = (t4 - t3) / 1e6f;
+		float outputMs = (t5 - t4) / 1e6f;
+
+		fprintf(stderr, "Parser: %.2f ms\n", parseMs);
+		fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
+		fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
+		fprintf(stderr, "Output: %.2f ms\n", outputMs);
+	}
+	else
+	{
+		fprintf(stderr, "Compilation failed.\n");
+	}
 
 	return result;
 }

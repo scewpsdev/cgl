@@ -403,7 +403,10 @@ bool isLValue(Expression* expression)
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
-		return true;
+		MemberAccess* member = (MemberAccess*)expression;
+
+		Type* operandType = member->operand->inferredType;
+		return operandType->typeKind == TYPE_STRUCT || operandType->typeKind == TYPE_UNION;
 	}
 	else if (expression->type == NODE_ARRAY_SUBSCRIPT)
 	{
