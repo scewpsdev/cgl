@@ -839,7 +839,7 @@ void ParserThread()
 
 int main()
 {
-	SleepMS(5000);
+	//SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
 	initGlobalBlockPool(&blockPool, 16);
