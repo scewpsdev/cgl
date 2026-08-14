@@ -1,0 +1,44 @@
+import snek.console;
+import vendor.SDL3;
+import test;
+
+
+func main(string[] args)
+{
+	if (!SDL_Init(SDL_INIT_VIDEO))
+	{
+		writeln("Failed to initialize SDL3");
+		return;
+	}
+
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	if (!SDL_CreateWindowAndRenderer("ABC", 1280, 720, 0, &window, &renderer))
+	{
+		writeln("Failed to create window and renderer");
+		return;
+	}
+
+	SDL_SetRenderDrawColor(renderer, 100, 149, 237, 0);
+
+	bool running = true;
+	while (running)
+	{
+		SDL_Event event;
+		while (SDL_PollEvent(&event))
+		{
+			if (event.type as SDL_EventType == SDL_EventType.SDL_EVENT_QUIT)
+			{
+				running = false;
+			}
+		}
+
+		SDL_RenderClear(renderer);
+		SDL_RenderPresent(renderer);
+	}
+
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
+}

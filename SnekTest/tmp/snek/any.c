@@ -1,0 +1,21 @@
+// snek/any.src
+#include <snek.h>
+
+
+enum TypeKind:i32{
+	Null=0,
+	Int=2,
+	Float=12,
+	Bool=16,
+	Any=17,
+	String=18,
+	Struct=19,
+	Union=20,
+	Enum=21,
+	Alias=22,
+	Pointer=23,
+	Optional=24,
+	Function=25,
+	Array=26,
+	Type=27,
+};

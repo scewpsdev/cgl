@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "run",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "cmd.exe",
+            "args": ["/c", "${workspaceFolder}/run.bat"],
+            "cwd": "${workspaceFolder}",
+			"console": "externalTerminal",
+        }
+    ]
+}

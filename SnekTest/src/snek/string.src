@@ -1,0 +1,12 @@
+
+
+externc func strncmp(char* str1, char* str2, uint64 n) int;
+
+
+func substring(string str, int offset, int count)
+	=> string(str.ptr + offset, count);
+
+func startsWith(string str, string value)
+	=> str.length >= value.length && strncmp(str.ptr, value.ptr, value.length) == 0;
+func endsWith(string str, string value)
+	=> str.length >= value.length && strncmp(str.ptr + str.length - value.length, value.ptr, value.length) == 0;

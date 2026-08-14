@@ -1,0 +1,4254 @@
+const uint32 __bool_true_false_are_defined = 1;
+const uint32 SDL_NOLONGLONG = 1;
+const uint32 SDL_INVALID_UNICODE_CODEPOINT = 0xFFFD;
+const double SDL_PI_D = 3.141592653589793238462643383279502884;
+const double SDL_PI_F = 3.141592653589793238462643383279502884F;
+const uint32 SDL_BLENDMODE_NONE = 0x00000000u;
+const uint32 SDL_BLENDMODE_BLEND = 0x00000001u;
+const uint32 SDL_BLENDMODE_BLEND_PREMULTIPLIED = 0x00000010u;
+const uint32 SDL_BLENDMODE_ADD = 0x00000002u;
+const uint32 SDL_BLENDMODE_ADD_PREMULTIPLIED = 0x00000020u;
+const uint32 SDL_BLENDMODE_MOD = 0x00000004u;
+const uint32 SDL_BLENDMODE_MUL = 0x00000008u;
+const uint32 SDL_BLENDMODE_INVALID = 0x7FFFFFFFu;
+const uint32 SDL_CACHELINE_SIZE = 128;
+const uint32 SDL_ELF_NOTE_DLOPEN_TYPE = 0x407c0c0aU;
+const uint32 SDL_LIL_ENDIAN = 1234;
+const uint32 SDL_BIG_ENDIAN = 4321;
+const uint32 SDL_GPU_SHADERFORMAT_INVALID = 0;
+const uint32 SDL_HAPTIC_INFINITY = 4294967295U;
+const uint32 SDL_HAPTIC_POLAR = 0;
+const uint32 SDL_HAPTIC_CARTESIAN = 1;
+const uint32 SDL_HAPTIC_SPHERICAL = 2;
+const uint32 SDL_HAPTIC_STEERING_AXIS = 3;
+const uint32 SDL_INIT_AUDIO = 0x00000010u;
+const uint32 SDL_INIT_VIDEO = 0x00000020u;
+const uint32 SDL_INIT_JOYSTICK = 0x00000200u;
+const uint32 SDL_INIT_HAPTIC = 0x00001000u;
+const uint32 SDL_INIT_GAMEPAD = 0x00002000u;
+const uint32 SDL_INIT_EVENTS = 0x00004000u;
+const uint32 SDL_INIT_SENSOR = 0x00008000u;
+const uint32 SDL_INIT_CAMERA = 0x00010000u;
+const uint32 SDL_JOYSTICK_AXIS_MAX = 32767;
+const int32 SDL_JOYSTICK_AXIS_MIN = -32768;
+const uint32 SDL_HAT_CENTERED = 0x00u;
+const uint32 SDL_HAT_UP = 0x01u;
+const uint32 SDL_HAT_RIGHT = 0x02u;
+const uint32 SDL_HAT_DOWN = 0x04u;
+const uint32 SDL_HAT_LEFT = 0x08u;
+const uint32 SDLK_UNKNOWN = 0x00000000u;
+const uint32 SDLK_RETURN = 0x0000000du;
+const uint32 SDLK_ESCAPE = 0x0000001bu;
+const uint32 SDLK_BACKSPACE = 0x00000008u;
+const uint32 SDLK_TAB = 0x00000009u;
+const uint32 SDLK_SPACE = 0x00000020u;
+const uint32 SDLK_EXCLAIM = 0x00000021u;
+const uint32 SDLK_DBLAPOSTROPHE = 0x00000022u;
+const uint32 SDLK_HASH = 0x00000023u;
+const uint32 SDLK_DOLLAR = 0x00000024u;
+const uint32 SDLK_PERCENT = 0x00000025u;
+const uint32 SDLK_AMPERSAND = 0x00000026u;
+const uint32 SDLK_APOSTROPHE = 0x00000027u;
+const uint32 SDLK_LEFTPAREN = 0x00000028u;
+const uint32 SDLK_RIGHTPAREN = 0x00000029u;
+const uint32 SDLK_ASTERISK = 0x0000002au;
+const uint32 SDLK_PLUS = 0x0000002bu;
+const uint32 SDLK_COMMA = 0x0000002cu;
+const uint32 SDLK_MINUS = 0x0000002du;
+const uint32 SDLK_PERIOD = 0x0000002eu;
+const uint32 SDLK_SLASH = 0x0000002fu;
+const uint32 SDLK_0 = 0x00000030u;
+const uint32 SDLK_1 = 0x00000031u;
+const uint32 SDLK_2 = 0x00000032u;
+const uint32 SDLK_3 = 0x00000033u;
+const uint32 SDLK_4 = 0x00000034u;
+const uint32 SDLK_5 = 0x00000035u;
+const uint32 SDLK_6 = 0x00000036u;
+const uint32 SDLK_7 = 0x00000037u;
+const uint32 SDLK_8 = 0x00000038u;
+const uint32 SDLK_9 = 0x00000039u;
+const uint32 SDLK_COLON = 0x0000003au;
+const uint32 SDLK_SEMICOLON = 0x0000003bu;
+const uint32 SDLK_LESS = 0x0000003cu;
+const uint32 SDLK_EQUALS = 0x0000003du;
+const uint32 SDLK_GREATER = 0x0000003eu;
+const uint32 SDLK_QUESTION = 0x0000003fu;
+const uint32 SDLK_AT = 0x00000040u;
+const uint32 SDLK_LEFTBRACKET = 0x0000005bu;
+const uint32 SDLK_BACKSLASH = 0x0000005cu;
+const uint32 SDLK_RIGHTBRACKET = 0x0000005du;
+const uint32 SDLK_CARET = 0x0000005eu;
+const uint32 SDLK_UNDERSCORE = 0x0000005fu;
+const uint32 SDLK_GRAVE = 0x00000060u;
+const uint32 SDLK_A = 0x00000061u;
+const uint32 SDLK_B = 0x00000062u;
+const uint32 SDLK_C = 0x00000063u;
+const uint32 SDLK_D = 0x00000064u;
+const uint32 SDLK_E = 0x00000065u;
+const uint32 SDLK_F = 0x00000066u;
+const uint32 SDLK_G = 0x00000067u;
+const uint32 SDLK_H = 0x00000068u;
+const uint32 SDLK_I = 0x00000069u;
+const uint32 SDLK_J = 0x0000006au;
+const uint32 SDLK_K = 0x0000006bu;
+const uint32 SDLK_L = 0x0000006cu;
+const uint32 SDLK_M = 0x0000006du;
+const uint32 SDLK_N = 0x0000006eu;
+const uint32 SDLK_O = 0x0000006fu;
+const uint32 SDLK_P = 0x00000070u;
+const uint32 SDLK_Q = 0x00000071u;
+const uint32 SDLK_R = 0x00000072u;
+const uint32 SDLK_S = 0x00000073u;
+const uint32 SDLK_T = 0x00000074u;
+const uint32 SDLK_U = 0x00000075u;
+const uint32 SDLK_V = 0x00000076u;
+const uint32 SDLK_W = 0x00000077u;
+const uint32 SDLK_X = 0x00000078u;
+const uint32 SDLK_Y = 0x00000079u;
+const uint32 SDLK_Z = 0x0000007au;
+const uint32 SDLK_LEFTBRACE = 0x0000007bu;
+const uint32 SDLK_PIPE = 0x0000007cu;
+const uint32 SDLK_RIGHTBRACE = 0x0000007du;
+const uint32 SDLK_TILDE = 0x0000007eu;
+const uint32 SDLK_DELETE = 0x0000007fu;
+const uint32 SDLK_PLUSMINUS = 0x000000b1u;
+const uint32 SDLK_CAPSLOCK = 0x40000039u;
+const uint32 SDLK_F1 = 0x4000003au;
+const uint32 SDLK_F2 = 0x4000003bu;
+const uint32 SDLK_F3 = 0x4000003cu;
+const uint32 SDLK_F4 = 0x4000003du;
+const uint32 SDLK_F5 = 0x4000003eu;
+const uint32 SDLK_F6 = 0x4000003fu;
+const uint32 SDLK_F7 = 0x40000040u;
+const uint32 SDLK_F8 = 0x40000041u;
+const uint32 SDLK_F9 = 0x40000042u;
+const uint32 SDLK_F10 = 0x40000043u;
+const uint32 SDLK_F11 = 0x40000044u;
+const uint32 SDLK_F12 = 0x40000045u;
+const uint32 SDLK_PRINTSCREEN = 0x40000046u;
+const uint32 SDLK_SCROLLLOCK = 0x40000047u;
+const uint32 SDLK_PAUSE = 0x40000048u;
+const uint32 SDLK_INSERT = 0x40000049u;
+const uint32 SDLK_HOME = 0x4000004au;
+const uint32 SDLK_PAGEUP = 0x4000004bu;
+const uint32 SDLK_END = 0x4000004du;
+const uint32 SDLK_PAGEDOWN = 0x4000004eu;
+const uint32 SDLK_RIGHT = 0x4000004fu;
+const uint32 SDLK_LEFT = 0x40000050u;
+const uint32 SDLK_DOWN = 0x40000051u;
+const uint32 SDLK_UP = 0x40000052u;
+const uint32 SDLK_NUMLOCKCLEAR = 0x40000053u;
+const uint32 SDLK_KP_DIVIDE = 0x40000054u;
+const uint32 SDLK_KP_MULTIPLY = 0x40000055u;
+const uint32 SDLK_KP_MINUS = 0x40000056u;
+const uint32 SDLK_KP_PLUS = 0x40000057u;
+const uint32 SDLK_KP_ENTER = 0x40000058u;
+const uint32 SDLK_KP_1 = 0x40000059u;
+const uint32 SDLK_KP_2 = 0x4000005au;
+const uint32 SDLK_KP_3 = 0x4000005bu;
+const uint32 SDLK_KP_4 = 0x4000005cu;
+const uint32 SDLK_KP_5 = 0x4000005du;
+const uint32 SDLK_KP_6 = 0x4000005eu;
+const uint32 SDLK_KP_7 = 0x4000005fu;
+const uint32 SDLK_KP_8 = 0x40000060u;
+const uint32 SDLK_KP_9 = 0x40000061u;
+const uint32 SDLK_KP_0 = 0x40000062u;
+const uint32 SDLK_KP_PERIOD = 0x40000063u;
+const uint32 SDLK_APPLICATION = 0x40000065u;
+const uint32 SDLK_POWER = 0x40000066u;
+const uint32 SDLK_KP_EQUALS = 0x40000067u;
+const uint32 SDLK_F13 = 0x40000068u;
+const uint32 SDLK_F14 = 0x40000069u;
+const uint32 SDLK_F15 = 0x4000006au;
+const uint32 SDLK_F16 = 0x4000006bu;
+const uint32 SDLK_F17 = 0x4000006cu;
+const uint32 SDLK_F18 = 0x4000006du;
+const uint32 SDLK_F19 = 0x4000006eu;
+const uint32 SDLK_F20 = 0x4000006fu;
+const uint32 SDLK_F21 = 0x40000070u;
+const uint32 SDLK_F22 = 0x40000071u;
+const uint32 SDLK_F23 = 0x40000072u;
+const uint32 SDLK_F24 = 0x40000073u;
+const uint32 SDLK_EXECUTE = 0x40000074u;
+const uint32 SDLK_HELP = 0x40000075u;
+const uint32 SDLK_MENU = 0x40000076u;
+const uint32 SDLK_SELECT = 0x40000077u;
+const uint32 SDLK_STOP = 0x40000078u;
+const uint32 SDLK_AGAIN = 0x40000079u;
+const uint32 SDLK_UNDO = 0x4000007au;
+const uint32 SDLK_CUT = 0x4000007bu;
+const uint32 SDLK_COPY = 0x4000007cu;
+const uint32 SDLK_PASTE = 0x4000007du;
+const uint32 SDLK_FIND = 0x4000007eu;
+const uint32 SDLK_MUTE = 0x4000007fu;
+const uint32 SDLK_VOLUMEUP = 0x40000080u;
+const uint32 SDLK_VOLUMEDOWN = 0x40000081u;
+const uint32 SDLK_KP_COMMA = 0x40000085u;
+const uint32 SDLK_KP_EQUALSAS400 = 0x40000086u;
+const uint32 SDLK_ALTERASE = 0x40000099u;
+const uint32 SDLK_SYSREQ = 0x4000009au;
+const uint32 SDLK_CANCEL = 0x4000009bu;
+const uint32 SDLK_CLEAR = 0x4000009cu;
+const uint32 SDLK_PRIOR = 0x4000009du;
+const uint32 SDLK_RETURN2 = 0x4000009eu;
+const uint32 SDLK_SEPARATOR = 0x4000009fu;
+const uint32 SDLK_OUT = 0x400000a0u;
+const uint32 SDLK_OPER = 0x400000a1u;
+const uint32 SDLK_CLEARAGAIN = 0x400000a2u;
+const uint32 SDLK_CRSEL = 0x400000a3u;
+const uint32 SDLK_EXSEL = 0x400000a4u;
+const uint32 SDLK_KP_00 = 0x400000b0u;
+const uint32 SDLK_KP_000 = 0x400000b1u;
+const uint32 SDLK_THOUSANDSSEPARATOR = 0x400000b2u;
+const uint32 SDLK_DECIMALSEPARATOR = 0x400000b3u;
+const uint32 SDLK_CURRENCYUNIT = 0x400000b4u;
+const uint32 SDLK_CURRENCYSUBUNIT = 0x400000b5u;
+const uint32 SDLK_KP_LEFTPAREN = 0x400000b6u;
+const uint32 SDLK_KP_RIGHTPAREN = 0x400000b7u;
+const uint32 SDLK_KP_LEFTBRACE = 0x400000b8u;
+const uint32 SDLK_KP_RIGHTBRACE = 0x400000b9u;
+const uint32 SDLK_KP_TAB = 0x400000bau;
+const uint32 SDLK_KP_BACKSPACE = 0x400000bbu;
+const uint32 SDLK_KP_A = 0x400000bcu;
+const uint32 SDLK_KP_B = 0x400000bdu;
+const uint32 SDLK_KP_C = 0x400000beu;
+const uint32 SDLK_KP_D = 0x400000bfu;
+const uint32 SDLK_KP_E = 0x400000c0u;
+const uint32 SDLK_KP_F = 0x400000c1u;
+const uint32 SDLK_KP_XOR = 0x400000c2u;
+const uint32 SDLK_KP_POWER = 0x400000c3u;
+const uint32 SDLK_KP_PERCENT = 0x400000c4u;
+const uint32 SDLK_KP_LESS = 0x400000c5u;
+const uint32 SDLK_KP_GREATER = 0x400000c6u;
+const uint32 SDLK_KP_AMPERSAND = 0x400000c7u;
+const uint32 SDLK_KP_DBLAMPERSAND = 0x400000c8u;
+const uint32 SDLK_KP_VERTICALBAR = 0x400000c9u;
+const uint32 SDLK_KP_DBLVERTICALBAR = 0x400000cau;
+const uint32 SDLK_KP_COLON = 0x400000cbu;
+const uint32 SDLK_KP_HASH = 0x400000ccu;
+const uint32 SDLK_KP_SPACE = 0x400000cdu;
+const uint32 SDLK_KP_AT = 0x400000ceu;
+const uint32 SDLK_KP_EXCLAM = 0x400000cfu;
+const uint32 SDLK_KP_MEMSTORE = 0x400000d0u;
+const uint32 SDLK_KP_MEMRECALL = 0x400000d1u;
+const uint32 SDLK_KP_MEMCLEAR = 0x400000d2u;
+const uint32 SDLK_KP_MEMADD = 0x400000d3u;
+const uint32 SDLK_KP_MEMSUBTRACT = 0x400000d4u;
+const uint32 SDLK_KP_MEMMULTIPLY = 0x400000d5u;
+const uint32 SDLK_KP_MEMDIVIDE = 0x400000d6u;
+const uint32 SDLK_KP_PLUSMINUS = 0x400000d7u;
+const uint32 SDLK_KP_CLEAR = 0x400000d8u;
+const uint32 SDLK_KP_CLEARENTRY = 0x400000d9u;
+const uint32 SDLK_KP_BINARY = 0x400000dau;
+const uint32 SDLK_KP_OCTAL = 0x400000dbu;
+const uint32 SDLK_KP_DECIMAL = 0x400000dcu;
+const uint32 SDLK_KP_HEXADECIMAL = 0x400000ddu;
+const uint32 SDLK_LCTRL = 0x400000e0u;
+const uint32 SDLK_LSHIFT = 0x400000e1u;
+const uint32 SDLK_LALT = 0x400000e2u;
+const uint32 SDLK_LGUI = 0x400000e3u;
+const uint32 SDLK_RCTRL = 0x400000e4u;
+const uint32 SDLK_RSHIFT = 0x400000e5u;
+const uint32 SDLK_RALT = 0x400000e6u;
+const uint32 SDLK_RGUI = 0x400000e7u;
+const uint32 SDLK_MODE = 0x40000101u;
+const uint32 SDLK_SLEEP = 0x40000102u;
+const uint32 SDLK_WAKE = 0x40000103u;
+const uint32 SDLK_CHANNEL_INCREMENT = 0x40000104u;
+const uint32 SDLK_CHANNEL_DECREMENT = 0x40000105u;
+const uint32 SDLK_MEDIA_PLAY = 0x40000106u;
+const uint32 SDLK_MEDIA_PAUSE = 0x40000107u;
+const uint32 SDLK_MEDIA_RECORD = 0x40000108u;
+const uint32 SDLK_MEDIA_FAST_FORWARD = 0x40000109u;
+const uint32 SDLK_MEDIA_REWIND = 0x4000010au;
+const uint32 SDLK_MEDIA_NEXT_TRACK = 0x4000010bu;
+const uint32 SDLK_MEDIA_PREVIOUS_TRACK = 0x4000010cu;
+const uint32 SDLK_MEDIA_STOP = 0x4000010du;
+const uint32 SDLK_MEDIA_EJECT = 0x4000010eu;
+const uint32 SDLK_MEDIA_PLAY_PAUSE = 0x4000010fu;
+const uint32 SDLK_MEDIA_SELECT = 0x40000110u;
+const uint32 SDLK_AC_NEW = 0x40000111u;
+const uint32 SDLK_AC_OPEN = 0x40000112u;
+const uint32 SDLK_AC_CLOSE = 0x40000113u;
+const uint32 SDLK_AC_EXIT = 0x40000114u;
+const uint32 SDLK_AC_SAVE = 0x40000115u;
+const uint32 SDLK_AC_PRINT = 0x40000116u;
+const uint32 SDLK_AC_PROPERTIES = 0x40000117u;
+const uint32 SDLK_AC_SEARCH = 0x40000118u;
+const uint32 SDLK_AC_HOME = 0x40000119u;
+const uint32 SDLK_AC_BACK = 0x4000011au;
+const uint32 SDLK_AC_FORWARD = 0x4000011bu;
+const uint32 SDLK_AC_STOP = 0x4000011cu;
+const uint32 SDLK_AC_REFRESH = 0x4000011du;
+const uint32 SDLK_AC_BOOKMARKS = 0x4000011eu;
+const uint32 SDLK_SOFTLEFT = 0x4000011fu;
+const uint32 SDLK_SOFTRIGHT = 0x40000120u;
+const uint32 SDLK_CALL = 0x40000121u;
+const uint32 SDLK_ENDCALL = 0x40000122u;
+const uint32 SDLK_LEFT_TAB = 0x20000001u;
+const uint32 SDLK_LEVEL5_SHIFT = 0x20000002u;
+const uint32 SDLK_MULTI_KEY_COMPOSE = 0x20000003u;
+const uint32 SDLK_LMETA = 0x20000004u;
+const uint32 SDLK_RMETA = 0x20000005u;
+const uint32 SDLK_LHYPER = 0x20000006u;
+const uint32 SDLK_RHYPER = 0x20000007u;
+const uint32 SDL_KMOD_NONE = 0x0000u;
+const uint32 SDL_KMOD_LSHIFT = 0x0001u;
+const uint32 SDL_KMOD_RSHIFT = 0x0002u;
+const uint32 SDL_KMOD_LEVEL5 = 0x0004u;
+const uint32 SDL_KMOD_LCTRL = 0x0040u;
+const uint32 SDL_KMOD_RCTRL = 0x0080u;
+const uint32 SDL_KMOD_LALT = 0x0100u;
+const uint32 SDL_KMOD_RALT = 0x0200u;
+const uint32 SDL_KMOD_LGUI = 0x0400u;
+const uint32 SDL_KMOD_RGUI = 0x0800u;
+const uint32 SDL_KMOD_NUM = 0x1000u;
+const uint32 SDL_KMOD_CAPS = 0x2000u;
+const uint32 SDL_KMOD_MODE = 0x4000u;
+const uint32 SDL_KMOD_SCROLL = 0x8000u;
+const uint32 SDL_MESSAGEBOX_ERROR = 0x00000010u;
+const uint32 SDL_MESSAGEBOX_WARNING = 0x00000020u;
+const uint32 SDL_MESSAGEBOX_INFORMATION = 0x00000040u;
+const uint32 SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT = 0x00000080u;
+const uint32 SDL_MESSAGEBOX_BUTTONS_RIGHT_TO_LEFT = 0x00000100u;
+const uint32 SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT = 0x00000001u;
+const uint32 SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT = 0x00000002u;
+const uint32 SDL_BUTTON_LEFT = 1;
+const uint32 SDL_BUTTON_MIDDLE = 2;
+const uint32 SDL_BUTTON_RIGHT = 3;
+const uint32 SDL_BUTTON_X1 = 4;
+const uint32 SDL_BUTTON_X2 = 5;
+const uint32 SDL_ALPHA_OPAQUE = 255;
+const float SDL_ALPHA_OPAQUE_FLOAT = 1.0f;
+const uint32 SDL_ALPHA_TRANSPARENT = 0;
+const uint32 SDL_RENDERER_VSYNC_DISABLED = 0;
+const uint32 SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE = 8;
+const float SDL_STANDARD_GRAVITY = 9.80665f;
+const uint32 SDL_SURFACE_PREALLOCATED = 0x00000001u;
+const uint32 SDL_SURFACE_LOCK_NEEDED = 0x00000002u;
+const uint32 SDL_SURFACE_LOCKED = 0x00000004u;
+const uint32 SDL_SURFACE_SIMD_ALIGNED = 0x00000008u;
+const uint32 SDL_ANDROID_EXTERNAL_STORAGE_READ = 0x01;
+const uint32 SDL_ANDROID_EXTERNAL_STORAGE_WRITE = 0x02;
+const uint32 SDL_MS_PER_SECOND = 1000;
+const uint32 SDL_US_PER_SECOND = 1000000;
+const uint32 SDL_NS_PER_SECOND = 1000000000i64;
+const uint32 SDL_NS_PER_MS = 1000000;
+const uint32 SDL_NS_PER_US = 1000;
+const uint32 SDL_TRAYENTRY_BUTTON = 0x00000001u;
+const uint32 SDL_TRAYENTRY_CHECKBOX = 0x00000002u;
+const uint32 SDL_TRAYENTRY_SUBMENU = 0x00000004u;
+const uint32 SDL_TRAYENTRY_DISABLED = 0x80000000u;
+const uint32 SDL_TRAYENTRY_CHECKED = 0x40000000u;
+const uint32 SDL_MAJOR_VERSION = 3;
+const uint32 SDL_MINOR_VERSION = 5;
+const uint32 SDL_MICRO_VERSION = 0;
+const uint32 SDL_WINDOWPOS_UNDEFINED_MASK = 0x1FFF0000u;
+const uint32 SDL_WINDOWPOS_CENTERED_MASK = 0x2FFF0000u;
+const uint32 SDL_GL_CONTEXT_PROFILE_CORE = 0x0001;
+const uint32 SDL_GL_CONTEXT_PROFILE_COMPATIBILITY = 0x0002;
+const uint32 SDL_GL_CONTEXT_PROFILE_ES = 0x0004;
+const uint32 SDL_GL_CONTEXT_DEBUG_FLAG = 0x0001;
+const uint32 SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG = 0x0002;
+const uint32 SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG = 0x0004;
+const uint32 SDL_GL_CONTEXT_RESET_ISOLATION_FLAG = 0x0008;
+const uint32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_NONE = 0x0000;
+const uint32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH = 0x0001;
+const uint32 SDL_GL_CONTEXT_RESET_NO_NOTIFICATION = 0x0000;
+const uint32 SDL_GL_CONTEXT_RESET_LOSE_CONTEXT = 0x0001;
+const uint32 SDL_WINDOW_SURFACE_VSYNC_DISABLED = 0;
+const uint32 SDL_PLATFORM_AIX = 1;
+const uint32 SDL_PLATFORM_HAIKU = 1;
+const uint32 SDL_PLATFORM_BSDI = 1;
+const uint32 SDL_PLATFORM_FREEBSD = 1;
+const uint32 SDL_PLATFORM_HPUX = 1;
+const uint32 SDL_PLATFORM_IRIX = 1;
+const uint32 SDL_PLATFORM_LINUX = 1;
+const uint32 SDL_PLATFORM_ANDROID = 1;
+const uint32 SDL_PLATFORM_UNIX = 1;
+const uint32 SDL_PLATFORM_APPLE = 1;
+const uint32 SDL_PLATFORM_TVOS = 1;
+const uint32 SDL_PLATFORM_VISIONOS = 1;
+const uint32 SDL_PLATFORM_IOS = 1;
+const uint32 SDL_PLATFORM_MACOS = 1;
+const uint32 SDL_PLATFORM_EMSCRIPTEN = 1;
+const uint32 SDL_PLATFORM_NETBSD = 1;
+const uint32 SDL_PLATFORM_OPENBSD = 1;
+const uint32 SDL_PLATFORM_OS2 = 1;
+const uint32 SDL_PLATFORM_OSF = 1;
+const uint32 SDL_PLATFORM_QNXNTO = 1;
+const uint32 SDL_PLATFORM_RISCOS = 1;
+const uint32 SDL_PLATFORM_SOLARIS = 1;
+const uint32 SDL_PLATFORM_CYGWIN = 1;
+const uint32 SDL_PLATFORM_WINDOWS = 1;
+const uint32 SDL_PLATFORM_WINGDK = 1;
+const uint32 SDL_PLATFORM_XBOXONE = 1;
+const uint32 SDL_PLATFORM_XBOXSERIES = 1;
+const uint32 SDL_PLATFORM_WIN32 = 1;
+const uint32 SDL_PLATFORM_GDK = 1;
+const uint32 SDL_PLATFORM_PSP = 1;
+const uint32 SDL_PLATFORM_PS2 = 1;
+const uint32 SDL_PLATFORM_VITA = 1;
+const uint32 SDL_PLATFORM_3DS = 1;
+const uint32 SDL_PLATFORM_NGAGE = 1;
+const uint32 SDL_PLATFORM_DOS = 1;
+const uint32 SDL_PLATFORM_HURD = 1;
+const uint32 NULL = 0;
+externc func alloca(uint64 _0) void*;
+type Sint8 = char;
+type Uint8 = byte;
+type Sint16 = short;
+type Uint16 = ushort;
+type Sint32 = int;
+type Uint32 = uint;
+type Sint64 = long;
+type Uint64 = ulong;
+type SDL_Time = Sint64;
+struct SDL_alignment_test {
+	Uint8 a;
+	byte* b;
+}
+enum SDL_DUMMY_ENUM {
+	DUMMY_ENUM_VALUE,
+}
+dllimport externc func SDL_malloc(uint64 size) void*;
+dllimport externc func SDL_calloc(uint64 nmemb, uint64 size) void*;
+dllimport externc func SDL_realloc(byte* mem, uint64 size) void*;
+dllimport externc func SDL_free(byte* mem);
+type SDL_malloc_func = func(uint64 size);
+type SDL_calloc_func = func(uint64 nmemb, uint64 size);
+type SDL_realloc_func = func(byte* mem, uint64 size);
+type SDL_free_func = func(byte* mem);
+dllimport externc func SDL_GetOriginalMemoryFunctions(SDL_malloc_func* malloc_func, SDL_calloc_func* calloc_func, SDL_realloc_func* realloc_func, SDL_free_func* free_func);
+dllimport externc func SDL_GetMemoryFunctions(SDL_malloc_func* malloc_func, SDL_calloc_func* calloc_func, SDL_realloc_func* realloc_func, SDL_free_func* free_func);
+dllimport externc func SDL_SetMemoryFunctions(SDL_malloc_func malloc_func, SDL_calloc_func calloc_func, SDL_realloc_func realloc_func, SDL_free_func free_func) bool;
+dllimport externc func SDL_aligned_alloc(uint64 alignment, uint64 size) void*;
+dllimport externc func SDL_aligned_free(byte* mem);
+dllimport externc func SDL_GetNumAllocations() int;
+struct SDL_Environment;
+dllimport externc func SDL_GetEnvironment() SDL_Environment*;
+dllimport externc func SDL_CreateEnvironment(bool populated) SDL_Environment*;
+dllimport externc func SDL_GetEnvironmentVariable(SDL_Environment* env, char* name) char*;
+dllimport externc func SDL_GetEnvironmentVariables(SDL_Environment* env) char**;
+dllimport externc func SDL_SetEnvironmentVariable(SDL_Environment* env, char* name, char* value, bool overwrite) bool;
+dllimport externc func SDL_UnsetEnvironmentVariable(SDL_Environment* env, char* name) bool;
+dllimport externc func SDL_DestroyEnvironment(SDL_Environment* env);
+dllimport externc func SDL_getenv(char* name) char*;
+dllimport externc func SDL_getenv_unsafe(char* name) char*;
+dllimport externc func SDL_setenv_unsafe(char* name, char* value, int overwrite) int;
+dllimport externc func SDL_unsetenv_unsafe(char* name) int;
+type SDL_CompareCallback = func(byte* a, byte* b) -> int;
+dllimport externc func SDL_qsort(byte* base, uint64 nmemb, uint64 size, SDL_CompareCallback compare);
+dllimport externc func SDL_bsearch(byte* key, byte* base, uint64 nmemb, uint64 size, SDL_CompareCallback compare) void*;
+type SDL_CompareCallback_r = func(byte* userdata, byte* a, byte* b) -> int;
+dllimport externc func SDL_qsort_r(byte* base, uint64 nmemb, uint64 size, SDL_CompareCallback_r compare, byte* userdata);
+dllimport externc func SDL_bsearch_r(byte* key, byte* base, uint64 nmemb, uint64 size, SDL_CompareCallback_r compare, byte* userdata) void*;
+dllimport externc func SDL_abs(int x) int;
+dllimport externc func SDL_isalpha(int x) int;
+dllimport externc func SDL_isalnum(int x) int;
+dllimport externc func SDL_isblank(int x) int;
+dllimport externc func SDL_iscntrl(int x) int;
+dllimport externc func SDL_isdigit(int x) int;
+dllimport externc func SDL_isxdigit(int x) int;
+dllimport externc func SDL_ispunct(int x) int;
+dllimport externc func SDL_isspace(int x) int;
+dllimport externc func SDL_isupper(int x) int;
+dllimport externc func SDL_islower(int x) int;
+dllimport externc func SDL_isprint(int x) int;
+dllimport externc func SDL_isgraph(int x) int;
+dllimport externc func SDL_toupper(int x) int;
+dllimport externc func SDL_tolower(int x) int;
+dllimport externc func SDL_crc16(Uint16 crc, byte* data, uint64 len) Uint16;
+dllimport externc func SDL_crc32(Uint32 crc, byte* data, uint64 len) Uint32;
+dllimport externc func SDL_murmur3_32(byte* data, uint64 len, Uint32 seed) Uint32;
+dllimport externc func SDL_memcpy(byte* dst, byte* src, uint64 len) void*;
+dllimport externc func SDL_memmove(byte* dst, byte* src, uint64 len) void*;
+dllimport externc func SDL_memset(byte* dst, int c, uint64 len) void*;
+dllimport externc func SDL_memset4(byte* dst, Uint32 val, uint64 dwords) void*;
+dllimport externc func SDL_memcmp(byte* s1, byte* s2, uint64 len) int;
+dllimport externc func SDL_wcslen(int16* wstr) uint64;
+dllimport externc func SDL_wcsnlen(int16* wstr, uint64 maxlen) uint64;
+dllimport externc func SDL_wcslcpy(int16* dst, int16* src, uint64 maxlen) uint64;
+dllimport externc func SDL_wcslcat(int16* dst, int16* src, uint64 maxlen) uint64;
+dllimport externc func SDL_wcsdup(int16* wstr) int16*;
+dllimport externc func SDL_wcsstr(int16* haystack, int16* needle) int16*;
+dllimport externc func SDL_wcsnstr(int16* haystack, int16* needle, uint64 maxlen) int16*;
+dllimport externc func SDL_wcscmp(int16* str1, int16* str2) int;
+dllimport externc func SDL_wcsncmp(int16* str1, int16* str2, uint64 maxlen) int;
+dllimport externc func SDL_wcscasecmp(int16* str1, int16* str2) int;
+dllimport externc func SDL_wcsncasecmp(int16* str1, int16* str2, uint64 maxlen) int;
+dllimport externc func SDL_wcstol(int16* str, int16** endp, int base) long;
+dllimport externc func SDL_strlen(char* str) uint64;
+dllimport externc func SDL_strnlen(char* str, uint64 maxlen) uint64;
+dllimport externc func SDL_strlcpy(char* dst, char* src, uint64 maxlen) uint64;
+dllimport externc func SDL_utf8strlcpy(char* dst, char* src, uint64 dst_bytes) uint64;
+dllimport externc func SDL_strlcat(char* dst, char* src, uint64 maxlen) uint64;
+dllimport externc func SDL_strdup(char* str) char*;
+dllimport externc func SDL_strndup(char* str, uint64 maxlen) char*;
+dllimport externc func SDL_strrev(char* str) char*;
+dllimport externc func SDL_strupr(char* str) char*;
+dllimport externc func SDL_strlwr(char* str) char*;
+dllimport externc func SDL_strchr(char* str, int c) char*;
+dllimport externc func SDL_strrchr(char* str, int c) char*;
+dllimport externc func SDL_strstr(char* haystack, char* needle) char*;
+dllimport externc func SDL_strnstr(char* haystack, char* needle, uint64 maxlen) char*;
+dllimport externc func SDL_strcasestr(char* haystack, char* needle) char*;
+dllimport externc func SDL_strtok_r(char* str, char* delim, char** saveptr) char*;
+dllimport externc func SDL_utf8strlen(char* str) uint64;
+dllimport externc func SDL_utf8strnlen(char* str, uint64 bytes) uint64;
+dllimport externc func SDL_itoa(int value, char* str, int radix) char*;
+dllimport externc func SDL_uitoa(uint value, char* str, int radix) char*;
+dllimport externc func SDL_ltoa(long value, char* str, int radix) char*;
+dllimport externc func SDL_ultoa(ulong value, char* str, int radix) char*;
+dllimport externc func SDL_lltoa(long value, char* str, int radix) char*;
+dllimport externc func SDL_ulltoa(ulong value, char* str, int radix) char*;
+dllimport externc func SDL_atoi(char* str) int;
+dllimport externc func SDL_atof(char* str) double;
+dllimport externc func SDL_strtol(char* str, char** endp, int base) long;
+dllimport externc func SDL_strtoul(char* str, char** endp, int base) ulong;
+dllimport externc func SDL_strtoll(char* str, char** endp, int base) long;
+dllimport externc func SDL_strtoull(char* str, char** endp, int base) ulong;
+dllimport externc func SDL_strtod(char* str, char** endp) double;
+dllimport externc func SDL_strcmp(char* str1, char* str2) int;
+dllimport externc func SDL_strncmp(char* str1, char* str2, uint64 maxlen) int;
+dllimport externc func SDL_strcasecmp(char* str1, char* str2) int;
+dllimport externc func SDL_strncasecmp(char* str1, char* str2, uint64 maxlen) int;
+dllimport externc func SDL_strpbrk(char* str, char* breakset) char*;
+dllimport externc func SDL_StepUTF8(char** pstr, uint64* pslen) Uint32;
+dllimport externc func SDL_StepBackUTF8(char* start, char** pstr) Uint32;
+dllimport externc func SDL_UCS4ToUTF8(Uint32 codepoint, char* dst) char*;
+dllimport externc func SDL_sscanf(char* text, char* fmt) int;
+dllimport externc func SDL_vsscanf(char* text, char* fmt, byte* ap) int;
+dllimport externc func SDL_snprintf(char* text, uint64 maxlen, char* fmt) int;
+dllimport externc func SDL_swprintf(int16* text, uint64 maxlen, int16* fmt) int;
+dllimport externc func SDL_vsnprintf(char* text, uint64 maxlen, char* fmt, byte* ap) int;
+dllimport externc func SDL_vswprintf(int16* text, uint64 maxlen, int16* fmt, byte* ap) int;
+dllimport externc func SDL_asprintf(char** strp, char* fmt) int;
+dllimport externc func SDL_vasprintf(char** strp, char* fmt, byte* ap) int;
+dllimport externc func SDL_srand(Uint64 seed);
+dllimport externc func SDL_rand(Sint32 n) Sint32;
+dllimport externc func SDL_randf() float;
+dllimport externc func SDL_rand_bits() Uint32;
+dllimport externc func SDL_rand_r(Uint64* state, Sint32 n) Sint32;
+dllimport externc func SDL_randf_r(Uint64* state) float;
+dllimport externc func SDL_rand_bits_r(Uint64* state) Uint32;
+dllimport externc func SDL_acos(double x) double;
+dllimport externc func SDL_acosf(float x) float;
+dllimport externc func SDL_asin(double x) double;
+dllimport externc func SDL_asinf(float x) float;
+dllimport externc func SDL_atan(double x) double;
+dllimport externc func SDL_atanf(float x) float;
+dllimport externc func SDL_atan2(double y, double x) double;
+dllimport externc func SDL_atan2f(float y, float x) float;
+dllimport externc func SDL_ceil(double x) double;
+dllimport externc func SDL_ceilf(float x) float;
+dllimport externc func SDL_copysign(double x, double y) double;
+dllimport externc func SDL_copysignf(float x, float y) float;
+dllimport externc func SDL_cos(double x) double;
+dllimport externc func SDL_cosf(float x) float;
+dllimport externc func SDL_exp(double x) double;
+dllimport externc func SDL_expf(float x) float;
+dllimport externc func SDL_fabs(double x) double;
+dllimport externc func SDL_fabsf(float x) float;
+dllimport externc func SDL_floor(double x) double;
+dllimport externc func SDL_floorf(float x) float;
+dllimport externc func SDL_trunc(double x) double;
+dllimport externc func SDL_truncf(float x) float;
+dllimport externc func SDL_fmod(double x, double y) double;
+dllimport externc func SDL_fmodf(float x, float y) float;
+dllimport externc func SDL_isinf(double x) int;
+dllimport externc func SDL_isinff(float x) int;
+dllimport externc func SDL_isnan(double x) int;
+dllimport externc func SDL_isnanf(float x) int;
+dllimport externc func SDL_log(double x) double;
+dllimport externc func SDL_logf(float x) float;
+dllimport externc func SDL_log10(double x) double;
+dllimport externc func SDL_log10f(float x) float;
+dllimport externc func SDL_modf(double x, double* y) double;
+dllimport externc func SDL_modff(float x, float* y) float;
+dllimport externc func SDL_pow(double x, double y) double;
+dllimport externc func SDL_powf(float x, float y) float;
+dllimport externc func SDL_round(double x) double;
+dllimport externc func SDL_roundf(float x) float;
+dllimport externc func SDL_lround(double x) long;
+dllimport externc func SDL_lroundf(float x) long;
+dllimport externc func SDL_scalbn(double x, int n) double;
+dllimport externc func SDL_scalbnf(float x, int n) float;
+dllimport externc func SDL_sin(double x) double;
+dllimport externc func SDL_sinf(float x) float;
+dllimport externc func SDL_sqrt(double x) double;
+dllimport externc func SDL_sqrtf(float x) float;
+dllimport externc func SDL_tan(double x) double;
+dllimport externc func SDL_tanf(float x) float;
+struct SDL_iconv_t;
+dllimport externc func SDL_iconv_open(char* tocode, char* fromcode) SDL_iconv_t;
+dllimport externc func SDL_iconv_close(SDL_iconv_t cd) int;
+dllimport externc func SDL_iconv(SDL_iconv_t cd, char** inbuf, uint64* inbytesleft, char** outbuf, uint64* outbytesleft) uint64;
+dllimport externc func SDL_iconv_string(char* tocode, char* fromcode, char* inbuf, uint64 inbytesleft) char*;
+type SDL_FunctionPointer = func(void _0);
+enum SDL_AssertState {
+	SDL_ASSERTION_RETRY,
+	SDL_ASSERTION_BREAK,
+	SDL_ASSERTION_ABORT,
+	SDL_ASSERTION_IGNORE,
+	SDL_ASSERTION_ALWAYS_IGNORE,
+}
+struct SDL_AssertData {
+	bool always_ignore;
+	uint trigger_count;
+	char* condition;
+	char* filename;
+	int linenum;
+	char* function;
+	SDL_AssertData* next;
+}
+dllimport externc func SDL_ReportAssertion(SDL_AssertData* data, char* func, char* file, int line) SDL_AssertState;
+type SDL_AssertionHandler = func(SDL_AssertData* data, byte* userdata) -> SDL_AssertState;
+dllimport externc func SDL_SetAssertionHandler(SDL_AssertionHandler handler, byte* userdata);
+dllimport externc func SDL_GetDefaultAssertionHandler() SDL_AssertionHandler;
+dllimport externc func SDL_GetAssertionHandler(byte** puserdata) SDL_AssertionHandler;
+dllimport externc func SDL_GetAssertionReport() SDL_AssertData*;
+dllimport externc func SDL_ResetAssertionReport();
+struct SDL_AsyncIO;
+enum SDL_AsyncIOTaskType {
+	SDL_ASYNCIO_TASK_READ,
+	SDL_ASYNCIO_TASK_WRITE,
+	SDL_ASYNCIO_TASK_CLOSE,
+}
+enum SDL_AsyncIOResult {
+	SDL_ASYNCIO_COMPLETE,
+	SDL_ASYNCIO_FAILURE,
+	SDL_ASYNCIO_CANCELED,
+}
+struct SDL_AsyncIOOutcome {
+	SDL_AsyncIO* asyncio;
+	SDL_AsyncIOTaskType type;
+	SDL_AsyncIOResult result;
+	byte* buffer;
+	Uint64 offset;
+	Uint64 bytes_requested;
+	Uint64 bytes_transferred;
+	byte* userdata;
+}
+struct SDL_AsyncIOQueue;
+dllimport externc func SDL_AsyncIOFromFile(char* file, char* mode) SDL_AsyncIO*;
+dllimport externc func SDL_GetAsyncIOSize(SDL_AsyncIO* asyncio) Sint64;
+dllimport externc func SDL_ReadAsyncIO(SDL_AsyncIO* asyncio, byte* ptr, Uint64 offset, Uint64 size, SDL_AsyncIOQueue* queue, byte* userdata) bool;
+dllimport externc func SDL_WriteAsyncIO(SDL_AsyncIO* asyncio, byte* ptr, Uint64 offset, Uint64 size, SDL_AsyncIOQueue* queue, byte* userdata) bool;
+dllimport externc func SDL_CloseAsyncIO(SDL_AsyncIO* asyncio, bool flush, SDL_AsyncIOQueue* queue, byte* userdata) bool;
+dllimport externc func SDL_CreateAsyncIOQueue() SDL_AsyncIOQueue*;
+dllimport externc func SDL_DestroyAsyncIOQueue(SDL_AsyncIOQueue* queue);
+dllimport externc func SDL_GetAsyncIOResult(SDL_AsyncIOQueue* queue, SDL_AsyncIOOutcome* outcome) bool;
+dllimport externc func SDL_WaitAsyncIOResult(SDL_AsyncIOQueue* queue, SDL_AsyncIOOutcome* outcome, Sint32 timeoutMS) bool;
+dllimport externc func SDL_SignalAsyncIOQueue(SDL_AsyncIOQueue* queue);
+dllimport externc func SDL_LoadFileAsync(char* file, SDL_AsyncIOQueue* queue, byte* userdata) bool;
+type SDL_SpinLock = int;
+dllimport externc func SDL_TryLockSpinlock(SDL_SpinLock* lock) bool;
+dllimport externc func SDL_LockSpinlock(SDL_SpinLock* lock);
+dllimport externc func SDL_UnlockSpinlock(SDL_SpinLock* lock);
+dllimport externc func SDL_MemoryBarrierReleaseFunction();
+dllimport externc func SDL_MemoryBarrierAcquireFunction();
+struct SDL_AtomicInt {
+	int value;
+}
+dllimport externc func SDL_CompareAndSwapAtomicInt(SDL_AtomicInt* a, int oldval, int newval) bool;
+dllimport externc func SDL_SetAtomicInt(SDL_AtomicInt* a, int v) int;
+dllimport externc func SDL_GetAtomicInt(SDL_AtomicInt* a) int;
+dllimport externc func SDL_AddAtomicInt(SDL_AtomicInt* a, int v) int;
+struct SDL_AtomicU32 {
+	Uint32 value;
+}
+dllimport externc func SDL_CompareAndSwapAtomicU32(SDL_AtomicU32* a, Uint32 oldval, Uint32 newval) bool;
+dllimport externc func SDL_SetAtomicU32(SDL_AtomicU32* a, Uint32 v) Uint32;
+dllimport externc func SDL_GetAtomicU32(SDL_AtomicU32* a) Uint32;
+dllimport externc func SDL_AddAtomicU32(SDL_AtomicU32* a, int v) Uint32;
+dllimport externc func SDL_CompareAndSwapAtomicPointer(byte** a, byte* oldval, byte* newval) bool;
+dllimport externc func SDL_SetAtomicPointer(byte** a, byte* v) void*;
+dllimport externc func SDL_GetAtomicPointer(byte** a) void*;
+dllimport externc func SDL_SetError(char* fmt) bool;
+dllimport externc func SDL_SetErrorV(char* fmt, byte* ap) bool;
+dllimport externc func SDL_OutOfMemory() bool;
+dllimport externc func SDL_GetError() char*;
+dllimport externc func SDL_ClearError() bool;
+type SDL_PropertiesID = Uint32;
+enum SDL_PropertyType {
+	SDL_PROPERTY_TYPE_INVALID,
+	SDL_PROPERTY_TYPE_POINTER,
+	SDL_PROPERTY_TYPE_STRING,
+	SDL_PROPERTY_TYPE_NUMBER,
+	SDL_PROPERTY_TYPE_FLOAT,
+	SDL_PROPERTY_TYPE_BOOLEAN,
+}
+dllimport externc func SDL_GetGlobalProperties() SDL_PropertiesID;
+dllimport externc func SDL_CreateProperties() SDL_PropertiesID;
+dllimport externc func SDL_CopyProperties(SDL_PropertiesID src, SDL_PropertiesID dst) bool;
+dllimport externc func SDL_LockProperties(SDL_PropertiesID props) bool;
+dllimport externc func SDL_UnlockProperties(SDL_PropertiesID props);
+type SDL_CleanupPropertyCallback = func(byte* userdata, byte* value);
+dllimport externc func SDL_SetPointerPropertyWithCleanup(SDL_PropertiesID props, char* name, byte* value, SDL_CleanupPropertyCallback cleanup, byte* userdata) bool;
+dllimport externc func SDL_SetPointerProperty(SDL_PropertiesID props, char* name, byte* value) bool;
+dllimport externc func SDL_SetStringProperty(SDL_PropertiesID props, char* name, char* value) bool;
+dllimport externc func SDL_SetNumberProperty(SDL_PropertiesID props, char* name, Sint64 value) bool;
+dllimport externc func SDL_SetFloatProperty(SDL_PropertiesID props, char* name, float value) bool;
+dllimport externc func SDL_SetBooleanProperty(SDL_PropertiesID props, char* name, bool value) bool;
+dllimport externc func SDL_HasProperty(SDL_PropertiesID props, char* name) bool;
+dllimport externc func SDL_GetPropertyType(SDL_PropertiesID props, char* name) SDL_PropertyType;
+dllimport externc func SDL_GetPointerProperty(SDL_PropertiesID props, char* name, byte* default_value) void*;
+dllimport externc func SDL_GetStringProperty(SDL_PropertiesID props, char* name, char* default_value) char*;
+dllimport externc func SDL_GetNumberProperty(SDL_PropertiesID props, char* name, Sint64 default_value) Sint64;
+dllimport externc func SDL_GetFloatProperty(SDL_PropertiesID props, char* name, float default_value) float;
+dllimport externc func SDL_GetBooleanProperty(SDL_PropertiesID props, char* name, bool default_value) bool;
+dllimport externc func SDL_ClearProperty(SDL_PropertiesID props, char* name) bool;
+type SDL_EnumeratePropertiesCallback = func(byte* userdata, SDL_PropertiesID props, char* name);
+dllimport externc func SDL_EnumerateProperties(SDL_PropertiesID props, SDL_EnumeratePropertiesCallback callback, byte* userdata) bool;
+dllimport externc func SDL_DestroyProperties(SDL_PropertiesID props);
+struct SDL_Thread;
+type SDL_ThreadID = Uint64;
+type SDL_TLSID = SDL_AtomicInt;
+enum SDL_ThreadPriority {
+	SDL_THREAD_PRIORITY_LOW,
+	SDL_THREAD_PRIORITY_NORMAL,
+	SDL_THREAD_PRIORITY_HIGH,
+	SDL_THREAD_PRIORITY_TIME_CRITICAL,
+}
+enum SDL_ThreadState {
+	SDL_THREAD_UNKNOWN,
+	SDL_THREAD_ALIVE,
+	SDL_THREAD_DETACHED,
+	SDL_THREAD_COMPLETE,
+}
+type SDL_ThreadFunction = func(byte* data) -> int;
+dllimport externc func SDL_CreateThreadRuntime(SDL_ThreadFunction fn, char* name, byte* data, SDL_FunctionPointer pfnBeginThread, SDL_FunctionPointer pfnEndThread) SDL_Thread*;
+dllimport externc func SDL_CreateThreadWithPropertiesRuntime(SDL_PropertiesID props, SDL_FunctionPointer pfnBeginThread, SDL_FunctionPointer pfnEndThread) SDL_Thread*;
+dllimport externc func SDL_GetThreadName(SDL_Thread* thread) char*;
+dllimport externc func SDL_GetCurrentThreadID() SDL_ThreadID;
+dllimport externc func SDL_GetThreadID(SDL_Thread* thread) SDL_ThreadID;
+dllimport externc func SDL_SetCurrentThreadPriority(SDL_ThreadPriority priority) bool;
+dllimport externc func SDL_WaitThread(SDL_Thread* thread, int* status);
+dllimport externc func SDL_GetThreadState(SDL_Thread* thread) SDL_ThreadState;
+dllimport externc func SDL_DetachThread(SDL_Thread* thread);
+dllimport externc func SDL_GetTLS(SDL_TLSID* id) void*;
+type SDL_TLSDestructorCallback = func(byte* value);
+dllimport externc func SDL_SetTLS(SDL_TLSID* id, byte* value, SDL_TLSDestructorCallback destructor) bool;
+dllimport externc func SDL_CleanupTLS();
+struct SDL_Mutex;
+dllimport externc func SDL_CreateMutex() SDL_Mutex*;
+dllimport externc func SDL_LockMutex(SDL_Mutex* mutex);
+dllimport externc func SDL_TryLockMutex(SDL_Mutex* mutex) bool;
+dllimport externc func SDL_UnlockMutex(SDL_Mutex* mutex);
+dllimport externc func SDL_DestroyMutex(SDL_Mutex* mutex);
+struct SDL_RWLock;
+dllimport externc func SDL_CreateRWLock() SDL_RWLock*;
+dllimport externc func SDL_LockRWLockForReading(SDL_RWLock* rwlock);
+dllimport externc func SDL_LockRWLockForWriting(SDL_RWLock* rwlock);
+dllimport externc func SDL_TryLockRWLockForReading(SDL_RWLock* rwlock) bool;
+dllimport externc func SDL_TryLockRWLockForWriting(SDL_RWLock* rwlock) bool;
+dllimport externc func SDL_UnlockRWLock(SDL_RWLock* rwlock);
+dllimport externc func SDL_DestroyRWLock(SDL_RWLock* rwlock);
+struct SDL_Semaphore;
+dllimport externc func SDL_CreateSemaphore(Uint32 initial_value) SDL_Semaphore*;
+dllimport externc func SDL_DestroySemaphore(SDL_Semaphore* sem);
+dllimport externc func SDL_WaitSemaphore(SDL_Semaphore* sem);
+dllimport externc func SDL_TryWaitSemaphore(SDL_Semaphore* sem) bool;
+dllimport externc func SDL_WaitSemaphoreTimeout(SDL_Semaphore* sem, Sint32 timeoutMS) bool;
+dllimport externc func SDL_SignalSemaphore(SDL_Semaphore* sem);
+dllimport externc func SDL_GetSemaphoreValue(SDL_Semaphore* sem) Uint32;
+struct SDL_Condition;
+dllimport externc func SDL_CreateCondition() SDL_Condition*;
+dllimport externc func SDL_DestroyCondition(SDL_Condition* cond);
+dllimport externc func SDL_SignalCondition(SDL_Condition* cond);
+dllimport externc func SDL_BroadcastCondition(SDL_Condition* cond);
+dllimport externc func SDL_WaitCondition(SDL_Condition* cond, SDL_Mutex* mutex);
+dllimport externc func SDL_WaitConditionTimeout(SDL_Condition* cond, SDL_Mutex* mutex, Sint32 timeoutMS) bool;
+enum SDL_InitStatus {
+	SDL_INIT_STATUS_UNINITIALIZED,
+	SDL_INIT_STATUS_INITIALIZING,
+	SDL_INIT_STATUS_INITIALIZED,
+	SDL_INIT_STATUS_UNINITIALIZING,
+}
+struct SDL_InitState {
+	SDL_AtomicInt status;
+	SDL_ThreadID thread;
+	byte* reserved;
+}
+dllimport externc func SDL_ShouldInit(SDL_InitState* state) bool;
+dllimport externc func SDL_ShouldQuit(SDL_InitState* state) bool;
+dllimport externc func SDL_SetInitialized(SDL_InitState* state, bool initialized);
+enum SDL_IOStatus {
+	SDL_IO_STATUS_READY,
+	SDL_IO_STATUS_ERROR,
+	SDL_IO_STATUS_EOF,
+	SDL_IO_STATUS_NOT_READY,
+	SDL_IO_STATUS_READONLY,
+	SDL_IO_STATUS_WRITEONLY,
+}
+enum SDL_IOWhence {
+	SDL_IO_SEEK_SET,
+	SDL_IO_SEEK_CUR,
+	SDL_IO_SEEK_END,
+}
+struct SDL_IOStreamInterface {
+	Uint32 version;
+	func(byte* userdata) -> Sint64 size;
+	func(byte* userdata, Sint64 offset, SDL_IOWhence whence) -> Sint64 seek;
+	func(byte* userdata, byte* ptr, uint64 size, SDL_IOStatus* status) -> uint64 read;
+	func(byte* userdata, byte* ptr, uint64 size, SDL_IOStatus* status) -> uint64 write;
+	func(byte* userdata, SDL_IOStatus* status) -> bool flush;
+	func(byte* userdata) -> bool close;
+}
+struct SDL_IOStream;
+dllimport externc func SDL_IOFromFile(char* file, char* mode) SDL_IOStream*;
+dllimport externc func SDL_IOFromMem(byte* mem, uint64 size) SDL_IOStream*;
+dllimport externc func SDL_IOFromConstMem(byte* mem, uint64 size) SDL_IOStream*;
+dllimport externc func SDL_IOFromDynamicMem() SDL_IOStream*;
+dllimport externc func SDL_OpenIO(SDL_IOStreamInterface* iface, byte* userdata) SDL_IOStream*;
+dllimport externc func SDL_CloseIO(SDL_IOStream* context) bool;
+dllimport externc func SDL_GetIOProperties(SDL_IOStream* context) SDL_PropertiesID;
+dllimport externc func SDL_GetIOStatus(SDL_IOStream* context) SDL_IOStatus;
+dllimport externc func SDL_GetIOSize(SDL_IOStream* context) Sint64;
+dllimport externc func SDL_SeekIO(SDL_IOStream* context, Sint64 offset, SDL_IOWhence whence) Sint64;
+dllimport externc func SDL_TellIO(SDL_IOStream* context) Sint64;
+dllimport externc func SDL_ReadIO(SDL_IOStream* context, byte* ptr, uint64 size) uint64;
+dllimport externc func SDL_WriteIO(SDL_IOStream* context, byte* ptr, uint64 size) uint64;
+dllimport externc func SDL_IOprintf(SDL_IOStream* context, char* fmt) uint64;
+dllimport externc func SDL_IOvprintf(SDL_IOStream* context, char* fmt, byte* ap) uint64;
+dllimport externc func SDL_FlushIO(SDL_IOStream* context) bool;
+dllimport externc func SDL_LoadFile_IO(SDL_IOStream* src, uint64* datasize, bool closeio) void*;
+dllimport externc func SDL_LoadFile(char* file, uint64* datasize) void*;
+dllimport externc func SDL_SaveFile_IO(SDL_IOStream* src, byte* data, uint64 datasize, bool closeio) bool;
+dllimport externc func SDL_SaveFile(char* file, byte* data, uint64 datasize) bool;
+dllimport externc func SDL_ReadU8(SDL_IOStream* src, Uint8* value) bool;
+dllimport externc func SDL_ReadS8(SDL_IOStream* src, Sint8* value) bool;
+dllimport externc func SDL_ReadU16LE(SDL_IOStream* src, Uint16* value) bool;
+dllimport externc func SDL_ReadS16LE(SDL_IOStream* src, Sint16* value) bool;
+dllimport externc func SDL_ReadU16BE(SDL_IOStream* src, Uint16* value) bool;
+dllimport externc func SDL_ReadS16BE(SDL_IOStream* src, Sint16* value) bool;
+dllimport externc func SDL_ReadU32LE(SDL_IOStream* src, Uint32* value) bool;
+dllimport externc func SDL_ReadS32LE(SDL_IOStream* src, Sint32* value) bool;
+dllimport externc func SDL_ReadU32BE(SDL_IOStream* src, Uint32* value) bool;
+dllimport externc func SDL_ReadS32BE(SDL_IOStream* src, Sint32* value) bool;
+dllimport externc func SDL_ReadU64LE(SDL_IOStream* src, Uint64* value) bool;
+dllimport externc func SDL_ReadS64LE(SDL_IOStream* src, Sint64* value) bool;
+dllimport externc func SDL_ReadU64BE(SDL_IOStream* src, Uint64* value) bool;
+dllimport externc func SDL_ReadS64BE(SDL_IOStream* src, Sint64* value) bool;
+dllimport externc func SDL_WriteU8(SDL_IOStream* dst, Uint8 value) bool;
+dllimport externc func SDL_WriteS8(SDL_IOStream* dst, Sint8 value) bool;
+dllimport externc func SDL_WriteU16LE(SDL_IOStream* dst, Uint16 value) bool;
+dllimport externc func SDL_WriteS16LE(SDL_IOStream* dst, Sint16 value) bool;
+dllimport externc func SDL_WriteU16BE(SDL_IOStream* dst, Uint16 value) bool;
+dllimport externc func SDL_WriteS16BE(SDL_IOStream* dst, Sint16 value) bool;
+dllimport externc func SDL_WriteU32LE(SDL_IOStream* dst, Uint32 value) bool;
+dllimport externc func SDL_WriteS32LE(SDL_IOStream* dst, Sint32 value) bool;
+dllimport externc func SDL_WriteU32BE(SDL_IOStream* dst, Uint32 value) bool;
+dllimport externc func SDL_WriteS32BE(SDL_IOStream* dst, Sint32 value) bool;
+dllimport externc func SDL_WriteU64LE(SDL_IOStream* dst, Uint64 value) bool;
+dllimport externc func SDL_WriteS64LE(SDL_IOStream* dst, Sint64 value) bool;
+dllimport externc func SDL_WriteU64BE(SDL_IOStream* dst, Uint64 value) bool;
+dllimport externc func SDL_WriteS64BE(SDL_IOStream* dst, Sint64 value) bool;
+enum SDL_AudioFormat {
+	SDL_AUDIO_UNKNOWN = 0x0000u,
+	SDL_AUDIO_U8 = 0x0008u,
+	SDL_AUDIO_S8 = 0x8008u,
+	SDL_AUDIO_S16LE = 0x8010u,
+	SDL_AUDIO_S16BE = 0x9010u,
+	SDL_AUDIO_S32LE = 0x8020u,
+	SDL_AUDIO_S32BE = 0x9020u,
+	SDL_AUDIO_F32LE = 0x8120u,
+	SDL_AUDIO_F32BE = 0x9120u,
+	SDL_AUDIO_S16,
+	SDL_AUDIO_S32,
+	SDL_AUDIO_F32,
+}
+type SDL_AudioDeviceID = Uint32;
+struct SDL_AudioSpec {
+	SDL_AudioFormat format;
+	int channels;
+	int freq;
+}
+struct SDL_AudioStream;
+dllimport externc func SDL_GetNumAudioDrivers() int;
+dllimport externc func SDL_GetAudioDriver(int index) char*;
+dllimport externc func SDL_GetCurrentAudioDriver() char*;
+dllimport externc func SDL_GetAudioPlaybackDevices(int* count) SDL_AudioDeviceID*;
+dllimport externc func SDL_GetAudioRecordingDevices(int* count) SDL_AudioDeviceID*;
+dllimport externc func SDL_GetAudioDeviceName(SDL_AudioDeviceID devid) char*;
+dllimport externc func SDL_GetAudioDeviceFormat(SDL_AudioDeviceID devid, SDL_AudioSpec* spec, int* sample_frames) bool;
+dllimport externc func SDL_GetAudioDeviceChannelMap(SDL_AudioDeviceID devid, int* count) int*;
+dllimport externc func SDL_OpenAudioDevice(SDL_AudioDeviceID devid, SDL_AudioSpec* spec) SDL_AudioDeviceID;
+dllimport externc func SDL_IsAudioDevicePhysical(SDL_AudioDeviceID devid) bool;
+dllimport externc func SDL_IsAudioDevicePlayback(SDL_AudioDeviceID devid) bool;
+dllimport externc func SDL_PauseAudioDevice(SDL_AudioDeviceID devid) bool;
+dllimport externc func SDL_ResumeAudioDevice(SDL_AudioDeviceID devid) bool;
+dllimport externc func SDL_AudioDevicePaused(SDL_AudioDeviceID devid) bool;
+dllimport externc func SDL_GetAudioDeviceGain(SDL_AudioDeviceID devid) float;
+dllimport externc func SDL_SetAudioDeviceGain(SDL_AudioDeviceID devid, float gain) bool;
+dllimport externc func SDL_CloseAudioDevice(SDL_AudioDeviceID devid);
+dllimport externc func SDL_BindAudioStreams(SDL_AudioDeviceID devid, SDL_AudioStream** streams, int num_streams) bool;
+dllimport externc func SDL_BindAudioStream(SDL_AudioDeviceID devid, SDL_AudioStream* stream) bool;
+dllimport externc func SDL_UnbindAudioStreams(SDL_AudioStream** streams, int num_streams);
+dllimport externc func SDL_UnbindAudioStream(SDL_AudioStream* stream);
+dllimport externc func SDL_GetAudioStreamDevice(SDL_AudioStream* stream) SDL_AudioDeviceID;
+dllimport externc func SDL_CreateAudioStream(SDL_AudioSpec* src_spec, SDL_AudioSpec* dst_spec) SDL_AudioStream*;
+dllimport externc func SDL_GetAudioStreamProperties(SDL_AudioStream* stream) SDL_PropertiesID;
+dllimport externc func SDL_GetAudioStreamFormat(SDL_AudioStream* stream, SDL_AudioSpec* src_spec, SDL_AudioSpec* dst_spec) bool;
+dllimport externc func SDL_SetAudioStreamFormat(SDL_AudioStream* stream, SDL_AudioSpec* src_spec, SDL_AudioSpec* dst_spec) bool;
+dllimport externc func SDL_GetAudioStreamFrequencyRatio(SDL_AudioStream* stream) float;
+dllimport externc func SDL_SetAudioStreamFrequencyRatio(SDL_AudioStream* stream, float ratio) bool;
+dllimport externc func SDL_GetAudioStreamGain(SDL_AudioStream* stream) float;
+dllimport externc func SDL_SetAudioStreamGain(SDL_AudioStream* stream, float gain) bool;
+dllimport externc func SDL_GetAudioStreamInputChannelMap(SDL_AudioStream* stream, int* count) int*;
+dllimport externc func SDL_GetAudioStreamOutputChannelMap(SDL_AudioStream* stream, int* count) int*;
+dllimport externc func SDL_SetAudioStreamInputChannelMap(SDL_AudioStream* stream, int* chmap, int count) bool;
+dllimport externc func SDL_SetAudioStreamOutputChannelMap(SDL_AudioStream* stream, int* chmap, int count) bool;
+dllimport externc func SDL_PutAudioStreamData(SDL_AudioStream* stream, byte* buf, int len) bool;
+type SDL_AudioStreamDataCompleteCallback = func(byte* userdata, byte* buf, int buflen);
+dllimport externc func SDL_PutAudioStreamDataNoCopy(SDL_AudioStream* stream, byte* buf, int len, SDL_AudioStreamDataCompleteCallback callback, byte* userdata) bool;
+dllimport externc func SDL_PutAudioStreamPlanarData(SDL_AudioStream* stream, byte** channel_buffers, int num_channels, int num_samples) bool;
+dllimport externc func SDL_GetAudioStreamData(SDL_AudioStream* stream, byte* buf, int len) int;
+dllimport externc func SDL_GetAudioStreamAvailable(SDL_AudioStream* stream) int;
+dllimport externc func SDL_GetAudioStreamQueued(SDL_AudioStream* stream) int;
+dllimport externc func SDL_FlushAudioStream(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_ClearAudioStream(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_PauseAudioStreamDevice(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_ResumeAudioStreamDevice(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_AudioStreamDevicePaused(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_LockAudioStream(SDL_AudioStream* stream) bool;
+dllimport externc func SDL_UnlockAudioStream(SDL_AudioStream* stream) bool;
+type SDL_AudioStreamCallback = func(byte* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount);
+dllimport externc func SDL_SetAudioStreamGetCallback(SDL_AudioStream* stream, SDL_AudioStreamCallback callback, byte* userdata) bool;
+dllimport externc func SDL_SetAudioStreamPutCallback(SDL_AudioStream* stream, SDL_AudioStreamCallback callback, byte* userdata) bool;
+dllimport externc func SDL_DestroyAudioStream(SDL_AudioStream* stream);
+dllimport externc func SDL_OpenAudioDeviceStream(SDL_AudioDeviceID devid, SDL_AudioSpec* spec, SDL_AudioStreamCallback callback, byte* userdata) SDL_AudioStream*;
+type SDL_AudioPostmixCallback = func(byte* userdata, SDL_AudioSpec* spec, float* buffer, int buflen);
+dllimport externc func SDL_SetAudioPostmixCallback(SDL_AudioDeviceID devid, SDL_AudioPostmixCallback callback, byte* userdata) bool;
+dllimport externc func SDL_LoadWAV_IO(SDL_IOStream* src, bool closeio, SDL_AudioSpec* spec, Uint8** audio_buf, Uint32* audio_len) bool;
+dllimport externc func SDL_LoadWAV(char* path, SDL_AudioSpec* spec, Uint8** audio_buf, Uint32* audio_len) bool;
+dllimport externc func SDL_MixAudio(Uint8* dst, Uint8* src, SDL_AudioFormat format, Uint32 len, float volume) bool;
+dllimport externc func SDL_ConvertAudioSamples(SDL_AudioSpec* src_spec, Uint8* src_data, int src_len, SDL_AudioSpec* dst_spec, Uint8** dst_data, int* dst_len) bool;
+dllimport externc func SDL_GetAudioFormatName(SDL_AudioFormat format) char*;
+dllimport externc func SDL_GetSilenceValueForFormat(SDL_AudioFormat format) int;
+type SDL_BlendMode = Uint32;
+enum SDL_BlendOperation {
+	SDL_BLENDOPERATION_ADD = 0x1,
+	SDL_BLENDOPERATION_SUBTRACT = 0x2,
+	SDL_BLENDOPERATION_REV_SUBTRACT = 0x3,
+	SDL_BLENDOPERATION_MINIMUM = 0x4,
+	SDL_BLENDOPERATION_MAXIMUM = 0x5,
+}
+enum SDL_BlendFactor {
+	SDL_BLENDFACTOR_ZERO = 0x1,
+	SDL_BLENDFACTOR_ONE = 0x2,
+	SDL_BLENDFACTOR_SRC_COLOR = 0x3,
+	SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR = 0x4,
+	SDL_BLENDFACTOR_SRC_ALPHA = 0x5,
+	SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA = 0x6,
+	SDL_BLENDFACTOR_DST_COLOR = 0x7,
+	SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR = 0x8,
+	SDL_BLENDFACTOR_DST_ALPHA = 0x9,
+	SDL_BLENDFACTOR_ONE_MINUS_DST_ALPHA = 0xA,
+}
+dllimport externc func SDL_ComposeCustomBlendMode(SDL_BlendFactor srcColorFactor, SDL_BlendFactor dstColorFactor, SDL_BlendOperation colorOperation, SDL_BlendFactor srcAlphaFactor, SDL_BlendFactor dstAlphaFactor, SDL_BlendOperation alphaOperation) SDL_BlendMode;
+enum SDL_PixelType {
+	SDL_PIXELTYPE_UNKNOWN,
+	SDL_PIXELTYPE_INDEX1,
+	SDL_PIXELTYPE_INDEX4,
+	SDL_PIXELTYPE_INDEX8,
+	SDL_PIXELTYPE_PACKED8,
+	SDL_PIXELTYPE_PACKED16,
+	SDL_PIXELTYPE_PACKED32,
+	SDL_PIXELTYPE_ARRAYU8,
+	SDL_PIXELTYPE_ARRAYU16,
+	SDL_PIXELTYPE_ARRAYU32,
+	SDL_PIXELTYPE_ARRAYF16,
+	SDL_PIXELTYPE_ARRAYF32,
+	SDL_PIXELTYPE_INDEX2,
+}
+enum SDL_BitmapOrder {
+	SDL_BITMAPORDER_NONE,
+	SDL_BITMAPORDER_4321,
+	SDL_BITMAPORDER_1234,
+}
+enum SDL_PackedOrder {
+	SDL_PACKEDORDER_NONE,
+	SDL_PACKEDORDER_XRGB,
+	SDL_PACKEDORDER_RGBX,
+	SDL_PACKEDORDER_ARGB,
+	SDL_PACKEDORDER_RGBA,
+	SDL_PACKEDORDER_XBGR,
+	SDL_PACKEDORDER_BGRX,
+	SDL_PACKEDORDER_ABGR,
+	SDL_PACKEDORDER_BGRA,
+}
+enum SDL_ArrayOrder {
+	SDL_ARRAYORDER_NONE,
+	SDL_ARRAYORDER_RGB,
+	SDL_ARRAYORDER_RGBA,
+	SDL_ARRAYORDER_ARGB,
+	SDL_ARRAYORDER_BGR,
+	SDL_ARRAYORDER_BGRA,
+	SDL_ARRAYORDER_ABGR,
+}
+enum SDL_PackedLayout {
+	SDL_PACKEDLAYOUT_NONE,
+	SDL_PACKEDLAYOUT_332,
+	SDL_PACKEDLAYOUT_4444,
+	SDL_PACKEDLAYOUT_1555,
+	SDL_PACKEDLAYOUT_5551,
+	SDL_PACKEDLAYOUT_565,
+	SDL_PACKEDLAYOUT_8888,
+	SDL_PACKEDLAYOUT_2101010,
+	SDL_PACKEDLAYOUT_1010102,
+}
+enum SDL_PixelFormat {
+	SDL_PIXELFORMAT_UNKNOWN = 0,
+	SDL_PIXELFORMAT_INDEX1LSB = 0x11100100u,
+	SDL_PIXELFORMAT_INDEX1MSB = 0x11200100u,
+	SDL_PIXELFORMAT_INDEX2LSB = 0x1c100200u,
+	SDL_PIXELFORMAT_INDEX2MSB = 0x1c200200u,
+	SDL_PIXELFORMAT_INDEX4LSB = 0x12100400u,
+	SDL_PIXELFORMAT_INDEX4MSB = 0x12200400u,
+	SDL_PIXELFORMAT_INDEX8 = 0x13000801u,
+	SDL_PIXELFORMAT_RGB332 = 0x14110801u,
+	SDL_PIXELFORMAT_XRGB4444 = 0x15120c02u,
+	SDL_PIXELFORMAT_XBGR4444 = 0x15520c02u,
+	SDL_PIXELFORMAT_XRGB1555 = 0x15130f02u,
+	SDL_PIXELFORMAT_XBGR1555 = 0x15530f02u,
+	SDL_PIXELFORMAT_ARGB4444 = 0x15321002u,
+	SDL_PIXELFORMAT_RGBA4444 = 0x15421002u,
+	SDL_PIXELFORMAT_ABGR4444 = 0x15721002u,
+	SDL_PIXELFORMAT_BGRA4444 = 0x15821002u,
+	SDL_PIXELFORMAT_ARGB1555 = 0x15331002u,
+	SDL_PIXELFORMAT_RGBA5551 = 0x15441002u,
+	SDL_PIXELFORMAT_ABGR1555 = 0x15731002u,
+	SDL_PIXELFORMAT_BGRA5551 = 0x15841002u,
+	SDL_PIXELFORMAT_RGB565 = 0x15151002u,
+	SDL_PIXELFORMAT_BGR565 = 0x15551002u,
+	SDL_PIXELFORMAT_RGB24 = 0x17101803u,
+	SDL_PIXELFORMAT_BGR24 = 0x17401803u,
+	SDL_PIXELFORMAT_XRGB8888 = 0x16161804u,
+	SDL_PIXELFORMAT_RGBX8888 = 0x16261804u,
+	SDL_PIXELFORMAT_XBGR8888 = 0x16561804u,
+	SDL_PIXELFORMAT_BGRX8888 = 0x16661804u,
+	SDL_PIXELFORMAT_ARGB8888 = 0x16362004u,
+	SDL_PIXELFORMAT_RGBA8888 = 0x16462004u,
+	SDL_PIXELFORMAT_ABGR8888 = 0x16762004u,
+	SDL_PIXELFORMAT_BGRA8888 = 0x16862004u,
+	SDL_PIXELFORMAT_XRGB2101010 = 0x16172004u,
+	SDL_PIXELFORMAT_XBGR2101010 = 0x16572004u,
+	SDL_PIXELFORMAT_ARGB2101010 = 0x16372004u,
+	SDL_PIXELFORMAT_ABGR2101010 = 0x16772004u,
+	SDL_PIXELFORMAT_RGB48 = 0x18103006u,
+	SDL_PIXELFORMAT_BGR48 = 0x18403006u,
+	SDL_PIXELFORMAT_RGBA64 = 0x18204008u,
+	SDL_PIXELFORMAT_ARGB64 = 0x18304008u,
+	SDL_PIXELFORMAT_BGRA64 = 0x18504008u,
+	SDL_PIXELFORMAT_ABGR64 = 0x18604008u,
+	SDL_PIXELFORMAT_RGB48_FLOAT = 0x1a103006u,
+	SDL_PIXELFORMAT_BGR48_FLOAT = 0x1a403006u,
+	SDL_PIXELFORMAT_RGBA64_FLOAT = 0x1a204008u,
+	SDL_PIXELFORMAT_ARGB64_FLOAT = 0x1a304008u,
+	SDL_PIXELFORMAT_BGRA64_FLOAT = 0x1a504008u,
+	SDL_PIXELFORMAT_ABGR64_FLOAT = 0x1a604008u,
+	SDL_PIXELFORMAT_RGB96_FLOAT = 0x1b10600cu,
+	SDL_PIXELFORMAT_BGR96_FLOAT = 0x1b40600cu,
+	SDL_PIXELFORMAT_RGBA128_FLOAT = 0x1b208010u,
+	SDL_PIXELFORMAT_ARGB128_FLOAT = 0x1b308010u,
+	SDL_PIXELFORMAT_BGRA128_FLOAT = 0x1b508010u,
+	SDL_PIXELFORMAT_ABGR128_FLOAT = 0x1b608010u,
+	SDL_PIXELFORMAT_YV12 = 0x32315659u,
+	SDL_PIXELFORMAT_IYUV = 0x56555949u,
+	SDL_PIXELFORMAT_YUY2 = 0x32595559u,
+	SDL_PIXELFORMAT_UYVY = 0x59565955u,
+	SDL_PIXELFORMAT_YVYU = 0x55595659u,
+	SDL_PIXELFORMAT_NV12 = 0x3231564eu,
+	SDL_PIXELFORMAT_NV21 = 0x3132564eu,
+	SDL_PIXELFORMAT_P010 = 0x30313050u,
+	SDL_PIXELFORMAT_EXTERNAL_OES = 0x2053454fu,
+	SDL_PIXELFORMAT_MJPG = 0x47504a4du,
+	SDL_PIXELFORMAT_RGBA32,
+	SDL_PIXELFORMAT_ARGB32,
+	SDL_PIXELFORMAT_BGRA32,
+	SDL_PIXELFORMAT_ABGR32,
+	SDL_PIXELFORMAT_RGBX32,
+	SDL_PIXELFORMAT_XRGB32,
+	SDL_PIXELFORMAT_BGRX32,
+	SDL_PIXELFORMAT_XBGR32,
+}
+enum SDL_ColorType {
+	SDL_COLOR_TYPE_UNKNOWN = 0,
+	SDL_COLOR_TYPE_RGB = 1,
+	SDL_COLOR_TYPE_YCBCR = 2,
+}
+enum SDL_ColorRange {
+	SDL_COLOR_RANGE_UNKNOWN = 0,
+	SDL_COLOR_RANGE_LIMITED = 1,
+	SDL_COLOR_RANGE_FULL = 2,
+}
+enum SDL_ColorPrimaries {
+	SDL_COLOR_PRIMARIES_UNKNOWN = 0,
+	SDL_COLOR_PRIMARIES_BT709 = 1,
+	SDL_COLOR_PRIMARIES_UNSPECIFIED = 2,
+	SDL_COLOR_PRIMARIES_BT470M = 4,
+	SDL_COLOR_PRIMARIES_BT470BG = 5,
+	SDL_COLOR_PRIMARIES_BT601 = 6,
+	SDL_COLOR_PRIMARIES_SMPTE240 = 7,
+	SDL_COLOR_PRIMARIES_GENERIC_FILM = 8,
+	SDL_COLOR_PRIMARIES_BT2020 = 9,
+	SDL_COLOR_PRIMARIES_XYZ = 10,
+	SDL_COLOR_PRIMARIES_SMPTE431 = 11,
+	SDL_COLOR_PRIMARIES_SMPTE432 = 12,
+	SDL_COLOR_PRIMARIES_EBU3213 = 22,
+	SDL_COLOR_PRIMARIES_CUSTOM = 31,
+}
+enum SDL_TransferCharacteristics {
+	SDL_TRANSFER_CHARACTERISTICS_UNKNOWN = 0,
+	SDL_TRANSFER_CHARACTERISTICS_BT709 = 1,
+	SDL_TRANSFER_CHARACTERISTICS_UNSPECIFIED = 2,
+	SDL_TRANSFER_CHARACTERISTICS_GAMMA22 = 4,
+	SDL_TRANSFER_CHARACTERISTICS_GAMMA28 = 5,
+	SDL_TRANSFER_CHARACTERISTICS_BT601 = 6,
+	SDL_TRANSFER_CHARACTERISTICS_SMPTE240 = 7,
+	SDL_TRANSFER_CHARACTERISTICS_LINEAR = 8,
+	SDL_TRANSFER_CHARACTERISTICS_LOG100 = 9,
+	SDL_TRANSFER_CHARACTERISTICS_LOG100_SQRT10 = 10,
+	SDL_TRANSFER_CHARACTERISTICS_IEC61966 = 11,
+	SDL_TRANSFER_CHARACTERISTICS_BT1361 = 12,
+	SDL_TRANSFER_CHARACTERISTICS_SRGB = 13,
+	SDL_TRANSFER_CHARACTERISTICS_BT2020_10BIT = 14,
+	SDL_TRANSFER_CHARACTERISTICS_BT2020_12BIT = 15,
+	SDL_TRANSFER_CHARACTERISTICS_PQ = 16,
+	SDL_TRANSFER_CHARACTERISTICS_SMPTE428 = 17,
+	SDL_TRANSFER_CHARACTERISTICS_HLG = 18,
+	SDL_TRANSFER_CHARACTERISTICS_CUSTOM = 31,
+}
+enum SDL_MatrixCoefficients {
+	SDL_MATRIX_COEFFICIENTS_IDENTITY = 0,
+	SDL_MATRIX_COEFFICIENTS_BT709 = 1,
+	SDL_MATRIX_COEFFICIENTS_UNSPECIFIED = 2,
+	SDL_MATRIX_COEFFICIENTS_FCC = 4,
+	SDL_MATRIX_COEFFICIENTS_BT470BG = 5,
+	SDL_MATRIX_COEFFICIENTS_BT601 = 6,
+	SDL_MATRIX_COEFFICIENTS_SMPTE240 = 7,
+	SDL_MATRIX_COEFFICIENTS_YCGCO = 8,
+	SDL_MATRIX_COEFFICIENTS_BT2020_NCL = 9,
+	SDL_MATRIX_COEFFICIENTS_BT2020_CL = 10,
+	SDL_MATRIX_COEFFICIENTS_SMPTE2085 = 11,
+	SDL_MATRIX_COEFFICIENTS_CHROMA_DERIVED_NCL = 12,
+	SDL_MATRIX_COEFFICIENTS_CHROMA_DERIVED_CL = 13,
+	SDL_MATRIX_COEFFICIENTS_ICTCP = 14,
+	SDL_MATRIX_COEFFICIENTS_CUSTOM = 31,
+}
+enum SDL_ChromaLocation {
+	SDL_CHROMA_LOCATION_NONE = 0,
+	SDL_CHROMA_LOCATION_LEFT = 1,
+	SDL_CHROMA_LOCATION_CENTER = 2,
+	SDL_CHROMA_LOCATION_TOPLEFT = 3,
+}
+enum SDL_Colorspace {
+	SDL_COLORSPACE_UNKNOWN = 0,
+	SDL_COLORSPACE_SRGB = 0x120005a0u,
+	SDL_COLORSPACE_SRGB_LINEAR = 0x12000500u,
+	SDL_COLORSPACE_HDR10 = 0x12002600u,
+	SDL_COLORSPACE_JPEG = 0x220004c6u,
+	SDL_COLORSPACE_BT601_LIMITED = 0x211018c6u,
+	SDL_COLORSPACE_BT601_FULL = 0x221018c6u,
+	SDL_COLORSPACE_BT709_LIMITED = 0x21100421u,
+	SDL_COLORSPACE_BT709_FULL = 0x22100421u,
+	SDL_COLORSPACE_BT2020_LIMITED = 0x21102609u,
+	SDL_COLORSPACE_BT2020_FULL = 0x22102609u,
+	SDL_COLORSPACE_RGB_DEFAULT,
+	SDL_COLORSPACE_YUV_DEFAULT,
+}
+struct SDL_Color {
+	Uint8 r;
+	Uint8 g;
+	Uint8 b;
+	Uint8 a;
+}
+struct SDL_FColor {
+	float r;
+	float g;
+	float b;
+	float a;
+}
+struct SDL_Palette {
+	int ncolors;
+	SDL_Color* colors;
+	Uint32 version;
+	int refcount;
+}
+struct SDL_PixelFormatDetails {
+	SDL_PixelFormat format;
+	Uint8 bits_per_pixel;
+	Uint8 bytes_per_pixel;
+	Uint8[2] padding;
+	Uint32 Rmask;
+	Uint32 Gmask;
+	Uint32 Bmask;
+	Uint32 Amask;
+	Uint8 Rbits;
+	Uint8 Gbits;
+	Uint8 Bbits;
+	Uint8 Abits;
+	Uint8 Rshift;
+	Uint8 Gshift;
+	Uint8 Bshift;
+	Uint8 Ashift;
+}
+dllimport externc func SDL_GetPixelFormatName(SDL_PixelFormat format) char*;
+dllimport externc func SDL_GetMasksForPixelFormat(SDL_PixelFormat format, int* bpp, Uint32* Rmask, Uint32* Gmask, Uint32* Bmask, Uint32* Amask) bool;
+dllimport externc func SDL_GetPixelFormatForMasks(int bpp, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask) SDL_PixelFormat;
+dllimport externc func SDL_GetPixelFormatDetails(SDL_PixelFormat format) SDL_PixelFormatDetails*;
+dllimport externc func SDL_CreatePalette(int ncolors) SDL_Palette*;
+dllimport externc func SDL_SetPaletteColors(SDL_Palette* palette, SDL_Color* colors, int firstcolor, int ncolors) bool;
+dllimport externc func SDL_DestroyPalette(SDL_Palette* palette);
+dllimport externc func SDL_MapRGB(SDL_PixelFormatDetails* format, SDL_Palette* palette, Uint8 r, Uint8 g, Uint8 b) Uint32;
+dllimport externc func SDL_MapRGBA(SDL_PixelFormatDetails* format, SDL_Palette* palette, Uint8 r, Uint8 g, Uint8 b, Uint8 a) Uint32;
+dllimport externc func SDL_GetRGB(Uint32 pixelvalue, SDL_PixelFormatDetails* format, SDL_Palette* palette, Uint8* r, Uint8* g, Uint8* b);
+dllimport externc func SDL_GetRGBA(Uint32 pixelvalue, SDL_PixelFormatDetails* format, SDL_Palette* palette, Uint8* r, Uint8* g, Uint8* b, Uint8* a);
+struct SDL_Point {
+	int x;
+	int y;
+}
+struct SDL_FPoint {
+	float x;
+	float y;
+}
+struct SDL_Rect {
+	int x, y;
+	int w, h;
+}
+struct SDL_FRect {
+	float x;
+	float y;
+	float w;
+	float h;
+}
+dllimport externc func SDL_HasRectIntersection(SDL_Rect* A, SDL_Rect* B) bool;
+dllimport externc func SDL_GetRectIntersection(SDL_Rect* A, SDL_Rect* B, SDL_Rect* result) bool;
+dllimport externc func SDL_GetRectUnion(SDL_Rect* A, SDL_Rect* B, SDL_Rect* result) bool;
+dllimport externc func SDL_GetRectEnclosingPoints(SDL_Point* points, int count, SDL_Rect* clip, SDL_Rect* result) bool;
+dllimport externc func SDL_GetRectAndLineIntersection(SDL_Rect* rect, int* X1, int* Y1, int* X2, int* Y2) bool;
+dllimport externc func SDL_HasRectIntersectionFloat(SDL_FRect* A, SDL_FRect* B) bool;
+dllimport externc func SDL_GetRectIntersectionFloat(SDL_FRect* A, SDL_FRect* B, SDL_FRect* result) bool;
+dllimport externc func SDL_GetRectUnionFloat(SDL_FRect* A, SDL_FRect* B, SDL_FRect* result) bool;
+dllimport externc func SDL_GetRectEnclosingPointsFloat(SDL_FPoint* points, int count, SDL_FRect* clip, SDL_FRect* result) bool;
+dllimport externc func SDL_GetRectAndLineIntersectionFloat(SDL_FRect* rect, float* X1, float* Y1, float* X2, float* Y2) bool;
+type SDL_SurfaceFlags = Uint32;
+enum SDL_ScaleMode {
+	SDL_SCALEMODE_INVALID = -1,
+	SDL_SCALEMODE_NEAREST,
+	SDL_SCALEMODE_LINEAR,
+	SDL_SCALEMODE_PIXELART,
+}
+enum SDL_FlipMode {
+	SDL_FLIP_NONE,
+	SDL_FLIP_HORIZONTAL,
+	SDL_FLIP_VERTICAL,
+	SDL_FLIP_HORIZONTAL_AND_VERTICAL,
+}
+struct SDL_Surface;
+dllimport externc func SDL_CreateSurface(int width, int height, SDL_PixelFormat format) SDL_Surface*;
+dllimport externc func SDL_CreateSurfaceFrom(int width, int height, SDL_PixelFormat format, byte* pixels, int pitch) SDL_Surface*;
+dllimport externc func SDL_DestroySurface(SDL_Surface* surface);
+dllimport externc func SDL_GetSurfaceProperties(SDL_Surface* surface) SDL_PropertiesID;
+dllimport externc func SDL_SetSurfaceColorspace(SDL_Surface* surface, SDL_Colorspace colorspace) bool;
+dllimport externc func SDL_GetSurfaceColorspace(SDL_Surface* surface) SDL_Colorspace;
+dllimport externc func SDL_CreateSurfacePalette(SDL_Surface* surface) SDL_Palette*;
+dllimport externc func SDL_SetSurfacePalette(SDL_Surface* surface, SDL_Palette* palette) bool;
+dllimport externc func SDL_GetSurfacePalette(SDL_Surface* surface) SDL_Palette*;
+dllimport externc func SDL_AddSurfaceAlternateImage(SDL_Surface* surface, SDL_Surface* image) bool;
+dllimport externc func SDL_SurfaceHasAlternateImages(SDL_Surface* surface) bool;
+dllimport externc func SDL_GetSurfaceImages(SDL_Surface* surface, int* count) SDL_Surface**;
+dllimport externc func SDL_RemoveSurfaceAlternateImages(SDL_Surface* surface);
+dllimport externc func SDL_LockSurface(SDL_Surface* surface) bool;
+dllimport externc func SDL_UnlockSurface(SDL_Surface* surface);
+dllimport externc func SDL_LoadSurface_IO(SDL_IOStream* src, bool closeio) SDL_Surface*;
+dllimport externc func SDL_LoadSurface(char* file) SDL_Surface*;
+dllimport externc func SDL_LoadBMP_IO(SDL_IOStream* src, bool closeio) SDL_Surface*;
+dllimport externc func SDL_LoadBMP(char* file) SDL_Surface*;
+dllimport externc func SDL_SaveBMP_IO(SDL_Surface* surface, SDL_IOStream* dst, bool closeio) bool;
+dllimport externc func SDL_SaveBMP(SDL_Surface* surface, char* file) bool;
+dllimport externc func SDL_LoadPNG_IO(SDL_IOStream* src, bool closeio) SDL_Surface*;
+dllimport externc func SDL_LoadPNG(char* file) SDL_Surface*;
+dllimport externc func SDL_SavePNG_IO(SDL_Surface* surface, SDL_IOStream* dst, bool closeio) bool;
+dllimport externc func SDL_SavePNG(SDL_Surface* surface, char* file) bool;
+dllimport externc func SDL_LoadJPG_IO(SDL_IOStream* src, bool closeio) SDL_Surface*;
+dllimport externc func SDL_LoadJPG(char* file) SDL_Surface*;
+dllimport externc func SDL_SetSurfaceRLE(SDL_Surface* surface, bool enabled) bool;
+dllimport externc func SDL_SurfaceHasRLE(SDL_Surface* surface) bool;
+dllimport externc func SDL_SetSurfaceColorKey(SDL_Surface* surface, bool enabled, Uint32 key) bool;
+dllimport externc func SDL_SurfaceHasColorKey(SDL_Surface* surface) bool;
+dllimport externc func SDL_GetSurfaceColorKey(SDL_Surface* surface, Uint32* key) bool;
+dllimport externc func SDL_SetSurfaceColorMod(SDL_Surface* surface, Uint8 r, Uint8 g, Uint8 b) bool;
+dllimport externc func SDL_GetSurfaceColorMod(SDL_Surface* surface, Uint8* r, Uint8* g, Uint8* b) bool;
+dllimport externc func SDL_SetSurfaceAlphaMod(SDL_Surface* surface, Uint8 alpha) bool;
+dllimport externc func SDL_GetSurfaceAlphaMod(SDL_Surface* surface, Uint8* alpha) bool;
+dllimport externc func SDL_SetSurfaceBlendMode(SDL_Surface* surface, SDL_BlendMode blendMode) bool;
+dllimport externc func SDL_GetSurfaceBlendMode(SDL_Surface* surface, SDL_BlendMode* blendMode) bool;
+dllimport externc func SDL_SetSurfaceClipRect(SDL_Surface* surface, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetSurfaceClipRect(SDL_Surface* surface, SDL_Rect* rect) bool;
+dllimport externc func SDL_FlipSurface(SDL_Surface* surface, SDL_FlipMode flip) bool;
+dllimport externc func SDL_RotateSurface(SDL_Surface* surface, float angle) SDL_Surface*;
+dllimport externc func SDL_DuplicateSurface(SDL_Surface* surface) SDL_Surface*;
+dllimport externc func SDL_ScaleSurface(SDL_Surface* surface, int width, int height, SDL_ScaleMode scaleMode) SDL_Surface*;
+dllimport externc func SDL_ConvertSurface(SDL_Surface* surface, SDL_PixelFormat format) SDL_Surface*;
+dllimport externc func SDL_ConvertSurfaceAndColorspace(SDL_Surface* surface, SDL_PixelFormat format, SDL_Palette* palette, SDL_Colorspace colorspace, SDL_PropertiesID props) SDL_Surface*;
+dllimport externc func SDL_ConvertPixels(int width, int height, SDL_PixelFormat src_format, byte* src, int src_pitch, SDL_PixelFormat dst_format, byte* dst, int dst_pitch) bool;
+dllimport externc func SDL_ConvertPixelsAndColorspace(int width, int height, SDL_PixelFormat src_format, SDL_Colorspace src_colorspace, SDL_PropertiesID src_properties, byte* src, int src_pitch, SDL_PixelFormat dst_format, SDL_Colorspace dst_colorspace, SDL_PropertiesID dst_properties, byte* dst, int dst_pitch) bool;
+dllimport externc func SDL_PremultiplyAlpha(int width, int height, SDL_PixelFormat src_format, byte* src, int src_pitch, SDL_PixelFormat dst_format, byte* dst, int dst_pitch, bool linear) bool;
+dllimport externc func SDL_PremultiplySurfaceAlpha(SDL_Surface* surface, bool linear) bool;
+dllimport externc func SDL_ClearSurface(SDL_Surface* surface, float r, float g, float b, float a) bool;
+dllimport externc func SDL_FillSurfaceRect(SDL_Surface* dst, SDL_Rect* rect, Uint32 color) bool;
+dllimport externc func SDL_FillSurfaceRects(SDL_Surface* dst, SDL_Rect* rects, int count, Uint32 color) bool;
+dllimport externc func SDL_BlitSurface(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect) bool;
+dllimport externc func SDL_BlitSurfaceUnchecked(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect) bool;
+dllimport externc func SDL_BlitSurfaceScaled(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect, SDL_ScaleMode scaleMode) bool;
+dllimport externc func SDL_BlitSurfaceUncheckedScaled(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect, SDL_ScaleMode scaleMode) bool;
+dllimport externc func SDL_StretchSurface(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect, SDL_ScaleMode scaleMode) bool;
+dllimport externc func SDL_BlitSurfaceTiled(SDL_Surface* src, SDL_Rect* srcrect, SDL_Surface* dst, SDL_Rect* dstrect) bool;
+dllimport externc func SDL_BlitSurfaceTiledWithScale(SDL_Surface* src, SDL_Rect* srcrect, float scale, SDL_ScaleMode scaleMode, SDL_Surface* dst, SDL_Rect* dstrect) bool;
+dllimport externc func SDL_BlitSurface9Grid(SDL_Surface* src, SDL_Rect* srcrect, int left_width, int right_width, int top_height, int bottom_height, float scale, SDL_ScaleMode scaleMode, SDL_Surface* dst, SDL_Rect* dstrect) bool;
+dllimport externc func SDL_MapSurfaceRGB(SDL_Surface* surface, Uint8 r, Uint8 g, Uint8 b) Uint32;
+dllimport externc func SDL_MapSurfaceRGBA(SDL_Surface* surface, Uint8 r, Uint8 g, Uint8 b, Uint8 a) Uint32;
+dllimport externc func SDL_ReadSurfacePixel(SDL_Surface* surface, int x, int y, Uint8* r, Uint8* g, Uint8* b, Uint8* a) bool;
+dllimport externc func SDL_ReadSurfacePixelFloat(SDL_Surface* surface, int x, int y, float* r, float* g, float* b, float* a) bool;
+dllimport externc func SDL_WriteSurfacePixel(SDL_Surface* surface, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a) bool;
+dllimport externc func SDL_WriteSurfacePixelFloat(SDL_Surface* surface, int x, int y, float r, float g, float b, float a) bool;
+type SDL_CameraID = Uint32;
+struct SDL_Camera;
+struct SDL_CameraSpec {
+	SDL_PixelFormat format;
+	SDL_Colorspace colorspace;
+	int width;
+	int height;
+	int framerate_numerator;
+	int framerate_denominator;
+}
+enum SDL_CameraPosition {
+	SDL_CAMERA_POSITION_UNKNOWN,
+	SDL_CAMERA_POSITION_FRONT_FACING,
+	SDL_CAMERA_POSITION_BACK_FACING,
+}
+enum SDL_CameraPermissionState {
+	SDL_CAMERA_PERMISSION_STATE_DENIED = -1,
+	SDL_CAMERA_PERMISSION_STATE_PENDING,
+	SDL_CAMERA_PERMISSION_STATE_APPROVED,
+}
+dllimport externc func SDL_GetNumCameraDrivers() int;
+dllimport externc func SDL_GetCameraDriver(int index) char*;
+dllimport externc func SDL_GetCurrentCameraDriver() char*;
+dllimport externc func SDL_GetCameras(int* count) SDL_CameraID*;
+dllimport externc func SDL_GetCameraSupportedFormats(SDL_CameraID instance_id, int* count) SDL_CameraSpec**;
+dllimport externc func SDL_GetCameraName(SDL_CameraID instance_id) char*;
+dllimport externc func SDL_GetCameraPosition(SDL_CameraID instance_id) SDL_CameraPosition;
+dllimport externc func SDL_OpenCamera(SDL_CameraID instance_id, SDL_CameraSpec* spec) SDL_Camera*;
+dllimport externc func SDL_GetCameraPermissionState(SDL_Camera* camera) SDL_CameraPermissionState;
+dllimport externc func SDL_GetCameraID(SDL_Camera* camera) SDL_CameraID;
+dllimport externc func SDL_GetCameraProperties(SDL_Camera* camera) SDL_PropertiesID;
+dllimport externc func SDL_GetCameraFormat(SDL_Camera* camera, SDL_CameraSpec* spec) bool;
+dllimport externc func SDL_AcquireCameraFrame(SDL_Camera* camera, Uint64* timestampNS) SDL_Surface*;
+dllimport externc func SDL_ReleaseCameraFrame(SDL_Camera* camera, SDL_Surface* frame);
+dllimport externc func SDL_CloseCamera(SDL_Camera* camera);
+dllimport externc func SDL_SetClipboardText(char* text) bool;
+dllimport externc func SDL_GetClipboardText() char*;
+dllimport externc func SDL_HasClipboardText() bool;
+dllimport externc func SDL_SetPrimarySelectionText(char* text) bool;
+dllimport externc func SDL_GetPrimarySelectionText() char*;
+dllimport externc func SDL_HasPrimarySelectionText() bool;
+type SDL_ClipboardDataCallback = func(byte* userdata, char* mime_type, uint64* size);
+type SDL_ClipboardCleanupCallback = func(byte* userdata);
+dllimport externc func SDL_SetClipboardData(SDL_ClipboardDataCallback callback, SDL_ClipboardCleanupCallback cleanup, byte* userdata, char** mime_types, uint64 num_mime_types) bool;
+dllimport externc func SDL_ClearClipboardData() bool;
+dllimport externc func SDL_GetClipboardData(char* mime_type, uint64* size) void*;
+dllimport externc func SDL_HasClipboardData(char* mime_type) bool;
+dllimport externc func SDL_GetClipboardMimeTypes(uint64* num_mime_types) char**;
+dllimport externc func SDL_GetNumLogicalCPUCores() int;
+dllimport externc func SDL_GetCPUCacheLineSize() int;
+dllimport externc func SDL_HasAltiVec() bool;
+dllimport externc func SDL_HasMMX() bool;
+dllimport externc func SDL_HasSSE() bool;
+dllimport externc func SDL_HasSSE2() bool;
+dllimport externc func SDL_HasSSE3() bool;
+dllimport externc func SDL_HasSSE41() bool;
+dllimport externc func SDL_HasSSE42() bool;
+dllimport externc func SDL_HasAVX() bool;
+dllimport externc func SDL_HasAVX2() bool;
+dllimport externc func SDL_HasAVX512F() bool;
+dllimport externc func SDL_HasARMSIMD() bool;
+dllimport externc func SDL_HasNEON() bool;
+dllimport externc func SDL_HasSVE2() bool;
+dllimport externc func SDL_HasLSX() bool;
+dllimport externc func SDL_HasLASX() bool;
+dllimport externc func SDL_GetSystemRAM() int;
+dllimport externc func SDL_GetSIMDAlignment() uint64;
+dllimport externc func SDL_GetSystemPageSize() int;
+type SDL_DisplayID = Uint32;
+type SDL_WindowID = Uint32;
+enum SDL_SystemTheme {
+	SDL_SYSTEM_THEME_UNKNOWN,
+	SDL_SYSTEM_THEME_LIGHT,
+	SDL_SYSTEM_THEME_DARK,
+}
+struct SDL_DisplayModeData;
+struct SDL_DisplayMode {
+	SDL_DisplayID displayID;
+	SDL_PixelFormat format;
+	int w;
+	int h;
+	float pixel_density;
+	float refresh_rate;
+	int refresh_rate_numerator;
+	int refresh_rate_denominator;
+	SDL_DisplayModeData* internal;
+}
+enum SDL_DisplayOrientation {
+	SDL_ORIENTATION_UNKNOWN,
+	SDL_ORIENTATION_LANDSCAPE,
+	SDL_ORIENTATION_LANDSCAPE_FLIPPED,
+	SDL_ORIENTATION_PORTRAIT,
+	SDL_ORIENTATION_PORTRAIT_FLIPPED,
+}
+struct SDL_Window;
+type SDL_WindowFlags = Uint64;
+enum SDL_FlashOperation {
+	SDL_FLASH_CANCEL,
+	SDL_FLASH_BRIEFLY,
+	SDL_FLASH_UNTIL_FOCUSED,
+}
+enum SDL_ProgressState {
+	SDL_PROGRESS_STATE_INVALID = -1,
+	SDL_PROGRESS_STATE_NONE,
+	SDL_PROGRESS_STATE_INDETERMINATE,
+	SDL_PROGRESS_STATE_NORMAL,
+	SDL_PROGRESS_STATE_PAUSED,
+	SDL_PROGRESS_STATE_ERROR,
+}
+struct SDL_GLContext;
+type SDL_EGLDisplay = byte*;
+type SDL_EGLConfig = byte*;
+type SDL_EGLSurface = byte*;
+type SDL_EGLAttrib = int64;
+type SDL_EGLint = int;
+type SDL_EGLAttribArrayCallback = func(byte* userdata) -> SDL_EGLAttrib*;
+type SDL_EGLIntArrayCallback = func(byte* userdata, SDL_EGLDisplay display, SDL_EGLConfig config) -> SDL_EGLint*;
+enum SDL_GLAttr {
+	SDL_GL_RED_SIZE,
+	SDL_GL_GREEN_SIZE,
+	SDL_GL_BLUE_SIZE,
+	SDL_GL_ALPHA_SIZE,
+	SDL_GL_BUFFER_SIZE,
+	SDL_GL_DOUBLEBUFFER,
+	SDL_GL_DEPTH_SIZE,
+	SDL_GL_STENCIL_SIZE,
+	SDL_GL_ACCUM_RED_SIZE,
+	SDL_GL_ACCUM_GREEN_SIZE,
+	SDL_GL_ACCUM_BLUE_SIZE,
+	SDL_GL_ACCUM_ALPHA_SIZE,
+	SDL_GL_STEREO,
+	SDL_GL_MULTISAMPLEBUFFERS,
+	SDL_GL_MULTISAMPLESAMPLES,
+	SDL_GL_ACCELERATED_VISUAL,
+	SDL_GL_RETAINED_BACKING,
+	SDL_GL_CONTEXT_MAJOR_VERSION,
+	SDL_GL_CONTEXT_MINOR_VERSION,
+	SDL_GL_CONTEXT_FLAGS,
+	SDL_GL_CONTEXT_PROFILE_MASK,
+	SDL_GL_SHARE_WITH_CURRENT_CONTEXT,
+	SDL_GL_FRAMEBUFFER_SRGB_CAPABLE,
+	SDL_GL_CONTEXT_RELEASE_BEHAVIOR,
+	SDL_GL_CONTEXT_RESET_NOTIFICATION,
+	SDL_GL_CONTEXT_NO_ERROR,
+	SDL_GL_FLOATBUFFERS,
+	SDL_GL_EGL_PLATFORM,
+}
+type SDL_GLProfile = Uint32;
+type SDL_GLContextFlag = Uint32;
+type SDL_GLContextReleaseFlag = Uint32;
+type SDL_GLContextResetNotification = Uint32;
+dllimport externc func SDL_GetNumVideoDrivers() int;
+dllimport externc func SDL_GetVideoDriver(int index) char*;
+dllimport externc func SDL_GetCurrentVideoDriver() char*;
+dllimport externc func SDL_GetSystemTheme() SDL_SystemTheme;
+dllimport externc func SDL_GetDisplays(int* count) SDL_DisplayID*;
+dllimport externc func SDL_GetPrimaryDisplay() SDL_DisplayID;
+dllimport externc func SDL_GetDisplayProperties(SDL_DisplayID displayID) SDL_PropertiesID;
+dllimport externc func SDL_GetDisplayName(SDL_DisplayID displayID) char*;
+dllimport externc func SDL_GetDisplayBounds(SDL_DisplayID displayID, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetDisplayUsableBounds(SDL_DisplayID displayID, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetNaturalDisplayOrientation(SDL_DisplayID displayID) SDL_DisplayOrientation;
+dllimport externc func SDL_GetCurrentDisplayOrientation(SDL_DisplayID displayID) SDL_DisplayOrientation;
+dllimport externc func SDL_GetDisplayContentScale(SDL_DisplayID displayID) float;
+dllimport externc func SDL_GetFullscreenDisplayModes(SDL_DisplayID displayID, int* count) SDL_DisplayMode**;
+dllimport externc func SDL_GetClosestFullscreenDisplayMode(SDL_DisplayID displayID, int w, int h, float refresh_rate, bool include_high_density_modes, SDL_DisplayMode* closest) bool;
+dllimport externc func SDL_GetDesktopDisplayMode(SDL_DisplayID displayID) SDL_DisplayMode*;
+dllimport externc func SDL_GetCurrentDisplayMode(SDL_DisplayID displayID) SDL_DisplayMode*;
+dllimport externc func SDL_GetDisplayForPoint(SDL_Point* point) SDL_DisplayID;
+dllimport externc func SDL_GetDisplayForRect(SDL_Rect* rect) SDL_DisplayID;
+dllimport externc func SDL_GetDisplayForWindow(SDL_Window* window) SDL_DisplayID;
+dllimport externc func SDL_GetWindowPixelDensity(SDL_Window* window) float;
+dllimport externc func SDL_GetWindowDisplayScale(SDL_Window* window) float;
+dllimport externc func SDL_SetWindowFullscreenMode(SDL_Window* window, SDL_DisplayMode* mode) bool;
+dllimport externc func SDL_GetWindowFullscreenMode(SDL_Window* window) SDL_DisplayMode*;
+dllimport externc func SDL_GetWindowICCProfile(SDL_Window* window, uint64* size) void*;
+dllimport externc func SDL_GetWindowPixelFormat(SDL_Window* window) SDL_PixelFormat;
+dllimport externc func SDL_GetWindows(int* count) SDL_Window**;
+dllimport externc func SDL_CreateWindow(char* title, int w, int h, SDL_WindowFlags flags) SDL_Window*;
+dllimport externc func SDL_CreatePopupWindow(SDL_Window* parent, int offset_x, int offset_y, int w, int h, SDL_WindowFlags flags) SDL_Window*;
+dllimport externc func SDL_CreateWindowWithProperties(SDL_PropertiesID props) SDL_Window*;
+dllimport externc func SDL_GetWindowID(SDL_Window* window) SDL_WindowID;
+dllimport externc func SDL_GetWindowFromID(SDL_WindowID id) SDL_Window*;
+dllimport externc func SDL_GetWindowParent(SDL_Window* window) SDL_Window*;
+dllimport externc func SDL_GetWindowProperties(SDL_Window* window) SDL_PropertiesID;
+dllimport externc func SDL_GetWindowFlags(SDL_Window* window) SDL_WindowFlags;
+dllimport externc func SDL_SetWindowTitle(SDL_Window* window, char* title) bool;
+dllimport externc func SDL_GetWindowTitle(SDL_Window* window) char*;
+dllimport externc func SDL_SetWindowIcon(SDL_Window* window, SDL_Surface* icon) bool;
+dllimport externc func SDL_SetWindowPosition(SDL_Window* window, int x, int y) bool;
+dllimport externc func SDL_GetWindowPosition(SDL_Window* window, int* x, int* y) bool;
+dllimport externc func SDL_SetWindowSize(SDL_Window* window, int w, int h) bool;
+dllimport externc func SDL_GetWindowSize(SDL_Window* window, int* w, int* h) bool;
+dllimport externc func SDL_GetWindowSafeArea(SDL_Window* window, SDL_Rect* rect) bool;
+dllimport externc func SDL_SetWindowAspectRatio(SDL_Window* window, float min_aspect, float max_aspect) bool;
+dllimport externc func SDL_GetWindowAspectRatio(SDL_Window* window, float* min_aspect, float* max_aspect) bool;
+dllimport externc func SDL_GetWindowBordersSize(SDL_Window* window, int* top, int* left, int* bottom, int* right) bool;
+dllimport externc func SDL_GetWindowSizeInPixels(SDL_Window* window, int* w, int* h) bool;
+dllimport externc func SDL_SetWindowMinimumSize(SDL_Window* window, int min_w, int min_h) bool;
+dllimport externc func SDL_GetWindowMinimumSize(SDL_Window* window, int* w, int* h) bool;
+dllimport externc func SDL_SetWindowMaximumSize(SDL_Window* window, int max_w, int max_h) bool;
+dllimport externc func SDL_GetWindowMaximumSize(SDL_Window* window, int* w, int* h) bool;
+dllimport externc func SDL_SetWindowBordered(SDL_Window* window, bool bordered) bool;
+dllimport externc func SDL_SetWindowResizable(SDL_Window* window, bool resizable) bool;
+dllimport externc func SDL_SetWindowAlwaysOnTop(SDL_Window* window, bool on_top) bool;
+dllimport externc func SDL_SetWindowFillDocument(SDL_Window* window, bool fill) bool;
+dllimport externc func SDL_ShowWindow(SDL_Window* window) bool;
+dllimport externc func SDL_HideWindow(SDL_Window* window) bool;
+dllimport externc func SDL_RaiseWindow(SDL_Window* window) bool;
+dllimport externc func SDL_MaximizeWindow(SDL_Window* window) bool;
+dllimport externc func SDL_MinimizeWindow(SDL_Window* window) bool;
+dllimport externc func SDL_RestoreWindow(SDL_Window* window) bool;
+dllimport externc func SDL_SetWindowFullscreen(SDL_Window* window, bool fullscreen) bool;
+dllimport externc func SDL_SyncWindow(SDL_Window* window) bool;
+dllimport externc func SDL_WindowHasSurface(SDL_Window* window) bool;
+dllimport externc func SDL_GetWindowSurface(SDL_Window* window) SDL_Surface*;
+dllimport externc func SDL_SetWindowSurfaceVSync(SDL_Window* window, int vsync) bool;
+dllimport externc func SDL_GetWindowSurfaceVSync(SDL_Window* window, int* vsync) bool;
+dllimport externc func SDL_UpdateWindowSurface(SDL_Window* window) bool;
+dllimport externc func SDL_UpdateWindowSurfaceRects(SDL_Window* window, SDL_Rect* rects, int numrects) bool;
+dllimport externc func SDL_DestroyWindowSurface(SDL_Window* window) bool;
+dllimport externc func SDL_SetWindowKeyboardGrab(SDL_Window* window, bool grabbed) bool;
+dllimport externc func SDL_SetWindowMouseGrab(SDL_Window* window, bool grabbed) bool;
+dllimport externc func SDL_GetWindowKeyboardGrab(SDL_Window* window) bool;
+dllimport externc func SDL_GetWindowMouseGrab(SDL_Window* window) bool;
+dllimport externc func SDL_GetGrabbedWindow() SDL_Window*;
+dllimport externc func SDL_SetWindowMouseRect(SDL_Window* window, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetWindowMouseRect(SDL_Window* window) SDL_Rect*;
+dllimport externc func SDL_SetWindowOpacity(SDL_Window* window, float opacity) bool;
+dllimport externc func SDL_GetWindowOpacity(SDL_Window* window) float;
+dllimport externc func SDL_SetWindowParent(SDL_Window* window, SDL_Window* parent) bool;
+dllimport externc func SDL_SetWindowModal(SDL_Window* window, bool modal) bool;
+dllimport externc func SDL_SetWindowFocusable(SDL_Window* window, bool focusable) bool;
+dllimport externc func SDL_ShowWindowSystemMenu(SDL_Window* window, int x, int y) bool;
+enum SDL_HitTestResult {
+	SDL_HITTEST_NORMAL,
+	SDL_HITTEST_DRAGGABLE,
+	SDL_HITTEST_RESIZE_TOPLEFT,
+	SDL_HITTEST_RESIZE_TOP,
+	SDL_HITTEST_RESIZE_TOPRIGHT,
+	SDL_HITTEST_RESIZE_RIGHT,
+	SDL_HITTEST_RESIZE_BOTTOMRIGHT,
+	SDL_HITTEST_RESIZE_BOTTOM,
+	SDL_HITTEST_RESIZE_BOTTOMLEFT,
+	SDL_HITTEST_RESIZE_LEFT,
+}
+type SDL_HitTest = func(SDL_Window* win, SDL_Point* area, byte* data) -> SDL_HitTestResult;
+dllimport externc func SDL_SetWindowHitTest(SDL_Window* window, SDL_HitTest callback, byte* callback_data) bool;
+dllimport externc func SDL_SetWindowShape(SDL_Window* window, SDL_Surface* shape) bool;
+dllimport externc func SDL_FlashWindow(SDL_Window* window, SDL_FlashOperation operation) bool;
+dllimport externc func SDL_SetWindowProgressState(SDL_Window* window, SDL_ProgressState state) bool;
+dllimport externc func SDL_GetWindowProgressState(SDL_Window* window) SDL_ProgressState;
+dllimport externc func SDL_SetWindowProgressValue(SDL_Window* window, float value) bool;
+dllimport externc func SDL_GetWindowProgressValue(SDL_Window* window) float;
+dllimport externc func SDL_DestroyWindow(SDL_Window* window);
+dllimport externc func SDL_ScreenSaverEnabled() bool;
+dllimport externc func SDL_EnableScreenSaver() bool;
+dllimport externc func SDL_DisableScreenSaver() bool;
+dllimport externc func SDL_GL_LoadLibrary(char* path) bool;
+dllimport externc func SDL_GL_GetProcAddress(char* proc) SDL_FunctionPointer;
+dllimport externc func SDL_EGL_GetProcAddress(char* proc) SDL_FunctionPointer;
+dllimport externc func SDL_GL_UnloadLibrary();
+dllimport externc func SDL_GL_ExtensionSupported(char* extension) bool;
+dllimport externc func SDL_GL_ResetAttributes();
+dllimport externc func SDL_GL_SetAttribute(SDL_GLAttr attr, int value) bool;
+dllimport externc func SDL_GL_GetAttribute(SDL_GLAttr attr, int* value) bool;
+dllimport externc func SDL_GL_CreateContext(SDL_Window* window) SDL_GLContext;
+dllimport externc func SDL_GL_MakeCurrent(SDL_Window* window, SDL_GLContext context) bool;
+dllimport externc func SDL_GL_GetCurrentWindow() SDL_Window*;
+dllimport externc func SDL_GL_GetCurrentContext() SDL_GLContext;
+dllimport externc func SDL_EGL_GetCurrentDisplay() SDL_EGLDisplay;
+dllimport externc func SDL_EGL_GetCurrentConfig() SDL_EGLConfig;
+dllimport externc func SDL_EGL_GetWindowSurface(SDL_Window* window) SDL_EGLSurface;
+dllimport externc func SDL_EGL_SetAttributeCallbacks(SDL_EGLAttribArrayCallback platformAttribCallback, SDL_EGLIntArrayCallback surfaceAttribCallback, SDL_EGLIntArrayCallback contextAttribCallback, byte* userdata);
+dllimport externc func SDL_GL_SetSwapInterval(int interval) bool;
+dllimport externc func SDL_GL_GetSwapInterval(int* interval) bool;
+dllimport externc func SDL_GL_SwapWindow(SDL_Window* window) bool;
+dllimport externc func SDL_GL_DestroyContext(SDL_GLContext context) bool;
+struct SDL_DialogFileFilter {
+	char* name;
+	char* pattern;
+}
+type SDL_DialogFileCallback = func(byte* userdata, char** filelist, int filter);
+dllimport externc func SDL_ShowOpenFileDialog(SDL_DialogFileCallback callback, byte* userdata, SDL_Window* window, SDL_DialogFileFilter* filters, int nfilters, char* default_location, bool allow_many);
+dllimport externc func SDL_ShowSaveFileDialog(SDL_DialogFileCallback callback, byte* userdata, SDL_Window* window, SDL_DialogFileFilter* filters, int nfilters, char* default_location);
+dllimport externc func SDL_ShowOpenFolderDialog(SDL_DialogFileCallback callback, byte* userdata, SDL_Window* window, char* default_location, bool allow_many);
+enum SDL_FileDialogType {
+	SDL_FILEDIALOG_OPENFILE,
+	SDL_FILEDIALOG_SAVEFILE,
+	SDL_FILEDIALOG_OPENFOLDER,
+}
+dllimport externc func SDL_ShowFileDialogWithProperties(SDL_FileDialogType type, SDL_DialogFileCallback callback, byte* userdata, SDL_PropertiesID props);
+struct SDL_GUID {
+	Uint8[16] data;
+}
+dllimport externc func SDL_GUIDToString(SDL_GUID guid, char* pszGUID, int cbGUID);
+dllimport externc func SDL_StringToGUID(char* pchGUID) SDL_GUID;
+enum SDL_PowerState {
+	SDL_POWERSTATE_ERROR = -1,
+	SDL_POWERSTATE_UNKNOWN,
+	SDL_POWERSTATE_ON_BATTERY,
+	SDL_POWERSTATE_NO_BATTERY,
+	SDL_POWERSTATE_CHARGING,
+	SDL_POWERSTATE_CHARGED,
+}
+dllimport externc func SDL_GetPowerInfo(int* seconds, int* percent) SDL_PowerState;
+struct SDL_Sensor;
+type SDL_SensorID = Uint32;
+enum SDL_SensorType {
+	SDL_SENSOR_INVALID = -1,
+	SDL_SENSOR_UNKNOWN,
+	SDL_SENSOR_ACCEL,
+	SDL_SENSOR_GYRO,
+	SDL_SENSOR_ACCEL_L,
+	SDL_SENSOR_GYRO_L,
+	SDL_SENSOR_ACCEL_R,
+	SDL_SENSOR_GYRO_R,
+	SDL_SENSOR_COUNT,
+}
+dllimport externc func SDL_GetSensors(int* count) SDL_SensorID*;
+dllimport externc func SDL_GetSensorNameForID(SDL_SensorID instance_id) char*;
+dllimport externc func SDL_GetSensorTypeForID(SDL_SensorID instance_id) SDL_SensorType;
+dllimport externc func SDL_GetSensorNonPortableTypeForID(SDL_SensorID instance_id) int;
+dllimport externc func SDL_OpenSensor(SDL_SensorID instance_id) SDL_Sensor*;
+dllimport externc func SDL_GetSensorFromID(SDL_SensorID instance_id) SDL_Sensor*;
+dllimport externc func SDL_GetSensorProperties(SDL_Sensor* sensor) SDL_PropertiesID;
+dllimport externc func SDL_GetSensorName(SDL_Sensor* sensor) char*;
+dllimport externc func SDL_GetSensorType(SDL_Sensor* sensor) SDL_SensorType;
+dllimport externc func SDL_GetSensorNonPortableType(SDL_Sensor* sensor) int;
+dllimport externc func SDL_GetSensorID(SDL_Sensor* sensor) SDL_SensorID;
+dllimport externc func SDL_GetSensorData(SDL_Sensor* sensor, float* data, int num_values) bool;
+dllimport externc func SDL_CloseSensor(SDL_Sensor* sensor);
+dllimport externc func SDL_UpdateSensors();
+struct SDL_Joystick;
+type SDL_JoystickID = Uint32;
+enum SDL_JoystickType {
+	SDL_JOYSTICK_TYPE_UNKNOWN,
+	SDL_JOYSTICK_TYPE_GAMEPAD,
+	SDL_JOYSTICK_TYPE_WHEEL,
+	SDL_JOYSTICK_TYPE_ARCADE_STICK,
+	SDL_JOYSTICK_TYPE_FLIGHT_STICK,
+	SDL_JOYSTICK_TYPE_DANCE_PAD,
+	SDL_JOYSTICK_TYPE_GUITAR,
+	SDL_JOYSTICK_TYPE_DRUM_KIT,
+	SDL_JOYSTICK_TYPE_ARCADE_PAD,
+	SDL_JOYSTICK_TYPE_THROTTLE,
+	SDL_JOYSTICK_TYPE_COUNT,
+}
+enum SDL_JoystickConnectionState {
+	SDL_JOYSTICK_CONNECTION_INVALID = -1,
+	SDL_JOYSTICK_CONNECTION_UNKNOWN,
+	SDL_JOYSTICK_CONNECTION_WIRED,
+	SDL_JOYSTICK_CONNECTION_WIRELESS,
+}
+dllimport externc func SDL_LockJoysticks();
+dllimport externc func SDL_TryLockJoysticks() bool;
+dllimport externc func SDL_UnlockJoysticks();
+dllimport externc func SDL_HasJoystick() bool;
+dllimport externc func SDL_GetJoysticks(int* count) SDL_JoystickID*;
+dllimport externc func SDL_GetJoystickNameForID(SDL_JoystickID instance_id) char*;
+dllimport externc func SDL_GetJoystickPathForID(SDL_JoystickID instance_id) char*;
+dllimport externc func SDL_GetJoystickPlayerIndexForID(SDL_JoystickID instance_id) int;
+dllimport externc func SDL_GetJoystickGUIDForID(SDL_JoystickID instance_id) SDL_GUID;
+dllimport externc func SDL_GetJoystickVendorForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetJoystickProductForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetJoystickProductVersionForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetJoystickTypeForID(SDL_JoystickID instance_id) SDL_JoystickType;
+dllimport externc func SDL_OpenJoystick(SDL_JoystickID instance_id) SDL_Joystick*;
+dllimport externc func SDL_GetJoystickFromID(SDL_JoystickID instance_id) SDL_Joystick*;
+dllimport externc func SDL_GetJoystickFromPlayerIndex(int player_index) SDL_Joystick*;
+struct SDL_VirtualJoystickTouchpadDesc {
+	Uint16 nfingers;
+	Uint16[3] padding;
+}
+struct SDL_VirtualJoystickSensorDesc {
+	SDL_SensorType type;
+	float rate;
+}
+struct SDL_VirtualJoystickDesc {
+	Uint32 version;
+	Uint16 type;
+	Uint16 padding;
+	Uint16 vendor_id;
+	Uint16 product_id;
+	Uint16 naxes;
+	Uint16 nbuttons;
+	Uint16 nballs;
+	Uint16 nhats;
+	Uint16 ntouchpads;
+	Uint16 nsensors;
+	Uint16[2] padding2;
+	Uint32 button_mask;
+	Uint32 axis_mask;
+	char* name;
+	SDL_VirtualJoystickTouchpadDesc* touchpads;
+	SDL_VirtualJoystickSensorDesc* sensors;
+	byte* userdata;
+	func(byte* userdata) Update;
+	func(byte* userdata, int player_index) SetPlayerIndex;
+	func(byte* userdata, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble) -> bool Rumble;
+	func(byte* userdata, Uint16 left_rumble, Uint16 right_rumble) -> bool RumbleTriggers;
+	func(byte* userdata, Uint8 red, Uint8 green, Uint8 blue) -> bool SetLED;
+	func(byte* userdata, byte* data, int size) -> bool SendEffect;
+	func(byte* userdata, bool enabled) -> bool SetSensorsEnabled;
+	func(byte* userdata) Cleanup;
+}
+dllimport externc func SDL_AttachVirtualJoystick(SDL_VirtualJoystickDesc* desc) SDL_JoystickID;
+dllimport externc func SDL_DetachVirtualJoystick(SDL_JoystickID instance_id) bool;
+dllimport externc func SDL_IsJoystickVirtual(SDL_JoystickID instance_id) bool;
+dllimport externc func SDL_SetJoystickVirtualAxis(SDL_Joystick* joystick, int axis, Sint16 value) bool;
+dllimport externc func SDL_SetJoystickVirtualBall(SDL_Joystick* joystick, int ball, Sint16 xrel, Sint16 yrel) bool;
+dllimport externc func SDL_SetJoystickVirtualButton(SDL_Joystick* joystick, int button, bool down) bool;
+dllimport externc func SDL_SetJoystickVirtualHat(SDL_Joystick* joystick, int hat, Uint8 value) bool;
+dllimport externc func SDL_SetJoystickVirtualTouchpad(SDL_Joystick* joystick, int touchpad, int finger, bool down, float x, float y, float pressure) bool;
+dllimport externc func SDL_SendJoystickVirtualSensorData(SDL_Joystick* joystick, SDL_SensorType type, Uint64 sensor_timestamp, float* data, int num_values) bool;
+dllimport externc func SDL_GetJoystickProperties(SDL_Joystick* joystick) SDL_PropertiesID;
+dllimport externc func SDL_GetJoystickName(SDL_Joystick* joystick) char*;
+dllimport externc func SDL_GetJoystickPath(SDL_Joystick* joystick) char*;
+dllimport externc func SDL_GetJoystickPlayerIndex(SDL_Joystick* joystick) int;
+dllimport externc func SDL_SetJoystickPlayerIndex(SDL_Joystick* joystick, int player_index) bool;
+dllimport externc func SDL_GetJoystickGUID(SDL_Joystick* joystick) SDL_GUID;
+dllimport externc func SDL_GetJoystickVendor(SDL_Joystick* joystick) Uint16;
+dllimport externc func SDL_GetJoystickProduct(SDL_Joystick* joystick) Uint16;
+dllimport externc func SDL_GetJoystickProductVersion(SDL_Joystick* joystick) Uint16;
+dllimport externc func SDL_GetJoystickFirmwareVersion(SDL_Joystick* joystick) Uint16;
+dllimport externc func SDL_GetJoystickSerial(SDL_Joystick* joystick) char*;
+dllimport externc func SDL_GetJoystickType(SDL_Joystick* joystick) SDL_JoystickType;
+dllimport externc func SDL_GetJoystickGUIDInfo(SDL_GUID guid, Uint16* vendor, Uint16* product, Uint16* version, Uint16* crc16);
+dllimport externc func SDL_JoystickConnected(SDL_Joystick* joystick) bool;
+dllimport externc func SDL_GetJoystickID(SDL_Joystick* joystick) SDL_JoystickID;
+dllimport externc func SDL_GetNumJoystickAxes(SDL_Joystick* joystick) int;
+dllimport externc func SDL_GetNumJoystickBalls(SDL_Joystick* joystick) int;
+dllimport externc func SDL_GetNumJoystickHats(SDL_Joystick* joystick) int;
+dllimport externc func SDL_GetNumJoystickButtons(SDL_Joystick* joystick) int;
+dllimport externc func SDL_SetJoystickEventsEnabled(bool enabled);
+dllimport externc func SDL_JoystickEventsEnabled() bool;
+dllimport externc func SDL_UpdateJoysticks();
+dllimport externc func SDL_GetJoystickAxis(SDL_Joystick* joystick, int axis) Sint16;
+dllimport externc func SDL_GetJoystickAxisInitialState(SDL_Joystick* joystick, int axis, Sint16* state) bool;
+dllimport externc func SDL_GetJoystickBall(SDL_Joystick* joystick, int ball, int* dx, int* dy) bool;
+dllimport externc func SDL_GetJoystickHat(SDL_Joystick* joystick, int hat) Uint8;
+dllimport externc func SDL_GetJoystickButton(SDL_Joystick* joystick, int button) bool;
+dllimport externc func SDL_RumbleJoystick(SDL_Joystick* joystick, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble, Uint32 duration_ms) bool;
+dllimport externc func SDL_RumbleJoystickTriggers(SDL_Joystick* joystick, Uint16 left_rumble, Uint16 right_rumble, Uint32 duration_ms) bool;
+dllimport externc func SDL_SetJoystickLED(SDL_Joystick* joystick, Uint8 red, Uint8 green, Uint8 blue) bool;
+dllimport externc func SDL_SendJoystickEffect(SDL_Joystick* joystick, byte* data, int size) bool;
+dllimport externc func SDL_CloseJoystick(SDL_Joystick* joystick);
+dllimport externc func SDL_GetJoystickConnectionState(SDL_Joystick* joystick) SDL_JoystickConnectionState;
+dllimport externc func SDL_GetJoystickPowerInfo(SDL_Joystick* joystick, int* percent) SDL_PowerState;
+struct SDL_Gamepad;
+enum SDL_GamepadType {
+	SDL_GAMEPAD_TYPE_UNKNOWN = 0,
+	SDL_GAMEPAD_TYPE_STANDARD,
+	SDL_GAMEPAD_TYPE_XBOX360,
+	SDL_GAMEPAD_TYPE_XBOXONE,
+	SDL_GAMEPAD_TYPE_PS3,
+	SDL_GAMEPAD_TYPE_PS4,
+	SDL_GAMEPAD_TYPE_PS5,
+	SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO,
+	SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT,
+	SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT,
+	SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR,
+	SDL_GAMEPAD_TYPE_GAMECUBE,
+	SDL_GAMEPAD_TYPE_STEAM,
+	SDL_GAMEPAD_TYPE_COUNT,
+}
+enum SDL_GamepadButton {
+	SDL_GAMEPAD_BUTTON_INVALID = -1,
+	SDL_GAMEPAD_BUTTON_SOUTH,
+	SDL_GAMEPAD_BUTTON_EAST,
+	SDL_GAMEPAD_BUTTON_WEST,
+	SDL_GAMEPAD_BUTTON_NORTH,
+	SDL_GAMEPAD_BUTTON_BACK,
+	SDL_GAMEPAD_BUTTON_GUIDE,
+	SDL_GAMEPAD_BUTTON_START,
+	SDL_GAMEPAD_BUTTON_LEFT_STICK,
+	SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+	SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
+	SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+	SDL_GAMEPAD_BUTTON_DPAD_UP,
+	SDL_GAMEPAD_BUTTON_DPAD_DOWN,
+	SDL_GAMEPAD_BUTTON_DPAD_LEFT,
+	SDL_GAMEPAD_BUTTON_DPAD_RIGHT,
+	SDL_GAMEPAD_BUTTON_MISC1,
+	SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1,
+	SDL_GAMEPAD_BUTTON_LEFT_PADDLE1,
+	SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2,
+	SDL_GAMEPAD_BUTTON_LEFT_PADDLE2,
+	SDL_GAMEPAD_BUTTON_TOUCHPAD,
+	SDL_GAMEPAD_BUTTON_MISC2,
+	SDL_GAMEPAD_BUTTON_MISC3,
+	SDL_GAMEPAD_BUTTON_MISC4,
+	SDL_GAMEPAD_BUTTON_MISC5,
+	SDL_GAMEPAD_BUTTON_MISC6,
+	SDL_GAMEPAD_BUTTON_COUNT,
+}
+enum SDL_GamepadButtonLabel {
+	SDL_GAMEPAD_BUTTON_LABEL_UNKNOWN,
+	SDL_GAMEPAD_BUTTON_LABEL_A,
+	SDL_GAMEPAD_BUTTON_LABEL_B,
+	SDL_GAMEPAD_BUTTON_LABEL_X,
+	SDL_GAMEPAD_BUTTON_LABEL_Y,
+	SDL_GAMEPAD_BUTTON_LABEL_CROSS,
+	SDL_GAMEPAD_BUTTON_LABEL_CIRCLE,
+	SDL_GAMEPAD_BUTTON_LABEL_SQUARE,
+	SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE,
+}
+enum SDL_GamepadAxis {
+	SDL_GAMEPAD_AXIS_INVALID = -1,
+	SDL_GAMEPAD_AXIS_LEFTX,
+	SDL_GAMEPAD_AXIS_LEFTY,
+	SDL_GAMEPAD_AXIS_RIGHTX,
+	SDL_GAMEPAD_AXIS_RIGHTY,
+	SDL_GAMEPAD_AXIS_LEFT_TRIGGER,
+	SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,
+	SDL_GAMEPAD_AXIS_COUNT,
+}
+enum SDL_GamepadCapSenseType {
+	SDL_GAMEPAD_CAPSENSE_INVALID = -1,
+	SDL_GAMEPAD_CAPSENSE_LEFT_STICK,
+	SDL_GAMEPAD_CAPSENSE_RIGHT_STICK,
+	SDL_GAMEPAD_CAPSENSE_LEFT_GRIP,
+	SDL_GAMEPAD_CAPSENSE_RIGHT_GRIP,
+	SDL_GAMEPAD_CAPSENSE_COUNT,
+}
+enum SDL_GamepadBindingType {
+	SDL_GAMEPAD_BINDTYPE_NONE = 0,
+	SDL_GAMEPAD_BINDTYPE_BUTTON,
+	SDL_GAMEPAD_BINDTYPE_AXIS,
+	SDL_GAMEPAD_BINDTYPE_HAT,
+}
+struct SDL_GamepadBinding {
+	SDL_GamepadBindingType input_type;
+	union {
+		int button;
+		struct {
+			int axis;
+			int axis_min;
+			int axis_max;
+		} axis;
+		struct {
+			int hat;
+			int hat_mask;
+		} hat;
+	} input;
+	SDL_GamepadBindingType output_type;
+	union {
+		SDL_GamepadButton button;
+		struct {
+			SDL_GamepadAxis axis;
+			int axis_min;
+			int axis_max;
+		} axis;
+	} output;
+}
+dllimport externc func SDL_AddGamepadMapping(char* mapping) int;
+dllimport externc func SDL_AddGamepadMappingsFromIO(SDL_IOStream* src, bool closeio) int;
+dllimport externc func SDL_AddGamepadMappingsFromFile(char* file) int;
+dllimport externc func SDL_ReloadGamepadMappings() bool;
+dllimport externc func SDL_GetGamepadMappings(int* count) char**;
+dllimport externc func SDL_GetGamepadMappingForGUID(SDL_GUID guid) char*;
+dllimport externc func SDL_GetGamepadMapping(SDL_Gamepad* gamepad) char*;
+dllimport externc func SDL_SetGamepadMapping(SDL_JoystickID instance_id, char* mapping) bool;
+dllimport externc func SDL_HasGamepad() bool;
+dllimport externc func SDL_GetGamepads(int* count) SDL_JoystickID*;
+dllimport externc func SDL_IsGamepad(SDL_JoystickID instance_id) bool;
+dllimport externc func SDL_GetGamepadNameForID(SDL_JoystickID instance_id) char*;
+dllimport externc func SDL_GetGamepadPathForID(SDL_JoystickID instance_id) char*;
+dllimport externc func SDL_GetGamepadPlayerIndexForID(SDL_JoystickID instance_id) int;
+dllimport externc func SDL_GetGamepadGUIDForID(SDL_JoystickID instance_id) SDL_GUID;
+dllimport externc func SDL_GetGamepadVendorForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetGamepadProductForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetGamepadProductVersionForID(SDL_JoystickID instance_id) Uint16;
+dllimport externc func SDL_GetGamepadTypeForID(SDL_JoystickID instance_id) SDL_GamepadType;
+dllimport externc func SDL_GetRealGamepadTypeForID(SDL_JoystickID instance_id) SDL_GamepadType;
+dllimport externc func SDL_GetGamepadMappingForID(SDL_JoystickID instance_id) char*;
+dllimport externc func SDL_OpenGamepad(SDL_JoystickID instance_id) SDL_Gamepad*;
+dllimport externc func SDL_GetGamepadFromID(SDL_JoystickID instance_id) SDL_Gamepad*;
+dllimport externc func SDL_GetGamepadFromPlayerIndex(int player_index) SDL_Gamepad*;
+dllimport externc func SDL_GetGamepadProperties(SDL_Gamepad* gamepad) SDL_PropertiesID;
+dllimport externc func SDL_GetGamepadID(SDL_Gamepad* gamepad) SDL_JoystickID;
+dllimport externc func SDL_GetGamepadName(SDL_Gamepad* gamepad) char*;
+dllimport externc func SDL_GetGamepadPath(SDL_Gamepad* gamepad) char*;
+dllimport externc func SDL_GetGamepadType(SDL_Gamepad* gamepad) SDL_GamepadType;
+dllimport externc func SDL_GetRealGamepadType(SDL_Gamepad* gamepad) SDL_GamepadType;
+dllimport externc func SDL_GetGamepadPlayerIndex(SDL_Gamepad* gamepad) int;
+dllimport externc func SDL_SetGamepadPlayerIndex(SDL_Gamepad* gamepad, int player_index) bool;
+dllimport externc func SDL_GetGamepadVendor(SDL_Gamepad* gamepad) Uint16;
+dllimport externc func SDL_GetGamepadProduct(SDL_Gamepad* gamepad) Uint16;
+dllimport externc func SDL_GetGamepadProductVersion(SDL_Gamepad* gamepad) Uint16;
+dllimport externc func SDL_GetGamepadFirmwareVersion(SDL_Gamepad* gamepad) Uint16;
+dllimport externc func SDL_GetGamepadSerial(SDL_Gamepad* gamepad) char*;
+dllimport externc func SDL_GetGamepadSteamHandle(SDL_Gamepad* gamepad) Uint64;
+dllimport externc func SDL_GetGamepadConnectionState(SDL_Gamepad* gamepad) SDL_JoystickConnectionState;
+dllimport externc func SDL_GetGamepadPowerInfo(SDL_Gamepad* gamepad, int* percent) SDL_PowerState;
+dllimport externc func SDL_GamepadConnected(SDL_Gamepad* gamepad) bool;
+dllimport externc func SDL_GetGamepadJoystick(SDL_Gamepad* gamepad) SDL_Joystick*;
+dllimport externc func SDL_SetGamepadEventsEnabled(bool enabled);
+dllimport externc func SDL_GamepadEventsEnabled() bool;
+dllimport externc func SDL_GetGamepadBindings(SDL_Gamepad* gamepad, int* count) SDL_GamepadBinding**;
+dllimport externc func SDL_UpdateGamepads();
+dllimport externc func SDL_GetGamepadTypeFromString(char* str) SDL_GamepadType;
+dllimport externc func SDL_GetGamepadStringForType(SDL_GamepadType type) char*;
+dllimport externc func SDL_GetGamepadAxisFromString(char* str) SDL_GamepadAxis;
+dllimport externc func SDL_GetGamepadStringForAxis(SDL_GamepadAxis axis) char*;
+dllimport externc func SDL_GamepadHasAxis(SDL_Gamepad* gamepad, SDL_GamepadAxis axis) bool;
+dllimport externc func SDL_GetGamepadAxis(SDL_Gamepad* gamepad, SDL_GamepadAxis axis) Sint16;
+dllimport externc func SDL_GetGamepadButtonFromString(char* str) SDL_GamepadButton;
+dllimport externc func SDL_GetGamepadStringForButton(SDL_GamepadButton button) char*;
+dllimport externc func SDL_GamepadHasButton(SDL_Gamepad* gamepad, SDL_GamepadButton button) bool;
+dllimport externc func SDL_GetGamepadButton(SDL_Gamepad* gamepad, SDL_GamepadButton button) bool;
+dllimport externc func SDL_GetGamepadButtonLabelForType(SDL_GamepadType type, SDL_GamepadButton button) SDL_GamepadButtonLabel;
+dllimport externc func SDL_GetGamepadButtonLabel(SDL_Gamepad* gamepad, SDL_GamepadButton button) SDL_GamepadButtonLabel;
+dllimport externc func SDL_GetNumGamepadTouchpads(SDL_Gamepad* gamepad) int;
+dllimport externc func SDL_GetNumGamepadTouchpadFingers(SDL_Gamepad* gamepad, int touchpad) int;
+dllimport externc func SDL_GetGamepadTouchpadFinger(SDL_Gamepad* gamepad, int touchpad, int finger, bool* down, float* x, float* y, float* pressure) bool;
+dllimport externc func SDL_GamepadHasSensor(SDL_Gamepad* gamepad, SDL_SensorType type) bool;
+dllimport externc func SDL_SetGamepadSensorEnabled(SDL_Gamepad* gamepad, SDL_SensorType type, bool enabled) bool;
+dllimport externc func SDL_GamepadSensorEnabled(SDL_Gamepad* gamepad, SDL_SensorType type) bool;
+dllimport externc func SDL_GetGamepadSensorDataRate(SDL_Gamepad* gamepad, SDL_SensorType type) float;
+dllimport externc func SDL_GetGamepadSensorData(SDL_Gamepad* gamepad, SDL_SensorType type, float* data, int num_values) bool;
+dllimport externc func SDL_GamepadHasCapSense(SDL_Gamepad* gamepad, SDL_GamepadCapSenseType type) bool;
+dllimport externc func SDL_GetGamepadCapSense(SDL_Gamepad* gamepad, SDL_GamepadCapSenseType type) bool;
+dllimport externc func SDL_RumbleGamepad(SDL_Gamepad* gamepad, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble, Uint32 duration_ms) bool;
+dllimport externc func SDL_RumbleGamepadTriggers(SDL_Gamepad* gamepad, Uint16 left_rumble, Uint16 right_rumble, Uint32 duration_ms) bool;
+dllimport externc func SDL_SetGamepadLED(SDL_Gamepad* gamepad, Uint8 red, Uint8 green, Uint8 blue) bool;
+dllimport externc func SDL_SendGamepadEffect(SDL_Gamepad* gamepad, byte* data, int size) bool;
+dllimport externc func SDL_CloseGamepad(SDL_Gamepad* gamepad);
+dllimport externc func SDL_GetGamepadAppleSFSymbolsNameForButton(SDL_Gamepad* gamepad, SDL_GamepadButton button) char*;
+dllimport externc func SDL_GetGamepadAppleSFSymbolsNameForAxis(SDL_Gamepad* gamepad, SDL_GamepadAxis axis) char*;
+enum SDL_Scancode {
+	SDL_SCANCODE_UNKNOWN = 0,
+	SDL_SCANCODE_A = 4,
+	SDL_SCANCODE_B = 5,
+	SDL_SCANCODE_C = 6,
+	SDL_SCANCODE_D = 7,
+	SDL_SCANCODE_E = 8,
+	SDL_SCANCODE_F = 9,
+	SDL_SCANCODE_G = 10,
+	SDL_SCANCODE_H = 11,
+	SDL_SCANCODE_I = 12,
+	SDL_SCANCODE_J = 13,
+	SDL_SCANCODE_K = 14,
+	SDL_SCANCODE_L = 15,
+	SDL_SCANCODE_M = 16,
+	SDL_SCANCODE_N = 17,
+	SDL_SCANCODE_O = 18,
+	SDL_SCANCODE_P = 19,
+	SDL_SCANCODE_Q = 20,
+	SDL_SCANCODE_R = 21,
+	SDL_SCANCODE_S = 22,
+	SDL_SCANCODE_T = 23,
+	SDL_SCANCODE_U = 24,
+	SDL_SCANCODE_V = 25,
+	SDL_SCANCODE_W = 26,
+	SDL_SCANCODE_X = 27,
+	SDL_SCANCODE_Y = 28,
+	SDL_SCANCODE_Z = 29,
+	SDL_SCANCODE_1 = 30,
+	SDL_SCANCODE_2 = 31,
+	SDL_SCANCODE_3 = 32,
+	SDL_SCANCODE_4 = 33,
+	SDL_SCANCODE_5 = 34,
+	SDL_SCANCODE_6 = 35,
+	SDL_SCANCODE_7 = 36,
+	SDL_SCANCODE_8 = 37,
+	SDL_SCANCODE_9 = 38,
+	SDL_SCANCODE_0 = 39,
+	SDL_SCANCODE_RETURN = 40,
+	SDL_SCANCODE_ESCAPE = 41,
+	SDL_SCANCODE_BACKSPACE = 42,
+	SDL_SCANCODE_TAB = 43,
+	SDL_SCANCODE_SPACE = 44,
+	SDL_SCANCODE_MINUS = 45,
+	SDL_SCANCODE_EQUALS = 46,
+	SDL_SCANCODE_LEFTBRACKET = 47,
+	SDL_SCANCODE_RIGHTBRACKET = 48,
+	SDL_SCANCODE_BACKSLASH = 49,
+	SDL_SCANCODE_NONUSHASH = 50,
+	SDL_SCANCODE_SEMICOLON = 51,
+	SDL_SCANCODE_APOSTROPHE = 52,
+	SDL_SCANCODE_GRAVE = 53,
+	SDL_SCANCODE_COMMA = 54,
+	SDL_SCANCODE_PERIOD = 55,
+	SDL_SCANCODE_SLASH = 56,
+	SDL_SCANCODE_CAPSLOCK = 57,
+	SDL_SCANCODE_F1 = 58,
+	SDL_SCANCODE_F2 = 59,
+	SDL_SCANCODE_F3 = 60,
+	SDL_SCANCODE_F4 = 61,
+	SDL_SCANCODE_F5 = 62,
+	SDL_SCANCODE_F6 = 63,
+	SDL_SCANCODE_F7 = 64,
+	SDL_SCANCODE_F8 = 65,
+	SDL_SCANCODE_F9 = 66,
+	SDL_SCANCODE_F10 = 67,
+	SDL_SCANCODE_F11 = 68,
+	SDL_SCANCODE_F12 = 69,
+	SDL_SCANCODE_PRINTSCREEN = 70,
+	SDL_SCANCODE_SCROLLLOCK = 71,
+	SDL_SCANCODE_PAUSE = 72,
+	SDL_SCANCODE_INSERT = 73,
+	SDL_SCANCODE_HOME = 74,
+	SDL_SCANCODE_PAGEUP = 75,
+	SDL_SCANCODE_DELETE = 76,
+	SDL_SCANCODE_END = 77,
+	SDL_SCANCODE_PAGEDOWN = 78,
+	SDL_SCANCODE_RIGHT = 79,
+	SDL_SCANCODE_LEFT = 80,
+	SDL_SCANCODE_DOWN = 81,
+	SDL_SCANCODE_UP = 82,
+	SDL_SCANCODE_NUMLOCKCLEAR = 83,
+	SDL_SCANCODE_KP_DIVIDE = 84,
+	SDL_SCANCODE_KP_MULTIPLY = 85,
+	SDL_SCANCODE_KP_MINUS = 86,
+	SDL_SCANCODE_KP_PLUS = 87,
+	SDL_SCANCODE_KP_ENTER = 88,
+	SDL_SCANCODE_KP_1 = 89,
+	SDL_SCANCODE_KP_2 = 90,
+	SDL_SCANCODE_KP_3 = 91,
+	SDL_SCANCODE_KP_4 = 92,
+	SDL_SCANCODE_KP_5 = 93,
+	SDL_SCANCODE_KP_6 = 94,
+	SDL_SCANCODE_KP_7 = 95,
+	SDL_SCANCODE_KP_8 = 96,
+	SDL_SCANCODE_KP_9 = 97,
+	SDL_SCANCODE_KP_0 = 98,
+	SDL_SCANCODE_KP_PERIOD = 99,
+	SDL_SCANCODE_NONUSBACKSLASH = 100,
+	SDL_SCANCODE_APPLICATION = 101,
+	SDL_SCANCODE_POWER = 102,
+	SDL_SCANCODE_KP_EQUALS = 103,
+	SDL_SCANCODE_F13 = 104,
+	SDL_SCANCODE_F14 = 105,
+	SDL_SCANCODE_F15 = 106,
+	SDL_SCANCODE_F16 = 107,
+	SDL_SCANCODE_F17 = 108,
+	SDL_SCANCODE_F18 = 109,
+	SDL_SCANCODE_F19 = 110,
+	SDL_SCANCODE_F20 = 111,
+	SDL_SCANCODE_F21 = 112,
+	SDL_SCANCODE_F22 = 113,
+	SDL_SCANCODE_F23 = 114,
+	SDL_SCANCODE_F24 = 115,
+	SDL_SCANCODE_EXECUTE = 116,
+	SDL_SCANCODE_HELP = 117,
+	SDL_SCANCODE_MENU = 118,
+	SDL_SCANCODE_SELECT = 119,
+	SDL_SCANCODE_STOP = 120,
+	SDL_SCANCODE_AGAIN = 121,
+	SDL_SCANCODE_UNDO = 122,
+	SDL_SCANCODE_CUT = 123,
+	SDL_SCANCODE_COPY = 124,
+	SDL_SCANCODE_PASTE = 125,
+	SDL_SCANCODE_FIND = 126,
+	SDL_SCANCODE_MUTE = 127,
+	SDL_SCANCODE_VOLUMEUP = 128,
+	SDL_SCANCODE_VOLUMEDOWN = 129,
+	SDL_SCANCODE_KP_COMMA = 133,
+	SDL_SCANCODE_KP_EQUALSAS400 = 134,
+	SDL_SCANCODE_INTERNATIONAL1 = 135,
+	SDL_SCANCODE_INTERNATIONAL2 = 136,
+	SDL_SCANCODE_INTERNATIONAL3 = 137,
+	SDL_SCANCODE_INTERNATIONAL4 = 138,
+	SDL_SCANCODE_INTERNATIONAL5 = 139,
+	SDL_SCANCODE_INTERNATIONAL6 = 140,
+	SDL_SCANCODE_INTERNATIONAL7 = 141,
+	SDL_SCANCODE_INTERNATIONAL8 = 142,
+	SDL_SCANCODE_INTERNATIONAL9 = 143,
+	SDL_SCANCODE_LANG1 = 144,
+	SDL_SCANCODE_LANG2 = 145,
+	SDL_SCANCODE_LANG3 = 146,
+	SDL_SCANCODE_LANG4 = 147,
+	SDL_SCANCODE_LANG5 = 148,
+	SDL_SCANCODE_LANG6 = 149,
+	SDL_SCANCODE_LANG7 = 150,
+	SDL_SCANCODE_LANG8 = 151,
+	SDL_SCANCODE_LANG9 = 152,
+	SDL_SCANCODE_ALTERASE = 153,
+	SDL_SCANCODE_SYSREQ = 154,
+	SDL_SCANCODE_CANCEL = 155,
+	SDL_SCANCODE_CLEAR = 156,
+	SDL_SCANCODE_PRIOR = 157,
+	SDL_SCANCODE_RETURN2 = 158,
+	SDL_SCANCODE_SEPARATOR = 159,
+	SDL_SCANCODE_OUT = 160,
+	SDL_SCANCODE_OPER = 161,
+	SDL_SCANCODE_CLEARAGAIN = 162,
+	SDL_SCANCODE_CRSEL = 163,
+	SDL_SCANCODE_EXSEL = 164,
+	SDL_SCANCODE_KP_00 = 176,
+	SDL_SCANCODE_KP_000 = 177,
+	SDL_SCANCODE_THOUSANDSSEPARATOR = 178,
+	SDL_SCANCODE_DECIMALSEPARATOR = 179,
+	SDL_SCANCODE_CURRENCYUNIT = 180,
+	SDL_SCANCODE_CURRENCYSUBUNIT = 181,
+	SDL_SCANCODE_KP_LEFTPAREN = 182,
+	SDL_SCANCODE_KP_RIGHTPAREN = 183,
+	SDL_SCANCODE_KP_LEFTBRACE = 184,
+	SDL_SCANCODE_KP_RIGHTBRACE = 185,
+	SDL_SCANCODE_KP_TAB = 186,
+	SDL_SCANCODE_KP_BACKSPACE = 187,
+	SDL_SCANCODE_KP_A = 188,
+	SDL_SCANCODE_KP_B = 189,
+	SDL_SCANCODE_KP_C = 190,
+	SDL_SCANCODE_KP_D = 191,
+	SDL_SCANCODE_KP_E = 192,
+	SDL_SCANCODE_KP_F = 193,
+	SDL_SCANCODE_KP_XOR = 194,
+	SDL_SCANCODE_KP_POWER = 195,
+	SDL_SCANCODE_KP_PERCENT = 196,
+	SDL_SCANCODE_KP_LESS = 197,
+	SDL_SCANCODE_KP_GREATER = 198,
+	SDL_SCANCODE_KP_AMPERSAND = 199,
+	SDL_SCANCODE_KP_DBLAMPERSAND = 200,
+	SDL_SCANCODE_KP_VERTICALBAR = 201,
+	SDL_SCANCODE_KP_DBLVERTICALBAR = 202,
+	SDL_SCANCODE_KP_COLON = 203,
+	SDL_SCANCODE_KP_HASH = 204,
+	SDL_SCANCODE_KP_SPACE = 205,
+	SDL_SCANCODE_KP_AT = 206,
+	SDL_SCANCODE_KP_EXCLAM = 207,
+	SDL_SCANCODE_KP_MEMSTORE = 208,
+	SDL_SCANCODE_KP_MEMRECALL = 209,
+	SDL_SCANCODE_KP_MEMCLEAR = 210,
+	SDL_SCANCODE_KP_MEMADD = 211,
+	SDL_SCANCODE_KP_MEMSUBTRACT = 212,
+	SDL_SCANCODE_KP_MEMMULTIPLY = 213,
+	SDL_SCANCODE_KP_MEMDIVIDE = 214,
+	SDL_SCANCODE_KP_PLUSMINUS = 215,
+	SDL_SCANCODE_KP_CLEAR = 216,
+	SDL_SCANCODE_KP_CLEARENTRY = 217,
+	SDL_SCANCODE_KP_BINARY = 218,
+	SDL_SCANCODE_KP_OCTAL = 219,
+	SDL_SCANCODE_KP_DECIMAL = 220,
+	SDL_SCANCODE_KP_HEXADECIMAL = 221,
+	SDL_SCANCODE_LCTRL = 224,
+	SDL_SCANCODE_LSHIFT = 225,
+	SDL_SCANCODE_LALT = 226,
+	SDL_SCANCODE_LGUI = 227,
+	SDL_SCANCODE_RCTRL = 228,
+	SDL_SCANCODE_RSHIFT = 229,
+	SDL_SCANCODE_RALT = 230,
+	SDL_SCANCODE_RGUI = 231,
+	SDL_SCANCODE_MODE = 257,
+	SDL_SCANCODE_SLEEP = 258,
+	SDL_SCANCODE_WAKE = 259,
+	SDL_SCANCODE_CHANNEL_INCREMENT = 260,
+	SDL_SCANCODE_CHANNEL_DECREMENT = 261,
+	SDL_SCANCODE_MEDIA_PLAY = 262,
+	SDL_SCANCODE_MEDIA_PAUSE = 263,
+	SDL_SCANCODE_MEDIA_RECORD = 264,
+	SDL_SCANCODE_MEDIA_FAST_FORWARD = 265,
+	SDL_SCANCODE_MEDIA_REWIND = 266,
+	SDL_SCANCODE_MEDIA_NEXT_TRACK = 267,
+	SDL_SCANCODE_MEDIA_PREVIOUS_TRACK = 268,
+	SDL_SCANCODE_MEDIA_STOP = 269,
+	SDL_SCANCODE_MEDIA_EJECT = 270,
+	SDL_SCANCODE_MEDIA_PLAY_PAUSE = 271,
+	SDL_SCANCODE_MEDIA_SELECT = 272,
+	SDL_SCANCODE_AC_NEW = 273,
+	SDL_SCANCODE_AC_OPEN = 274,
+	SDL_SCANCODE_AC_CLOSE = 275,
+	SDL_SCANCODE_AC_EXIT = 276,
+	SDL_SCANCODE_AC_SAVE = 277,
+	SDL_SCANCODE_AC_PRINT = 278,
+	SDL_SCANCODE_AC_PROPERTIES = 279,
+	SDL_SCANCODE_AC_SEARCH = 280,
+	SDL_SCANCODE_AC_HOME = 281,
+	SDL_SCANCODE_AC_BACK = 282,
+	SDL_SCANCODE_AC_FORWARD = 283,
+	SDL_SCANCODE_AC_STOP = 284,
+	SDL_SCANCODE_AC_REFRESH = 285,
+	SDL_SCANCODE_AC_BOOKMARKS = 286,
+	SDL_SCANCODE_SOFTLEFT = 287,
+	SDL_SCANCODE_SOFTRIGHT = 288,
+	SDL_SCANCODE_CALL = 289,
+	SDL_SCANCODE_ENDCALL = 290,
+	SDL_SCANCODE_RESERVED = 400,
+	SDL_SCANCODE_COUNT = 512,
+}
+type SDL_Keycode = Uint32;
+type SDL_Keymod = Uint16;
+type SDL_KeyboardID = Uint32;
+dllimport externc func SDL_HasKeyboard() bool;
+dllimport externc func SDL_GetKeyboards(int* count) SDL_KeyboardID*;
+dllimport externc func SDL_GetKeyboardNameForID(SDL_KeyboardID instance_id) char*;
+dllimport externc func SDL_GetKeyboardFocus() SDL_Window*;
+dllimport externc func SDL_GetKeyboardState(int* numkeys) bool*;
+dllimport externc func SDL_ResetKeyboard();
+dllimport externc func SDL_GetModState() SDL_Keymod;
+dllimport externc func SDL_SetModState(SDL_Keymod modstate);
+dllimport externc func SDL_GetKeyFromScancode(SDL_Scancode scancode, SDL_Keymod modstate, bool key_event) SDL_Keycode;
+dllimport externc func SDL_GetScancodeFromKey(SDL_Keycode key, SDL_Keymod* modstate) SDL_Scancode;
+dllimport externc func SDL_SetScancodeName(SDL_Scancode scancode, char* name) bool;
+dllimport externc func SDL_GetScancodeName(SDL_Scancode scancode) char*;
+dllimport externc func SDL_GetScancodeFromName(char* name) SDL_Scancode;
+dllimport externc func SDL_GetKeyName(SDL_Keycode key) char*;
+dllimport externc func SDL_GetKeyFromName(char* name) SDL_Keycode;
+dllimport externc func SDL_StartTextInput(SDL_Window* window) bool;
+enum SDL_TextInputType {
+	SDL_TEXTINPUT_TYPE_TEXT,
+	SDL_TEXTINPUT_TYPE_TEXT_NAME,
+	SDL_TEXTINPUT_TYPE_TEXT_EMAIL,
+	SDL_TEXTINPUT_TYPE_TEXT_USERNAME,
+	SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN,
+	SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_VISIBLE,
+	SDL_TEXTINPUT_TYPE_NUMBER,
+	SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN,
+	SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE,
+}
+enum SDL_Capitalization {
+	SDL_CAPITALIZE_NONE,
+	SDL_CAPITALIZE_SENTENCES,
+	SDL_CAPITALIZE_WORDS,
+	SDL_CAPITALIZE_LETTERS,
+}
+dllimport externc func SDL_StartTextInputWithProperties(SDL_Window* window, SDL_PropertiesID props) bool;
+dllimport externc func SDL_TextInputActive(SDL_Window* window) bool;
+dllimport externc func SDL_StopTextInput(SDL_Window* window) bool;
+dllimport externc func SDL_ClearComposition(SDL_Window* window) bool;
+dllimport externc func SDL_SetTextInputArea(SDL_Window* window, SDL_Rect* rect, int cursor) bool;
+dllimport externc func SDL_GetTextInputArea(SDL_Window* window, SDL_Rect* rect, int* cursor) bool;
+dllimport externc func SDL_HasScreenKeyboardSupport() bool;
+dllimport externc func SDL_ScreenKeyboardShown(SDL_Window* window) bool;
+type SDL_MouseID = Uint32;
+struct SDL_Cursor;
+enum SDL_SystemCursor {
+	SDL_SYSTEM_CURSOR_DEFAULT,
+	SDL_SYSTEM_CURSOR_TEXT,
+	SDL_SYSTEM_CURSOR_WAIT,
+	SDL_SYSTEM_CURSOR_CROSSHAIR,
+	SDL_SYSTEM_CURSOR_PROGRESS,
+	SDL_SYSTEM_CURSOR_NWSE_RESIZE,
+	SDL_SYSTEM_CURSOR_NESW_RESIZE,
+	SDL_SYSTEM_CURSOR_EW_RESIZE,
+	SDL_SYSTEM_CURSOR_NS_RESIZE,
+	SDL_SYSTEM_CURSOR_MOVE,
+	SDL_SYSTEM_CURSOR_NOT_ALLOWED,
+	SDL_SYSTEM_CURSOR_POINTER,
+	SDL_SYSTEM_CURSOR_NW_RESIZE,
+	SDL_SYSTEM_CURSOR_N_RESIZE,
+	SDL_SYSTEM_CURSOR_NE_RESIZE,
+	SDL_SYSTEM_CURSOR_E_RESIZE,
+	SDL_SYSTEM_CURSOR_SE_RESIZE,
+	SDL_SYSTEM_CURSOR_S_RESIZE,
+	SDL_SYSTEM_CURSOR_SW_RESIZE,
+	SDL_SYSTEM_CURSOR_W_RESIZE,
+	SDL_SYSTEM_CURSOR_CONTEXT_MENU,
+	SDL_SYSTEM_CURSOR_HELP,
+	SDL_SYSTEM_CURSOR_CELL,
+	SDL_SYSTEM_CURSOR_VERTICAL_TEXT,
+	SDL_SYSTEM_CURSOR_ALIAS,
+	SDL_SYSTEM_CURSOR_COPY,
+	SDL_SYSTEM_CURSOR_NO_DROP,
+	SDL_SYSTEM_CURSOR_GRAB,
+	SDL_SYSTEM_CURSOR_GRABBING,
+	SDL_SYSTEM_CURSOR_COL_RESIZE,
+	SDL_SYSTEM_CURSOR_ROW_RESIZE,
+	SDL_SYSTEM_CURSOR_ALL_SCROLL,
+	SDL_SYSTEM_CURSOR_ZOOM_IN,
+	SDL_SYSTEM_CURSOR_ZOOM_OUT,
+	SDL_SYSTEM_CURSOR_COUNT,
+}
+enum SDL_MouseWheelDirection {
+	SDL_MOUSEWHEEL_NORMAL,
+	SDL_MOUSEWHEEL_FLIPPED,
+}
+struct SDL_CursorFrameInfo {
+	SDL_Surface* surface;
+	Uint32 duration;
+}
+type SDL_MouseButtonFlags = Uint32;
+type SDL_MouseMotionTransformCallback = func(byte* userdata, Uint64 timestamp, SDL_Window* window, SDL_MouseID mouseID, float* x, float* y);
+dllimport externc func SDL_HasMouse() bool;
+dllimport externc func SDL_GetMice(int* count) SDL_MouseID*;
+dllimport externc func SDL_GetMouseNameForID(SDL_MouseID instance_id) char*;
+dllimport externc func SDL_GetMouseFocus() SDL_Window*;
+dllimport externc func SDL_GetMouseState(float* x, float* y) SDL_MouseButtonFlags;
+dllimport externc func SDL_GetGlobalMouseState(float* x, float* y) SDL_MouseButtonFlags;
+dllimport externc func SDL_GetRelativeMouseState(float* x, float* y) SDL_MouseButtonFlags;
+dllimport externc func SDL_WarpMouseInWindow(SDL_Window* window, float x, float y);
+dllimport externc func SDL_WarpMouseGlobal(float x, float y) bool;
+dllimport externc func SDL_SetRelativeMouseTransform(SDL_MouseMotionTransformCallback callback, byte* userdata) bool;
+dllimport externc func SDL_SetWindowRelativeMouseMode(SDL_Window* window, bool enabled) bool;
+dllimport externc func SDL_GetWindowRelativeMouseMode(SDL_Window* window) bool;
+dllimport externc func SDL_CaptureMouse(bool enabled) bool;
+dllimport externc func SDL_CreateCursor(Uint8* data, Uint8* mask, int w, int h, int hot_x, int hot_y) SDL_Cursor*;
+dllimport externc func SDL_CreateColorCursor(SDL_Surface* surface, int hot_x, int hot_y) SDL_Cursor*;
+dllimport externc func SDL_CreateAnimatedCursor(SDL_CursorFrameInfo* frames, int frame_count, int hot_x, int hot_y) SDL_Cursor*;
+dllimport externc func SDL_CreateSystemCursor(SDL_SystemCursor id) SDL_Cursor*;
+dllimport externc func SDL_SetCursor(SDL_Cursor* cursor) bool;
+dllimport externc func SDL_GetCursor() SDL_Cursor*;
+dllimport externc func SDL_GetDefaultCursor() SDL_Cursor*;
+dllimport externc func SDL_DestroyCursor(SDL_Cursor* cursor);
+dllimport externc func SDL_ShowCursor() bool;
+dllimport externc func SDL_HideCursor() bool;
+dllimport externc func SDL_CursorVisible() bool;
+type SDL_TouchID = Uint64;
+type SDL_FingerID = Uint64;
+enum SDL_TouchDeviceType {
+	SDL_TOUCH_DEVICE_INVALID = -1,
+	SDL_TOUCH_DEVICE_DIRECT,
+	SDL_TOUCH_DEVICE_INDIRECT_ABSOLUTE,
+	SDL_TOUCH_DEVICE_INDIRECT_RELATIVE,
+}
+struct SDL_Finger {
+	SDL_FingerID id;
+	float x;
+	float y;
+	float pressure;
+}
+dllimport externc func SDL_GetTouchDevices(int* count) SDL_TouchID*;
+dllimport externc func SDL_GetTouchDeviceName(SDL_TouchID touchID) char*;
+dllimport externc func SDL_GetTouchDeviceType(SDL_TouchID touchID) SDL_TouchDeviceType;
+dllimport externc func SDL_GetTouchFingers(SDL_TouchID touchID, int* count) SDL_Finger**;
+type SDL_PenID = Uint32;
+type SDL_PenInputFlags = Uint32;
+enum SDL_PenAxis {
+	SDL_PEN_AXIS_PRESSURE,
+	SDL_PEN_AXIS_XTILT,
+	SDL_PEN_AXIS_YTILT,
+	SDL_PEN_AXIS_DISTANCE,
+	SDL_PEN_AXIS_ROTATION,
+	SDL_PEN_AXIS_SLIDER,
+	SDL_PEN_AXIS_TANGENTIAL_PRESSURE,
+	SDL_PEN_AXIS_COUNT,
+}
+enum SDL_PenDeviceType {
+	SDL_PEN_DEVICE_TYPE_INVALID = -1,
+	SDL_PEN_DEVICE_TYPE_UNKNOWN,
+	SDL_PEN_DEVICE_TYPE_DIRECT,
+	SDL_PEN_DEVICE_TYPE_INDIRECT,
+}
+dllimport externc func SDL_GetPenDeviceType(SDL_PenID instance_id) SDL_PenDeviceType;
+enum SDL_EventType {
+	SDL_EVENT_FIRST = 0,
+	SDL_EVENT_QUIT = 0x100,
+	SDL_EVENT_TERMINATING,
+	SDL_EVENT_LOW_MEMORY,
+	SDL_EVENT_WILL_ENTER_BACKGROUND,
+	SDL_EVENT_DID_ENTER_BACKGROUND,
+	SDL_EVENT_WILL_ENTER_FOREGROUND,
+	SDL_EVENT_DID_ENTER_FOREGROUND,
+	SDL_EVENT_LOCALE_CHANGED,
+	SDL_EVENT_SYSTEM_THEME_CHANGED,
+	SDL_EVENT_DISPLAY_ORIENTATION = 0x151,
+	SDL_EVENT_DISPLAY_ADDED,
+	SDL_EVENT_DISPLAY_REMOVED,
+	SDL_EVENT_DISPLAY_MOVED,
+	SDL_EVENT_DISPLAY_DESKTOP_MODE_CHANGED,
+	SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED,
+	SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED,
+	SDL_EVENT_DISPLAY_USABLE_BOUNDS_CHANGED,
+	SDL_EVENT_DISPLAY_FIRST,
+	SDL_EVENT_DISPLAY_LAST,
+	SDL_EVENT_WINDOW_SHOWN = 0x202,
+	SDL_EVENT_WINDOW_HIDDEN,
+	SDL_EVENT_WINDOW_EXPOSED,
+	SDL_EVENT_WINDOW_MOVED,
+	SDL_EVENT_WINDOW_RESIZED,
+	SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED,
+	SDL_EVENT_WINDOW_METAL_VIEW_RESIZED,
+	SDL_EVENT_WINDOW_MINIMIZED,
+	SDL_EVENT_WINDOW_MAXIMIZED,
+	SDL_EVENT_WINDOW_RESTORED,
+	SDL_EVENT_WINDOW_MOUSE_ENTER,
+	SDL_EVENT_WINDOW_MOUSE_LEAVE,
+	SDL_EVENT_WINDOW_FOCUS_GAINED,
+	SDL_EVENT_WINDOW_FOCUS_LOST,
+	SDL_EVENT_WINDOW_CLOSE_REQUESTED,
+	SDL_EVENT_WINDOW_HIT_TEST,
+	SDL_EVENT_WINDOW_ICCPROF_CHANGED,
+	SDL_EVENT_WINDOW_DISPLAY_CHANGED,
+	SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED,
+	SDL_EVENT_WINDOW_SAFE_AREA_CHANGED,
+	SDL_EVENT_WINDOW_OCCLUDED,
+	SDL_EVENT_WINDOW_ENTER_FULLSCREEN,
+	SDL_EVENT_WINDOW_LEAVE_FULLSCREEN,
+	SDL_EVENT_WINDOW_DESTROYED,
+	SDL_EVENT_WINDOW_HDR_STATE_CHANGED,
+	SDL_EVENT_WINDOW_SETTINGS_CHANGED,
+	SDL_EVENT_WINDOW_FIRST,
+	SDL_EVENT_WINDOW_LAST,
+	SDL_EVENT_KEY_DOWN = 0x300,
+	SDL_EVENT_KEY_UP,
+	SDL_EVENT_TEXT_EDITING,
+	SDL_EVENT_TEXT_INPUT,
+	SDL_EVENT_KEYMAP_CHANGED,
+	SDL_EVENT_KEYBOARD_ADDED,
+	SDL_EVENT_KEYBOARD_REMOVED,
+	SDL_EVENT_TEXT_EDITING_CANDIDATES,
+	SDL_EVENT_SCREEN_KEYBOARD_SHOWN,
+	SDL_EVENT_SCREEN_KEYBOARD_HIDDEN,
+	SDL_EVENT_MOUSE_MOTION = 0x400,
+	SDL_EVENT_MOUSE_BUTTON_DOWN,
+	SDL_EVENT_MOUSE_BUTTON_UP,
+	SDL_EVENT_MOUSE_WHEEL,
+	SDL_EVENT_MOUSE_ADDED,
+	SDL_EVENT_MOUSE_REMOVED,
+	SDL_EVENT_JOYSTICK_AXIS_MOTION = 0x600,
+	SDL_EVENT_JOYSTICK_BALL_MOTION,
+	SDL_EVENT_JOYSTICK_HAT_MOTION,
+	SDL_EVENT_JOYSTICK_BUTTON_DOWN,
+	SDL_EVENT_JOYSTICK_BUTTON_UP,
+	SDL_EVENT_JOYSTICK_ADDED,
+	SDL_EVENT_JOYSTICK_REMOVED,
+	SDL_EVENT_JOYSTICK_BATTERY_UPDATED,
+	SDL_EVENT_JOYSTICK_UPDATE_COMPLETE,
+	SDL_EVENT_GAMEPAD_AXIS_MOTION = 0x650,
+	SDL_EVENT_GAMEPAD_BUTTON_DOWN,
+	SDL_EVENT_GAMEPAD_BUTTON_UP,
+	SDL_EVENT_GAMEPAD_ADDED,
+	SDL_EVENT_GAMEPAD_REMOVED,
+	SDL_EVENT_GAMEPAD_REMAPPED,
+	SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN,
+	SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION,
+	SDL_EVENT_GAMEPAD_TOUCHPAD_UP,
+	SDL_EVENT_GAMEPAD_SENSOR_UPDATE,
+	SDL_EVENT_GAMEPAD_UPDATE_COMPLETE,
+	SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED,
+	SDL_EVENT_GAMEPAD_CAPSENSE_TOUCH,
+	SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE,
+	SDL_EVENT_FINGER_DOWN = 0x700,
+	SDL_EVENT_FINGER_UP,
+	SDL_EVENT_FINGER_MOTION,
+	SDL_EVENT_FINGER_CANCELED,
+	SDL_EVENT_PINCH_BEGIN = 0x710,
+	SDL_EVENT_PINCH_UPDATE,
+	SDL_EVENT_PINCH_END,
+	SDL_EVENT_CLIPBOARD_UPDATE = 0x900,
+	SDL_EVENT_DROP_FILE = 0x1000,
+	SDL_EVENT_DROP_TEXT,
+	SDL_EVENT_DROP_BEGIN,
+	SDL_EVENT_DROP_COMPLETE,
+	SDL_EVENT_DROP_POSITION,
+	SDL_EVENT_AUDIO_DEVICE_ADDED = 0x1100,
+	SDL_EVENT_AUDIO_DEVICE_REMOVED,
+	SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED,
+	SDL_EVENT_SENSOR_UPDATE = 0x1200,
+	SDL_EVENT_PEN_PROXIMITY_IN = 0x1300,
+	SDL_EVENT_PEN_PROXIMITY_OUT,
+	SDL_EVENT_PEN_DOWN,
+	SDL_EVENT_PEN_UP,
+	SDL_EVENT_PEN_BUTTON_DOWN,
+	SDL_EVENT_PEN_BUTTON_UP,
+	SDL_EVENT_PEN_MOTION,
+	SDL_EVENT_PEN_AXIS,
+	SDL_EVENT_CAMERA_DEVICE_ADDED = 0x1400,
+	SDL_EVENT_CAMERA_DEVICE_REMOVED,
+	SDL_EVENT_CAMERA_DEVICE_APPROVED,
+	SDL_EVENT_CAMERA_DEVICE_DENIED,
+	SDL_EVENT_RENDER_TARGETS_RESET = 0x2000,
+	SDL_EVENT_RENDER_DEVICE_RESET,
+	SDL_EVENT_RENDER_DEVICE_LOST,
+	SDL_EVENT_PRIVATE0 = 0x4000,
+	SDL_EVENT_PRIVATE1,
+	SDL_EVENT_PRIVATE2,
+	SDL_EVENT_PRIVATE3,
+	SDL_EVENT_POLL_SENTINEL = 0x7F00,
+	SDL_EVENT_USER = 0x8000,
+	SDL_EVENT_LAST = 0xFFFF,
+	SDL_EVENT_ENUM_PADDING = 0x7FFFFFFF,
+}
+struct SDL_CommonEvent {
+	Uint32 type;
+	Uint32 reserved;
+	Uint64 timestamp;
+}
+struct SDL_DisplayEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_DisplayID displayID;
+	Sint32 data1;
+	Sint32 data2;
+}
+struct SDL_WindowEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	Sint32 data1;
+	Sint32 data2;
+}
+struct SDL_KeyboardDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_KeyboardID which;
+}
+struct SDL_KeyboardEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_KeyboardID which;
+	SDL_Scancode scancode;
+	SDL_Keycode key;
+	SDL_Keymod mod;
+	Uint16 raw;
+	bool down;
+	bool repeat;
+}
+struct SDL_TextEditingEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	char* text;
+	Sint32 start;
+	Sint32 length;
+}
+struct SDL_TextEditingCandidatesEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	char** candidates;
+	Sint32 num_candidates;
+	Sint32 selected_candidate;
+	bool horizontal;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_TextInputEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	char* text;
+}
+struct SDL_MouseDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_MouseID which;
+}
+struct SDL_MouseMotionEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_MouseID which;
+	SDL_MouseButtonFlags state;
+	float x;
+	float y;
+	float xrel;
+	float yrel;
+}
+struct SDL_MouseButtonEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_MouseID which;
+	Uint8 button;
+	bool down;
+	Uint8 clicks;
+	Uint8 padding;
+	float x;
+	float y;
+}
+struct SDL_MouseWheelEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_MouseID which;
+	float x;
+	float y;
+	SDL_MouseWheelDirection direction;
+	float mouse_x;
+	float mouse_y;
+	Sint32 integer_x;
+	Sint32 integer_y;
+}
+struct SDL_JoyAxisEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 axis;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+	Sint16 value;
+	Uint16 padding4;
+}
+struct SDL_JoyBallEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 ball;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+	Sint16 xrel;
+	Sint16 yrel;
+}
+struct SDL_JoyHatEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 hat;
+	Uint8 value;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_JoyButtonEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 button;
+	bool down;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_JoyDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+}
+struct SDL_JoyBatteryEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	SDL_PowerState state;
+	int percent;
+}
+struct SDL_GamepadAxisEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 axis;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+	Sint16 value;
+	Uint16 padding4;
+}
+struct SDL_GamepadButtonEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 button;
+	bool down;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_GamepadDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+}
+struct SDL_GamepadTouchpadEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Sint32 touchpad;
+	Sint32 finger;
+	float x;
+	float y;
+	float pressure;
+}
+struct SDL_GamepadSensorEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Sint32 sensor;
+	float[3] data;
+	Uint64 sensor_timestamp;
+}
+struct SDL_GamepadCapSenseEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_JoystickID which;
+	Uint8 capsense;
+	bool down;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_AudioDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_AudioDeviceID which;
+	bool recording;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_CameraDeviceEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_CameraID which;
+}
+struct SDL_RenderEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+}
+struct SDL_TouchFingerEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_TouchID touchID;
+	SDL_FingerID fingerID;
+	float x;
+	float y;
+	float dx;
+	float dy;
+	float pressure;
+	SDL_WindowID windowID;
+}
+struct SDL_PinchFingerEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	float scale;
+	SDL_WindowID windowID;
+}
+struct SDL_PenProximityEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_PenID which;
+}
+struct SDL_PenMotionEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_PenID which;
+	SDL_PenInputFlags pen_state;
+	float x;
+	float y;
+}
+struct SDL_PenTouchEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_PenID which;
+	SDL_PenInputFlags pen_state;
+	float x;
+	float y;
+	bool eraser;
+	bool down;
+}
+struct SDL_PenButtonEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_PenID which;
+	SDL_PenInputFlags pen_state;
+	float x;
+	float y;
+	Uint8 button;
+	bool down;
+}
+struct SDL_PenAxisEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	SDL_PenID which;
+	SDL_PenInputFlags pen_state;
+	float x;
+	float y;
+	SDL_PenAxis axis;
+	float value;
+}
+struct SDL_DropEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	float x;
+	float y;
+	char* source;
+	char* data;
+}
+struct SDL_ClipboardEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	bool owner;
+	Sint32 num_mime_types;
+	char** mime_types;
+}
+struct SDL_SensorEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_SensorID which;
+	float[6] data;
+	Uint64 sensor_timestamp;
+}
+struct SDL_QuitEvent {
+	SDL_EventType type;
+	Uint32 reserved;
+	Uint64 timestamp;
+}
+struct SDL_UserEvent {
+	Uint32 type;
+	Uint32 reserved;
+	Uint64 timestamp;
+	SDL_WindowID windowID;
+	Sint32 code;
+	byte* data1;
+	byte* data2;
+}
+union SDL_Event {
+	Uint32 type;
+	SDL_CommonEvent common;
+	SDL_DisplayEvent display;
+	SDL_WindowEvent window;
+	SDL_KeyboardDeviceEvent kdevice;
+	SDL_KeyboardEvent key;
+	SDL_TextEditingEvent edit;
+	SDL_TextEditingCandidatesEvent edit_candidates;
+	SDL_TextInputEvent text;
+	SDL_MouseDeviceEvent mdevice;
+	SDL_MouseMotionEvent motion;
+	SDL_MouseButtonEvent button;
+	SDL_MouseWheelEvent wheel;
+	SDL_JoyDeviceEvent jdevice;
+	SDL_JoyAxisEvent jaxis;
+	SDL_JoyBallEvent jball;
+	SDL_JoyHatEvent jhat;
+	SDL_JoyButtonEvent jbutton;
+	SDL_JoyBatteryEvent jbattery;
+	SDL_GamepadDeviceEvent gdevice;
+	SDL_GamepadAxisEvent gaxis;
+	SDL_GamepadButtonEvent gbutton;
+	SDL_GamepadTouchpadEvent gtouchpad;
+	SDL_GamepadSensorEvent gsensor;
+	SDL_GamepadCapSenseEvent gcapsense;
+	SDL_AudioDeviceEvent adevice;
+	SDL_CameraDeviceEvent cdevice;
+	SDL_SensorEvent sensor;
+	SDL_QuitEvent quit;
+	SDL_UserEvent user;
+	SDL_TouchFingerEvent tfinger;
+	SDL_PinchFingerEvent pinch;
+	SDL_PenProximityEvent pproximity;
+	SDL_PenTouchEvent ptouch;
+	SDL_PenMotionEvent pmotion;
+	SDL_PenButtonEvent pbutton;
+	SDL_PenAxisEvent paxis;
+	SDL_RenderEvent render;
+	SDL_DropEvent drop;
+	SDL_ClipboardEvent clipboard;
+	Uint8[128] padding;
+}
+dllimport externc func SDL_PumpEvents();
+enum SDL_EventAction {
+	SDL_ADDEVENT,
+	SDL_PEEKEVENT,
+	SDL_GETEVENT,
+}
+dllimport externc func SDL_PeepEvents(SDL_Event* events, int numevents, SDL_EventAction action, Uint32 minType, Uint32 maxType) int;
+dllimport externc func SDL_HasEvent(Uint32 type) bool;
+dllimport externc func SDL_HasEvents(Uint32 minType, Uint32 maxType) bool;
+dllimport externc func SDL_FlushEvent(Uint32 type);
+dllimport externc func SDL_FlushEvents(Uint32 minType, Uint32 maxType);
+dllimport externc func SDL_PollEvent(SDL_Event* event) bool;
+dllimport externc func SDL_WaitEvent(SDL_Event* event) bool;
+dllimport externc func SDL_WaitEventTimeout(SDL_Event* event, Sint32 timeoutMS) bool;
+dllimport externc func SDL_PushEvent(SDL_Event* event) bool;
+type SDL_EventFilter = func(byte* userdata, SDL_Event* event) -> bool;
+dllimport externc func SDL_SetEventFilter(SDL_EventFilter filter, byte* userdata);
+dllimport externc func SDL_GetEventFilter(SDL_EventFilter* filter, byte** userdata) bool;
+dllimport externc func SDL_AddEventWatch(SDL_EventFilter filter, byte* userdata) bool;
+dllimport externc func SDL_RemoveEventWatch(SDL_EventFilter filter, byte* userdata);
+dllimport externc func SDL_FilterEvents(SDL_EventFilter filter, byte* userdata);
+dllimport externc func SDL_SetEventEnabled(Uint32 type, bool enabled);
+dllimport externc func SDL_EventEnabled(Uint32 type) bool;
+dllimport externc func SDL_RegisterEvents(int numevents) Uint32;
+dllimport externc func SDL_GetWindowFromEvent(SDL_Event* event) SDL_Window*;
+dllimport externc func SDL_GetEventDescription(SDL_Event* event, char* buf, int buflen) int;
+dllimport externc func SDL_GetBasePath() char*;
+dllimport externc func SDL_GetPrefPath(char* org, char* app) char*;
+enum SDL_Folder {
+	SDL_FOLDER_HOME,
+	SDL_FOLDER_DESKTOP,
+	SDL_FOLDER_DOCUMENTS,
+	SDL_FOLDER_DOWNLOADS,
+	SDL_FOLDER_MUSIC,
+	SDL_FOLDER_PICTURES,
+	SDL_FOLDER_PUBLICSHARE,
+	SDL_FOLDER_SAVEDGAMES,
+	SDL_FOLDER_SCREENSHOTS,
+	SDL_FOLDER_TEMPLATES,
+	SDL_FOLDER_VIDEOS,
+	SDL_FOLDER_COUNT,
+}
+dllimport externc func SDL_GetUserFolder(SDL_Folder folder) char*;
+enum SDL_PathType {
+	SDL_PATHTYPE_NONE,
+	SDL_PATHTYPE_FILE,
+	SDL_PATHTYPE_DIRECTORY,
+	SDL_PATHTYPE_OTHER,
+}
+struct SDL_PathInfo {
+	SDL_PathType type;
+	Uint64 size;
+	SDL_Time create_time;
+	SDL_Time modify_time;
+	SDL_Time access_time;
+}
+type SDL_GlobFlags = Uint32;
+dllimport externc func SDL_CreateDirectory(char* path) bool;
+enum SDL_EnumerationResult {
+	SDL_ENUM_CONTINUE,
+	SDL_ENUM_SUCCESS,
+	SDL_ENUM_FAILURE,
+}
+type SDL_EnumerateDirectoryCallback = func(byte* userdata, char* dirname, char* fname) -> SDL_EnumerationResult;
+dllimport externc func SDL_EnumerateDirectory(char* path, SDL_EnumerateDirectoryCallback callback, byte* userdata) bool;
+dllimport externc func SDL_RemovePath(char* path) bool;
+dllimport externc func SDL_RenamePath(char* oldpath, char* newpath) bool;
+dllimport externc func SDL_CopyFile(char* oldpath, char* newpath) bool;
+dllimport externc func SDL_GetPathInfo(char* path, SDL_PathInfo* info) bool;
+dllimport externc func SDL_GlobDirectory(char* path, char* pattern, SDL_GlobFlags flags, int* count) char**;
+dllimport externc func SDL_GetCurrentDirectory() char*;
+struct SDL_GPUDevice;
+struct SDL_GPUBuffer;
+struct SDL_GPUTransferBuffer;
+struct SDL_GPUTexture;
+struct SDL_GPUSampler;
+struct SDL_GPUShader;
+struct SDL_GPUComputePipeline;
+struct SDL_GPUGraphicsPipeline;
+struct SDL_GPUCommandBuffer;
+struct SDL_GPURenderPass;
+struct SDL_GPUComputePass;
+struct SDL_GPUCopyPass;
+struct SDL_GPUFence;
+enum SDL_GPUPrimitiveType {
+	SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+	SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+	SDL_GPU_PRIMITIVETYPE_LINELIST,
+	SDL_GPU_PRIMITIVETYPE_LINESTRIP,
+	SDL_GPU_PRIMITIVETYPE_POINTLIST,
+}
+enum SDL_GPULoadOp {
+	SDL_GPU_LOADOP_LOAD,
+	SDL_GPU_LOADOP_CLEAR,
+	SDL_GPU_LOADOP_DONT_CARE,
+}
+enum SDL_GPUStoreOp {
+	SDL_GPU_STOREOP_STORE,
+	SDL_GPU_STOREOP_DONT_CARE,
+	SDL_GPU_STOREOP_RESOLVE,
+	SDL_GPU_STOREOP_RESOLVE_AND_STORE,
+}
+enum SDL_GPUIndexElementSize {
+	SDL_GPU_INDEXELEMENTSIZE_16BIT,
+	SDL_GPU_INDEXELEMENTSIZE_32BIT,
+}
+enum SDL_GPUTextureFormat {
+	SDL_GPU_TEXTUREFORMAT_INVALID,
+	SDL_GPU_TEXTUREFORMAT_A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R10G10B10A2_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B5G6R5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B5G5R5A1_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B4G4R4A4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_BC6H_RGB_UFLOAT,
+	SDL_GPU_TEXTUREFORMAT_R8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R11G11B10_UFLOAT,
+	SDL_GPU_TEXTUREFORMAT_R8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8G8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_INT,
+	SDL_GPU_TEXTUREFORMAT_R16_INT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_INT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_INT,
+	SDL_GPU_TEXTUREFORMAT_R32_INT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_INT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+	SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+	SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT,
+}
+type SDL_GPUTextureUsageFlags = Uint32;
+enum SDL_GPUTextureType {
+	SDL_GPU_TEXTURETYPE_2D,
+	SDL_GPU_TEXTURETYPE_2D_ARRAY,
+	SDL_GPU_TEXTURETYPE_3D,
+	SDL_GPU_TEXTURETYPE_CUBE,
+	SDL_GPU_TEXTURETYPE_CUBE_ARRAY,
+}
+enum SDL_GPUSampleCount {
+	SDL_GPU_SAMPLECOUNT_1,
+	SDL_GPU_SAMPLECOUNT_2,
+	SDL_GPU_SAMPLECOUNT_4,
+	SDL_GPU_SAMPLECOUNT_8,
+}
+enum SDL_GPUCubeMapFace {
+	SDL_GPU_CUBEMAPFACE_POSITIVEX,
+	SDL_GPU_CUBEMAPFACE_NEGATIVEX,
+	SDL_GPU_CUBEMAPFACE_POSITIVEY,
+	SDL_GPU_CUBEMAPFACE_NEGATIVEY,
+	SDL_GPU_CUBEMAPFACE_POSITIVEZ,
+	SDL_GPU_CUBEMAPFACE_NEGATIVEZ,
+}
+type SDL_GPUBufferUsageFlags = Uint32;
+enum SDL_GPUTransferBufferUsage {
+	SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+	SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
+}
+enum SDL_GPUShaderStage {
+	SDL_GPU_SHADERSTAGE_VERTEX,
+	SDL_GPU_SHADERSTAGE_FRAGMENT,
+}
+type SDL_GPUShaderFormat = Uint32;
+enum SDL_GPUVertexElementFormat {
+	SDL_GPU_VERTEXELEMENTFORMAT_INVALID,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE2,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE4,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_HALF2,
+	SDL_GPU_VERTEXELEMENTFORMAT_HALF4,
+}
+enum SDL_GPUVertexInputRate {
+	SDL_GPU_VERTEXINPUTRATE_VERTEX,
+	SDL_GPU_VERTEXINPUTRATE_INSTANCE,
+}
+enum SDL_GPUFillMode {
+	SDL_GPU_FILLMODE_FILL,
+	SDL_GPU_FILLMODE_LINE,
+}
+enum SDL_GPUCullMode {
+	SDL_GPU_CULLMODE_NONE,
+	SDL_GPU_CULLMODE_FRONT,
+	SDL_GPU_CULLMODE_BACK,
+}
+enum SDL_GPUFrontFace {
+	SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+	SDL_GPU_FRONTFACE_CLOCKWISE,
+}
+enum SDL_GPUCompareOp {
+	SDL_GPU_COMPAREOP_INVALID,
+	SDL_GPU_COMPAREOP_NEVER,
+	SDL_GPU_COMPAREOP_LESS,
+	SDL_GPU_COMPAREOP_EQUAL,
+	SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+	SDL_GPU_COMPAREOP_GREATER,
+	SDL_GPU_COMPAREOP_NOT_EQUAL,
+	SDL_GPU_COMPAREOP_GREATER_OR_EQUAL,
+	SDL_GPU_COMPAREOP_ALWAYS,
+}
+enum SDL_GPUStencilOp {
+	SDL_GPU_STENCILOP_INVALID,
+	SDL_GPU_STENCILOP_KEEP,
+	SDL_GPU_STENCILOP_ZERO,
+	SDL_GPU_STENCILOP_REPLACE,
+	SDL_GPU_STENCILOP_INCREMENT_AND_CLAMP,
+	SDL_GPU_STENCILOP_DECREMENT_AND_CLAMP,
+	SDL_GPU_STENCILOP_INVERT,
+	SDL_GPU_STENCILOP_INCREMENT_AND_WRAP,
+	SDL_GPU_STENCILOP_DECREMENT_AND_WRAP,
+}
+enum SDL_GPUBlendOp {
+	SDL_GPU_BLENDOP_INVALID,
+	SDL_GPU_BLENDOP_ADD,
+	SDL_GPU_BLENDOP_SUBTRACT,
+	SDL_GPU_BLENDOP_REVERSE_SUBTRACT,
+	SDL_GPU_BLENDOP_MIN,
+	SDL_GPU_BLENDOP_MAX,
+}
+enum SDL_GPUBlendFactor {
+	SDL_GPU_BLENDFACTOR_INVALID,
+	SDL_GPU_BLENDFACTOR_ZERO,
+	SDL_GPU_BLENDFACTOR_ONE,
+	SDL_GPU_BLENDFACTOR_SRC_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_COLOR,
+	SDL_GPU_BLENDFACTOR_DST_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_COLOR,
+	SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+	SDL_GPU_BLENDFACTOR_DST_ALPHA,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_ALPHA,
+	SDL_GPU_BLENDFACTOR_CONSTANT_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR,
+	SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE,
+}
+type SDL_GPUColorComponentFlags = Uint8;
+enum SDL_GPUFilter {
+	SDL_GPU_FILTER_NEAREST,
+	SDL_GPU_FILTER_LINEAR,
+}
+enum SDL_GPUSamplerMipmapMode {
+	SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+	SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+}
+enum SDL_GPUSamplerAddressMode {
+	SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+	SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT,
+	SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+}
+enum SDL_GPUPresentMode {
+	SDL_GPU_PRESENTMODE_VSYNC,
+	SDL_GPU_PRESENTMODE_IMMEDIATE,
+	SDL_GPU_PRESENTMODE_MAILBOX,
+}
+enum SDL_GPUSwapchainComposition {
+	SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+	SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR,
+	SDL_GPU_SWAPCHAINCOMPOSITION_HDR_EXTENDED_LINEAR,
+	SDL_GPU_SWAPCHAINCOMPOSITION_HDR10_ST2084,
+}
+struct SDL_GPUViewport {
+	float x;
+	float y;
+	float w;
+	float h;
+	float min_depth;
+	float max_depth;
+}
+struct SDL_GPUTextureTransferInfo {
+	SDL_GPUTransferBuffer* transfer_buffer;
+	Uint32 offset;
+	Uint32 pixels_per_row;
+	Uint32 rows_per_layer;
+}
+struct SDL_GPUTransferBufferLocation {
+	SDL_GPUTransferBuffer* transfer_buffer;
+	Uint32 offset;
+}
+struct SDL_GPUTextureLocation {
+	SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer;
+	Uint32 x;
+	Uint32 y;
+	Uint32 z;
+}
+struct SDL_GPUTextureRegion {
+	SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer;
+	Uint32 x;
+	Uint32 y;
+	Uint32 z;
+	Uint32 w;
+	Uint32 h;
+	Uint32 d;
+}
+struct SDL_GPUBlitRegion {
+	SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer_or_depth_plane;
+	Uint32 x;
+	Uint32 y;
+	Uint32 w;
+	Uint32 h;
+}
+struct SDL_GPUBufferLocation {
+	SDL_GPUBuffer* buffer;
+	Uint32 offset;
+}
+struct SDL_GPUBufferRegion {
+	SDL_GPUBuffer* buffer;
+	Uint32 offset;
+	Uint32 size;
+}
+struct SDL_GPUIndirectDrawCommand {
+	Uint32 num_vertices;
+	Uint32 num_instances;
+	Uint32 first_vertex;
+	Uint32 first_instance;
+}
+struct SDL_GPUIndexedIndirectDrawCommand {
+	Uint32 num_indices;
+	Uint32 num_instances;
+	Uint32 first_index;
+	Sint32 vertex_offset;
+	Uint32 first_instance;
+}
+struct SDL_GPUIndirectDispatchCommand {
+	Uint32 groupcount_x;
+	Uint32 groupcount_y;
+	Uint32 groupcount_z;
+}
+struct SDL_GPUSamplerCreateInfo {
+	SDL_GPUFilter min_filter;
+	SDL_GPUFilter mag_filter;
+	SDL_GPUSamplerMipmapMode mipmap_mode;
+	SDL_GPUSamplerAddressMode address_mode_u;
+	SDL_GPUSamplerAddressMode address_mode_v;
+	SDL_GPUSamplerAddressMode address_mode_w;
+	float mip_lod_bias;
+	float max_anisotropy;
+	SDL_GPUCompareOp compare_op;
+	float min_lod;
+	float max_lod;
+	bool enable_anisotropy;
+	bool enable_compare;
+	Uint8 padding1;
+	Uint8 padding2;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUVertexBufferDescription {
+	Uint32 slot;
+	Uint32 pitch;
+	SDL_GPUVertexInputRate input_rate;
+	Uint32 instance_step_rate;
+}
+struct SDL_GPUVertexAttribute {
+	Uint32 location;
+	Uint32 buffer_slot;
+	SDL_GPUVertexElementFormat format;
+	Uint32 offset;
+}
+struct SDL_GPUVertexInputState {
+	SDL_GPUVertexBufferDescription* vertex_buffer_descriptions;
+	Uint32 num_vertex_buffers;
+	SDL_GPUVertexAttribute* vertex_attributes;
+	Uint32 num_vertex_attributes;
+}
+struct SDL_GPUStencilOpState {
+	SDL_GPUStencilOp fail_op;
+	SDL_GPUStencilOp pass_op;
+	SDL_GPUStencilOp depth_fail_op;
+	SDL_GPUCompareOp compare_op;
+}
+struct SDL_GPUColorTargetBlendState {
+	SDL_GPUBlendFactor src_color_blendfactor;
+	SDL_GPUBlendFactor dst_color_blendfactor;
+	SDL_GPUBlendOp color_blend_op;
+	SDL_GPUBlendFactor src_alpha_blendfactor;
+	SDL_GPUBlendFactor dst_alpha_blendfactor;
+	SDL_GPUBlendOp alpha_blend_op;
+	SDL_GPUColorComponentFlags color_write_mask;
+	bool enable_blend;
+	bool enable_color_write_mask;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_GPUShaderCreateInfo {
+	uint64 code_size;
+	Uint8* code;
+	char* entrypoint;
+	SDL_GPUShaderFormat format;
+	SDL_GPUShaderStage stage;
+	Uint32 num_samplers;
+	Uint32 num_storage_textures;
+	Uint32 num_storage_buffers;
+	Uint32 num_uniform_buffers;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUTextureCreateInfo {
+	SDL_GPUTextureType type;
+	SDL_GPUTextureFormat format;
+	SDL_GPUTextureUsageFlags usage;
+	Uint32 width;
+	Uint32 height;
+	Uint32 layer_count_or_depth;
+	Uint32 num_levels;
+	SDL_GPUSampleCount sample_count;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUBufferCreateInfo {
+	SDL_GPUBufferUsageFlags usage;
+	Uint32 size;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUTransferBufferCreateInfo {
+	SDL_GPUTransferBufferUsage usage;
+	Uint32 size;
+	SDL_PropertiesID props;
+}
+struct SDL_GPURasterizerState {
+	SDL_GPUFillMode fill_mode;
+	SDL_GPUCullMode cull_mode;
+	SDL_GPUFrontFace front_face;
+	float depth_bias_constant_factor;
+	float depth_bias_clamp;
+	float depth_bias_slope_factor;
+	bool enable_depth_bias;
+	bool enable_depth_clip;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_GPUMultisampleState {
+	SDL_GPUSampleCount sample_count;
+	Uint32 sample_mask;
+	bool enable_mask;
+	bool enable_alpha_to_coverage;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_GPUDepthStencilState {
+	SDL_GPUCompareOp compare_op;
+	SDL_GPUStencilOpState back_stencil_state;
+	SDL_GPUStencilOpState front_stencil_state;
+	Uint8 compare_mask;
+	Uint8 write_mask;
+	bool enable_depth_test;
+	bool enable_depth_write;
+	bool enable_stencil_test;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_GPUColorTargetDescription {
+	SDL_GPUTextureFormat format;
+	SDL_GPUColorTargetBlendState blend_state;
+}
+struct SDL_GPUGraphicsPipelineTargetInfo {
+	SDL_GPUColorTargetDescription* color_target_descriptions;
+	Uint32 num_color_targets;
+	SDL_GPUTextureFormat depth_stencil_format;
+	bool has_depth_stencil_target;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_GPUGraphicsPipelineCreateInfo {
+	SDL_GPUShader* vertex_shader;
+	SDL_GPUShader* fragment_shader;
+	SDL_GPUVertexInputState vertex_input_state;
+	SDL_GPUPrimitiveType primitive_type;
+	SDL_GPURasterizerState rasterizer_state;
+	SDL_GPUMultisampleState multisample_state;
+	SDL_GPUDepthStencilState depth_stencil_state;
+	SDL_GPUGraphicsPipelineTargetInfo target_info;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUComputePipelineCreateInfo {
+	uint64 code_size;
+	Uint8* code;
+	char* entrypoint;
+	SDL_GPUShaderFormat format;
+	Uint32 num_samplers;
+	Uint32 num_readonly_storage_textures;
+	Uint32 num_readonly_storage_buffers;
+	Uint32 num_readwrite_storage_textures;
+	Uint32 num_readwrite_storage_buffers;
+	Uint32 num_uniform_buffers;
+	Uint32 threadcount_x;
+	Uint32 threadcount_y;
+	Uint32 threadcount_z;
+	SDL_PropertiesID props;
+}
+struct SDL_GPUColorTargetInfo {
+	SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer_or_depth_plane;
+	SDL_FColor clear_color;
+	SDL_GPULoadOp load_op;
+	SDL_GPUStoreOp store_op;
+	SDL_GPUTexture* resolve_texture;
+	Uint32 resolve_mip_level;
+	Uint32 resolve_layer;
+	bool cycle;
+	bool cycle_resolve_texture;
+	Uint8 padding1;
+	Uint8 padding2;
+}
+struct SDL_GPUDepthStencilTargetInfo {
+	SDL_GPUTexture* texture;
+	float clear_depth;
+	SDL_GPULoadOp load_op;
+	SDL_GPUStoreOp store_op;
+	SDL_GPULoadOp stencil_load_op;
+	SDL_GPUStoreOp stencil_store_op;
+	bool cycle;
+	Uint8 clear_stencil;
+	Uint8 mip_level;
+	Uint8 layer;
+}
+struct SDL_GPUBlitInfo {
+	SDL_GPUBlitRegion source;
+	SDL_GPUBlitRegion destination;
+	SDL_GPULoadOp load_op;
+	SDL_FColor clear_color;
+	SDL_FlipMode flip_mode;
+	SDL_GPUFilter filter;
+	bool cycle;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_GPUBufferBinding {
+	SDL_GPUBuffer* buffer;
+	Uint32 offset;
+}
+struct SDL_GPUTextureSamplerBinding {
+	SDL_GPUTexture* texture;
+	SDL_GPUSampler* sampler;
+}
+struct SDL_GPUStorageBufferReadWriteBinding {
+	SDL_GPUBuffer* buffer;
+	bool cycle;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+struct SDL_GPUStorageTextureReadWriteBinding {
+	SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer;
+	bool cycle;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+}
+dllimport externc func SDL_GPUSupportsShaderFormats(SDL_GPUShaderFormat format_flags, char* name) bool;
+dllimport externc func SDL_GPUSupportsProperties(SDL_PropertiesID props) bool;
+dllimport externc func SDL_CreateGPUDevice(SDL_GPUShaderFormat format_flags, bool debug_mode, char* name) SDL_GPUDevice*;
+dllimport externc func SDL_CreateGPUDeviceWithProperties(SDL_PropertiesID props) SDL_GPUDevice*;
+struct SDL_GPUVulkanOptions {
+	Uint32 vulkan_api_version;
+	byte* feature_list;
+	byte* vulkan_10_physical_device_features;
+	Uint32 device_extension_count;
+	char** device_extension_names;
+	Uint32 instance_extension_count;
+	char** instance_extension_names;
+}
+dllimport externc func SDL_DestroyGPUDevice(SDL_GPUDevice* device);
+dllimport externc func SDL_GetNumGPUDrivers() int;
+dllimport externc func SDL_GetGPUDriver(int index) char*;
+dllimport externc func SDL_GetGPUDeviceDriver(SDL_GPUDevice* device) char*;
+dllimport externc func SDL_GetGPUShaderFormats(SDL_GPUDevice* device) SDL_GPUShaderFormat;
+dllimport externc func SDL_GetGPUDeviceProperties(SDL_GPUDevice* device) SDL_PropertiesID;
+dllimport externc func SDL_CreateGPUComputePipeline(SDL_GPUDevice* device, SDL_GPUComputePipelineCreateInfo* createinfo) SDL_GPUComputePipeline*;
+dllimport externc func SDL_CreateGPUGraphicsPipeline(SDL_GPUDevice* device, SDL_GPUGraphicsPipelineCreateInfo* createinfo) SDL_GPUGraphicsPipeline*;
+dllimport externc func SDL_CreateGPUSampler(SDL_GPUDevice* device, SDL_GPUSamplerCreateInfo* createinfo) SDL_GPUSampler*;
+dllimport externc func SDL_CreateGPUShader(SDL_GPUDevice* device, SDL_GPUShaderCreateInfo* createinfo) SDL_GPUShader*;
+dllimport externc func SDL_CreateGPUTexture(SDL_GPUDevice* device, SDL_GPUTextureCreateInfo* createinfo) SDL_GPUTexture*;
+dllimport externc func SDL_CreateGPUBuffer(SDL_GPUDevice* device, SDL_GPUBufferCreateInfo* createinfo) SDL_GPUBuffer*;
+dllimport externc func SDL_CreateGPUTransferBuffer(SDL_GPUDevice* device, SDL_GPUTransferBufferCreateInfo* createinfo) SDL_GPUTransferBuffer*;
+dllimport externc func SDL_SetGPUBufferName(SDL_GPUDevice* device, SDL_GPUBuffer* buffer, char* text);
+dllimport externc func SDL_SetGPUTextureName(SDL_GPUDevice* device, SDL_GPUTexture* texture, char* text);
+dllimport externc func SDL_InsertGPUDebugLabel(SDL_GPUCommandBuffer* command_buffer, char* text);
+dllimport externc func SDL_PushGPUDebugGroup(SDL_GPUCommandBuffer* command_buffer, char* name);
+dllimport externc func SDL_PopGPUDebugGroup(SDL_GPUCommandBuffer* command_buffer);
+dllimport externc func SDL_ReleaseGPUTexture(SDL_GPUDevice* device, SDL_GPUTexture* texture);
+dllimport externc func SDL_ReleaseGPUSampler(SDL_GPUDevice* device, SDL_GPUSampler* sampler);
+dllimport externc func SDL_ReleaseGPUBuffer(SDL_GPUDevice* device, SDL_GPUBuffer* buffer);
+dllimport externc func SDL_ReleaseGPUTransferBuffer(SDL_GPUDevice* device, SDL_GPUTransferBuffer* transfer_buffer);
+dllimport externc func SDL_ReleaseGPUComputePipeline(SDL_GPUDevice* device, SDL_GPUComputePipeline* compute_pipeline);
+dllimport externc func SDL_ReleaseGPUShader(SDL_GPUDevice* device, SDL_GPUShader* shader);
+dllimport externc func SDL_ReleaseGPUGraphicsPipeline(SDL_GPUDevice* device, SDL_GPUGraphicsPipeline* graphics_pipeline);
+dllimport externc func SDL_AcquireGPUCommandBuffer(SDL_GPUDevice* device) SDL_GPUCommandBuffer*;
+dllimport externc func SDL_PushGPUVertexUniformData(SDL_GPUCommandBuffer* command_buffer, Uint32 slot_index, byte* data, Uint32 length);
+dllimport externc func SDL_PushGPUFragmentUniformData(SDL_GPUCommandBuffer* command_buffer, Uint32 slot_index, byte* data, Uint32 length);
+dllimport externc func SDL_PushGPUComputeUniformData(SDL_GPUCommandBuffer* command_buffer, Uint32 slot_index, byte* data, Uint32 length);
+dllimport externc func SDL_BeginGPURenderPass(SDL_GPUCommandBuffer* command_buffer, SDL_GPUColorTargetInfo* color_target_infos, Uint32 num_color_targets, SDL_GPUDepthStencilTargetInfo* depth_stencil_target_info) SDL_GPURenderPass*;
+dllimport externc func SDL_BindGPUGraphicsPipeline(SDL_GPURenderPass* render_pass, SDL_GPUGraphicsPipeline* graphics_pipeline);
+dllimport externc func SDL_SetGPUViewport(SDL_GPURenderPass* render_pass, SDL_GPUViewport* viewport);
+dllimport externc func SDL_SetGPUScissor(SDL_GPURenderPass* render_pass, SDL_Rect* scissor);
+dllimport externc func SDL_SetGPUBlendConstants(SDL_GPURenderPass* render_pass, SDL_FColor blend_constants);
+dllimport externc func SDL_SetGPUStencilReference(SDL_GPURenderPass* render_pass, Uint8 reference);
+dllimport externc func SDL_BindGPUVertexBuffers(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUBufferBinding* bindings, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUIndexBuffer(SDL_GPURenderPass* render_pass, SDL_GPUBufferBinding* binding, SDL_GPUIndexElementSize index_element_size);
+dllimport externc func SDL_BindGPUVertexSamplers(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUTextureSamplerBinding* texture_sampler_bindings, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUVertexStorageTextures(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUTexture** storage_textures, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUVertexStorageBuffers(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUBuffer** storage_buffers, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUFragmentSamplers(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUTextureSamplerBinding* texture_sampler_bindings, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUFragmentStorageTextures(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUTexture** storage_textures, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUFragmentStorageBuffers(SDL_GPURenderPass* render_pass, Uint32 first_slot, SDL_GPUBuffer** storage_buffers, Uint32 num_bindings);
+dllimport externc func SDL_DrawGPUIndexedPrimitives(SDL_GPURenderPass* render_pass, Uint32 num_indices, Uint32 num_instances, Uint32 first_index, Sint32 vertex_offset, Uint32 first_instance);
+dllimport externc func SDL_DrawGPUPrimitives(SDL_GPURenderPass* render_pass, Uint32 num_vertices, Uint32 num_instances, Uint32 first_vertex, Uint32 first_instance);
+dllimport externc func SDL_DrawGPUPrimitivesIndirect(SDL_GPURenderPass* render_pass, SDL_GPUBuffer* buffer, Uint32 offset, Uint32 draw_count);
+dllimport externc func SDL_DrawGPUIndexedPrimitivesIndirect(SDL_GPURenderPass* render_pass, SDL_GPUBuffer* buffer, Uint32 offset, Uint32 draw_count);
+dllimport externc func SDL_EndGPURenderPass(SDL_GPURenderPass* render_pass);
+dllimport externc func SDL_BeginGPUComputePass(SDL_GPUCommandBuffer* command_buffer, SDL_GPUStorageTextureReadWriteBinding* storage_texture_bindings, Uint32 num_storage_texture_bindings, SDL_GPUStorageBufferReadWriteBinding* storage_buffer_bindings, Uint32 num_storage_buffer_bindings) SDL_GPUComputePass*;
+dllimport externc func SDL_BindGPUComputePipeline(SDL_GPUComputePass* compute_pass, SDL_GPUComputePipeline* compute_pipeline);
+dllimport externc func SDL_BindGPUComputeSamplers(SDL_GPUComputePass* compute_pass, Uint32 first_slot, SDL_GPUTextureSamplerBinding* texture_sampler_bindings, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUComputeStorageTextures(SDL_GPUComputePass* compute_pass, Uint32 first_slot, SDL_GPUTexture** storage_textures, Uint32 num_bindings);
+dllimport externc func SDL_BindGPUComputeStorageBuffers(SDL_GPUComputePass* compute_pass, Uint32 first_slot, SDL_GPUBuffer** storage_buffers, Uint32 num_bindings);
+dllimport externc func SDL_DispatchGPUCompute(SDL_GPUComputePass* compute_pass, Uint32 groupcount_x, Uint32 groupcount_y, Uint32 groupcount_z);
+dllimport externc func SDL_DispatchGPUComputeIndirect(SDL_GPUComputePass* compute_pass, SDL_GPUBuffer* buffer, Uint32 offset);
+dllimport externc func SDL_EndGPUComputePass(SDL_GPUComputePass* compute_pass);
+dllimport externc func SDL_MapGPUTransferBuffer(SDL_GPUDevice* device, SDL_GPUTransferBuffer* transfer_buffer, bool cycle) void*;
+dllimport externc func SDL_UnmapGPUTransferBuffer(SDL_GPUDevice* device, SDL_GPUTransferBuffer* transfer_buffer);
+dllimport externc func SDL_BeginGPUCopyPass(SDL_GPUCommandBuffer* command_buffer) SDL_GPUCopyPass*;
+dllimport externc func SDL_UploadToGPUTexture(SDL_GPUCopyPass* copy_pass, SDL_GPUTextureTransferInfo* source, SDL_GPUTextureRegion* destination, bool cycle);
+dllimport externc func SDL_UploadToGPUBuffer(SDL_GPUCopyPass* copy_pass, SDL_GPUTransferBufferLocation* source, SDL_GPUBufferRegion* destination, bool cycle);
+dllimport externc func SDL_CopyGPUTextureToTexture(SDL_GPUCopyPass* copy_pass, SDL_GPUTextureLocation* source, SDL_GPUTextureLocation* destination, Uint32 w, Uint32 h, Uint32 d, bool cycle);
+dllimport externc func SDL_CopyGPUBufferToBuffer(SDL_GPUCopyPass* copy_pass, SDL_GPUBufferLocation* source, SDL_GPUBufferLocation* destination, Uint32 size, bool cycle);
+dllimport externc func SDL_DownloadFromGPUTexture(SDL_GPUCopyPass* copy_pass, SDL_GPUTextureRegion* source, SDL_GPUTextureTransferInfo* destination);
+dllimport externc func SDL_DownloadFromGPUBuffer(SDL_GPUCopyPass* copy_pass, SDL_GPUBufferRegion* source, SDL_GPUTransferBufferLocation* destination);
+dllimport externc func SDL_EndGPUCopyPass(SDL_GPUCopyPass* copy_pass);
+dllimport externc func SDL_GenerateMipmapsForGPUTexture(SDL_GPUCommandBuffer* command_buffer, SDL_GPUTexture* texture);
+dllimport externc func SDL_BlitGPUTexture(SDL_GPUCommandBuffer* command_buffer, SDL_GPUBlitInfo* info);
+dllimport externc func SDL_WindowSupportsGPUSwapchainComposition(SDL_GPUDevice* device, SDL_Window* window, SDL_GPUSwapchainComposition swapchain_composition) bool;
+dllimport externc func SDL_WindowSupportsGPUPresentMode(SDL_GPUDevice* device, SDL_Window* window, SDL_GPUPresentMode present_mode) bool;
+dllimport externc func SDL_ClaimWindowForGPUDevice(SDL_GPUDevice* device, SDL_Window* window) bool;
+dllimport externc func SDL_ReleaseWindowFromGPUDevice(SDL_GPUDevice* device, SDL_Window* window);
+dllimport externc func SDL_SetGPUSwapchainParameters(SDL_GPUDevice* device, SDL_Window* window, SDL_GPUSwapchainComposition swapchain_composition, SDL_GPUPresentMode present_mode) bool;
+dllimport externc func SDL_SetGPUAllowedFramesInFlight(SDL_GPUDevice* device, Uint32 allowed_frames_in_flight) bool;
+dllimport externc func SDL_GetGPUSwapchainTextureFormat(SDL_GPUDevice* device, SDL_Window* window) SDL_GPUTextureFormat;
+dllimport externc func SDL_AcquireGPUSwapchainTexture(SDL_GPUCommandBuffer* command_buffer, SDL_Window* window, SDL_GPUTexture** swapchain_texture, Uint32* swapchain_texture_width, Uint32* swapchain_texture_height) bool;
+dllimport externc func SDL_WaitForGPUSwapchain(SDL_GPUDevice* device, SDL_Window* window) bool;
+dllimport externc func SDL_WaitAndAcquireGPUSwapchainTexture(SDL_GPUCommandBuffer* command_buffer, SDL_Window* window, SDL_GPUTexture** swapchain_texture, Uint32* swapchain_texture_width, Uint32* swapchain_texture_height) bool;
+dllimport externc func SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer* command_buffer) bool;
+dllimport externc func SDL_SubmitGPUCommandBufferAndAcquireFence(SDL_GPUCommandBuffer* command_buffer) SDL_GPUFence*;
+dllimport externc func SDL_CancelGPUCommandBuffer(SDL_GPUCommandBuffer* command_buffer) bool;
+dllimport externc func SDL_WaitForGPUIdle(SDL_GPUDevice* device) bool;
+dllimport externc func SDL_WaitForGPUFences(SDL_GPUDevice* device, bool wait_all, SDL_GPUFence** fences, Uint32 num_fences) bool;
+dllimport externc func SDL_QueryGPUFence(SDL_GPUDevice* device, SDL_GPUFence* fence) bool;
+dllimport externc func SDL_ReleaseGPUFence(SDL_GPUDevice* device, SDL_GPUFence* fence);
+dllimport externc func SDL_GPUTextureFormatTexelBlockSize(SDL_GPUTextureFormat format) Uint32;
+dllimport externc func SDL_GPUTextureSupportsFormat(SDL_GPUDevice* device, SDL_GPUTextureFormat format, SDL_GPUTextureType type, SDL_GPUTextureUsageFlags usage) bool;
+dllimport externc func SDL_GPUTextureSupportsSampleCount(SDL_GPUDevice* device, SDL_GPUTextureFormat format, SDL_GPUSampleCount sample_count) bool;
+dllimport externc func SDL_CalculateGPUTextureFormatSize(SDL_GPUTextureFormat format, Uint32 width, Uint32 height, Uint32 depth_or_layer_count) Uint32;
+dllimport externc func SDL_GetPixelFormatFromGPUTextureFormat(SDL_GPUTextureFormat format) SDL_PixelFormat;
+dllimport externc func SDL_GetGPUTextureFormatFromPixelFormat(SDL_PixelFormat format) SDL_GPUTextureFormat;
+struct SDL_Haptic;
+type SDL_HapticEffectType = Uint16;
+type SDL_HapticDirectionType = Uint8;
+type SDL_HapticEffectID = int;
+struct SDL_HapticDirection {
+	SDL_HapticDirectionType type;
+	Sint32[3] dir;
+}
+struct SDL_HapticConstant {
+	SDL_HapticEffectType type;
+	SDL_HapticDirection direction;
+	Uint32 length;
+	Uint16 delay;
+	Uint16 button;
+	Uint16 interval;
+	Sint16 level;
+	Uint16 attack_length;
+	Uint16 attack_level;
+	Uint16 fade_length;
+	Uint16 fade_level;
+}
+struct SDL_HapticPeriodic {
+	SDL_HapticEffectType type;
+	SDL_HapticDirection direction;
+	Uint32 length;
+	Uint16 delay;
+	Uint16 button;
+	Uint16 interval;
+	Uint16 period;
+	Sint16 magnitude;
+	Sint16 offset;
+	Uint16 phase;
+	Uint16 attack_length;
+	Uint16 attack_level;
+	Uint16 fade_length;
+	Uint16 fade_level;
+}
+struct SDL_HapticCondition {
+	SDL_HapticEffectType type;
+	SDL_HapticDirection direction;
+	Uint32 length;
+	Uint16 delay;
+	Uint16 button;
+	Uint16 interval;
+	Uint16[3] right_sat;
+	Uint16[3] left_sat;
+	Sint16[3] right_coeff;
+	Sint16[3] left_coeff;
+	Uint16[3] deadband;
+	Sint16[3] center;
+}
+struct SDL_HapticRamp {
+	SDL_HapticEffectType type;
+	SDL_HapticDirection direction;
+	Uint32 length;
+	Uint16 delay;
+	Uint16 button;
+	Uint16 interval;
+	Sint16 start;
+	Sint16 end;
+	Uint16 attack_length;
+	Uint16 attack_level;
+	Uint16 fade_length;
+	Uint16 fade_level;
+}
+struct SDL_HapticLeftRight {
+	SDL_HapticEffectType type;
+	Uint32 length;
+	Uint16 large_magnitude;
+	Uint16 small_magnitude;
+}
+struct SDL_HapticCustom {
+	SDL_HapticEffectType type;
+	SDL_HapticDirection direction;
+	Uint32 length;
+	Uint16 delay;
+	Uint16 button;
+	Uint16 interval;
+	Uint8 channels;
+	Uint16 period;
+	Uint16 samples;
+	Uint16* data;
+	Uint16 attack_length;
+	Uint16 attack_level;
+	Uint16 fade_length;
+	Uint16 fade_level;
+}
+union SDL_HapticEffect {
+	SDL_HapticEffectType type;
+	SDL_HapticConstant constant;
+	SDL_HapticPeriodic periodic;
+	SDL_HapticCondition condition;
+	SDL_HapticRamp ramp;
+	SDL_HapticLeftRight leftright;
+	SDL_HapticCustom custom;
+}
+type SDL_HapticID = Uint32;
+dllimport externc func SDL_GetHaptics(int* count) SDL_HapticID*;
+dllimport externc func SDL_GetHapticNameForID(SDL_HapticID instance_id) char*;
+dllimport externc func SDL_OpenHaptic(SDL_HapticID instance_id) SDL_Haptic*;
+dllimport externc func SDL_GetHapticFromID(SDL_HapticID instance_id) SDL_Haptic*;
+dllimport externc func SDL_GetHapticID(SDL_Haptic* haptic) SDL_HapticID;
+dllimport externc func SDL_GetHapticName(SDL_Haptic* haptic) char*;
+dllimport externc func SDL_IsMouseHaptic() bool;
+dllimport externc func SDL_OpenHapticFromMouse() SDL_Haptic*;
+dllimport externc func SDL_IsJoystickHaptic(SDL_Joystick* joystick) bool;
+dllimport externc func SDL_OpenHapticFromJoystick(SDL_Joystick* joystick) SDL_Haptic*;
+dllimport externc func SDL_CloseHaptic(SDL_Haptic* haptic);
+dllimport externc func SDL_GetMaxHapticEffects(SDL_Haptic* haptic) int;
+dllimport externc func SDL_GetMaxHapticEffectsPlaying(SDL_Haptic* haptic) int;
+dllimport externc func SDL_GetHapticFeatures(SDL_Haptic* haptic) Uint32;
+dllimport externc func SDL_GetNumHapticAxes(SDL_Haptic* haptic) int;
+dllimport externc func SDL_HapticEffectSupported(SDL_Haptic* haptic, SDL_HapticEffect* effect) bool;
+dllimport externc func SDL_CreateHapticEffect(SDL_Haptic* haptic, SDL_HapticEffect* effect) SDL_HapticEffectID;
+dllimport externc func SDL_UpdateHapticEffect(SDL_Haptic* haptic, SDL_HapticEffectID effect, SDL_HapticEffect* data) bool;
+dllimport externc func SDL_RunHapticEffect(SDL_Haptic* haptic, SDL_HapticEffectID effect, Uint32 iterations) bool;
+dllimport externc func SDL_StopHapticEffect(SDL_Haptic* haptic, SDL_HapticEffectID effect) bool;
+dllimport externc func SDL_DestroyHapticEffect(SDL_Haptic* haptic, SDL_HapticEffectID effect);
+dllimport externc func SDL_GetHapticEffectStatus(SDL_Haptic* haptic, SDL_HapticEffectID effect) bool;
+dllimport externc func SDL_SetHapticGain(SDL_Haptic* haptic, int gain) bool;
+dllimport externc func SDL_SetHapticAutocenter(SDL_Haptic* haptic, int autocenter) bool;
+dllimport externc func SDL_PauseHaptic(SDL_Haptic* haptic) bool;
+dllimport externc func SDL_ResumeHaptic(SDL_Haptic* haptic) bool;
+dllimport externc func SDL_StopHapticEffects(SDL_Haptic* haptic) bool;
+dllimport externc func SDL_HapticRumbleSupported(SDL_Haptic* haptic) bool;
+dllimport externc func SDL_InitHapticRumble(SDL_Haptic* haptic) bool;
+dllimport externc func SDL_PlayHapticRumble(SDL_Haptic* haptic, float strength, Uint32 length) bool;
+dllimport externc func SDL_StopHapticRumble(SDL_Haptic* haptic) bool;
+struct SDL_hid_device;
+enum SDL_hid_bus_type {
+	SDL_HID_API_BUS_UNKNOWN = 0x00,
+	SDL_HID_API_BUS_USB = 0x01,
+	SDL_HID_API_BUS_BLUETOOTH = 0x02,
+	SDL_HID_API_BUS_I2C = 0x03,
+	SDL_HID_API_BUS_SPI = 0x04,
+}
+struct SDL_hid_device_info {
+	char* path;
+	ushort vendor_id;
+	ushort product_id;
+	int16* serial_number;
+	ushort release_number;
+	int16* manufacturer_string;
+	int16* product_string;
+	ushort usage_page;
+	ushort usage;
+	int interface_number;
+	int interface_class;
+	int interface_subclass;
+	int interface_protocol;
+	SDL_hid_bus_type bus_type;
+	SDL_hid_device_info* next;
+}
+dllimport externc func SDL_hid_init() int;
+dllimport externc func SDL_hid_exit() int;
+dllimport externc func SDL_hid_device_change_count() Uint32;
+dllimport externc func SDL_hid_enumerate(ushort vendor_id, ushort product_id) SDL_hid_device_info*;
+dllimport externc func SDL_hid_free_enumeration(SDL_hid_device_info* devs);
+dllimport externc func SDL_hid_open(ushort vendor_id, ushort product_id, int16* serial_number) SDL_hid_device*;
+dllimport externc func SDL_hid_open_path(char* path) SDL_hid_device*;
+dllimport externc func SDL_hid_get_properties(SDL_hid_device* dev) SDL_PropertiesID;
+dllimport externc func SDL_hid_write(SDL_hid_device* dev, uchar* data, uint64 length) int;
+dllimport externc func SDL_hid_read_timeout(SDL_hid_device* dev, uchar* data, uint64 length, int milliseconds) int;
+dllimport externc func SDL_hid_read(SDL_hid_device* dev, uchar* data, uint64 length) int;
+dllimport externc func SDL_hid_set_nonblocking(SDL_hid_device* dev, int nonblock) int;
+dllimport externc func SDL_hid_send_feature_report(SDL_hid_device* dev, uchar* data, uint64 length) int;
+dllimport externc func SDL_hid_get_feature_report(SDL_hid_device* dev, uchar* data, uint64 length) int;
+dllimport externc func SDL_hid_get_input_report(SDL_hid_device* dev, uchar* data, uint64 length) int;
+dllimport externc func SDL_hid_close(SDL_hid_device* dev) int;
+dllimport externc func SDL_hid_get_manufacturer_string(SDL_hid_device* dev, int16* string, uint64 maxlen) int;
+dllimport externc func SDL_hid_get_product_string(SDL_hid_device* dev, int16* string, uint64 maxlen) int;
+dllimport externc func SDL_hid_get_serial_number_string(SDL_hid_device* dev, int16* string, uint64 maxlen) int;
+dllimport externc func SDL_hid_get_indexed_string(SDL_hid_device* dev, int string_index, int16* string, uint64 maxlen) int;
+dllimport externc func SDL_hid_get_device_info(SDL_hid_device* dev) SDL_hid_device_info*;
+dllimport externc func SDL_hid_get_report_descriptor(SDL_hid_device* dev, uchar* buf, uint64 buf_size) int;
+dllimport externc func SDL_hid_ble_scan(bool active);
+enum SDL_HintPriority {
+	SDL_HINT_DEFAULT,
+	SDL_HINT_NORMAL,
+	SDL_HINT_OVERRIDE,
+}
+dllimport externc func SDL_SetHintWithPriority(char* name, char* value, SDL_HintPriority priority) bool;
+dllimport externc func SDL_SetHint(char* name, char* value) bool;
+dllimport externc func SDL_ResetHint(char* name) bool;
+dllimport externc func SDL_ResetHints();
+dllimport externc func SDL_GetHint(char* name) char*;
+dllimport externc func SDL_GetHintBoolean(char* name, bool default_value) bool;
+type SDL_HintCallback = func(byte* userdata, char* name, char* oldValue, char* newValue);
+dllimport externc func SDL_AddHintCallback(char* name, SDL_HintCallback callback, byte* userdata) bool;
+dllimport externc func SDL_RemoveHintCallback(char* name, SDL_HintCallback callback, byte* userdata);
+type SDL_InitFlags = Uint32;
+enum SDL_AppResult {
+	SDL_APP_CONTINUE,
+	SDL_APP_SUCCESS,
+	SDL_APP_FAILURE,
+}
+type SDL_AppInit_func = func(byte** appstate, int argc, char** argv) -> SDL_AppResult;
+type SDL_AppIterate_func = func(byte* appstate) -> SDL_AppResult;
+type SDL_AppEvent_func = func(byte* appstate, SDL_Event* event) -> SDL_AppResult;
+type SDL_AppQuit_func = func(byte* appstate, SDL_AppResult result);
+dllimport externc func SDL_Init(SDL_InitFlags flags) bool;
+dllimport externc func SDL_InitSubSystem(SDL_InitFlags flags) bool;
+dllimport externc func SDL_QuitSubSystem(SDL_InitFlags flags);
+dllimport externc func SDL_WasInit(SDL_InitFlags flags) SDL_InitFlags;
+dllimport externc func SDL_Quit();
+dllimport externc func SDL_IsMainThread() bool;
+type SDL_MainThreadCallback = func(byte* userdata);
+dllimport externc func SDL_RunOnMainThread(SDL_MainThreadCallback callback, byte* userdata, bool wait_complete) bool;
+dllimport externc func SDL_SetAppMetadata(char* appname, char* appversion, char* appidentifier) bool;
+dllimport externc func SDL_SetAppMetadataProperty(char* name, char* value) bool;
+dllimport externc func SDL_GetAppMetadataProperty(char* name) char*;
+struct SDL_SharedObject;
+dllimport externc func SDL_LoadObject(char* sofile) SDL_SharedObject*;
+dllimport externc func SDL_LoadFunction(SDL_SharedObject* handle, char* name) SDL_FunctionPointer;
+dllimport externc func SDL_UnloadObject(SDL_SharedObject* handle);
+struct SDL_Locale {
+	char* language;
+	char* country;
+}
+dllimport externc func SDL_GetPreferredLocales(int* count) SDL_Locale**;
+enum SDL_LogCategory {
+	SDL_LOG_CATEGORY_APPLICATION,
+	SDL_LOG_CATEGORY_ERROR,
+	SDL_LOG_CATEGORY_ASSERT,
+	SDL_LOG_CATEGORY_SYSTEM,
+	SDL_LOG_CATEGORY_AUDIO,
+	SDL_LOG_CATEGORY_VIDEO,
+	SDL_LOG_CATEGORY_RENDER,
+	SDL_LOG_CATEGORY_INPUT,
+	SDL_LOG_CATEGORY_TEST,
+	SDL_LOG_CATEGORY_GPU,
+	SDL_LOG_CATEGORY_RESERVED2,
+	SDL_LOG_CATEGORY_RESERVED3,
+	SDL_LOG_CATEGORY_RESERVED4,
+	SDL_LOG_CATEGORY_RESERVED5,
+	SDL_LOG_CATEGORY_RESERVED6,
+	SDL_LOG_CATEGORY_RESERVED7,
+	SDL_LOG_CATEGORY_RESERVED8,
+	SDL_LOG_CATEGORY_RESERVED9,
+	SDL_LOG_CATEGORY_RESERVED10,
+	SDL_LOG_CATEGORY_CUSTOM,
+}
+enum SDL_LogPriority {
+	SDL_LOG_PRIORITY_INVALID,
+	SDL_LOG_PRIORITY_TRACE,
+	SDL_LOG_PRIORITY_VERBOSE,
+	SDL_LOG_PRIORITY_DEBUG,
+	SDL_LOG_PRIORITY_INFO,
+	SDL_LOG_PRIORITY_WARN,
+	SDL_LOG_PRIORITY_ERROR,
+	SDL_LOG_PRIORITY_CRITICAL,
+	SDL_LOG_PRIORITY_COUNT,
+}
+dllimport externc func SDL_SetLogPriorities(SDL_LogPriority priority);
+dllimport externc func SDL_SetLogPriority(int category, SDL_LogPriority priority);
+dllimport externc func SDL_GetLogPriority(int category) SDL_LogPriority;
+dllimport externc func SDL_ResetLogPriorities();
+dllimport externc func SDL_SetLogPriorityPrefix(SDL_LogPriority priority, char* prefix) bool;
+dllimport externc func SDL_Log(char* fmt);
+dllimport externc func SDL_LogTrace(int category, char* fmt);
+dllimport externc func SDL_LogVerbose(int category, char* fmt);
+dllimport externc func SDL_LogDebug(int category, char* fmt);
+dllimport externc func SDL_LogInfo(int category, char* fmt);
+dllimport externc func SDL_LogWarn(int category, char* fmt);
+dllimport externc func SDL_LogError(int category, char* fmt);
+dllimport externc func SDL_LogCritical(int category, char* fmt);
+dllimport externc func SDL_LogMessage(int category, SDL_LogPriority priority, char* fmt);
+dllimport externc func SDL_LogMessageV(int category, SDL_LogPriority priority, char* fmt, byte* ap);
+type SDL_LogOutputFunction = func(byte* userdata, int category, SDL_LogPriority priority, char* message);
+dllimport externc func SDL_GetDefaultLogOutputFunction() SDL_LogOutputFunction;
+dllimport externc func SDL_GetLogOutputFunction(SDL_LogOutputFunction* callback, byte** userdata);
+dllimport externc func SDL_SetLogOutputFunction(SDL_LogOutputFunction callback, byte* userdata);
+type SDL_MessageBoxFlags = Uint32;
+type SDL_MessageBoxButtonFlags = Uint32;
+struct SDL_MessageBoxButtonData {
+	SDL_MessageBoxButtonFlags flags;
+	int buttonID;
+	char* text;
+}
+struct SDL_MessageBoxColor {
+	Uint8 r, g, b;
+}
+enum SDL_MessageBoxColorType {
+	SDL_MESSAGEBOX_COLOR_BACKGROUND,
+	SDL_MESSAGEBOX_COLOR_TEXT,
+	SDL_MESSAGEBOX_COLOR_BUTTON_BORDER,
+	SDL_MESSAGEBOX_COLOR_BUTTON_BACKGROUND,
+	SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED,
+	SDL_MESSAGEBOX_COLOR_COUNT,
+}
+struct SDL_MessageBoxColorScheme {
+	SDL_MessageBoxColor[SDL_MessageBoxColorType.SDL_MESSAGEBOX_COLOR_COUNT] colors;
+}
+struct SDL_MessageBoxData {
+	SDL_MessageBoxFlags flags;
+	SDL_Window* window;
+	char* title;
+	char* message;
+	int numbuttons;
+	SDL_MessageBoxButtonData* buttons;
+	SDL_MessageBoxColorScheme* colorScheme;
+}
+dllimport externc func SDL_ShowMessageBox(SDL_MessageBoxData* messageboxdata, int* buttonid) bool;
+dllimport externc func SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags flags, char* title, char* message, SDL_Window* window) bool;
+type SDL_MetalView = byte*;
+dllimport externc func SDL_Metal_CreateView(SDL_Window* window) SDL_MetalView;
+dllimport externc func SDL_Metal_DestroyView(SDL_MetalView view);
+dllimport externc func SDL_Metal_GetLayer(SDL_MetalView view) void*;
+dllimport externc func SDL_OpenURL(char* url) bool;
+dllimport externc func SDL_GetPlatform() char*;
+struct SDL_Process;
+dllimport externc func SDL_CreateProcess(char** args, bool pipe_stdio) SDL_Process*;
+enum SDL_ProcessIO {
+	SDL_PROCESS_STDIO_INHERITED,
+	SDL_PROCESS_STDIO_NULL,
+	SDL_PROCESS_STDIO_APP,
+	SDL_PROCESS_STDIO_REDIRECT,
+}
+dllimport externc func SDL_CreateProcessWithProperties(SDL_PropertiesID props) SDL_Process*;
+dllimport externc func SDL_GetProcessProperties(SDL_Process* process) SDL_PropertiesID;
+dllimport externc func SDL_ReadProcess(SDL_Process* process, uint64* datasize, int* exitcode) void*;
+dllimport externc func SDL_GetProcessInput(SDL_Process* process) SDL_IOStream*;
+dllimport externc func SDL_GetProcessOutput(SDL_Process* process) SDL_IOStream*;
+dllimport externc func SDL_KillProcess(SDL_Process* process, bool force) bool;
+dllimport externc func SDL_WaitProcess(SDL_Process* process, bool block, int* exitcode) bool;
+dllimport externc func SDL_DestroyProcess(SDL_Process* process);
+struct SDL_Vertex {
+	SDL_FPoint position;
+	SDL_FColor color;
+	SDL_FPoint tex_coord;
+}
+enum SDL_TextureAccess {
+	SDL_TEXTUREACCESS_STATIC,
+	SDL_TEXTUREACCESS_STREAMING,
+	SDL_TEXTUREACCESS_TARGET,
+}
+enum SDL_TextureAddressMode {
+	SDL_TEXTURE_ADDRESS_INVALID = -1,
+	SDL_TEXTURE_ADDRESS_AUTO,
+	SDL_TEXTURE_ADDRESS_CLAMP,
+	SDL_TEXTURE_ADDRESS_WRAP,
+}
+enum SDL_RendererLogicalPresentation {
+	SDL_LOGICAL_PRESENTATION_DISABLED,
+	SDL_LOGICAL_PRESENTATION_STRETCH,
+	SDL_LOGICAL_PRESENTATION_LETTERBOX,
+	SDL_LOGICAL_PRESENTATION_OVERSCAN,
+	SDL_LOGICAL_PRESENTATION_INTEGER_SCALE,
+}
+struct SDL_Renderer;
+struct SDL_Texture;
+dllimport externc func SDL_GetNumRenderDrivers() int;
+dllimport externc func SDL_GetRenderDriver(int index) char*;
+dllimport externc func SDL_CreateWindowAndRenderer(char* title, int width, int height, SDL_WindowFlags window_flags, SDL_Window** window, SDL_Renderer** renderer) bool;
+dllimport externc func SDL_CreateRenderer(SDL_Window* window, char* name) SDL_Renderer*;
+dllimport externc func SDL_CreateRendererWithProperties(SDL_PropertiesID props) SDL_Renderer*;
+dllimport externc func SDL_CreateGPURenderer(SDL_GPUDevice* device, SDL_Window* window) SDL_Renderer*;
+dllimport externc func SDL_GetGPURendererDevice(SDL_Renderer* renderer) SDL_GPUDevice*;
+dllimport externc func SDL_CreateSoftwareRenderer(SDL_Surface* surface) SDL_Renderer*;
+dllimport externc func SDL_GetRenderer(SDL_Window* window) SDL_Renderer*;
+dllimport externc func SDL_GetRenderWindow(SDL_Renderer* renderer) SDL_Window*;
+dllimport externc func SDL_GetRendererName(SDL_Renderer* renderer) char*;
+dllimport externc func SDL_GetRendererProperties(SDL_Renderer* renderer) SDL_PropertiesID;
+dllimport externc func SDL_GetRenderOutputSize(SDL_Renderer* renderer, int* w, int* h) bool;
+dllimport externc func SDL_GetCurrentRenderOutputSize(SDL_Renderer* renderer, int* w, int* h) bool;
+dllimport externc func SDL_CreateTexture(SDL_Renderer* renderer, SDL_PixelFormat format, SDL_TextureAccess access, int w, int h) SDL_Texture*;
+dllimport externc func SDL_CreateTextureFromSurface(SDL_Renderer* renderer, SDL_Surface* surface) SDL_Texture*;
+dllimport externc func SDL_CreateTextureWithProperties(SDL_Renderer* renderer, SDL_PropertiesID props) SDL_Texture*;
+dllimport externc func SDL_GetTextureProperties(SDL_Texture* texture) SDL_PropertiesID;
+dllimport externc func SDL_GetRendererFromTexture(SDL_Texture* texture) SDL_Renderer*;
+dllimport externc func SDL_GetTextureSize(SDL_Texture* texture, float* w, float* h) bool;
+dllimport externc func SDL_SetTexturePalette(SDL_Texture* texture, SDL_Palette* palette) bool;
+dllimport externc func SDL_GetTexturePalette(SDL_Texture* texture) SDL_Palette*;
+dllimport externc func SDL_SetTextureColorMod(SDL_Texture* texture, Uint8 r, Uint8 g, Uint8 b) bool;
+dllimport externc func SDL_SetTextureColorModFloat(SDL_Texture* texture, float r, float g, float b) bool;
+dllimport externc func SDL_GetTextureColorMod(SDL_Texture* texture, Uint8* r, Uint8* g, Uint8* b) bool;
+dllimport externc func SDL_GetTextureColorModFloat(SDL_Texture* texture, float* r, float* g, float* b) bool;
+dllimport externc func SDL_SetTextureAlphaMod(SDL_Texture* texture, Uint8 alpha) bool;
+dllimport externc func SDL_SetTextureAlphaModFloat(SDL_Texture* texture, float alpha) bool;
+dllimport externc func SDL_GetTextureAlphaMod(SDL_Texture* texture, Uint8* alpha) bool;
+dllimport externc func SDL_GetTextureAlphaModFloat(SDL_Texture* texture, float* alpha) bool;
+dllimport externc func SDL_SetTextureBlendMode(SDL_Texture* texture, SDL_BlendMode blendMode) bool;
+dllimport externc func SDL_GetTextureBlendMode(SDL_Texture* texture, SDL_BlendMode* blendMode) bool;
+dllimport externc func SDL_SetTextureScaleMode(SDL_Texture* texture, SDL_ScaleMode scaleMode) bool;
+dllimport externc func SDL_GetTextureScaleMode(SDL_Texture* texture, SDL_ScaleMode* scaleMode) bool;
+dllimport externc func SDL_UpdateTexture(SDL_Texture* texture, SDL_Rect* rect, byte* pixels, int pitch) bool;
+dllimport externc func SDL_UpdateYUVTexture(SDL_Texture* texture, SDL_Rect* rect, Uint8* Yplane, int Ypitch, Uint8* Uplane, int Upitch, Uint8* Vplane, int Vpitch) bool;
+dllimport externc func SDL_UpdateNVTexture(SDL_Texture* texture, SDL_Rect* rect, Uint8* Yplane, int Ypitch, Uint8* UVplane, int UVpitch) bool;
+dllimport externc func SDL_LockTexture(SDL_Texture* texture, SDL_Rect* rect, byte** pixels, int* pitch) bool;
+dllimport externc func SDL_LockTextureToSurface(SDL_Texture* texture, SDL_Rect* rect, SDL_Surface** surface) bool;
+dllimport externc func SDL_UnlockTexture(SDL_Texture* texture);
+dllimport externc func SDL_SetRenderTarget(SDL_Renderer* renderer, SDL_Texture* texture) bool;
+dllimport externc func SDL_GetRenderTarget(SDL_Renderer* renderer) SDL_Texture*;
+dllimport externc func SDL_SetRenderLogicalPresentation(SDL_Renderer* renderer, int w, int h, SDL_RendererLogicalPresentation mode) bool;
+dllimport externc func SDL_GetRenderLogicalPresentation(SDL_Renderer* renderer, int* w, int* h, SDL_RendererLogicalPresentation* mode) bool;
+dllimport externc func SDL_GetRenderLogicalPresentationRect(SDL_Renderer* renderer, SDL_FRect* rect) bool;
+dllimport externc func SDL_RenderCoordinatesFromWindow(SDL_Renderer* renderer, float window_x, float window_y, float* x, float* y) bool;
+dllimport externc func SDL_RenderCoordinatesToWindow(SDL_Renderer* renderer, float x, float y, float* window_x, float* window_y) bool;
+dllimport externc func SDL_ConvertEventToRenderCoordinates(SDL_Renderer* renderer, SDL_Event* event) bool;
+dllimport externc func SDL_SetRenderViewport(SDL_Renderer* renderer, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetRenderViewport(SDL_Renderer* renderer, SDL_Rect* rect) bool;
+dllimport externc func SDL_RenderViewportSet(SDL_Renderer* renderer) bool;
+dllimport externc func SDL_GetRenderSafeArea(SDL_Renderer* renderer, SDL_Rect* rect) bool;
+dllimport externc func SDL_SetRenderClipRect(SDL_Renderer* renderer, SDL_Rect* rect) bool;
+dllimport externc func SDL_GetRenderClipRect(SDL_Renderer* renderer, SDL_Rect* rect) bool;
+dllimport externc func SDL_RenderClipEnabled(SDL_Renderer* renderer) bool;
+dllimport externc func SDL_SetRenderScale(SDL_Renderer* renderer, float scaleX, float scaleY) bool;
+dllimport externc func SDL_GetRenderScale(SDL_Renderer* renderer, float* scaleX, float* scaleY) bool;
+dllimport externc func SDL_SetRenderDrawColor(SDL_Renderer* renderer, Uint8 r, Uint8 g, Uint8 b, Uint8 a) bool;
+dllimport externc func SDL_SetRenderDrawColorFloat(SDL_Renderer* renderer, float r, float g, float b, float a) bool;
+dllimport externc func SDL_GetRenderDrawColor(SDL_Renderer* renderer, Uint8* r, Uint8* g, Uint8* b, Uint8* a) bool;
+dllimport externc func SDL_GetRenderDrawColorFloat(SDL_Renderer* renderer, float* r, float* g, float* b, float* a) bool;
+dllimport externc func SDL_SetRenderColorScale(SDL_Renderer* renderer, float scale) bool;
+dllimport externc func SDL_GetRenderColorScale(SDL_Renderer* renderer, float* scale) bool;
+dllimport externc func SDL_SetRenderDrawBlendMode(SDL_Renderer* renderer, SDL_BlendMode blendMode) bool;
+dllimport externc func SDL_GetRenderDrawBlendMode(SDL_Renderer* renderer, SDL_BlendMode* blendMode) bool;
+dllimport externc func SDL_RenderClear(SDL_Renderer* renderer) bool;
+dllimport externc func SDL_RenderPoint(SDL_Renderer* renderer, float x, float y) bool;
+dllimport externc func SDL_RenderPoints(SDL_Renderer* renderer, SDL_FPoint* points, int count) bool;
+dllimport externc func SDL_RenderLine(SDL_Renderer* renderer, float x1, float y1, float x2, float y2) bool;
+dllimport externc func SDL_RenderLines(SDL_Renderer* renderer, SDL_FPoint* points, int count) bool;
+dllimport externc func SDL_RenderRect(SDL_Renderer* renderer, SDL_FRect* rect) bool;
+dllimport externc func SDL_RenderRects(SDL_Renderer* renderer, SDL_FRect* rects, int count) bool;
+dllimport externc func SDL_RenderFillRect(SDL_Renderer* renderer, SDL_FRect* rect) bool;
+dllimport externc func SDL_RenderFillRects(SDL_Renderer* renderer, SDL_FRect* rects, int count) bool;
+dllimport externc func SDL_RenderTexture(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, SDL_FRect* dstrect) bool;
+dllimport externc func SDL_RenderTextureRotated(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, SDL_FRect* dstrect, double angle, SDL_FPoint* center, SDL_FlipMode flip) bool;
+dllimport externc func SDL_RenderTextureAffine(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, SDL_FPoint* origin, SDL_FPoint* right, SDL_FPoint* down) bool;
+dllimport externc func SDL_RenderTextureTiled(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, float scale, SDL_FRect* dstrect) bool;
+dllimport externc func SDL_RenderTexture9Grid(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, float left_width, float right_width, float top_height, float bottom_height, float scale, SDL_FRect* dstrect) bool;
+dllimport externc func SDL_RenderTexture9GridTiled(SDL_Renderer* renderer, SDL_Texture* texture, SDL_FRect* srcrect, float left_width, float right_width, float top_height, float bottom_height, float scale, SDL_FRect* dstrect, float tileScale) bool;
+dllimport externc func SDL_RenderGeometry(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Vertex* vertices, int num_vertices, int* indices, int num_indices) bool;
+dllimport externc func SDL_RenderGeometryRaw(SDL_Renderer* renderer, SDL_Texture* texture, float* xy, int xy_stride, SDL_FColor* color, int color_stride, float* uv, int uv_stride, int num_vertices, byte* indices, int num_indices, int size_indices) bool;
+dllimport externc func SDL_SetRenderTextureAddressMode(SDL_Renderer* renderer, SDL_TextureAddressMode u_mode, SDL_TextureAddressMode v_mode) bool;
+dllimport externc func SDL_GetRenderTextureAddressMode(SDL_Renderer* renderer, SDL_TextureAddressMode* u_mode, SDL_TextureAddressMode* v_mode) bool;
+dllimport externc func SDL_RenderReadPixels(SDL_Renderer* renderer, SDL_Rect* rect) SDL_Surface*;
+dllimport externc func SDL_RenderPresent(SDL_Renderer* renderer) bool;
+dllimport externc func SDL_DestroyTexture(SDL_Texture* texture);
+dllimport externc func SDL_DestroyRenderer(SDL_Renderer* renderer);
+dllimport externc func SDL_FlushRenderer(SDL_Renderer* renderer) bool;
+dllimport externc func SDL_GetRenderMetalLayer(SDL_Renderer* renderer) void*;
+dllimport externc func SDL_GetRenderMetalCommandEncoder(SDL_Renderer* renderer) void*;
+dllimport externc func SDL_AddVulkanRenderSemaphores(SDL_Renderer* renderer, Uint32 wait_stage_mask, Sint64 wait_semaphore, Sint64 signal_semaphore) bool;
+dllimport externc func SDL_SetRenderVSync(SDL_Renderer* renderer, int vsync) bool;
+dllimport externc func SDL_GetRenderVSync(SDL_Renderer* renderer, int* vsync) bool;
+dllimport externc func SDL_RenderDebugText(SDL_Renderer* renderer, float x, float y, char* str) bool;
+dllimport externc func SDL_RenderDebugTextFormat(SDL_Renderer* renderer, float x, float y, char* fmt) bool;
+dllimport externc func SDL_SetDefaultTextureScaleMode(SDL_Renderer* renderer, SDL_ScaleMode scale_mode) bool;
+dllimport externc func SDL_GetDefaultTextureScaleMode(SDL_Renderer* renderer, SDL_ScaleMode* scale_mode) bool;
+struct SDL_GPURenderStateCreateInfo {
+	SDL_GPUShader* fragment_shader;
+	Sint32 num_sampler_bindings;
+	SDL_GPUTextureSamplerBinding* sampler_bindings;
+	Sint32 num_storage_textures;
+	SDL_GPUTexture** storage_textures;
+	Sint32 num_storage_buffers;
+	SDL_GPUBuffer** storage_buffers;
+	SDL_PropertiesID props;
+}
+struct SDL_GPURenderState;
+dllimport externc func SDL_CreateGPURenderState(SDL_Renderer* renderer, SDL_GPURenderStateCreateInfo* createinfo) SDL_GPURenderState*;
+dllimport externc func SDL_SetGPURenderStateSamplerBindings(SDL_GPURenderState* state, int num_sampler_bindings, SDL_GPUTextureSamplerBinding* sampler_bindings) bool;
+dllimport externc func SDL_SetGPURenderStateStorageTextures(SDL_GPURenderState* state, int num_storage_textures, SDL_GPUTexture** storage_textures) bool;
+dllimport externc func SDL_SetGPURenderStateStorageBuffers(SDL_GPURenderState* state, int num_storage_buffers, SDL_GPUBuffer** storage_buffers) bool;
+dllimport externc func SDL_SetGPURenderStateFragmentUniforms(SDL_GPURenderState* state, Uint32 slot_index, byte* data, Uint32 length) bool;
+dllimport externc func SDL_SetGPURenderState(SDL_Renderer* renderer, SDL_GPURenderState* state) bool;
+dllimport externc func SDL_DestroyGPURenderState(SDL_GPURenderState* state);
+struct SDL_StorageInterface {
+	Uint32 version;
+	func(byte* userdata) -> bool close;
+	func(byte* userdata) -> bool ready;
+	func(byte* userdata, char* path, SDL_EnumerateDirectoryCallback callback, byte* callback_userdata) -> bool enumerate;
+	func(byte* userdata, char* path, SDL_PathInfo* info) -> bool info;
+	func(byte* userdata, char* path, byte* destination, Uint64 length) -> bool read_file;
+	func(byte* userdata, char* path, byte* source, Uint64 length) -> bool write_file;
+	func(byte* userdata, char* path) -> bool mkdir;
+	func(byte* userdata, char* path) -> bool remove;
+	func(byte* userdata, char* oldpath, char* newpath) -> bool rename;
+	func(byte* userdata, char* oldpath, char* newpath) -> bool copy;
+	func(byte* userdata) -> Uint64 space_remaining;
+}
+struct SDL_Storage;
+dllimport externc func SDL_OpenTitleStorage(char* override, SDL_PropertiesID props) SDL_Storage*;
+dllimport externc func SDL_OpenUserStorage(char* org, char* app, SDL_PropertiesID props) SDL_Storage*;
+dllimport externc func SDL_OpenFileStorage(char* path) SDL_Storage*;
+dllimport externc func SDL_OpenStorage(SDL_StorageInterface* iface, byte* userdata) SDL_Storage*;
+dllimport externc func SDL_CloseStorage(SDL_Storage* storage) bool;
+dllimport externc func SDL_StorageReady(SDL_Storage* storage) bool;
+dllimport externc func SDL_GetStorageFileSize(SDL_Storage* storage, char* path, Uint64* length) bool;
+dllimport externc func SDL_ReadStorageFile(SDL_Storage* storage, char* path, byte* destination, Uint64 length) bool;
+dllimport externc func SDL_WriteStorageFile(SDL_Storage* storage, char* path, byte* source, Uint64 length) bool;
+dllimport externc func SDL_CreateStorageDirectory(SDL_Storage* storage, char* path) bool;
+dllimport externc func SDL_EnumerateStorageDirectory(SDL_Storage* storage, char* path, SDL_EnumerateDirectoryCallback callback, byte* userdata) bool;
+dllimport externc func SDL_RemoveStoragePath(SDL_Storage* storage, char* path) bool;
+dllimport externc func SDL_RenameStoragePath(SDL_Storage* storage, char* oldpath, char* newpath) bool;
+dllimport externc func SDL_CopyStorageFile(SDL_Storage* storage, char* oldpath, char* newpath) bool;
+dllimport externc func SDL_GetStoragePathInfo(SDL_Storage* storage, char* path, SDL_PathInfo* info) bool;
+dllimport externc func SDL_GetStorageSpaceRemaining(SDL_Storage* storage) Uint64;
+dllimport externc func SDL_GlobStorageDirectory(SDL_Storage* storage, char* path, char* pattern, SDL_GlobFlags flags, int* count) char**;
+struct MSG;
+type SDL_WindowsMessageHook = func(byte* userdata, MSG* msg) -> bool;
+dllimport externc func SDL_SetWindowsMessageHook(SDL_WindowsMessageHook callback, byte* userdata);
+dllimport externc func SDL_GetDirect3D9AdapterIndex(SDL_DisplayID displayID) int;
+dllimport externc func SDL_GetDXGIOutputInfo(SDL_DisplayID displayID, int* adapterIndex, int* outputIndex) bool;
+struct XEvent;
+type SDL_X11EventHook = func(byte* userdata, XEvent* xevent) -> bool;
+dllimport externc func SDL_SetX11EventHook(SDL_X11EventHook callback, byte* userdata);
+dllimport externc func SDL_IsPhone() bool;
+dllimport externc func SDL_IsTablet() bool;
+dllimport externc func SDL_IsTV() bool;
+enum SDL_Sandbox {
+	SDL_SANDBOX_NONE = 0,
+	SDL_SANDBOX_UNKNOWN_CONTAINER,
+	SDL_SANDBOX_FLATPAK,
+	SDL_SANDBOX_SNAP,
+	SDL_SANDBOX_MACOS,
+}
+dllimport externc func SDL_GetSandbox() SDL_Sandbox;
+dllimport externc func SDL_OnApplicationWillTerminate();
+dllimport externc func SDL_OnApplicationDidReceiveMemoryWarning();
+dllimport externc func SDL_OnApplicationWillEnterBackground();
+dllimport externc func SDL_OnApplicationDidEnterBackground();
+dllimport externc func SDL_OnApplicationWillEnterForeground();
+dllimport externc func SDL_OnApplicationDidEnterForeground();
+struct SDL_DateTime {
+	int year;
+	int month;
+	int day;
+	int hour;
+	int minute;
+	int second;
+	int nanosecond;
+	int day_of_week;
+	int utc_offset;
+}
+enum SDL_DateFormat {
+	SDL_DATE_FORMAT_YYYYMMDD = 0,
+	SDL_DATE_FORMAT_DDMMYYYY = 1,
+	SDL_DATE_FORMAT_MMDDYYYY = 2,
+}
+enum SDL_TimeFormat {
+	SDL_TIME_FORMAT_24HR = 0,
+	SDL_TIME_FORMAT_12HR = 1,
+}
+dllimport externc func SDL_GetDateTimeLocalePreferences(SDL_DateFormat* dateFormat, SDL_TimeFormat* timeFormat) bool;
+dllimport externc func SDL_GetCurrentTime(SDL_Time* ticks) bool;
+dllimport externc func SDL_TimeToDateTime(SDL_Time ticks, SDL_DateTime* dt, bool localTime) bool;
+dllimport externc func SDL_DateTimeToTime(SDL_DateTime* dt, SDL_Time* ticks) bool;
+dllimport externc func SDL_TimeToWindows(SDL_Time ticks, Uint32* dwLowDateTime, Uint32* dwHighDateTime);
+dllimport externc func SDL_TimeFromWindows(Uint32 dwLowDateTime, Uint32 dwHighDateTime) SDL_Time;
+dllimport externc func SDL_GetDaysInMonth(int year, int month) int;
+dllimport externc func SDL_GetDayOfYear(int year, int month, int day) int;
+dllimport externc func SDL_GetDayOfWeek(int year, int month, int day) int;
+dllimport externc func SDL_GetTicks() Uint64;
+dllimport externc func SDL_GetTicksNS() Uint64;
+dllimport externc func SDL_GetPerformanceCounter() Uint64;
+dllimport externc func SDL_GetPerformanceFrequency() Uint64;
+dllimport externc func SDL_Delay(Uint32 ms);
+dllimport externc func SDL_DelayNS(Uint64 ns);
+dllimport externc func SDL_DelayPrecise(Uint64 ns);
+type SDL_TimerID = Uint32;
+type SDL_TimerCallback = func(byte* userdata, SDL_TimerID timerID, Uint32 interval) -> Uint32;
+dllimport externc func SDL_AddTimer(Uint32 interval, SDL_TimerCallback callback, byte* userdata) SDL_TimerID;
+type SDL_NSTimerCallback = func(byte* userdata, SDL_TimerID timerID, Uint64 interval) -> Uint64;
+dllimport externc func SDL_AddTimerNS(Uint64 interval, SDL_NSTimerCallback callback, byte* userdata) SDL_TimerID;
+dllimport externc func SDL_RemoveTimer(SDL_TimerID id) bool;
+struct SDL_Tray;
+struct SDL_TrayMenu;
+struct SDL_TrayEntry;
+type SDL_TrayEntryFlags = Uint32;
+type SDL_TrayCallback = func(byte* userdata, SDL_TrayEntry* entry);
+type SDL_TrayClickCallback = func(byte* userdata, SDL_Tray* tray) -> bool;
+dllimport externc func SDL_CreateTray(SDL_Surface* icon, char* tooltip) SDL_Tray*;
+dllimport externc func SDL_CreateTrayWithProperties(SDL_PropertiesID props) SDL_Tray*;
+dllimport externc func SDL_SetTrayIcon(SDL_Tray* tray, SDL_Surface* icon);
+dllimport externc func SDL_SetTrayTooltip(SDL_Tray* tray, char* tooltip);
+dllimport externc func SDL_CreateTrayMenu(SDL_Tray* tray) SDL_TrayMenu*;
+dllimport externc func SDL_CreateTraySubmenu(SDL_TrayEntry* entry) SDL_TrayMenu*;
+dllimport externc func SDL_GetTrayMenu(SDL_Tray* tray) SDL_TrayMenu*;
+dllimport externc func SDL_GetTraySubmenu(SDL_TrayEntry* entry) SDL_TrayMenu*;
+dllimport externc func SDL_GetTrayEntries(SDL_TrayMenu* menu, int* count) SDL_TrayEntry**;
+dllimport externc func SDL_RemoveTrayEntry(SDL_TrayEntry* entry);
+dllimport externc func SDL_InsertTrayEntryAt(SDL_TrayMenu* menu, int pos, char* label, SDL_TrayEntryFlags flags) SDL_TrayEntry*;
+dllimport externc func SDL_SetTrayEntryLabel(SDL_TrayEntry* entry, char* label);
+dllimport externc func SDL_GetTrayEntryLabel(SDL_TrayEntry* entry) char*;
+dllimport externc func SDL_SetTrayEntryChecked(SDL_TrayEntry* entry, bool checked);
+dllimport externc func SDL_GetTrayEntryChecked(SDL_TrayEntry* entry) bool;
+dllimport externc func SDL_SetTrayEntryEnabled(SDL_TrayEntry* entry, bool enabled);
+dllimport externc func SDL_GetTrayEntryEnabled(SDL_TrayEntry* entry) bool;
+dllimport externc func SDL_SetTrayEntryCallback(SDL_TrayEntry* entry, SDL_TrayCallback callback, byte* userdata);
+dllimport externc func SDL_ClickTrayEntry(SDL_TrayEntry* entry);
+dllimport externc func SDL_DestroyTray(SDL_Tray* tray);
+dllimport externc func SDL_GetTrayEntryParent(SDL_TrayEntry* entry) SDL_TrayMenu*;
+dllimport externc func SDL_GetTrayMenuParentEntry(SDL_TrayMenu* menu) SDL_TrayEntry*;
+dllimport externc func SDL_GetTrayMenuParentTray(SDL_TrayMenu* menu) SDL_Tray*;
+dllimport externc func SDL_UpdateTrays();
+dllimport externc func SDL_GetVersion() int;
+dllimport externc func SDL_GetRevision() char*;
