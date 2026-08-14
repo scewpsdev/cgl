@@ -944,9 +944,16 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 	{
 		if (getNumericRank(expressionType) <= getNumericRank(targetType))
 		{
-			if (ref)
-				insertImplicitCast(tc, ref, targetType);
-			return true;
+			if (isUnsignedType(expressionType) == isUnsignedType(targetType))
+			{
+				if (ref)
+					insertImplicitCast(tc, ref, targetType);
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		}
 		else
 		{
@@ -1029,7 +1036,12 @@ static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
 static bool canCoerceType(Expression* arg, Type* targetType)
 {
 	if (arg->type == NODE_INT_LITERAL && isIntegerType(targetType))
+	{
+		IntLiteral* intLiteral = (IntLiteral*)arg;
+		if (intLiteral->negative && isUnsignedType(targetType))
+			return false;
 		return true;
+	}
 	if (arg->type == NODE_STRING_LITERAL && (targetType->typeKind == TYPE_STRING || targetType->typeKind == TYPE_POINTER && targetType->pointer.elementType->typeKind == TYPE_INT8))
 		return true;
 	return false;
@@ -1040,9 +1052,17 @@ static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression*
 	if (compareTypes(argType, paramType))
 		return 0;
 	else if (canCoerceType(arg, paramType))
-		return 1;
-	else if (isAssignable(tc, argType, paramType, nullptr))
+	{
+		if (isIntegerType(argType) && isIntegerType(paramType) && isUnsignedType(argType) == isUnsignedType(paramType))
+			return 1;
 		return 2;
+	}
+	else if (isAssignable(tc, argType, paramType, nullptr))
+	{
+		if (isIntegerType(argType) && isIntegerType(paramType) && isUnsignedType(argType) == isUnsignedType(paramType))
+			return 3;
+		return 4;
+	}
 	return 999;
 }
 
@@ -1125,7 +1145,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 							Type* paramType = function->params[j]->paramType->inferredType;
 
 							int score = argScore(tc, argType, paramType, args[j]);
-							if (score > 2)
+							if (score > 4)
 							{
 								valid = false;
 								break;
@@ -1594,15 +1614,15 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else if (operandType->typeKind == TYPE_STRING)
 		{
-			if (compareString(member->name, "length"))
+			if (compareString(member->name, "ptr"))
 			{
 				member->index = 0;
-				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
 			}
-			else if (compareString(member->name, "ptr"))
+			else if (compareString(member->name, "length"))
 			{
 				member->index = 1;
-				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
+				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
 			}
 			else
 			{
@@ -1612,15 +1632,15 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else if (operandType->typeKind == TYPE_ARRAY)
 		{
-			if (compareString(member->name, "length"))
+			if (compareString(member->name, "data"))
 			{
 				member->index = 0;
-				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+				return expression->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
 			}
-			else if (compareString(member->name, "data"))
+			else if (compareString(member->name, "length"))
 			{
 				member->index = 1;
-				return expression->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
+				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
 			}
 			else
 			{
@@ -2258,10 +2278,24 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 		tc->scratch->release(mark);
 
-		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT | STORAGE_EXTERN) || compareString(function->name, "main"))
+		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT | STORAGE_EXTERN))
 			function->mangledName = copy(function->name);
 		else
 			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, &file->arena);
+
+		if (compareString(function->name, "main"))
+		{
+			if (returnType && returnType->typeKind != TYPE_INT32)
+			{
+				error(tc, (Node*)function->returnType, "Main function must either return 'int' or nothing");
+			}
+			if (function->numParams != 0)
+			{
+				Type* paramType = function->params[0]->paramType->inferredType;
+				if (function->numParams > 1 || paramType->typeKind != TYPE_ARRAY || paramType->array.size || paramType->array.elementType->typeKind != TYPE_STRING)
+					error(tc, (Node*)function->params[0], "Main function must either have arguments (string[]) or none");
+			}
+		}
 
 		popScope(tc);
 	}

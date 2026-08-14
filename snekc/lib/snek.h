@@ -17,7 +17,7 @@ typedef _Bool bool;
 #endif
 
 
-typedef struct { char* ptr; long length; } string;
+typedef struct { char* ptr; u64 length; } string;
 typedef struct {
     union {
         i64 int_;
@@ -62,8 +62,9 @@ string __itos(i64 i);
 string __utos(u64 n);
 i32 __cstrl(const char* str);
 
-void* __alloc(u64 size);
+void* __malloc(u64 size);
 void __free(void* ptr);
+void* __alloca(u64 size);
 
 void* __loadDllFunc(const char* dllName, const char* funcName);
 

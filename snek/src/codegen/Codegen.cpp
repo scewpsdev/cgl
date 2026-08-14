@@ -1289,19 +1289,19 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (member->index == 0)
 			{
-				Value length = declareLocalValue(codegen, member->inferredType, buffer);
-				emitValue(buffer, operand);
-				emitString(buffer, ".length;\n");
-
-				return length;
-			}
-			else if (member->index == 1)
-			{
 				Value data = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".ptr;\n");
 
 				return data;
+			}
+			else if (member->index == 1)
+			{
+				Value length = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".length;\n");
+
+				return length;
 			}
 			else
 			{
@@ -1312,6 +1312,14 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		else if (operandType->typeKind == TYPE_ARRAY)
 		{
 			if (member->index == 0)
+			{
+				Value data = declareLocalValue(codegen, member->inferredType, buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".data;\n");
+
+				return data;
+			}
+			else if (member->index == 1)
 			{
 				if (operandType->array.size)
 				{
@@ -1329,14 +1337,6 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 					return length;
 				}
-			}
-			else if (member->index == 1)
-			{
-				Value data = declareLocalValue(codegen, member->inferredType, buffer);
-				emitValue(buffer, operand);
-				emitString(buffer, ".data;\n");
-
-				return data;
 			}
 			else
 			{
@@ -1511,7 +1511,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				return result;
 			}
 		}
-		else if (cast->expression->inferredType->typeKind == TYPE_ANY)
+
+		if (cast->expression->inferredType->typeKind == TYPE_ANY)
 		{
 			if (isIntegerType(cast->inferredType))
 			{
@@ -1947,6 +1948,88 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 	}
 }
 
+static Function* getMainFunction(AST* ast)
+{
+	for (int i = 0; i < ast->numFunctions; i++)
+	{
+		Function* function = ast->functions[i];
+		if (compareString(function->name, "main"))
+			return function;
+	}
+	return nullptr;
+}
+
+static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* mainFunction)
+{
+	emitString(buffer, "int main(int argc, char* argv[]){\n");
+
+	codegen->indentation++;
+
+	if (mainFunction->returnType)
+	{
+		if (mainFunction->numParams)
+		{
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "string* args=__alloca(sizeof(string)*argc);\n");
+		}
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "int result=");
+		emitString(buffer, mainFunction->mangledName);
+
+		if (mainFunction->numParams)
+		{
+			Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
+
+			emitString(buffer, "((");
+			emitType(codegen, paramsType, buffer);
+			emitString(buffer, "){args,argc});\n");
+		}
+		else
+		{
+			emitString(buffer, "();\n");
+		}
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "return result;\n");
+	}
+	else
+	{
+		if (mainFunction->numParams)
+		{
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "string argsData[argc];\n");
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "for(int i=0;i<argc;i++)argsData[i]=(string){argv[i],__cstrl(argv[i])};\n");
+
+			Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
+			emitIndentation(codegen, buffer);
+			emitType(codegen, paramsType, buffer);
+			emitString(buffer, " args={argsData,argc};\n");
+		}
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, mainFunction->mangledName);
+
+		if (mainFunction->numParams)
+		{
+			emitString(buffer, "(args);\n");
+		}
+		else
+		{
+			emitString(buffer, "();\n");
+		}
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "return 0;\n");
+	}
+
+	codegen->indentation--;
+
+	emitString(buffer, "}");
+}
+
 bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 {
 	codegen->declaredTypes.clear();
@@ -2022,6 +2105,9 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 			emitGlobalVariable(codegen, &declaration->globalVariable, &codegen->globalsBuffer);
 		}
 	}
+
+	if (Function* mainFunction = getMainFunction(ast))
+		generateEntryPoint(codegen, &codegen->functionsBuffer, mainFunction);
 
 	SnekAssert(codegen->indentation == 0);
 

@@ -496,10 +496,14 @@ static int outputBinary(const char* out, bool run)
 
 	if (run)
 	{
-		tcc_relocate(tcc);
+		int result = tcc_relocate(tcc);
 
-		int(*entrypoint)(int, char**) = (int(*)(int, char**))tcc_get_symbol(tcc, "main");
-		int result = entrypoint(0, nullptr);
+		if (result == 0)
+		{
+			int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "main");
+			const char* arg = "TCC Runtime";
+			int result = entrypoint(1, &arg);
+		}
 
 		tcc_delete(tcc);
 

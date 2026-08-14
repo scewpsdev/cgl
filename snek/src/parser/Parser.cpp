@@ -1171,7 +1171,10 @@ Expression* parsePostfixOperator(Parser* parser)
 					initNode((Node*)cast, NODE_CAST, castType->start);
 					cast->targetType = castType;
 
-					cast->expression = parseExpression(parser);
+					if (Expression* expression = parseExpression(parser))
+						cast->expression = expression;
+					else
+						cast->expression = getErrorExpression(parser, parser->cursor);
 
 					if (castType->typeKind == TYPE_STRING)
 					{
@@ -2095,16 +2098,16 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 			function->returnType = parseType(parser);
 		}
 
-		if (nextIs(parser, ';'))
-		{
-			nextToken(parser);
-		}
-		else
+		if (nextIs(parser, '{'))
 		{
 			expectToken(parser, '{');
 			function->hasBody = true;
 			function->statements = parseCodeBlock(parser, '}', &function->numStatements);
 			expectToken(parser, '}');
+		}
+		else
+		{
+			expectToken(parser, ';');
 		}
 	}
 

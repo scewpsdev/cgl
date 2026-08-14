@@ -789,27 +789,38 @@ static void appendTypeCharacter(char* buffer, Type* type)
 		break;
 	case TYPE_STRUCT:
 		strcat(buffer, "S");
+		if (type->struct_.name.length)
+			strncat(buffer, type->struct_.name.ptr, type->struct_.name.length);
 		break;
 	case TYPE_UNION:
 		strcat(buffer, "U");
+		if (type->union_.name.length)
+			strncat(buffer, type->union_.name.ptr, type->union_.name.length);
 		break;
 	case TYPE_ENUM:
 		strcat(buffer, "E");
+		if (type->enum_.name.length)
+			strncat(buffer, type->enum_.name.ptr, type->enum_.name.length);
 		break;
 	case TYPE_ALIAS:
 		strcat(buffer, "t");
+		if (type->alias.name.length)
+			strncat(buffer, type->alias.name.ptr, type->alias.name.length);
 		break;
 	case TYPE_POINTER:
 		strcat(buffer, "p");
+		appendTypeCharacter(buffer, type->pointer.elementType);
 		break;
 	case TYPE_OPTIONAL:
 		strcat(buffer, "o");
+		appendTypeCharacter(buffer, type->optional.elementType);
 		break;
 	case TYPE_FUNCTION:
 		strcat(buffer, "F");
 		break;
 	case TYPE_ARRAY:
 		strcat(buffer, "A");
+		appendTypeCharacter(buffer, type->array.elementType);
 		break;
 	case TYPE_TYPE:
 		strcat(buffer, "T");

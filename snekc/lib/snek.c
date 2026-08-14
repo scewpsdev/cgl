@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <malloc.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -32,7 +33,7 @@ void __assertmsg(int x, const char* msg)
 }
 
 
-void* __alloc(u64 size)
+void* __malloc(u64 size)
 {
 	void* ptr = malloc(size);
 	memset(ptr, 0, size);
@@ -42,6 +43,15 @@ void* __alloc(u64 size)
 void __free(void* ptr)
 {
 	free(ptr);
+}
+
+void* __alloca(u64 size)
+{
+#ifdef _WIN32
+	return _alloca(size);
+#else
+	return alloca(size);
+#endif
 }
 
 
