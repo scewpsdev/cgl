@@ -351,3 +351,122 @@ void Document::getTokens(std::vector<int>& data)
 
 	FreeList(&lspTokens);
 }
+
+
+struct NodeSearchParams
+{
+	Lexer* lexer;
+	int line, col;
+	Node* node;
+	Scope* scope;
+};
+
+static void searchForNode(Node* node, Scope* scope, void* userPtr)
+{
+	NodeSearchParams* params = (NodeSearchParams*)userPtr;
+
+	SourceLocation start = getSourceLocation(params->lexer, node->start);
+	SourceLocation end = getSourceLocation(params->lexer, node->end);
+
+	if (params->line >= start.line && params->line <= end.line)
+	{
+		bool matchesStart = params->line == start.line && params->col >= start.col || params->line > start.line;
+		bool matchesEnd = params->line == end.line && params->col < end.col || params->line < end.line;
+		if (matchesStart && matchesEnd)
+		{
+			params->node = node;
+			params->scope = scope;
+		}
+	}
+}
+
+void Document::getNodeAtPosition(int line, int col, Node** node, Scope** scope)
+{
+	AST* ast = &file.ast;
+
+	NodeSearchParams params = {};
+	params.lexer = &file.parser.lexer;
+	params.line = line;
+	params.col = col;
+
+	traverseAST(ast, searchForNode, &params);
+
+	*node = params.node;
+	*scope = params.scope;
+}
+
+static void scanScopeForItems(Scope* scope, nlohmann::json items)
+{
+	for (int i = 0; i < scope->symbols.capacity; i++)
+	{
+		Symbol* symbol = &scope->symbols.slots[i];
+		if (symbol->key)
+		{
+			StringView name = symbol->name;
+			std::string keyword = std::string(name.ptr, name.length);
+
+			CompletionItemType completionItem = COMPLETION_ITEM_TEXT;
+			if (symbol->type == SYMBOL_VARIABLE)
+			{
+				completionItem = COMPLETION_ITEM_VARIABLE;
+				Node* declaration = symbol->declaration;
+				if (declaration->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* globalVariable = &declaration->globalVariable;
+					if (globalVariable->storage & STORAGE_CONSTANT)
+						completionItem = COMPLETION_ITEM_CONSTANT;
+				}
+			}
+			else if (symbol->type == SYMBOL_TYPE)
+			{
+				Node* declaration = symbol->declaration;
+				if (declaration->type == NODE_STRUCT)
+				{
+					completionItem = COMPLETION_ITEM_STRUCT;
+				}
+				else if (declaration->type == NODE_UNION)
+				{
+					completionItem = COMPLETION_ITEM_STRUCT;
+				}
+				else if (declaration->type == NODE_ENUM)
+				{
+					completionItem = COMPLETION_ITEM_ENUM;
+				}
+				else if (declaration->type == NODE_TYPEDEF)
+				{
+					completionItem = COMPLETION_ITEM_STRUCT;
+				}
+			}
+			else if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				completionItem = COMPLETION_ITEM_FUNCTION;
+			}
+			else if (symbol->type == SYMBOL_MACRO)
+			{
+				completionItem = COMPLETION_ITEM_METHOD;
+			}
+
+			items.push_back({
+				{"label", keyword },
+				{"kind", completionItem}  // keyword
+				});
+		}
+	}
+}
+
+void Document::autocomplete(Scope* scope, nlohmann::json items)
+{
+	while (scope)
+	{
+		scanScopeForItems(scope, items);
+		scope = scope->parent;
+	}
+
+	for (int i = 0; i < file.dependencies.size; i++)
+	{
+		if (File* dependency = getFileFromHandle(file.dependencies[i]))
+		{
+			scanScopeForItems(dependency->ast.globalScope, items);
+		}
+	}
+}

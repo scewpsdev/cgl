@@ -4,7 +4,7 @@
 #include <vector>
 #include <mutex>
 
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 #include "File.h"
 
@@ -120,6 +120,9 @@ struct Document
 	void onOpen(std::string& text);
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);
+
+	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
+	void autocomplete(Scope* scope, nlohmann::json items);
 };
 
 

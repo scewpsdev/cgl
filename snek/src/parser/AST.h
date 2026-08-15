@@ -4,6 +4,7 @@
 #include "TypeKind.h"
 #include "utils/Arena.h"
 #include "utils/StringView.h"
+#include "codegen/Value.h"
 
 #include <stdint.h>
 
@@ -231,7 +232,7 @@ struct Identifier : Expression
 
 	Symbol* resolvedSymbol;
 	SymbolHandle resolvedSymbolHandle;
-	FunctionOverload* functionOverload;
+	int functionOverloadID;
 };
 
 struct CompoundExpression : Expression
@@ -344,6 +345,11 @@ struct MemberAccess : Expression
 	Expression* operand;
 	StringView name;
 	int64_t index;
+
+	Symbol* resolvedSymbol;
+	SymbolHandle resolvedSymbolHandle;
+	int functionOverloadID;
+	Value memberFunctionInstance;
 };
 
 struct TernaryCondition : Expression
@@ -614,6 +620,7 @@ struct FunctionSet
 struct Symbol
 {
 	uint32_t key;
+	StringView name;
 	SymbolType type;
 	FileHandle file;
 
@@ -676,6 +683,7 @@ Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier);
 Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h);
 
 Symbol* getIdentifierSymbol(Identifier* identifier);
+Symbol* getMemberAccessSymbol(MemberAccess* member);
 
 int getFieldIndex(StringView name, int numFields, StringView* fieldNames);
 int getEnumValue(StringView name, int numValues, EnumValue** values);

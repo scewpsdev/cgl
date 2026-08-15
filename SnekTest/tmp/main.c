@@ -844,7 +844,6 @@ union SDL_Event{
 
 
 void _main_1Ast(arr_0_string args);
-extern void _runTests_0();
 DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 extern void _writeln_1st(string str);
 DLLIMPORT extern bool SDL_CreateWindowAndRenderer(i8* title,i32 width,i32 height,SDL_WindowFlags window_flags,struct SDL_Window** window,struct SDL_Renderer** renderer);
@@ -863,7 +862,6 @@ static i8* const _G3="Failed to create window and renderer";
 
 
 void _main_1Ast(arr_0_string args){
-	_runTests_0();
 	const SDL_InitFlags _1=(SDL_InitFlags)0x20u;
 	const bool _2=SDL_Init(_1);
 	const bool _3=!_2;

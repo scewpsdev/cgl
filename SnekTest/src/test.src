@@ -5,9 +5,11 @@ import snek.console;
 func runTests() {
 	string str = "Test String";
 	
-	string a = substring(str, 0, 4);
-	string b = substring(str, 5, 6);
+	string a = str.substring(0, 4);
+	string b = str.substring(5, 6);
 
 	writeln(a);
 	writeln(b);
+
+	
 }

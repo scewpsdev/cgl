@@ -1,4 +1,4 @@
-// snek/string.src
+// snek\string.src
 #include <snek.h>
 
 

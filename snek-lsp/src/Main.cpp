@@ -839,7 +839,7 @@ void ParserThread()
 
 int main()
 {
-	//SleepMS(5000);
+	SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
 	initGlobalBlockPool(&blockPool, 16);
@@ -1034,8 +1034,8 @@ int main()
 				Document* document = GetDocument(uri);
 
 				json position = params["position"];
-				int line = position["line"] + 1;
-				int character = position["character"] + 1;
+				int line = position["line"];
+				int character = position["character"];
 
 				int triggerKind = 0;
 				std::string triggerCharacter = "";
@@ -1051,6 +1051,11 @@ int main()
 				if (triggerKind >= 0 && triggerKind <= 2) // invoke
 				{
 					json items = json::array();
+
+					Node* node = nullptr;
+					Scope* scope = nullptr;
+					document->getNodeAtPosition(line, character, &node, &scope);
+					document->autocomplete(scope, items);
 
 					/*
 					for (auto& pair : keywords)

@@ -85,6 +85,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 		if (!slot->key)
 		{
 			slot->key = h;
+			slot->name = identifier;
 			slot->type = type;
 			slot->file = file;
 
@@ -196,6 +197,17 @@ Symbol* getIdentifierSymbol(Identifier* identifier)
 	if (File* file = getFileFromHandle(identifier->resolvedSymbolHandle.file))
 	{
 		return lookupSymbol(&file->ast.globalScope->symbols, identifier->resolvedSymbolHandle.symbol);
+	}
+	return nullptr;
+}
+
+Symbol* getMemberAccessSymbol(MemberAccess* member)
+{
+	if (member->resolvedSymbol)
+		return member->resolvedSymbol;
+	if (File* file = getFileFromHandle(member->resolvedSymbolHandle.file))
+	{
+		return lookupSymbol(&file->ast.globalScope->symbols, member->resolvedSymbolHandle.symbol);
 	}
 	return nullptr;
 }

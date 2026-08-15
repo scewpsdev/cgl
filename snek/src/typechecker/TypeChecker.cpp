@@ -1066,6 +1066,54 @@ static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression*
 	return 999;
 }
 
+static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, int numArgs, Expression** args, int& bestOverload, bool& ambiguous)
+{
+	int bestScore = 9999;
+
+	for (int i = 0; i < functionSet->count; i++)
+	{
+		Function* function = functionSet->overloads[i].declaration;
+		if (function->numParams != numArgs)
+			continue;
+
+		// function has not been resolved yet, eg while evaluating inline function return expressions
+		if (!function->functionType)
+			continue;
+
+		int currentScore = 0;
+		bool valid = true;
+
+		for (int j = 0; j < numArgs; j++)
+		{
+			Type* argType = args[j]->inferredType;
+			Type* paramType = function->params[j]->paramType->inferredType;
+
+			int score = argScore(tc, argType, paramType, args[j]);
+			if (score > 4)
+			{
+				valid = false;
+				break;
+			}
+
+			currentScore += score;
+		}
+
+		if (valid)
+		{
+			if (currentScore < bestScore)
+			{
+				bestScore = currentScore;
+				bestOverload = i;
+				ambiguous = false;
+			}
+			else if (currentScore == bestScore)
+			{
+				ambiguous = true;
+			}
+		}
+	}
+}
+
 static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool hasArgs, int numArgs, Expression** args)
 {
 	if (Symbol* symbol = resolveSymbol(tc, identifier->name))
@@ -1110,64 +1158,18 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 		}
 		else if (symbol->type == SYMBOL_FUNCTION_SET)
 		{
-			FunctionOverload* bestOverload = nullptr;
+			int bestOverload = -1;
 
 			if (symbol->functionSet.count == 1)
 			{
-				bestOverload = &symbol->functionSet.overloads[0];
-
-				SnekAssert(bestOverload->declaration->type == NODE_FUNCTION);
+				bestOverload = 0;
 			}
 			else
 			{
 				if (hasArgs)
 				{
-					int bestScore = 9999;
 					bool ambiguous = false;
-
-					for (int i = 0; i < symbol->functionSet.count; i++)
-					{
-						FunctionOverload* overload = &symbol->functionSet.overloads[i];
-						Function* function = overload->declaration;
-						if (function->numParams != numArgs)
-							continue;
-
-						// function has not been resolved yet, eg while evaluating inline function return expressions
-						if (!function->functionType)
-							continue;
-
-						int currentScore = 0;
-						bool valid = true;
-
-						for (int j = 0; j < numArgs; j++)
-						{
-							Type* argType = args[j]->inferredType;
-							Type* paramType = function->params[j]->paramType->inferredType;
-
-							int score = argScore(tc, argType, paramType, args[j]);
-							if (score > 4)
-							{
-								valid = false;
-								break;
-							}
-
-							currentScore += score;
-						}
-
-						if (valid)
-						{
-							if (currentScore < bestScore)
-							{
-								bestScore = currentScore;
-								bestOverload = overload;
-								ambiguous = false;
-							}
-							else if (currentScore == bestScore)
-							{
-								ambiguous = true;
-							}
-						}
-					}
+					selectFunctionOverload(tc, &symbol->functionSet, numArgs, args, bestOverload, ambiguous);
 
 					if (ambiguous)
 					{
@@ -1185,7 +1187,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 						error(tc, (Node*)identifier, "Ambiguous overload of function '%.*s' for arguments %s", identifier->name.length, identifier->name.ptr, buffer);
 						return identifier->inferredType = &tc->types->errorType;
 					}
-					else if (!bestOverload)
+					else if (bestOverload == -1)
 					{
 						char buffer[256];
 						buffer[0] = 0;
@@ -1209,16 +1211,16 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 				}
 			}
 
-			identifier->functionOverload = bestOverload;
+			identifier->functionOverloadID = bestOverload;
 
-			if (!bestOverload->declaration->functionType)
+			if (!symbol->functionSet.overloads[bestOverload].declaration->functionType)
 			{
 				error(tc, (Node*)identifier, "Function '%.*s' referenced in type-defining inline expression must be declared above", identifier->name.length, identifier->name.ptr);
 				return identifier->inferredType = &tc->types->errorType;
 			}
 			else
 			{
-				return identifier->inferredType = bestOverload->declaration->functionType;
+				return identifier->inferredType = symbol->functionSet.overloads[bestOverload].declaration->functionType;
 			}
 		}
 		else if (symbol->type == SYMBOL_TYPE)
@@ -1235,6 +1237,210 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 	{
 		error(tc, (Node*)identifier, "Undefined variable '%.*s'", identifier->name.length, identifier->name.ptr);
 		return identifier->inferredType = &tc->types->errorType;
+	}
+}
+
+static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool hasArgs, int numArgs, Expression** args)
+{
+	Type* operandType = resolveExpression(tc, member->operand);
+
+	if (operandType == &tc->types->errorType)
+	{
+		return member->inferredType = &tc->types->errorType;
+	}
+
+	if (Symbol* symbol = resolveSymbol(tc, member->name))
+	{
+		if (symbol->type == SYMBOL_FUNCTION_SET)
+		{
+			if (hasArgs)
+			{
+				int bestOverload = -1;
+
+				int mark = tc->scratch->mark();
+
+				tc->scratch->add(member->operand);
+
+				for (int i = 0; i < numArgs; i++)
+				{
+					tc->scratch->add(args[i]);
+				}
+
+				bool ambiguous = false;
+				selectFunctionOverload(tc, &symbol->functionSet, numArgs + 1, tc->scratch->getData<Expression*>(mark), bestOverload, ambiguous);
+
+				tc->scratch->release(mark);
+
+				if (ambiguous)
+				{
+					char buffer[256];
+					buffer[0] = 0;
+					strcat(buffer, "(");
+					for (int i = 0; i < numArgs; i++)
+					{
+						strcat(buffer, args[i]->inferredType->name.ptr);
+						if (i < numArgs - 1)
+							strcat(buffer, ",");
+					}
+					strcat(buffer, ")");
+
+					error(tc, (Node*)member, "Ambiguous overload of function '%.*s.%.*s' for arguments %s", operandType->mangledName.length, operandType->mangledName.ptr, member->name.length, member->name.ptr, buffer);
+					return member->inferredType = &tc->types->errorType;
+				}
+				else if (bestOverload == -1)
+				{
+					char buffer[256];
+					buffer[0] = 0;
+					strcat(buffer, "(");
+					for (int i = 0; i < numArgs; i++)
+					{
+						strcat(buffer, args[i]->inferredType->name.ptr);
+						if (i < numArgs - 1)
+							strcat(buffer, ",");
+					}
+					strcat(buffer, ")");
+
+					error(tc, (Node*)member, "No overload of function '%.*s.%.*s' for arguments %s", operandType->mangledName.length, operandType->mangledName.ptr, member->name.length, member->name.ptr, buffer);
+					return member->inferredType = &tc->types->errorType;
+				}
+
+				if (symbol->file == tc->currentFile->handle)
+					member->resolvedSymbol = symbol;
+				member->resolvedSymbolHandle = getSymbolHandle(tc, symbol);
+				member->functionOverloadID = bestOverload;
+
+				if (!symbol->functionSet.overloads[bestOverload].declaration->functionType)
+				{
+					error(tc, (Node*)member, "Function '%.*s.%.*s' referenced in type-defining inline expression must be declared above", operandType->mangledName.length, operandType->mangledName.ptr, member->name.length, member->name.ptr);
+					return member->inferredType = &tc->types->errorType;
+				}
+				else
+				{
+					return member->inferredType = symbol->functionSet.overloads[bestOverload].declaration->functionType;
+				}
+			}
+		}
+	}
+
+	if (operandType->typeKind == TYPE_POINTER)
+		operandType = operandType->pointer.elementType;
+
+	if (operandType->typeKind == TYPE_STRUCT)
+	{
+		if (member->index == -1)
+			member->index = getFieldIndex(member->name, operandType->struct_.numFields, operandType->struct_.fieldNames);
+		if (member->index == -1)
+		{
+			error(tc, member->name, "Undefined struct field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+
+		return member->inferredType = operandType->struct_.fieldTypes[member->index];
+	}
+	else if (operandType->typeKind == TYPE_UNION)
+	{
+		if (member->index == -1)
+			member->index = getFieldIndex(member->name, operandType->union_.numFields, operandType->union_.fieldNames);
+		if (member->index == -1)
+		{
+			error(tc, member->name, "Undefined union field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+
+		return member->inferredType = operandType->union_.fieldTypes[member->index];
+	}
+	else if (operandType->typeKind == TYPE_STRING)
+	{
+		if (compareString(member->name, "ptr"))
+		{
+			member->index = 0;
+			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
+		}
+		else if (compareString(member->name, "length"))
+		{
+			member->index = 1;
+			return member->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+		}
+		else
+		{
+			error(tc, member->name, "Undefined string field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+	}
+	else if (operandType->typeKind == TYPE_ARRAY)
+	{
+		if (compareString(member->name, "data"))
+		{
+			member->index = 0;
+			return member->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
+		}
+		else if (compareString(member->name, "length"))
+		{
+			member->index = 1;
+			return member->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
+		}
+		else
+		{
+			error(tc, member->name, "Undefined array field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+	}
+	else if (operandType->typeKind == TYPE_ANY)
+	{
+		if (compareString(member->name, "value"))
+		{
+			member->index = 0;
+			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->currentFile);
+		}
+		else if (compareString(member->name, "type"))
+		{
+			member->index = 1;
+			return member->inferredType = &tc->types->primitiveTypes[TYPE_INT32];
+		}
+		else
+		{
+			error(tc, member->name, "Undefined any field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+	}
+	else if (operandType->typeKind == TYPE_TYPE)
+	{
+		SnekAssert(member->operand->type == NODE_IDENTIFIER);
+
+		Identifier* typeName = (Identifier*)member->operand;
+		Symbol* symbol = getIdentifierSymbol(typeName);
+		if (!symbol)
+		{
+			error(tc, typeName->name, "Unknown symbol '%.*s', workspace might be out of sync", typeName->name.length, typeName->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+
+		if (symbol->declaration->type == NODE_ENUM)
+		{
+			Enum* enum_ = &symbol->declaration->enum_;
+			int index = getEnumValue(member->name, enum_->numValues, enum_->values);
+			member->index = index;
+
+			if (index != -1)
+			{
+				return member->inferredType = enum_->enumType;
+			}
+			else
+			{
+				error(tc, member->name, "Undefined enum value '%.*s'", member->name.length, member->name.ptr);
+				return member->inferredType = &tc->types->errorType;
+			}
+		}
+		else
+		{
+			error(tc, (Node*)member->operand, "Undefined namespace '%.*s'", typeName->name.length, typeName->name.ptr);
+			return member->inferredType = &tc->types->errorType;
+		}
+	}
+	else
+	{
+		error(tc, (Node*)member->operand, "Operand of member access must be one of struct, union, string, array, any");
+		return member->inferredType = &tc->types->errorType;
 	}
 }
 
@@ -1493,6 +1699,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 		if (functionCall->expression->type == NODE_IDENTIFIER)
 			resolveIdentifier(tc, (Identifier*)functionCall->expression, true, functionCall->numArgs, functionCall->args);
+		else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+			resolveMemberAccess(tc, (MemberAccess*)functionCall->expression, true, functionCall->numArgs, functionCall->args);
 		else
 			resolveExpression(tc, functionCall->expression);
 
@@ -1501,6 +1709,18 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		if (functionType == &tc->types->errorType)
 		{
 			return expression->inferredType = &tc->types->errorType;
+		}
+
+		int numArgs = functionCall->numArgs;
+		bool memberFunction = false;
+		Expression** memberFunctionOperand = nullptr;
+
+		if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+		{
+			MemberAccess* member = (MemberAccess*)functionCall->expression;
+			memberFunction = true;
+			memberFunctionOperand = &member->operand;
+			numArgs++;
 		}
 
 		for (int i = 0; i < functionCall->numArgs; i++)
@@ -1516,14 +1736,19 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else
 		{
-			if (functionCall->numArgs != functionType->function.numParams)
+			if (numArgs != functionType->function.numParams)
 			{
-				error(tc, (Node*)functionCall, "Incorrect number of function arguments: %d, should be %d", functionCall->numArgs, functionType->function.numParams);
+				if (memberFunction)
+					error(tc, (Node*)functionCall, "Incorrect number of member function arguments: %d, should be %d", functionCall->numArgs, functionType->function.numParams - 1);
+				else
+					error(tc, (Node*)functionCall, "Incorrect number of function arguments: %d, should be %d", numArgs, functionType->function.numParams);
 			}
 
-			for (int i = 0; i < functionCall->numArgs; i++)
+			for (int i = 0; i < numArgs; i++)
 			{
-				Type* argType = functionCall->args[i]->inferredType;
+				Expression** argRef = memberFunction ? (i == 0 ? memberFunctionOperand : &functionCall->args[i - 1]) : &functionCall->args[i];
+				Expression* arg = *argRef;
+				Type* argType = arg->inferredType;
 				if (argType == &tc->types->errorType)
 					continue;
 
@@ -1537,9 +1762,20 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 					paramType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
 				}
 
-				if (paramType && !isAssignable(tc, argType, paramType, &functionCall->args[i]))
+				if (paramType && memberFunction && i == 0)
 				{
-					error(tc, (Node*)functionCall->args[i], "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+					if (compareTypes(argType, paramType) || paramType->typeKind == TYPE_POINTER && compareTypes(paramType->pointer.elementType, argType) && isLValue(arg))
+					{
+						//
+					}
+					else
+					{
+						SnekAssert(false);
+					}
+				}
+				else if (paramType && !isAssignable(tc, argType, paramType, argRef))
+				{
+					error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
 				}
 			}
 
@@ -1577,134 +1813,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
 		MemberAccess* member = (MemberAccess*)expression;
-
-		Type* operandType = resolveExpression(tc, member->operand);
-
-		if (operandType == &tc->types->errorType)
-		{
-			return expression->inferredType = &tc->types->errorType;
-		}
-
-		if (operandType->typeKind == TYPE_POINTER)
-			operandType = operandType->pointer.elementType;
-
-		if (operandType->typeKind == TYPE_STRUCT)
-		{
-			if (member->index == -1)
-				member->index = getFieldIndex(member->name, operandType->struct_.numFields, operandType->struct_.fieldNames);
-			if (member->index == -1)
-			{
-				error(tc, member->name, "Undefined struct field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-
-			return expression->inferredType = operandType->struct_.fieldTypes[member->index];
-		}
-		else if (operandType->typeKind == TYPE_UNION)
-		{
-			if (member->index == -1)
-				member->index = getFieldIndex(member->name, operandType->union_.numFields, operandType->union_.fieldNames);
-			if (member->index == -1)
-			{
-				error(tc, member->name, "Undefined union field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-
-			return expression->inferredType = operandType->union_.fieldTypes[member->index];
-		}
-		else if (operandType->typeKind == TYPE_STRING)
-		{
-			if (compareString(member->name, "ptr"))
-			{
-				member->index = 0;
-				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
-			}
-			else if (compareString(member->name, "length"))
-			{
-				member->index = 1;
-				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
-			}
-			else
-			{
-				error(tc, member->name, "Undefined string field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-		}
-		else if (operandType->typeKind == TYPE_ARRAY)
-		{
-			if (compareString(member->name, "data"))
-			{
-				member->index = 0;
-				return expression->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
-			}
-			else if (compareString(member->name, "length"))
-			{
-				member->index = 1;
-				return expression->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
-			}
-			else
-			{
-				error(tc, member->name, "Undefined array field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-		}
-		else if (operandType->typeKind == TYPE_ANY)
-		{
-			if (compareString(member->name, "value"))
-			{
-				member->index = 0;
-				return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->currentFile);
-			}
-			else if (compareString(member->name, "type"))
-			{
-				member->index = 1;
-				return expression->inferredType = &tc->types->primitiveTypes[TYPE_INT32];
-			}
-			else
-			{
-				error(tc, member->name, "Undefined any field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-		}
-		else if (operandType->typeKind == TYPE_TYPE)
-		{
-			SnekAssert(member->operand->type == NODE_IDENTIFIER);
-
-			Identifier* typeName = (Identifier*)member->operand;
-			Symbol* symbol = getIdentifierSymbol(typeName);
-			if (!symbol)
-			{
-				error(tc, typeName->name, "Unknown symbol '%.*s', workspace might be out of sync", typeName->name.length, typeName->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-
-			if (symbol->declaration->type == NODE_ENUM)
-			{
-				Enum* enum_ = &symbol->declaration->enum_;
-				int index = getEnumValue(member->name, enum_->numValues, enum_->values);
-				member->index = index;
-
-				if (index != -1)
-				{
-					return expression->inferredType = enum_->enumType;
-				}
-				else
-				{
-					error(tc, member->name, "Undefined enum value '%.*s'", member->name.length, member->name.ptr);
-					return expression->inferredType = &tc->types->errorType;
-				}
-			}
-			else
-			{
-				error(tc, (Node*)member->operand, "Undefined namespace '%.*s'", typeName->name.length, typeName->name.ptr);
-				return expression->inferredType = &tc->types->errorType;
-			}
-		}
-		else
-		{
-			error(tc, (Node*)member->operand, "Operand of member access must be one of struct, union, string, array, any");
-			return expression->inferredType = &tc->types->errorType;
-		}
+		return resolveMemberAccess(tc, member, false, 0, nullptr);
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{

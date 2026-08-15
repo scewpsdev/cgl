@@ -155,6 +155,7 @@
   <ItemGroup>
     <ClInclude Include="src\codegen\CodeBuffer.h" />
     <ClInclude Include="src\codegen\Codegen.h" />
+    <ClInclude Include="src\codegen\Value.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\parser\AST.h" />
     <ClInclude Include="src\parser\Diagnostics.h" />
