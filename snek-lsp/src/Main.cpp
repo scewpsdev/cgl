@@ -992,6 +992,9 @@ int main()
 						{"workspaceSymbolProvider", true},
 						{"definitionProvider", true},
 						//{"hoverProvider", true},
+						{"signatureHelpProvider", {
+							{"triggerCharacters", {"(", ","}}
+						}},
 						{"completionProvider", {
 							{"resolveProvider", false}
 						}},
@@ -1237,9 +1240,7 @@ int main()
 
 							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
 							{
-								StringView declarationName;
-								if (getDeclarationNameIdentifier(symbol->declaration, &declarationName))
-									getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+								getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
 							}
 							else if (symbol->type == SYMBOL_FUNCTION_SET)
 							{
@@ -1258,9 +1259,7 @@ int main()
 
 							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
 							{
-								StringView declarationName;
-								if (getDeclarationNameIdentifier(symbol->declaration, &declarationName))
-									getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+								getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
 							}
 							else if (symbol->type == SYMBOL_FUNCTION_SET)
 							{
@@ -1273,10 +1272,11 @@ int main()
 					else
 					{
 						StringView declarationName;
-						if (getDeclarationNameIdentifier(node, &declarationName))
+						if (getDeclarationNameIdentifier(&document->file.parser, node, line, character, &declarationName))
 						{
 							symbolDocument = document;
-							getSourceLocation(&document->file.parser, node, &start, &end);
+							if (isInRangeOfString(&document->file.parser, line, character, declarationName))
+								getSourceLocation(&document->file.parser, node, &start, &end);
 						}
 					}
 
@@ -1299,6 +1299,132 @@ int main()
 						sendResponse(request["id"], result);
 
 						sent = true;
+					}
+				}
+
+				if (!sent)
+				{
+					sendErrorResponse(request["id"], -32801);
+				}
+			}
+			else if (method == "textDocument/signatureHelp")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = GetDocument(uri);
+
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
+
+				const char* lineStr = document->lines[line];
+
+				int functionNameIdx = -1;
+
+				int parenLevel = 0;
+				int commas = 0;
+				for (int i = character - 1; i >= 0; i--)
+				{
+					char c = lineStr[i];
+					if (c == ',')
+						commas++;
+					else if (c == '(' && parenLevel == 0 && i - 1 >= 0)
+					{
+						functionNameIdx = document->file.parser.lexer.lineOffsets[line] + i - 1;
+						break;
+					}
+				}
+
+				bool sent = false;
+
+				if (functionNameIdx != -1)
+				{
+					SourceLocation functionLocation = getSourceLocation(&document->file.parser.lexer, functionNameIdx);
+
+					Node* node;
+					Scope* scope;
+					document->getNodeAtPosition(functionLocation.line, functionLocation.col, &node, &scope);
+
+					if (node && node->type > NODE_EXPRESSION_START && node->type < NODE_EXPRESSION_END)
+					{
+						Expression* expression = (Expression*)node;
+
+						json signatures = json::array();
+						int activeSignature = -1;
+
+						if (expression->type == NODE_IDENTIFIER)
+						{
+							Identifier* identifier = (Identifier*)expression;
+
+							Symbol* symbol = getIdentifierSymbol(identifier);
+							if (symbol->type == SYMBOL_FUNCTION_SET)
+							{
+								SnekAssert(identifier->functionOverloadID != -1);
+
+								activeSignature = identifier->functionOverloadID;
+
+								for (int i = 0; i < symbol->functionSet.count; i++)
+								{
+									FunctionOverload* overload = &symbol->functionSet.overloads[i];
+									Function* function = overload->declaration;
+
+									std::stringstream functionLabel;
+									functionLabel << std::string(function->name.ptr, function->name.length) << '(';
+
+									json parameters = json::array();
+
+									for (int j = 0; j < function->numParams; j++)
+									{
+										Type* paramType = function->params[j]->paramType->inferredType;
+										std::string paramName = std::string(function->params[j]->name.ptr, function->params[j]->name.length);
+
+										std::string paramLabel = std::string(paramType->name.ptr, paramType->name.length) + ' ' + paramName;
+
+										parameters.push_back({ "label", paramLabel });
+
+										functionLabel << paramLabel;
+										if (j < function->numParams - 1)
+											functionLabel << ", ";
+									}
+
+									functionLabel << ')';
+
+									if (function->returnType)
+									{
+										Type* returnType = function->returnType->inferredType;
+										functionLabel << ' ' << std::string(returnType->name.ptr, returnType->name.length);
+									}
+
+									signatures.push_back({
+										{"label", functionLabel.str()},
+										{"parameters", parameters}
+										});
+								}
+							}
+						}
+						else if (expression->type == NODE_MEMBER_ACCESS)
+						{
+
+						}
+						else
+						{
+							Type* type = expression->inferredType;
+							if (type && type->typeKind == TYPE_FUNCTION)
+							{
+							}
+						}
+
+						if (signatures.size())
+						{
+							json result = {
+								{"signatures", signatures},
+								{"activeSignature", activeSignature},
+								{"activeParameter", commas},
+							};
+
+							sendResponse(request["id"], result);
+						}
 					}
 				}
 

@@ -1,2 +1,9 @@
-﻿  Main.cpp
+﻿snek.lib(StringView.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(Arena.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(Platform.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(Lexer.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(ScratchBuffer.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(Diagnostics.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(Hash.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
+snek.lib(CodeBuffer.obj) : warning LNK4204: 'D:\Dev\2023\CGL\bin\x64\Debug\snek.pdb' is missing debugging information for referencing module; linking object as if no debug info
   snekc.vcxproj -> D:\Dev\2023\CGL\bin\x64\Debug\snekc.exe
