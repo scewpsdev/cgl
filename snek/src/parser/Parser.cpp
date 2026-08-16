@@ -46,6 +46,18 @@ void getSourceLocation(Parser* parser, Token token, SourceLocation* start, Sourc
 	*end = getSourceLocation(&parser->lexer, token.offset + token.length);
 }
 
+void getSourceLocation(Parser* parser, Node* node, SourceLocation* start, SourceLocation* end)
+{
+	*start = getSourceLocation(&parser->lexer, node->start);
+	*end = getSourceLocation(&parser->lexer, node->end);
+}
+
+void getSourceLocation(Parser* parser, StringView str, SourceLocation* start, SourceLocation* end)
+{
+	*start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
+	*end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+}
+
 static void getTokenRange(Token token, int* start, int* end)
 {
 	*start = token.offset;

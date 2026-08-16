@@ -9,7 +9,7 @@
 #include <set>
 
 
-using namespace nlohmann;
+using json = nlohmann::json;
 
 
 extern List<Document*> documents;
@@ -374,6 +374,13 @@ static void searchForNode(Node* node, Scope* scope, void* userPtr)
 		bool matchesEnd = params->line == end.line && params->col < end.col || params->line < end.line;
 		if (matchesStart && matchesEnd)
 		{
+			if (node->type == NODE_FUNCTION)
+				scope = node->function.scope;
+			else if (node->type == NODE_FOR)
+				scope = node->for_.scope;
+			else if (node->type == NODE_BLOCK_STATEMENT)
+				scope = node->blockStatement.scope;
+
 			params->node = node;
 			params->scope = scope;
 		}
@@ -395,7 +402,7 @@ void Document::getNodeAtPosition(int line, int col, Node** node, Scope** scope)
 	*scope = params.scope;
 }
 
-static void scanScopeForItems(Scope* scope, nlohmann::json items)
+static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 {
 	for (int i = 0; i < scope->symbols.capacity; i++)
 	{
@@ -454,7 +461,7 @@ static void scanScopeForItems(Scope* scope, nlohmann::json items)
 	}
 }
 
-void Document::autocomplete(Scope* scope, nlohmann::json items)
+void Document::autocomplete(Scope* scope, json& items)
 {
 	while (scope)
 	{
@@ -467,6 +474,276 @@ void Document::autocomplete(Scope* scope, nlohmann::json items)
 		if (File* dependency = getFileFromHandle(file.dependencies[i]))
 		{
 			scanScopeForItems(dependency->ast.globalScope, items);
+		}
+	}
+}
+
+void Document::getSymbols(json& items)
+{
+	AST* ast = &file.ast;
+
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		Node* declaration = ast->declarations[i];
+
+		SourceLocation start, end;
+		getSourceLocation(&file.parser, declaration, &start, &end);
+
+		SourceLocation selectionStart, selectionEnd;
+
+		std::string name;
+		int kind = 0;
+
+		if (declaration->type == NODE_STRUCT)
+		{
+			Struct* struct_ = &declaration->struct_;
+
+			name = std::string(struct_->name.ptr, struct_->name.length);
+			kind = SYMBOL_KIND_STRUCT;
+
+			getSourceLocation(&file.parser, struct_->name, &selectionStart, &selectionEnd);
+		}
+		else if (declaration->type == NODE_UNION)
+		{
+			Union* union_ = &declaration->union_;
+
+			name = std::string(union_->name.ptr, union_->name.length);
+			kind = SYMBOL_KIND_STRUCT;
+
+			getSourceLocation(&file.parser, union_->name, &selectionStart, &selectionEnd);
+		}
+		else if (declaration->type == NODE_ENUM)
+		{
+			Enum* enum_ = &declaration->enum_;
+
+			name = std::string(enum_->name.ptr, enum_->name.length);
+			kind = SYMBOL_KIND_ENUM;
+
+			getSourceLocation(&file.parser, enum_->name, &selectionStart, &selectionEnd);
+		}
+		else if (declaration->type == NODE_TYPEDEF)
+		{
+			Typedef* typedef_ = &declaration->typedef_;
+
+			name = std::string(typedef_->name.ptr, typedef_->name.length);
+			kind = SYMBOL_KIND_STRUCT;
+
+			getSourceLocation(&file.parser, typedef_->name, &selectionStart, &selectionEnd);
+		}
+		else if (declaration->type == NODE_FUNCTION)
+		{
+			Function* function = &declaration->function;
+
+			name = std::string(function->name.ptr, function->name.length);
+			kind = SYMBOL_KIND_FUNCTION;
+
+			getSourceLocation(&file.parser, function->name, &selectionStart, &selectionEnd);
+		}
+		else if (declaration->type == NODE_GLOBAL_VARIABLE)
+		{
+			GlobalVariable* variable = &declaration->globalVariable;
+
+			if (variable->numDeclarators)
+			{
+				name = std::string(variable->declarators[0].name.ptr, variable->declarators[0].name.length);
+				kind = variable->storage & STORAGE_CONSTANT ? SYMBOL_KIND_CONSTANT : SYMBOL_KIND_VARIABLE;
+
+				getSourceLocation(&file.parser, variable->declarators[0].name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_MACRO)
+		{
+		}
+		else if (declaration->type == NODE_IMPORT)
+		{
+		}
+
+		if (kind)
+		{
+			json range = {
+				{"start", {
+					{"line", start.line},
+					{"character", start.col}
+				}},
+				{"end", {
+					{"line", end.line},
+					{"character", end.col}
+				}}
+			};
+
+			json selectionRange = {
+				{"start", {
+					{"line", selectionStart.line},
+					{"character", selectionStart.col}
+				}},
+				{"end", {
+					{"line", selectionEnd.line},
+					{"character", selectionEnd.col}
+				}}
+			};
+
+			items.push_back({
+					{"name", name},
+					{"kind", kind},
+					{"range", range},
+					{"selectionRange", selectionRange}
+				});
+		}
+	}
+}
+
+static char toLower(char c)
+{
+	if (c >= 'A' && c <= 'Z')
+		return c + ('a' - 'A');
+	return c;
+}
+
+static bool matchQuery(StringView name, const std::string& query)
+{
+	if (query.length() > name.length)
+		return false;
+
+	for (int i = 0; i <= name.length - query.length(); i++)
+	{
+		bool match = true;
+
+		for (int j = 0; j < query.length(); j++)
+		{
+			if (toLower(name[i + j]) != toLower(query[j]))
+			{
+				match = false;
+				break;
+			}
+		}
+
+		if (match)
+			return true;
+	}
+
+	return false;
+}
+
+void Document::getWorkspaceSymbols(const std::string& query, json& items)
+{
+	AST* ast = &file.ast;
+
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		Node* declaration = ast->declarations[i];
+
+		SourceLocation start, end;
+		getSourceLocation(&file.parser, declaration, &start, &end);
+
+		SourceLocation selectionStart, selectionEnd;
+
+		std::string name;
+		int kind = 0;
+
+		if (declaration->type == NODE_STRUCT)
+		{
+			Struct* struct_ = &declaration->struct_;
+
+			if (query.length() == 0 && items.size() < 2000 || matchQuery(struct_->name, query))
+			{
+				name = std::string(struct_->name.ptr, struct_->name.length);
+				kind = SYMBOL_KIND_STRUCT;
+
+				getSourceLocation(&file.parser, struct_->name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_UNION)
+		{
+			Union* union_ = &declaration->union_;
+
+			if (query.length() == 0 && items.size() < 2000 || matchQuery(union_->name, query))
+			{
+				name = std::string(union_->name.ptr, union_->name.length);
+				kind = SYMBOL_KIND_STRUCT;
+
+				getSourceLocation(&file.parser, union_->name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_ENUM)
+		{
+			Enum* enum_ = &declaration->enum_;
+
+			if (query.length() && items.size() < 2000 == 0 || matchQuery(enum_->name, query))
+			{
+				name = std::string(enum_->name.ptr, enum_->name.length);
+				kind = SYMBOL_KIND_ENUM;
+
+				getSourceLocation(&file.parser, enum_->name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_TYPEDEF)
+		{
+			Typedef* typedef_ = &declaration->typedef_;
+
+			if (query.length() && items.size() < 2000 == 0 || matchQuery(typedef_->name, query))
+			{
+				name = std::string(typedef_->name.ptr, typedef_->name.length);
+				kind = SYMBOL_KIND_STRUCT;
+
+				getSourceLocation(&file.parser, typedef_->name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_FUNCTION)
+		{
+			Function* function = &declaration->function;
+
+			if (query.length() && items.size() < 2000 == 0 || matchQuery(function->name, query))
+			{
+				name = std::string(function->name.ptr, function->name.length);
+				kind = SYMBOL_KIND_FUNCTION;
+
+				getSourceLocation(&file.parser, function->name, &selectionStart, &selectionEnd);
+			}
+		}
+		else if (declaration->type == NODE_GLOBAL_VARIABLE)
+		{
+			GlobalVariable* variable = &declaration->globalVariable;
+
+			if (variable->numDeclarators)
+			{
+				if (query.length() && items.size() < 2000 == 0 || matchQuery(variable->declarators[0].name, query))
+				{
+					name = std::string(variable->declarators[0].name.ptr, variable->declarators[0].name.length);
+					kind = variable->storage & STORAGE_CONSTANT ? SYMBOL_KIND_CONSTANT : SYMBOL_KIND_VARIABLE;
+
+					getSourceLocation(&file.parser, variable->declarators[0].name, &selectionStart, &selectionEnd);
+				}
+			}
+		}
+		else if (declaration->type == NODE_MACRO)
+		{
+		}
+		else if (declaration->type == NODE_IMPORT)
+		{
+		}
+
+		if (kind)
+		{
+			json location = {
+				{"uri", uri},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col}
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col}
+					}}
+				}}
+			};
+
+			items.push_back({
+					{"name", name},
+					{"kind", kind},
+					{"location", location},
+					{"containerName", this->localPath}
+				});
 		}
 	}
 }

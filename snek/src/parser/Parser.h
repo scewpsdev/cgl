@@ -34,6 +34,8 @@ void error(Parser* parser, Node* node, const char* fmt, ...);
 SourceLocation getSourceLocation(Parser* parser);
 SourceLocation getSourceLocation(Parser* parser, Token token);
 void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end);
+void getSourceLocation(Parser* parser, Node* node, SourceLocation* start, SourceLocation* end);
+void getSourceLocation(Parser* parser, StringView str, SourceLocation* start, SourceLocation* end);
 
 void parse(Parser* parser, AST* ast);
 

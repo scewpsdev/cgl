@@ -81,6 +81,36 @@ enum CompletionItemType
 	COMPLETION_ITEM_TYPE_PARAMETER = 25,
 };
 
+enum SymbolKind
+{
+	SYMBOL_KIND_FILE = 1,
+	SYMBOL_KIND_MODULE = 2,
+	SYMBOL_KIND_NAMESPACE = 3,
+	SYMBOL_KIND_PACKAGE = 4,
+	SYMBOL_KIND_CLASS = 5,
+	SYMBOL_KIND_METHOD = 6,
+	SYMBOL_KIND_PROPERTY = 7,
+	SYMBOL_KIND_FIELD = 8,
+	SYMBOL_KIND_CONSTRUCTOR = 9,
+	SYMBOL_KIND_ENUM = 10,
+	SYMBOL_KIND_INTERFACE = 11,
+	SYMBOL_KIND_FUNCTION = 12,
+	SYMBOL_KIND_VARIABLE = 13,
+	SYMBOL_KIND_CONSTANT = 14,
+	SYMBOL_KIND_STRING = 15,
+	SYMBOL_KIND_NUMBER = 16,
+	SYMBOL_KIND_BOOLEAN = 17,
+	SYMBOL_KIND_ARRAY = 18,
+	SYMBOL_KIND_OBJECT = 19,
+	SYMBOL_KIND_KEY = 20,
+	SYMBOL_KIND_NULL = 21,
+	SYMBOL_KIND_ENUM_MEMBER = 22,
+	SYMBOL_KIND_STRUCT = 23,
+	SYMBOL_KIND_EVENT = 24,
+	SYMBOL_KIND_OPERATOR = 25,
+	SYMBOL_KIND_TYPE_PARAMETER = 26,
+};
+
 struct DocumentPiece
 {
 	int start, length;
@@ -122,7 +152,10 @@ struct Document
 	void getTokens(std::vector<int>& data);
 
 	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
-	void autocomplete(Scope* scope, nlohmann::json items);
+	void autocomplete(Scope* scope, nlohmann::json& items);
+
+	void getSymbols(nlohmann::json& items);
+	void getWorkspaceSymbols(const std::string& query, nlohmann::json& items);
 };
 
 

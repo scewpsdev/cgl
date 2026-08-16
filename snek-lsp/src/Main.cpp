@@ -535,10 +535,10 @@ void Parse(List<Document*> documents)
 
 		document->linesMutex.unlock();
 
+		document->astMutex.lock();
+
 		document->text = stream.str();
 		stream.clear();
-
-		document->astMutex.lock();
 
 		resetArena(&document->file.arena);
 		resetScratchBuffer(&document->file.scratch);
@@ -906,6 +906,8 @@ int main()
 				json result = {
 					{"capabilities", {
 						{"textDocumentSync", 2},
+						{"documentSymbolProvider", true},
+						{"workspaceSymbolProvider", true},
 						//{"hoverProvider", true},
 						{"completionProvider", {
 							{"resolveProvider", false}
@@ -1054,8 +1056,20 @@ int main()
 
 					Node* node = nullptr;
 					Scope* scope = nullptr;
+
+					document->astMutex.lock();
+
+					uint64_t beforeComplete = GetTimeNS();
+
 					document->getNodeAtPosition(line, character, &node, &scope);
 					document->autocomplete(scope, items);
+
+					uint64_t afterComplete = GetTimeNS();
+
+					document->astMutex.unlock();
+
+					float ms = (afterComplete - beforeComplete) / 1e6f;
+					fprintf(stderr, "autocomplete in %.3fms\n", ms);
 
 					/*
 					for (auto& pair : keywords)
@@ -1091,6 +1105,50 @@ int main()
 						{"items", json::array()}
 						});
 				}
+			}
+			else if (method == "textDocument/documentSymbol")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = GetDocument(uri);
+
+				json result = json::array();
+
+				document->astMutex.lock();
+
+				document->getSymbols(result);
+
+				document->astMutex.unlock();
+
+				sendResponse(request["id"], result);
+			}
+			else if (method == "workspace/symbol")
+			{
+				json params = request["params"];
+				std::string query = params["query"];
+
+				uint64_t beforeComplete = GetTimeNS();
+
+				json result = json::array();
+
+				for (int i = 0; i < documents.size; i++)
+				{
+					Document* document = documents[i];
+
+					document->astMutex.lock();
+
+					document->getWorkspaceSymbols(query, result);
+
+					document->astMutex.unlock();
+				}
+
+				sendResponse(request["id"], result);
+
+				uint64_t afterComplete = GetTimeNS();
+
+				float ms = (afterComplete - beforeComplete) / 1e6f;
+				fprintf(stderr, "workspace symbols: %d in %.3fms\n", (int)result.size(), ms);
 			}
 		}
 		else
