@@ -84,6 +84,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 
 		if (!slot->key)
 		{
+			*slot = {};
 			slot->key = h;
 			slot->name = identifier;
 			slot->type = type;
@@ -1086,7 +1087,8 @@ static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t v
 
 static void traverseType(TypeNode* type, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)type, scope, userPtr);
+	if (!visitor((Node*)type, scope, userPtr))
+		return;
 
 	if (type->type == NODE_STRUCT_TYPE)
 	{
@@ -1152,7 +1154,8 @@ static void traverseType(TypeNode* type, Scope* scope, ASTVisitor_t visitor, voi
 
 static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)expression, scope, userPtr);
+	if (!visitor((Node*)expression, scope, userPtr))
+		return;
 
 	if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
@@ -1233,6 +1236,9 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 
 static void traverseStatement(Statement* statement, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
+	if (!visitor((Node*)statement, scope, userPtr))
+		return;
+
 	if (statement->type == NODE_BLOCK_STATEMENT)
 	{
 		BlockStatement* block = (BlockStatement*)statement;
@@ -1313,7 +1319,8 @@ static void traverseStatement(Statement* statement, Scope* scope, ASTVisitor_t v
 
 static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)field, scope, userPtr);
+	if (!visitor((Node*)field, scope, userPtr))
+		return;
 
 	traverseType(field->variableType, scope, visitor, userPtr);
 	for (int i = 0; i < field->numDeclarators; i++)
@@ -1325,14 +1332,16 @@ static void traverseField(Field* field, Scope* scope, ASTVisitor_t visitor, void
 
 static void traverseParameter(Parameter* parameter, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)parameter, scope, userPtr);
+	if (!visitor((Node*)parameter, scope, userPtr))
+		return;
 
 	traverseType(parameter->paramType, scope, visitor, userPtr);
 }
 
 static void traverseEnumValue(EnumValue* enumValue, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor((Node*)enumValue, scope, userPtr);
+	if (!visitor((Node*)enumValue, scope, userPtr))
+		return;
 
 	if (enumValue->value)
 		traverseExpression(enumValue->value, scope, visitor, userPtr);
@@ -1340,7 +1349,8 @@ static void traverseEnumValue(EnumValue* enumValue, Scope* scope, ASTVisitor_t v
 
 static void traverseDeclaration(Node* declaration, Scope* scope, ASTVisitor_t visitor, void* userPtr)
 {
-	visitor(declaration, scope, userPtr);
+	if (!visitor(declaration, scope, userPtr))
+		return;
 
 	if (declaration->type == NODE_STRUCT)
 	{

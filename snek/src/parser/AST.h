@@ -671,7 +671,7 @@ struct AST
 	Scope* globalScope;
 };
 
-typedef void(*ASTVisitor_t)(Node* nodeRef, Scope* scope, void* userPtr);
+typedef bool(*ASTVisitor_t)(Node* nodeRef, Scope* scope, void* userPtr);
 
 
 void initNode(Node* node, NodeType type, int start);

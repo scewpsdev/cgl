@@ -837,6 +837,88 @@ void ParserThread()
 	}
 }
 
+static bool isInRangeOfString(Parser* parser, int line, int col, StringView str)
+{
+	SourceLocation start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
+	SourceLocation end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+
+	if (line >= start.line && line <= end.line)
+	{
+		bool matchesStart = line == start.line && col >= start.col || line > start.line;
+		bool matchesEnd = line == end.line && col <= end.col || line < end.line;
+		return matchesStart && matchesEnd;
+	}
+
+	return false;
+}
+
+static bool getDeclarationNameIdentifier(Parser* parser, Node* node, int line, int col, StringView* identifier)
+{
+	if (node->type == NODE_VARIABLE_DECLARATION)
+	{
+		VariableDeclaration* variable = &node->variableDeclaration;
+		for (int i = 0; i < variable->numDeclarators; i++)
+		{
+			VariableDeclarator* declarator = &variable->declarators[i];
+			if (isInRangeOfString(parser, line, col, declarator->name))
+			{
+				*identifier = declarator->name;
+				return true;
+			}
+		}
+	}
+	if (node->type == NODE_STRUCT)
+	{
+		Struct* struct_ = &node->struct_;
+		*identifier = struct_->name;
+		return true;
+	}
+	else if (node->type == NODE_UNION)
+	{
+		Union* union_ = &node->union_;
+		*identifier = union_->name;
+		return true;
+	}
+	else if (node->type == NODE_ENUM)
+	{
+		Enum* enum_ = &node->enum_;
+		*identifier = enum_->name;
+		return true;
+	}
+	else if (node->type == NODE_TYPEDEF)
+	{
+		Typedef* typedef_ = &node->typedef_;
+		*identifier = typedef_->name;
+		return true;
+	}
+	else if (node->type == NODE_FUNCTION)
+	{
+		Function* function = &node->function;
+		*identifier = function->name;
+		return true;
+	}
+	else if (node->type == NODE_GLOBAL_VARIABLE)
+	{
+		GlobalVariable* variable = &node->globalVariable;
+		for (int i = 0; i < variable->numDeclarators; i++)
+		{
+			VariableDeclarator* declarator = &variable->declarators[i];
+			if (isInRangeOfString(parser, line, col, declarator->name))
+			{
+				*identifier = declarator->name;
+				return true;
+			}
+		}
+	}
+	else if (node->type == NODE_MACRO)
+	{
+		Macro* macro = &node->macro;
+		*identifier = macro->name;
+		return true;
+	}
+	return false;
+}
+
 int main()
 {
 	SleepMS(5000);
@@ -908,6 +990,7 @@ int main()
 						{"textDocumentSync", 2},
 						{"documentSymbolProvider", true},
 						{"workspaceSymbolProvider", true},
+						{"definitionProvider", true},
 						//{"hoverProvider", true},
 						{"completionProvider", {
 							{"resolveProvider", false}
@@ -1122,6 +1205,107 @@ int main()
 				document->astMutex.unlock();
 
 				sendResponse(request["id"], result);
+			}
+			else if (method == "textDocument/definition")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = GetDocument(uri);
+
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
+
+				Node* node = nullptr;
+				Scope* scope = nullptr;
+				document->getNodeAtPosition(line, character, &node, &scope);
+
+				bool sent = false;
+
+				if (node)
+				{
+					SourceLocation start = {}, end = {};
+					Document* symbolDocument = document;
+
+					if (node->type == NODE_IDENTIFIER)
+					{
+						Identifier* identifier = &node->identifier;
+						if (Symbol* symbol = getIdentifierSymbol(identifier))
+						{
+							symbolDocument = getDocument(symbol->file);
+
+							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
+							{
+								StringView declarationName;
+								if (getDeclarationNameIdentifier(symbol->declaration, &declarationName))
+									getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+							}
+							else if (symbol->type == SYMBOL_FUNCTION_SET)
+							{
+								SnekAssert(identifier->functionOverloadID != -1);
+								FunctionOverload* functionOverload = &symbol->functionSet.overloads[identifier->functionOverloadID];
+								getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
+							}
+						}
+					}
+					else if (node->type == NODE_MEMBER_ACCESS)
+					{
+						MemberAccess* member = &node->memberAccess;
+						if (Symbol* symbol = getMemberAccessSymbol(member))
+						{
+							symbolDocument = getDocument(symbol->file);
+
+							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
+							{
+								StringView declarationName;
+								if (getDeclarationNameIdentifier(symbol->declaration, &declarationName))
+									getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+							}
+							else if (symbol->type == SYMBOL_FUNCTION_SET)
+							{
+								SnekAssert(member->functionOverloadID != -1);
+								FunctionOverload* functionOverload = &symbol->functionSet.overloads[member->functionOverloadID];
+								getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
+							}
+						}
+					}
+					else
+					{
+						StringView declarationName;
+						if (getDeclarationNameIdentifier(node, &declarationName))
+						{
+							symbolDocument = document;
+							getSourceLocation(&document->file.parser, node, &start, &end);
+						}
+					}
+
+					if (start.filename)
+					{
+						json result = {
+							{"uri", symbolDocument->uri},
+							{"range", {
+								{"start", {
+									{"line", start.line},
+									{"character", start.col},
+								}},
+								{"end", {
+									{"line", end.line},
+									{"character", end.col},
+								}},
+							}}
+						};
+
+						sendResponse(request["id"], result);
+
+						sent = true;
+					}
+				}
+
+				if (!sent)
+				{
+					sendErrorResponse(request["id"], -32801);
+				}
 			}
 			else if (method == "workspace/symbol")
 			{

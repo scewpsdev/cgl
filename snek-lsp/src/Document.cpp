@@ -137,10 +137,10 @@ static void getStringRange(StringView str, Parser* parser, int* start, int* end)
 	*end = *start + str.length;
 }
 
-static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
+static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 {
 	if (!node)
-		return;
+		return false;
 
 	if (node->type == NODE_NAMED_TYPE)
 	{
@@ -311,6 +311,8 @@ static void getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, LSP_TOKEN_MODIFIER_DECLARATION });
 		}
 	}
+
+	return true;
 }
 
 void Document::getTokens(std::vector<int>& data)
@@ -361,7 +363,7 @@ struct NodeSearchParams
 	Scope* scope;
 };
 
-static void searchForNode(Node* node, Scope* scope, void* userPtr)
+static bool searchForNode(Node* node, Scope* scope, void* userPtr)
 {
 	NodeSearchParams* params = (NodeSearchParams*)userPtr;
 
@@ -371,7 +373,7 @@ static void searchForNode(Node* node, Scope* scope, void* userPtr)
 	if (params->line >= start.line && params->line <= end.line)
 	{
 		bool matchesStart = params->line == start.line && params->col >= start.col || params->line > start.line;
-		bool matchesEnd = params->line == end.line && params->col < end.col || params->line < end.line;
+		bool matchesEnd = params->line == end.line && params->col <= end.col || params->line < end.line;
 		if (matchesStart && matchesEnd)
 		{
 			if (node->type == NODE_FUNCTION)
@@ -383,8 +385,12 @@ static void searchForNode(Node* node, Scope* scope, void* userPtr)
 
 			params->node = node;
 			params->scope = scope;
+
+			return true;
 		}
 	}
+
+	return false;
 }
 
 void Document::getNodeAtPosition(int line, int col, Node** node, Scope** scope)
@@ -410,7 +416,7 @@ static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 		if (symbol->key)
 		{
 			StringView name = symbol->name;
-			std::string keyword = std::string(name.ptr, name.length);
+			std::string nameStr = std::string(name.ptr, name.length);
 
 			CompletionItemType completionItem = COMPLETION_ITEM_TEXT;
 			if (symbol->type == SYMBOL_VARIABLE)
@@ -454,7 +460,7 @@ static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 			}
 
 			items.push_back({
-				{"label", keyword },
+				{"label", nameStr },
 				{"kind", completionItem}  // keyword
 				});
 		}
