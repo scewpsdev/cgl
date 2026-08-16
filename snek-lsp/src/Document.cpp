@@ -753,3 +753,134 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 		}
 	}
 }
+
+static Symbol* resolveSymbol(File* file, Scope* currentScope, StringView identifier)
+{
+	Scope* scope = currentScope;
+	while (scope)
+	{
+		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier))
+		{
+			return symbol;
+		}
+		scope = scope->parent;
+	}
+
+	for (int i = 0; i < file->dependencies.size; i++)
+	{
+		FileHandle dependency = file->dependencies[i];
+		if (File* file = getFileFromHandle(dependency))
+		{
+			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
+			{
+				return symbol;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+bool Document::getFunctionSignature(int line, int col, json& signatures, int& activeSignature, int& activeParameter)
+{
+	const char* lineStr = lines[line];
+
+	int functionNameStart = -1, functionNameEnd = -1;
+
+	int parenLevel = 0;
+	int commas = 0;
+	for (int i = col - 1; i >= 0; i--)
+	{
+		char c = lineStr[i];
+		if (functionNameEnd != -1)
+		{
+			bool identifier = isalpha(c) || isdigit(c) || c == '_';
+			if (!identifier)
+			{
+				functionNameStart = i + 1;
+				break;
+			}
+		}
+		else if (c == ',')
+			commas++;
+		else if (c == '(' && parenLevel == 0 && i - 1 >= 0)
+			functionNameEnd = i;
+	}
+
+	if (functionNameStart != -1 && functionNameEnd != -1)
+	{
+		SourceLocation functionNameLocation = {};
+		functionNameLocation.line = line;
+		functionNameLocation.col = functionNameStart;
+
+		functionNameStart += file.parser.lexer.lineOffsets[line];
+		functionNameEnd += file.parser.lexer.lineOffsets[line];
+
+		StringView functionName = getRangedString(functionNameStart, functionNameEnd, &file.parser);
+
+		Node* node;
+		Scope* scope;
+		getNodeAtPosition(functionNameLocation.line, functionNameLocation.col, &node, &scope);
+
+		Symbol* symbol = nullptr;
+		if (node && node->type == NODE_IDENTIFIER)
+		{
+			symbol = getIdentifierSymbol(&node->identifier);
+			activeSignature = node->identifier.functionOverloadID;
+		}
+
+		if (!symbol)
+		{
+			symbol = resolveSymbol(&file, scope, functionName);
+			activeSignature = 0;
+		}
+
+		if (symbol)
+		{
+			if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				for (int i = 0; i < symbol->functionSet.count; i++)
+				{
+					FunctionOverload* overload = &symbol->functionSet.overloads[i];
+					Function* function = overload->declaration;
+
+					std::stringstream functionLabel;
+					functionLabel << std::string(function->name.ptr, function->name.length) << '(';
+
+					json parameters = json::array();
+
+					for (int j = 0; j < function->numParams; j++)
+					{
+						Type* paramType = function->params[j]->paramType->inferredType;
+						std::string paramName = std::string(function->params[j]->name.ptr, function->params[j]->name.length);
+
+						std::string paramLabel = std::string(paramType->name.ptr, paramType->name.length) + ' ' + paramName;
+
+						parameters.push_back({ { "label", paramLabel } });
+
+						functionLabel << paramLabel;
+						if (j < function->numParams - 1)
+							functionLabel << ", ";
+					}
+
+					functionLabel << ')';
+
+					if (function->returnType)
+					{
+						Type* returnType = function->returnType->inferredType;
+						functionLabel << ' ' << std::string(returnType->name.ptr, returnType->name.length);
+					}
+
+					signatures.push_back({
+						{"label", functionLabel.str()},
+						{"parameters", parameters},
+						});
+				}
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}

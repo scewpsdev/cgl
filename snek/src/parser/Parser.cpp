@@ -64,12 +64,12 @@ static void getTokenRange(Token token, int* start, int* end)
 	*end = token.offset + token.length;
 }
 
-static StringView getTokenString(Token token, Parser* parser)
+StringView getTokenString(Token token, Parser* parser)
 {
 	return getTokenString(token, parser->lexer.src);
 }
 
-static StringView getRangedString(int start, int end, Parser* parser)
+StringView getRangedString(int start, int end, Parser* parser)
 {
 	return CreateString(parser->lexer.src + start, end - start);
 }

@@ -156,6 +156,8 @@ struct Document
 
 	void getSymbols(nlohmann::json& items);
 	void getWorkspaceSymbols(const std::string& query, nlohmann::json& items);
+
+	bool getFunctionSignature(int line, int col, nlohmann::json& signatures, int& activeSignature, int& activeParameter);
 };
 
 

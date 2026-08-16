@@ -1318,120 +1318,28 @@ int main()
 				int line = position["line"];
 				int character = position["character"];
 
-				const char* lineStr = document->lines[line];
+				json signatures = json::array();
+				int activeSignature = 0;
+				int activeParameter = 0;
 
-				int functionNameIdx = -1;
+				document->astMutex.lock();
 
-				int parenLevel = 0;
-				int commas = 0;
-				for (int i = character - 1; i >= 0; i--)
+				if (document->getFunctionSignature(line, character, signatures, activeSignature, activeParameter))
 				{
-					char c = lineStr[i];
-					if (c == ',')
-						commas++;
-					else if (c == '(' && parenLevel == 0 && i - 1 >= 0)
-					{
-						functionNameIdx = document->file.parser.lexer.lineOffsets[line] + i - 1;
-						break;
-					}
+					json result = {
+						{"signatures", signatures},
+						{"activeSignature", activeSignature},
+						{"activeParameter", activeParameter},
+					};
+
+					sendResponse(request["id"], result);
 				}
-
-				bool sent = false;
-
-				if (functionNameIdx != -1)
-				{
-					SourceLocation functionLocation = getSourceLocation(&document->file.parser.lexer, functionNameIdx);
-
-					Node* node;
-					Scope* scope;
-					document->getNodeAtPosition(functionLocation.line, functionLocation.col, &node, &scope);
-
-					if (node && node->type > NODE_EXPRESSION_START && node->type < NODE_EXPRESSION_END)
-					{
-						Expression* expression = (Expression*)node;
-
-						json signatures = json::array();
-						int activeSignature = -1;
-
-						if (expression->type == NODE_IDENTIFIER)
-						{
-							Identifier* identifier = (Identifier*)expression;
-
-							Symbol* symbol = getIdentifierSymbol(identifier);
-							if (symbol->type == SYMBOL_FUNCTION_SET)
-							{
-								SnekAssert(identifier->functionOverloadID != -1);
-
-								activeSignature = identifier->functionOverloadID;
-
-								for (int i = 0; i < symbol->functionSet.count; i++)
-								{
-									FunctionOverload* overload = &symbol->functionSet.overloads[i];
-									Function* function = overload->declaration;
-
-									std::stringstream functionLabel;
-									functionLabel << std::string(function->name.ptr, function->name.length) << '(';
-
-									json parameters = json::array();
-
-									for (int j = 0; j < function->numParams; j++)
-									{
-										Type* paramType = function->params[j]->paramType->inferredType;
-										std::string paramName = std::string(function->params[j]->name.ptr, function->params[j]->name.length);
-
-										std::string paramLabel = std::string(paramType->name.ptr, paramType->name.length) + ' ' + paramName;
-
-										parameters.push_back({ "label", paramLabel });
-
-										functionLabel << paramLabel;
-										if (j < function->numParams - 1)
-											functionLabel << ", ";
-									}
-
-									functionLabel << ')';
-
-									if (function->returnType)
-									{
-										Type* returnType = function->returnType->inferredType;
-										functionLabel << ' ' << std::string(returnType->name.ptr, returnType->name.length);
-									}
-
-									signatures.push_back({
-										{"label", functionLabel.str()},
-										{"parameters", parameters}
-										});
-								}
-							}
-						}
-						else if (expression->type == NODE_MEMBER_ACCESS)
-						{
-
-						}
-						else
-						{
-							Type* type = expression->inferredType;
-							if (type && type->typeKind == TYPE_FUNCTION)
-							{
-							}
-						}
-
-						if (signatures.size())
-						{
-							json result = {
-								{"signatures", signatures},
-								{"activeSignature", activeSignature},
-								{"activeParameter", commas},
-							};
-
-							sendResponse(request["id"], result);
-						}
-					}
-				}
-
-				if (!sent)
+				else
 				{
 					sendErrorResponse(request["id"], -32801);
 				}
+
+				document->astMutex.unlock();
 			}
 			else if (method == "workspace/symbol")
 			{

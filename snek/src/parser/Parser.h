@@ -37,6 +37,9 @@ void getSourceLocation(Parser* parser, Token token, SourceLocation* start, Sourc
 void getSourceLocation(Parser* parser, Node* node, SourceLocation* start, SourceLocation* end);
 void getSourceLocation(Parser* parser, StringView str, SourceLocation* start, SourceLocation* end);
 
+StringView getTokenString(Token token, Parser* parser);
+StringView getRangedString(int start, int end, Parser* parser);
+
 void parse(Parser* parser, AST* ast);
 
 void resolveDependencies(Parser* parser, File* file);
