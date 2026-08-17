@@ -1,4 +1,4 @@
-// snek\console.src
+// snek/console.src
 #include <snek.h>
 
 
