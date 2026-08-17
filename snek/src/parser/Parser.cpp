@@ -1764,8 +1764,14 @@ Statement* parseStatement(Parser* parser)
 				assignment->expression = expression;
 
 				assignment->value = parseExpression(parser);
+				if (!assignment->value)
+				{
+					error(parser, getSourceLocation(parser), "Right hand side of assignment needs to be an expression");
+					assignment->value = getErrorExpression(parser, parser->cursor);
+				}
 
-				expectToken(parser, ';');
+				if (!expectToken(parser, ';'))
+					skipPastToken(parser, ';');
 
 				return assignment;
 			}

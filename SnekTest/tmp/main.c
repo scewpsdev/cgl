@@ -844,8 +844,8 @@ union SDL_Event{
 
 
 void _main_1Ast(arr_0_string args);
-DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 extern void _writeln_1st(string str);
+DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 DLLIMPORT extern bool SDL_CreateWindowAndRenderer(i8* title,i32 width,i32 height,SDL_WindowFlags window_flags,struct SDL_Window** window,struct SDL_Renderer** renderer);
 DLLIMPORT extern bool SDL_SetRenderDrawColor(struct SDL_Renderer* renderer,Uint8 r,Uint8 g,Uint8 b,Uint8 a);
 DLLIMPORT extern bool SDL_PollEvent(union SDL_Event* event);
@@ -856,54 +856,57 @@ DLLIMPORT extern void SDL_DestroyWindow(struct SDL_Window* window);
 DLLIMPORT extern void SDL_Quit();
 
 
-static i8* const _G1="Failed to initialize SDL3";
-static i8* const _G2="ABC";
-static i8* const _G3="Failed to create window and renderer";
+static i8* const _G1="abc";
+static i8* const _G2="Failed to initialize SDL3";
+static i8* const _G3="ABC";
+static i8* const _G4="Failed to create window and renderer";
 
 
 void _main_1Ast(arr_0_string args){
-	const SDL_InitFlags _1=(SDL_InitFlags)0x20u;
-	const bool _2=SDL_Init(_1);
-	const bool _3=!_2;
-	if(_3){
-		const string _4={_G1,25};
-		_writeln_1st(_4);
+	const string _1={_G1,3};
+	_writeln_1st(_1);
+	const SDL_InitFlags _2=(SDL_InitFlags)0x20u;
+	const bool _3=SDL_Init(_2);
+	const bool _4=!_3;
+	if(_4){
+		const string _5={_G2,25};
+		_writeln_1st(_5);
 		return;
 	}
 	struct SDL_Window* window={0};
 	struct SDL_Renderer* renderer={0};
-	const SDL_WindowFlags _5=(SDL_WindowFlags)0llu;
-	struct SDL_Window** const _6=&window;
-	struct SDL_Renderer** const _7=&renderer;
-	const bool _8=SDL_CreateWindowAndRenderer(_G2,1280,720,_5,_6,_7);
-	const bool _9=!_8;
-	if(_9){
-		const string _10={_G3,36};
-		_writeln_1st(_10);
+	const SDL_WindowFlags _6=(SDL_WindowFlags)0llu;
+	struct SDL_Window** const _7=&window;
+	struct SDL_Renderer** const _8=&renderer;
+	const bool _9=SDL_CreateWindowAndRenderer(_G3,1280,720,_6,_7,_8);
+	const bool _10=!_9;
+	if(_10){
+		const string _11={_G4,36};
+		_writeln_1st(_11);
 		return;
 	}
-	const Uint8 _11=(Uint8)100u;
-	const Uint8 _12=(Uint8)149u;
-	const Uint8 _13=(Uint8)237u;
-	const Uint8 _14=(Uint8)0u;
-	const bool _15=SDL_SetRenderDrawColor(renderer,_11,_12,_13,_14);
+	const Uint8 _12=(Uint8)100u;
+	const Uint8 _13=(Uint8)149u;
+	const Uint8 _14=(Uint8)237u;
+	const Uint8 _15=(Uint8)0u;
+	const bool _16=SDL_SetRenderDrawColor(renderer,_12,_13,_14,_15);
 	bool running=true;
 	while(1){
 		if(!running)break;
 		union SDL_Event event={0};
 		while(1){
-			union SDL_Event* const _16=&event;
-			const bool _17=SDL_PollEvent(_16);
-			if(!_17)break;
-			Uint32* const _18=&event.type;
-			const enum SDL_EventType _19=(enum SDL_EventType)(*_18);
-			const bool _20=_19==256;
-			if(_20){
+			union SDL_Event* const _17=&event;
+			const bool _18=SDL_PollEvent(_17);
+			if(!_18)break;
+			Uint32* const _19=&event.type;
+			const enum SDL_EventType _20=(enum SDL_EventType)(*_19);
+			const bool _21=_20==256;
+			if(_21){
 				running=false;
 			}
 		}
-		const bool _21=SDL_RenderClear(renderer);
-		const bool _22=SDL_RenderPresent(renderer);
+		const bool _22=SDL_RenderClear(renderer);
+		const bool _23=SDL_RenderPresent(renderer);
 	}
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);

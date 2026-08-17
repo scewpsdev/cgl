@@ -94,6 +94,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 			{
 				SnekAssert(declaration->type == NODE_FUNCTION);
 
+				slot->declaration = nullptr;
 				slot->functionSet.overloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity = 8);
 				slot->functionSet.count = 0;
 				slot->functionSet.overloads[slot->functionSet.count++] = {
@@ -209,6 +210,17 @@ Symbol* getMemberAccessSymbol(MemberAccess* member)
 	if (File* file = getFileFromHandle(member->resolvedSymbolHandle.file))
 	{
 		return lookupSymbol(&file->ast.globalScope->symbols, member->resolvedSymbolHandle.symbol);
+	}
+	return nullptr;
+}
+
+Symbol* getNamedTypeSymbol(NamedType* namedType)
+{
+	if (namedType->symbol)
+		return namedType->symbol;
+	if (File* file = getFileFromHandle(namedType->symbolHandle.file))
+	{
+		return lookupSymbol(&file->ast.globalScope->symbols, namedType->symbolHandle.symbol);
 	}
 	return nullptr;
 }

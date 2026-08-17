@@ -5,8 +5,9 @@ import test;
 
 func main(string[] args)
 {
+	writeln("abc");
 	
-
+	
 	if (!SDL_Init(SDL_INIT_VIDEO))
 	{
 		writeln("Failed to initialize SDL3");

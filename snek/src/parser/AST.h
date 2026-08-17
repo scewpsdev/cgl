@@ -102,6 +102,12 @@ struct NodeBase
 
 typedef uint64_t FileHandle;
 
+struct SymbolHandle
+{
+	FileHandle file;
+	uint32_t symbol;
+};
+
 struct Node;
 struct Type;
 struct Expression;
@@ -123,6 +129,9 @@ struct ErrorType : TypeNode
 struct NamedType : TypeNode
 {
 	StringView name;
+
+	Symbol* symbol;
+	SymbolHandle symbolHandle;
 };
 
 struct VariableDeclarator
@@ -218,12 +227,6 @@ struct StringLiteral : Expression
 struct CharLiteral : Expression
 {
 	StringView value;
-};
-
-struct SymbolHandle
-{
-	FileHandle file;
-	uint32_t symbol;
 };
 
 struct Identifier : Expression
@@ -684,6 +687,7 @@ Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h);
 
 Symbol* getIdentifierSymbol(Identifier* identifier);
 Symbol* getMemberAccessSymbol(MemberAccess* member);
+Symbol* getNamedTypeSymbol(NamedType* namedType);
 
 int getFieldIndex(StringView name, int numFields, StringView* fieldNames);
 int getEnumValue(StringView name, int numValues, EnumValue** values);

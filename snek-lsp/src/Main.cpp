@@ -837,85 +837,379 @@ void ParserThread()
 	}
 }
 
-static bool isInRangeOfString(Parser* parser, int line, int col, StringView str)
+static void getFunctionDetailString(Function* function, std::stringstream& stream)
 {
-	SourceLocation start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
-	SourceLocation end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+	if (function->storage & STORAGE_DLLEXPORT)
+		stream << "dllexport ";
+	else if (function->storage & STORAGE_DLLIMPORT)
+		stream << "dllimport ";
+	else if (function->storage & STORAGE_PRIVATE)
+		stream << "private ";
+	if (function->storage & STORAGE_EXTERN)
+		stream << "externc ";
+	if (function->storage & STORAGE_NOMANGLE)
+		stream << "nomangle ";
 
-	if (line >= start.line && line <= end.line)
+	if (stream.tellp())
+		stream << "\n";
+
+	stream << "func ";
+	stream.write(function->name.ptr, function->name.length);
+	stream << '(';
+
+	if (function->numParams)
+		stream << '\n';
+
+	for (int j = 0; j < function->numParams; j++)
 	{
-		bool matchesStart = line == start.line && col >= start.col || line > start.line;
-		bool matchesEnd = line == end.line && col <= end.col || line < end.line;
-		return matchesStart && matchesEnd;
+		Type* paramType = function->params[j]->paramType->inferredType;
+		std::string paramName = std::string(function->params[j]->name.ptr, function->params[j]->name.length);
+
+		std::string paramLabel = std::string(paramType->name.ptr, paramType->name.length) + ' ' + paramName;
+
+		stream << '\t' << paramLabel;
+		if (j < function->numParams - 1)
+			stream << ",\n";
 	}
 
-	return false;
+	if (function->numParams)
+		stream << '\n';
+
+	stream << ')';
+
+	if (function->returnType)
+	{
+		Type* returnType = function->returnType->inferredType;
+		stream << ' ' << std::string(returnType->name.ptr, returnType->name.length);
+	}
+
+	stream << ';';
 }
 
-static bool getDeclarationNameIdentifier(Parser* parser, Node* node, int line, int col, StringView* identifier)
+static void writeFilePath(const std::string& localPath, std::stringstream& stream)
 {
-	if (node->type == NODE_VARIABLE_DECLARATION)
+	size_t lastSlash = localPath.find_last_of("/\\");
+	size_t lastDot = localPath.find_last_of('.');
+
+	size_t end = localPath.length();
+	if (lastDot != std::string::npos && (lastSlash == std::string::npos || lastDot > lastSlash)) {
+		end = lastDot;
+	}
+
+	for (size_t i = 0; i < end; i++)
 	{
-		VariableDeclaration* variable = &node->variableDeclaration;
-		for (int i = 0; i < variable->numDeclarators; i++)
+		const char& c = localPath[i];
+		if (c == '/' || c == '\\')
+			stream << '.';
+		else
+			stream << c;
+	}
+}
+
+static bool resolveCompletionItem(std::string label, int kind, uint32_t symbolHandle, FileHandle fileHandle, json& result)
+{
+	if (File* file = getFileFromHandle(fileHandle))
+	{
+		Document* document = getDocument(fileHandle);
+
+		if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle))
 		{
-			VariableDeclarator* declarator = &variable->declarators[i];
-			if (isInRangeOfString(parser, line, col, declarator->name))
+			std::string detail;
+			std::string markdown;
+
+			std::stringstream stream;
+
+			writeFilePath(document->localPath, stream);
+			stream << '.' << label;
+			detail = stream.str();
+			stream.str("");
+			stream.clear();
+
+			if (symbol->type == SYMBOL_VARIABLE)
 			{
-				*identifier = declarator->name;
-				return true;
+				if (symbol->declaration->type == NODE_VARIABLE_DECLARATION)
+				{
+					VariableDeclaration* variable = &symbol->declaration->variableDeclaration;
+					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
+
+					Type* type = variable->variableType->inferredType;
+
+					if (variable->storage & STORAGE_DLLEXPORT)
+						stream << "dllexport ";
+					else if (variable->storage & STORAGE_DLLIMPORT)
+						stream << "dllimport ";
+					else if (variable->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (variable->storage & STORAGE_EXTERN)
+						stream << "externc ";
+					if (variable->storage & STORAGE_CONSTANT)
+						stream << "const ";
+					if (variable->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
+
+					if (variable->storage & STORAGE_CONSTANT && declarator->value)
+					{
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
+					}
+
+					markdown = stream.str();
+				}
+				else if (symbol->declaration->type == NODE_GLOBAL_VARIABLE)
+				{
+					GlobalVariable* variable = &symbol->declaration->globalVariable;
+					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
+
+					Type* type = variable->variableType->inferredType;
+
+					if (variable->storage & STORAGE_DLLEXPORT)
+						stream << "dllexport ";
+					else if (variable->storage & STORAGE_DLLIMPORT)
+						stream << "dllimport ";
+					else if (variable->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (variable->storage & STORAGE_EXTERN)
+						stream << "externc ";
+					if (variable->storage & STORAGE_CONSTANT)
+						stream << "const ";
+					if (variable->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
+
+					if (variable->storage & STORAGE_CONSTANT && declarator->value)
+					{
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
+					}
+
+					markdown = stream.str();
+				}
+				else if (symbol->declaration->type == NODE_PARAMETER)
+				{
+					Parameter* parameter = &symbol->declaration->parameter;
+
+					Type* type = parameter->paramType->inferredType;
+
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
+
+					/*
+					if (parameter->value)
+					{
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
+					}
+					*/
+
+					markdown = stream.str();
+				}
+				else if (symbol->declaration->type == NODE_FOR)
+				{
+					For* for_ = &symbol->declaration->for_;
+
+					detail = "for iterator " + detail;
+
+					stream << "int32 ";
+					stream.write(for_->iteratorName.ptr, for_->iteratorName.length);
+
+					markdown = stream.str();
+				}
 			}
+			else if (symbol->type == SYMBOL_TYPE)
+			{
+				if (symbol->declaration->type == NODE_STRUCT)
+				{
+					Struct* struct_ = &symbol->declaration->struct_;
+
+					if (struct_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (struct_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (struct_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "struct ";
+
+					stream.write(struct_->name.ptr, struct_->name.length);
+					stream << " {\n";
+
+					for (int i = 0; i < struct_->numFields; i++)
+					{
+						Field* field = struct_->fields[i];
+						Type* fieldType = field->variableType->inferredType;
+
+						stream << "\t";
+						stream.write(fieldType->name.ptr, fieldType->name.length);
+						stream << ' ';
+
+						for (int j = 0; j < field->numDeclarators; j++)
+						{
+							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+							if (j < field->numDeclarators - 1)
+								stream << ", ";
+						}
+
+						stream << ";\n";
+					}
+
+					stream << '}';
+				}
+				else if (symbol->declaration->type == NODE_UNION)
+				{
+					Union* union_ = &symbol->declaration->union_;
+
+					if (union_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (union_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (union_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "union ";
+
+					stream.write(union_->name.ptr, union_->name.length);
+					stream << " {\n";
+
+					for (int i = 0; i < union_->numFields; i++)
+					{
+						Field* field = union_->fields[i];
+						Type* fieldType = field->variableType->inferredType;
+
+						stream << "\t";
+						stream.write(fieldType->name.ptr, fieldType->name.length);
+						stream << ' ';
+
+						for (int j = 0; j < field->numDeclarators; j++)
+						{
+							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+							if (j < field->numDeclarators - 1)
+								stream << ", ";
+						}
+
+						stream << ";\n";
+					}
+
+					stream << '}';
+				}
+				else if (symbol->declaration->type == NODE_ENUM)
+				{
+					Enum* enum_ = &symbol->declaration->enum_;
+
+					if (enum_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (enum_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (enum_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "enum ";
+
+					stream.write(enum_->name.ptr, enum_->name.length);
+
+					if (enum_->valueType)
+					{
+						Type* valueType = enum_->valueType->inferredType;
+						stream << " = ";
+						stream.write(valueType->name.ptr, valueType->name.length);
+					}
+
+					stream << ';';
+				}
+				else if (symbol->declaration->type == NODE_TYPEDEF)
+				{
+					Typedef* typedef_ = &symbol->declaration->typedef_;
+
+					if (typedef_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (typedef_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (typedef_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "type ";
+
+					stream.write(typedef_->name.ptr, typedef_->name.length);
+
+					Type* valueType = typedef_->value->inferredType;
+					stream << " = ";
+					stream.write(valueType->name.ptr, valueType->name.length);
+
+					stream << ';';
+				}
+
+				markdown = stream.str();
+			}
+			else if (symbol->type == SYMBOL_FUNCTION_SET && symbol->functionSet.count)
+			{
+				if (symbol->functionSet.count > 1)
+				{
+					detail = detail + "(...) : " + std::to_string(symbol->functionSet.count) + " overloads";
+				}
+
+				for (int i = 0; i < symbol->functionSet.count; i++)
+				{
+					getFunctionDetailString(symbol->functionSet.overloads[i].declaration, stream);
+					if (i < symbol->functionSet.count - 1)
+						stream << "\n";
+				}
+				markdown = stream.str();
+			}
+
+			if (detail != "" || markdown != "")
+			{
+				if (markdown != "")
+				{
+					markdown = "```sneklang\n" + markdown + "\n```";
+				}
+
+				result = {
+					{"label", label},
+					{"kind", kind},
+					{"detail", detail},
+					{"documentation", {
+						{"kind", "markdown"},
+						{"value", markdown}
+					}},
+					{"data", {
+						{"symbol_id", std::to_string(symbolHandle)},
+						{"file_id", std::to_string((uint64_t)fileHandle)}
+					}}
+				};
+			}
+
+			return true;
 		}
 	}
-	if (node->type == NODE_STRUCT)
-	{
-		Struct* struct_ = &node->struct_;
-		*identifier = struct_->name;
-		return true;
-	}
-	else if (node->type == NODE_UNION)
-	{
-		Union* union_ = &node->union_;
-		*identifier = union_->name;
-		return true;
-	}
-	else if (node->type == NODE_ENUM)
-	{
-		Enum* enum_ = &node->enum_;
-		*identifier = enum_->name;
-		return true;
-	}
-	else if (node->type == NODE_TYPEDEF)
-	{
-		Typedef* typedef_ = &node->typedef_;
-		*identifier = typedef_->name;
-		return true;
-	}
-	else if (node->type == NODE_FUNCTION)
-	{
-		Function* function = &node->function;
-		*identifier = function->name;
-		return true;
-	}
-	else if (node->type == NODE_GLOBAL_VARIABLE)
-	{
-		GlobalVariable* variable = &node->globalVariable;
-		for (int i = 0; i < variable->numDeclarators; i++)
-		{
-			VariableDeclarator* declarator = &variable->declarators[i];
-			if (isInRangeOfString(parser, line, col, declarator->name))
-			{
-				*identifier = declarator->name;
-				return true;
-			}
-		}
-	}
-	else if (node->type == NODE_MACRO)
-	{
-		Macro* macro = &node->macro;
-		*identifier = macro->name;
-		return true;
-	}
+
 	return false;
 }
 
@@ -991,12 +1285,16 @@ int main()
 						{"documentSymbolProvider", true},
 						{"workspaceSymbolProvider", true},
 						{"definitionProvider", true},
+						{"referencesProvider", true},
+						{"renameProvider", true},
 						//{"hoverProvider", true},
 						{"signatureHelpProvider", {
-							{"triggerCharacters", {"(", ","}}
+							{"triggerCharacters", {"(", ","}},
+							{"retriggerCharacters", {",", ")"}}
 						}},
 						{"completionProvider", {
-							{"resolveProvider", false}
+							{"resolveProvider", true},
+							{"triggerCharacters", {"."}}
 						}},
 						{"semanticTokensProvider", {
 							{"legend", {
@@ -1192,6 +1490,29 @@ int main()
 						});
 				}
 			}
+			else if (method == "completionItem/resolve")
+			{
+				json params = request["params"];
+
+				std::string label = params["label"];
+				int kind = params["kind"];
+
+				std::string symbolHandleStr = params["data"]["symbol_id"];
+				std::string fileHandleStr = params["data"]["file_id"];
+
+				uint32_t symbolHandle = std::stoul(symbolHandleStr);
+				FileHandle fileHandle = std::stoull(fileHandleStr);
+
+				json result;
+				if (resolveCompletionItem(label, kind, symbolHandle, fileHandle, result))
+				{
+					sendResponse(request["id"], result);
+				}
+				else
+				{
+					sendErrorResponse(request["id"], -32801);
+				}
+			}
 			else if (method == "textDocument/documentSymbol")
 			{
 				json params = request["params"];
@@ -1220,69 +1541,52 @@ int main()
 				int line = position["line"];
 				int character = position["character"];
 
-				Node* node = nullptr;
-				Scope* scope = nullptr;
-				document->getNodeAtPosition(line, character, &node, &scope);
-
-				bool sent = false;
-
-				if (node)
+				json result;
+				if (document->getDefinitionLocation(line, character, result))
 				{
-					SourceLocation start = {}, end = {};
-					Document* symbolDocument = document;
+					sendResponse(request["id"], result);
+				}
+				else
+				{
+					sendErrorResponse(request["id"], -32801);
+				}
+			}
+			else if (method == "textDocument/references")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
 
-					if (node->type == NODE_IDENTIFIER)
-					{
-						Identifier* identifier = &node->identifier;
-						if (Symbol* symbol = getIdentifierSymbol(identifier))
-						{
-							symbolDocument = getDocument(symbol->file);
+				Document* document = GetDocument(uri);
 
-							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
-							{
-								getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
-							}
-							else if (symbol->type == SYMBOL_FUNCTION_SET)
-							{
-								SnekAssert(identifier->functionOverloadID != -1);
-								FunctionOverload* functionOverload = &symbol->functionSet.overloads[identifier->functionOverloadID];
-								getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
-							}
-						}
-					}
-					else if (node->type == NODE_MEMBER_ACCESS)
-					{
-						MemberAccess* member = &node->memberAccess;
-						if (Symbol* symbol = getMemberAccessSymbol(member))
-						{
-							symbolDocument = getDocument(symbol->file);
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
 
-							if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
-							{
-								getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
-							}
-							else if (symbol->type == SYMBOL_FUNCTION_SET)
-							{
-								SnekAssert(member->functionOverloadID != -1);
-								FunctionOverload* functionOverload = &symbol->functionSet.overloads[member->functionOverloadID];
-								getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
-							}
-						}
-					}
-					else
+				bool includeDeclaration = params["context"]["includeDeclaration"];
+
+				int overloadIdx = -1;
+				if (Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx))
+				{
+					json locations = json::array();
+
+					for (int i = 0; i < documents.size; i++)
 					{
-						StringView declarationName;
-						if (getDeclarationNameIdentifier(&document->file.parser, node, line, character, &declarationName))
-						{
-							symbolDocument = document;
-							if (isInRangeOfString(&document->file.parser, line, character, declarationName))
-								getSourceLocation(&document->file.parser, node, &start, &end);
-						}
+						documents[i]->astMutex.lock();
+
+						documents[i]->findAllReferences(symbol, locations);
+
+						documents[i]->astMutex.unlock();
 					}
 
-					if (start.filename)
+					if (includeDeclaration)
 					{
-						json result = {
+						Node* declaration = symbol->type == SYMBOL_FUNCTION_SET ? (Node*)symbol->functionSet.overloads[overloadIdx].declaration : symbol->declaration;
+						Document* symbolDocument = getDocument(symbol->file);
+
+						SourceLocation start, end;
+						getSourceLocation(&symbolDocument->file.parser, declaration, &start, &end);
+
+						locations.push_back({
 							{"uri", symbolDocument->uri},
 							{"range", {
 								{"start", {
@@ -1294,15 +1598,53 @@ int main()
 									{"character", end.col},
 								}},
 							}}
-						};
-
-						sendResponse(request["id"], result);
-
-						sent = true;
+							});
 					}
-				}
 
-				if (!sent)
+					sendResponse(request["id"], locations);
+				}
+				else
+				{
+					sendErrorResponse(request["id"], -32801);
+				}
+			}
+			else if (method == "textDocument/rename")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = GetDocument(uri);
+
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
+
+				std::string newName = params["newName"];
+
+				int overloadIdx = -1;
+				if (Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx))
+				{
+					json changes = json::object();
+
+					for (int i = 0; i < documents.size; i++)
+					{
+						json fileChanges = json::array();
+
+						documents[i]->astMutex.lock();
+
+						documents[i]->rename(symbol, overloadIdx, newName, line, character, fileChanges);
+
+						documents[i]->astMutex.unlock();
+
+						if (fileChanges.size())
+							changes.push_back({ documents[i]->uri, fileChanges });
+					}
+
+					sendResponse(request["id"], {
+						{"changes", changes},
+						});
+				}
+				else
 				{
 					sendErrorResponse(request["id"], -32801);
 				}
@@ -1336,7 +1678,7 @@ int main()
 				}
 				else
 				{
-					sendErrorResponse(request["id"], -32801);
+					sendResponse(request["id"], nullptr);
 				}
 
 				document->astMutex.unlock();

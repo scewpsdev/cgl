@@ -430,6 +430,14 @@ static Type* resolveField(TypeChecker* tc, Field* field);
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter);
 static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier);
 
+static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
+{
+	SymbolHandle handle = {};
+	handle.file = symbol->file;
+	handle.symbol = symbol->key;
+	return handle;
+}
+
 static Type* resolveType(TypeChecker* tc, TypeNode* type)
 {
 	if (type->type == NODE_ERROR_TYPE)
@@ -447,8 +455,13 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		NamedType* namedType = (NamedType*)type;
 
 		Symbol* symbol = resolveSymbol(tc, namedType->name);
+
 		if (symbol && symbol->type == SYMBOL_TYPE)
 		{
+			if (symbol->file == tc->currentFile->handle)
+				namedType->symbol = symbol;
+			namedType->symbolHandle = getSymbolHandle(tc, symbol);
+
 			Node* node = symbol->declaration;
 			if (node->type == NODE_STRUCT)
 			{
@@ -1023,14 +1036,6 @@ OperatorType assignmentOperatorToBinary(OperatorType op)
 		SnekAssert(false);
 		return OPERATOR_NULL;
 	}
-}
-
-static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
-{
-	SymbolHandle handle = {};
-	handle.file = symbol->file;
-	handle.symbol = symbol->key;
-	return handle;
 }
 
 static bool canCoerceType(Expression* arg, Type* targetType)

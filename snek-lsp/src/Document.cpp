@@ -408,6 +408,124 @@ void Document::getNodeAtPosition(int line, int col, Node** node, Scope** scope)
 	*scope = params.scope;
 }
 
+static bool isInRangeOfString(Parser* parser, int line, int col, StringView str)
+{
+	SourceLocation start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
+	SourceLocation end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+
+	if (line >= start.line && line <= end.line)
+	{
+		bool matchesStart = line == start.line && col >= start.col || line > start.line;
+		bool matchesEnd = line == end.line && col <= end.col || line < end.line;
+		return matchesStart && matchesEnd;
+	}
+
+	return false;
+}
+
+static bool getDeclarationNameIdentifier(Parser* parser, Node* node, int line, int col, StringView* identifier)
+{
+	if (node->type == NODE_STRUCT)
+	{
+		Struct* struct_ = &node->struct_;
+		*identifier = struct_->name;
+		return true;
+	}
+	else if (node->type == NODE_UNION)
+	{
+		Union* union_ = &node->union_;
+		*identifier = union_->name;
+		return true;
+	}
+	else if (node->type == NODE_ENUM)
+	{
+		Enum* enum_ = &node->enum_;
+		*identifier = enum_->name;
+		return true;
+	}
+	else if (node->type == NODE_TYPEDEF)
+	{
+		Typedef* typedef_ = &node->typedef_;
+		*identifier = typedef_->name;
+		return true;
+	}
+	else if (node->type == NODE_FUNCTION)
+	{
+		Function* function = &node->function;
+		*identifier = function->name;
+		return true;
+	}
+	else if (node->type == NODE_GLOBAL_VARIABLE)
+	{
+		GlobalVariable* variable = &node->globalVariable;
+		for (int i = 0; i < variable->numDeclarators; i++)
+		{
+			VariableDeclarator* declarator = &variable->declarators[i];
+			if (isInRangeOfString(parser, line, col, declarator->name))
+			{
+				*identifier = declarator->name;
+				return true;
+			}
+		}
+	}
+	else if (node->type == NODE_MACRO)
+	{
+		Macro* macro = &node->macro;
+		*identifier = macro->name;
+		return true;
+	}
+	return false;
+}
+
+Symbol* Document::getSymbolAtPosition(int line, int col, int* overloadIdx)
+{
+	Node* node = nullptr;
+	Scope* scope = nullptr;
+	getNodeAtPosition(line, col, &node, &scope);
+
+	if (node)
+	{
+		if (node->type == NODE_IDENTIFIER)
+		{
+			Identifier* identifier = &node->identifier;
+			*overloadIdx = identifier->functionOverloadID;
+			return getIdentifierSymbol(identifier);
+		}
+		else if (node->type == NODE_MEMBER_ACCESS)
+		{
+			MemberAccess* member = &node->memberAccess;
+			*overloadIdx = member->functionOverloadID;
+			return getMemberAccessSymbol(member);
+		}
+		else
+		{
+			StringView declarationName;
+			if (getDeclarationNameIdentifier(&file.parser, node, line, col, &declarationName))
+			{
+				if (Symbol* symbol = lookupSymbol(&file.ast.globalScope->symbols, declarationName))
+				{
+					if (symbol->type == SYMBOL_FUNCTION_SET)
+					{
+						SnekAssert(node->type == NODE_FUNCTION);
+						for (int i = 0; symbol->functionSet.count; i++)
+						{
+							if (symbol->functionSet.overloads[i].declaration == &node->function)
+							{
+								*overloadIdx = i;
+								break;
+							}
+						}
+						SnekAssert((*overloadIdx) != -1);
+					}
+					return symbol;
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 {
 	for (int i = 0; i < scope->symbols.capacity; i++)
@@ -461,7 +579,11 @@ static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 
 			items.push_back({
 				{"label", nameStr },
-				{"kind", completionItem}  // keyword
+				{"kind", completionItem},
+				{"data", {
+					{"symbol_id", std::to_string(symbol->key)},
+					{"file_id", std::to_string((uint64_t)symbol->file)}
+				}}
 				});
 		}
 	}
@@ -805,6 +927,13 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 			commas++;
 		else if (c == '(' && parenLevel == 0 && i - 1 >= 0)
 			functionNameEnd = i;
+		else if (c == ')')
+		{
+			if (i == col - 1)
+				return false;
+			else
+				parenLevel++;
+		}
 	}
 
 	if (functionNameStart != -1 && functionNameEnd != -1)
@@ -883,4 +1012,271 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 	}
 
 	return false;
+}
+
+static Document* getDocument(FileHandle file)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->file.handle == file)
+			return documents[i];
+	}
+	return nullptr;
+}
+
+bool Document::getDefinitionLocation(int line, int col, json& location)
+{
+	int overloadIdx = -1;
+	if (Symbol* symbol = getSymbolAtPosition(line, col, &overloadIdx))
+	{
+		Document* symbolDocument = getDocument(symbol->file);
+		SourceLocation start = {}, end = {};
+
+		if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
+		{
+			getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
+		}
+		else if (symbol->type == SYMBOL_FUNCTION_SET)
+		{
+			SnekAssert(overloadIdx != -1);
+			FunctionOverload* functionOverload = &symbol->functionSet.overloads[overloadIdx];
+			getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
+		}
+
+		if (start.filename)
+		{
+			location = {
+				{"uri", symbolDocument->uri},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+			};
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+struct ScanReferencesParams
+{
+	Parser* parser;
+	Document* document;
+	Symbol* symbol;
+	json* locations;
+};
+
+static bool scanReferences(Node* node, Scope* scope, void* userPtr)
+{
+	ScanReferencesParams* params = (ScanReferencesParams*)userPtr;
+
+	SourceLocation start, end;
+	getSourceLocation(params->parser, node, &start, &end);
+
+	if (node->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = &node->identifier;
+		if (getIdentifierSymbol(identifier) == params->symbol)
+		{
+			params->locations->push_back({
+				{"uri", params->document->uri},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+	else if (node->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = &node->memberAccess;
+		if (getMemberAccessSymbol(member) == params->symbol)
+		{
+			params->locations->push_back({
+				{"uri", params->document->uri},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+	else if (node->type == NODE_NAMED_TYPE)
+	{
+		NamedType* namedType = &node->namedType;
+		if (getNamedTypeSymbol(namedType) == params->symbol)
+		{
+			params->locations->push_back({
+				{"uri", params->document->uri},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+
+	return true;
+}
+
+void Document::findAllReferences(Symbol* symbol, json& locations)
+{
+	ScanReferencesParams params = {};
+	params.parser = &file.parser;
+	params.document = this;
+	params.symbol = symbol;
+	params.locations = &locations;
+
+	traverseAST(&file.ast, scanReferences, &params);
+}
+
+struct ScanReferencesRenameParams
+{
+	Parser* parser;
+	Document* document;
+	Symbol* symbol;
+	std::string newText;
+	json* locations;
+};
+
+static bool scanReferencesForRename(Node* node, Scope* scope, void* userPtr)
+{
+	ScanReferencesRenameParams* params = (ScanReferencesRenameParams*)userPtr;
+
+	if (node->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = &node->identifier;
+		if (getIdentifierSymbol(identifier) == params->symbol)
+		{
+			SourceLocation start, end;
+			getSourceLocation(params->parser, node, &start, &end);
+
+			params->locations->push_back({
+				{"newText", params->newText},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+	else if (node->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = &node->memberAccess;
+		if (getMemberAccessSymbol(member) == params->symbol)
+		{
+			SourceLocation start, end;
+			getSourceLocation(params->parser, member->name, &start, &end);
+
+			params->locations->push_back({
+				{"newText", params->newText},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+	else if (node->type == NODE_NAMED_TYPE)
+	{
+		NamedType* namedType = &node->namedType;
+		if (getNamedTypeSymbol(namedType) == params->symbol)
+		{
+			SourceLocation start, end;
+			getSourceLocation(params->parser, node, &start, &end);
+
+			params->locations->push_back({
+				{"newText", params->newText},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
+
+	return true;
+}
+
+void Document::rename(Symbol* symbol, int overloadIdx, std::string newText, int line, int col, json& changes)
+{
+	ScanReferencesRenameParams params = {};
+	params.parser = &file.parser;
+	params.document = this;
+	params.newText = newText;
+	params.symbol = symbol;
+	params.locations = &changes;
+
+	traverseAST(&file.ast, scanReferencesForRename, &params);
+
+	Document* symbolDocument = getDocument(symbol->file);
+	Node* declaration = symbol->type == SYMBOL_FUNCTION_SET ? (Node*)symbol->functionSet.overloads[overloadIdx].declaration : symbol->declaration;
+
+	if (symbolDocument == this)
+	{
+		StringView declarationName;
+		if (getDeclarationNameIdentifier(&file.parser, declaration, line, col, &declarationName))
+		{
+			SourceLocation start, end;
+			getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+
+			changes.push_back({
+				{"newText", newText},
+				{"range", {
+					{"start", {
+						{"line", start.line},
+						{"character", start.col},
+					}},
+					{"end", {
+						{"line", end.line},
+						{"character", end.col},
+					}},
+				}}
+				});
+		}
+	}
 }

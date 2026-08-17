@@ -152,12 +152,17 @@ struct Document
 	void getTokens(std::vector<int>& data);
 
 	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
+	Symbol* getSymbolAtPosition(int line, int col, int* overloadIdx);
 	void autocomplete(Scope* scope, nlohmann::json& items);
 
 	void getSymbols(nlohmann::json& items);
 	void getWorkspaceSymbols(const std::string& query, nlohmann::json& items);
 
 	bool getFunctionSignature(int line, int col, nlohmann::json& signatures, int& activeSignature, int& activeParameter);
+
+	bool getDefinitionLocation(int line, int col, nlohmann::json& location);
+	void findAllReferences(Symbol* symbol, nlohmann::json& locations);
+	void rename(Symbol* symbol, int overloadIdx, std::string newText, int line, int col, nlohmann::json& changes);
 };
 
 
