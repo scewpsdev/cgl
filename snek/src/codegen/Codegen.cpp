@@ -183,11 +183,14 @@ static void declareNamedStruct(Codegen* codegen, Struct* struct_)
 		Field* field = struct_->fields[i];
 		for (int j = 0; j < field->numDeclarators; j++)
 		{
-			emitIndentation(codegen, buffer);
-			emitType(codegen, field->variableType->inferredType, buffer);
-			emitChar(buffer, ' ');
-			emitString(buffer, field->declarators[j].name);
-			emitString(buffer, ";\n");
+			if (!field->declarators[j].hasOffset)
+			{
+				emitIndentation(codegen, buffer);
+				emitType(codegen, field->variableType->inferredType, buffer);
+				emitChar(buffer, ' ');
+				emitString(buffer, field->declarators[j].name);
+				emitString(buffer, ";\n");
+			}
 		}
 	}
 	codegen->indentation--;
@@ -1278,20 +1281,44 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		if (operandType->typeKind == TYPE_STRUCT)
 		{
-			Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
-			Value ptr = declareLocalValue(codegen, ptrType, buffer);
-			emitChar(buffer, '&');
-			emitValue(buffer, operand);
-			emitChar(buffer, '.');
-			emitString(buffer, operandType->struct_.fieldNames[member->index]);
-			emitString(buffer, ";\n");
+			int offset = operandType->struct_.fieldOffsets[member->index];
+			if (offset == -1)
+			{
+				Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+				Value ptr = declareLocalValue(codegen, ptrType, buffer);
+				emitChar(buffer, '&');
+				emitValue(buffer, operand);
+				emitChar(buffer, '.');
+				emitString(buffer, operandType->struct_.fieldNames[member->index]);
+				emitString(buffer, ";\n");
 
-			Value result = {};
-			result.type = member->inferredType;
-			result.lvalue = true;
-			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
+				Value result = {};
+				result.type = member->inferredType;
+				result.lvalue = true;
+				snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
 
-			return result;
+				return result;
+			}
+			else
+			{
+				Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+				Value ptr = declareLocalValue(codegen, ptrType, buffer);
+
+				emitChar(buffer, '(');
+				emitType(codegen, ptrType, buffer);
+				emitString(buffer, ")((i8*)&");
+				emitValue(buffer, operand);
+				emitChar(buffer, '+');
+				emitInteger(buffer, offset);
+				emitString(buffer, ");\n");
+
+				Value result = {};
+				result.type = member->inferredType;
+				result.lvalue = true;
+				snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
+
+				return result;
+			}
 		}
 		else if (operandType->typeKind == TYPE_UNION)
 		{

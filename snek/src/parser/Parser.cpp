@@ -489,13 +489,13 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		nextToken(parser); // (
 
-		bool next = !nextIs(parser, ')');
+		bool next = hasNext(parser) && !nextIs(parser, ')');
 		while (next)
 		{
 			Parameter* param = parseParameter(parser);
 			parser->scratch->add(param);
 
-			next = nextIs(parser, ',');
+			next = hasNext(parser) && nextIs(parser, ',');
 			if (next)
 				nextToken(parser);
 		}
@@ -529,7 +529,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		{
 			int mark = parser->scratch->mark();
 
-			while (!nextIs(parser, '}'))
+			while (hasNext(parser) && !nextIs(parser, '}'))
 			{
 				if (Field* field = parseField(parser))
 					parser->scratch->add((Node*)field);
@@ -557,7 +557,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		{
 			int mark = parser->scratch->mark();
 
-			while (!nextIs(parser, '}'))
+			while (hasNext(parser) && !nextIs(parser, '}'))
 			{
 				if (Field* field = parseField(parser))
 					parser->scratch->add((Node*)field);
@@ -1853,6 +1853,23 @@ Field* parseField(Parser* parser)
 		VariableDeclarator declarator = {};
 		declarator.name = getTokenString(identifier, parser);
 		declarator.value = nullptr;
+
+		if (nextIs(parser, '@') && nextIs(parser, 1, TOKEN_IDENTIFIER))
+		{
+			nextToken(parser);
+			StringView tag = getTokenString(nextToken(parser), parser);
+			if (compareString(tag, "offset"))
+			{
+				declarator.hasOffset = true;
+				expectToken(parser, '(');
+				Token offset;
+				if (expectToken(parser, TOKEN_INT_LITERAL, &offset))
+				{
+					declarator.offset = (int)getConstantInt(getTokenString(offset, parser));
+				}
+				expectToken(parser, ')');
+			}
+		}
 
 		if (nextIs(parser, '='))
 		{

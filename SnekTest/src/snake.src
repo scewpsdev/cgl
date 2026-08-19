@@ -1,4 +1,6 @@
+import snek.console;
 import vendor.SDL3;
+import math.vector;
 
 
 func main() {
@@ -22,6 +24,11 @@ func main() {
 
 		SDL_SetRenderDrawColor(renderer, 100, 149, 237, 0);
 		SDL_RenderClear(renderer);
+
+		vec2 xy;
+
+		vec3 position;
+		position.xy = xy;
 
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
 		SDL_FRect rect;

@@ -370,6 +370,13 @@ static StringView* copyNames(Arena* arena, int numElements, StringView* elements
 	return newElements;
 }
 
+static int* copyOffsets(Arena* arena, int numElements, int* elements)
+{
+	int* newElements = (int*)arena->alloc<int>(numElements);
+	memcpy(newElements, elements, numElements * sizeof(int));
+	return newElements;
+}
+
 static bool isPrimitiveDerivative(Type* type)
 {
 	if (type->typeKind == TYPE_STRUCT)
@@ -655,11 +662,12 @@ Type* createNamedStructType(File* file, StringView name, Struct* declaration)
 	return type;
 }
 
-void resolveNamedStructType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file)
+void resolveNamedStructType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file)
 {
 	type->struct_.numFields = numFields;
 	type->struct_.fieldTypes = copyTypes(&file->arena, numFields, fieldTypes);
 	type->struct_.fieldNames = copyNames(&file->arena, numFields, fieldNames);
+	type->struct_.fieldOffsets = copyOffsets(&file->arena, numFields, fieldOffsets);
 }
 
 Type* createNamedUnionType(File* file, StringView name, Union* declaration)

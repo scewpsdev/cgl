@@ -840,6 +840,15 @@ union SDL_Event{
 	struct SDL_ClipboardEvent clipboard;
 	arr_128_Uint8 padding;
 };
+struct vec2{
+	float x;
+	float y;
+};
+struct vec3{
+	float x;
+	float y;
+	float z;
+};
 struct SDL_FRect{
 	float x;
 	float y;
@@ -902,27 +911,31 @@ void _main_0(){
 		const Uint8 _17=(Uint8)0u;
 		const bool _18=SDL_SetRenderDrawColor(renderer,_14,_15,_16,_17);
 		const bool _19=SDL_RenderClear(renderer);
-		const Uint8 _20=(Uint8)255u;
+		struct vec2 xy={0};
+		struct vec3 position={0};
+		struct vec2* const _20=(struct vec2*)((i8*)&position+0);
+		(*_20)=xy;
 		const Uint8 _21=(Uint8)255u;
 		const Uint8 _22=(Uint8)255u;
-		const Uint8 _23=(Uint8)0u;
-		const bool _24=SDL_SetRenderDrawColor(renderer,_20,_21,_22,_23);
+		const Uint8 _23=(Uint8)255u;
+		const Uint8 _24=(Uint8)0u;
+		const bool _25=SDL_SetRenderDrawColor(renderer,_21,_22,_23,_24);
 		struct SDL_FRect rect={0};
-		float* const _25=&rect.x;
-		const float _26=(float)10;
-		(*_25)=_26;
-		float* const _27=&rect.y;
-		const float _28=(float)10;
-		(*_27)=_28;
-		float* const _29=&rect.w;
-		const float _30=(float)100;
-		(*_29)=_30;
-		float* const _31=&rect.h;
-		const float _32=(float)100;
-		(*_31)=_32;
-		struct SDL_FRect* const _33=&rect;
-		const bool _34=SDL_RenderRect(renderer,_33);
-		const bool _35=SDL_RenderPresent(renderer);
+		float* const _26=&rect.x;
+		const float _27=(float)10;
+		(*_26)=_27;
+		float* const _28=&rect.y;
+		const float _29=(float)10;
+		(*_28)=_29;
+		float* const _30=&rect.w;
+		const float _31=(float)100;
+		(*_30)=_31;
+		float* const _32=&rect.h;
+		const float _33=(float)100;
+		(*_32)=_33;
+		struct SDL_FRect* const _34=&rect;
+		const bool _35=SDL_RenderRect(renderer,_34);
+		const bool _36=SDL_RenderPresent(renderer);
 	}
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);

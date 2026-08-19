@@ -139,6 +139,10 @@ struct VariableDeclarator
 	StringView name;
 	Expression* value;
 
+	// tags
+	bool hasOffset;
+	int offset;
+
 	Symbol* symbol;
 };
 

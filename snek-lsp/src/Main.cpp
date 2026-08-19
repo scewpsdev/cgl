@@ -940,6 +940,12 @@ static bool resolveCompletionItem(std::string label, int kind, uint32_t symbolHa
 						for (int j = 0; j < field->numDeclarators; j++)
 						{
 							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+
+							if (field->declarators[j].hasOffset)
+							{
+								stream << " @offset(" << field->declarators[j].offset << ')';
+							}
+
 							if (j < field->numDeclarators - 1)
 								stream << ", ";
 						}

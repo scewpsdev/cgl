@@ -556,8 +556,15 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			if (unionType->fields[i])
 			{
 				resolveField(tc, unionType->fields[i]);
-				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+				if (unionType->fields[i]->numDeclarators)
+				{
+					for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+						tc->scratch->add(unionType->fields[i]->variableType->inferredType);
+				}
+				else
+				{
 					tc->scratch->add(unionType->fields[i]->variableType->inferredType);
+				}
 			}
 			else
 			{
@@ -573,23 +580,30 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		{
 			if (unionType->fields[i])
 			{
-				for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+				if (unionType->fields[i]->numDeclarators)
 				{
-					if (unionType->fields[i]->declarators[j].name.length)
-						tc->scratch->add(unionType->fields[i]->declarators[j].name);
-					else
-						tc->scratch->add(getErrorType(tc->types));
+					for (int j = 0; j < unionType->fields[i]->numDeclarators; j++)
+					{
+						if (unionType->fields[i]->declarators[j].name.length)
+							tc->scratch->add(unionType->fields[i]->declarators[j].name);
+						else
+							tc->scratch->add(CreateString(""));
+					}
+				}
+				else
+				{
+					tc->scratch->add(CreateString(""));
 				}
 			}
 			else
 			{
-				tc->scratch->add(getErrorType(tc->types));
+				tc->scratch->add(CreateString(""));
 			}
 		}
 
 		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
-		type->inferredType = getAnonymousUnionType(tc->types, unionType->numFields, fieldTypes, fieldNames, tc->currentFile);
+		type->inferredType = getAnonymousUnionType(tc->types, tc->scratch->count<StringView>(mark2), fieldTypes, fieldNames, tc->currentFile);
 
 		tc->scratch->release(mark);
 
@@ -2290,12 +2304,26 @@ void symbolResolution(TypeChecker* tc, File* file)
 			}
 		}
 
+		int mark3 = tc->scratch->mark();
+
+		for (int j = 0; j < struct_->numFields; j++)
+		{
+			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+			{
+				if (struct_->fields[j]->declarators[k].hasOffset)
+					tc->scratch->add(struct_->fields[j]->declarators[k].offset);
+				else
+					tc->scratch->add(-1);
+			}
+		}
+
 		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
 		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
+		int* fieldOffsets = tc->scratch->getData<int>(mark3);
 
 		if (struct_->structType)
 		{
-			resolveNamedStructType(struct_->structType, numFields, fieldTypes, fieldNames, file);
+			resolveNamedStructType(struct_->structType, numFields, fieldTypes, fieldNames, fieldOffsets, file);
 		}
 
 		tc->scratch->release(mark);

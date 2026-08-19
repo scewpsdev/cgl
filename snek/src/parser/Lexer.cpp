@@ -311,6 +311,7 @@ static bool readPunctuation(Lexer* lexer, Token* token)
 		|| c == ';'
 		|| c == '#'
 		|| c == '$'
+		|| c == '@'
 		|| c == '('
 		|| c == ')'
 		|| c == '{'
