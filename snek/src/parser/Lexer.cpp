@@ -63,7 +63,7 @@ SourceLocation getSourceLocation(Lexer* lexer, int offset)
 			int nextLine = lexer->lineOffsets[i + 1];
 
 			int col = 0;
-			while (lineOffset < nextLine)
+			while (lineOffset < offset)
 			{
 				lineOffset += getUTF8Length(&lexer->src[lineOffset]);
 				col++;

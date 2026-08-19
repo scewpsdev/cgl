@@ -7,6 +7,7 @@ func main() {
 
 	SDL_Window* window = SDL_CreateWindow("Triangle", 1280, 720, 0);
 	SDL_GPUDevice* device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, null);
+	SDL_ClaimWindowForGPUDevice(device, window);
 
 	bool running = true;
 	while running {
@@ -17,8 +18,30 @@ func main() {
 			}
 		}
 
-		
+		SDL_GPUCommandBuffer* cmdBuffer = SDL_AcquireGPUCommandBuffer(device);
+
+		SDL_GPUTexture* swapchain;
+		uint width, height;
+		SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer, window, &swapchain, &width, &height);
+
+		SDL_GPUColorTargetInfo colorTarget;
+		//colorTarget.clear_color = (1.0, 0.88, 0.76, 1.0);
+		colorTarget.clear_color.r = 0.4f;
+		colorTarget.clear_color.g = 0.4f;
+		colorTarget.clear_color.b = 0.96f;
+		colorTarget.clear_color.a = 1.0f;
+		colorTarget.load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR;
+		colorTarget.store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE;
+		colorTarget.texture = swapchain;
+
+		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdBuffer, &colorTarget, 1, null);
+
+		SDL_EndGPURenderPass(renderPass);
+
+		SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
+
+	SDL_DestroyGPUDevice(device);
 
 	SDL_DestroyWindow(window);
 

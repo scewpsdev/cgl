@@ -4,7 +4,7 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>run src/main.src lib/libSDL3.dll.a lib/SDL3.dll</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>run src/triangle.src lib/libSDL3.dll.a lib/SDL3.dll</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\Dev\2023\cgl\SnekTest</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>

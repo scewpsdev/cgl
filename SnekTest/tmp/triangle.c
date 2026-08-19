@@ -16,7 +16,7 @@ struct SDL_CommonEvent{
 };
 enum SDL_EventType:i32{
 	SDL_EVENT_FIRST=0,
-	SDL_EVENT_QUIT=0x100,
+	SDL_EVENT_QUIT=256,
 	SDL_EVENT_TERMINATING,
 	SDL_EVENT_LOW_MEMORY,
 	SDL_EVENT_WILL_ENTER_BACKGROUND,
@@ -25,7 +25,7 @@ enum SDL_EventType:i32{
 	SDL_EVENT_DID_ENTER_FOREGROUND,
 	SDL_EVENT_LOCALE_CHANGED,
 	SDL_EVENT_SYSTEM_THEME_CHANGED,
-	SDL_EVENT_DISPLAY_ORIENTATION=0x151,
+	SDL_EVENT_DISPLAY_ORIENTATION=337,
 	SDL_EVENT_DISPLAY_ADDED,
 	SDL_EVENT_DISPLAY_REMOVED,
 	SDL_EVENT_DISPLAY_MOVED,
@@ -35,7 +35,7 @@ enum SDL_EventType:i32{
 	SDL_EVENT_DISPLAY_USABLE_BOUNDS_CHANGED,
 	SDL_EVENT_DISPLAY_FIRST,
 	SDL_EVENT_DISPLAY_LAST,
-	SDL_EVENT_WINDOW_SHOWN=0x202,
+	SDL_EVENT_WINDOW_SHOWN=514,
 	SDL_EVENT_WINDOW_HIDDEN,
 	SDL_EVENT_WINDOW_EXPOSED,
 	SDL_EVENT_WINDOW_MOVED,
@@ -63,7 +63,7 @@ enum SDL_EventType:i32{
 	SDL_EVENT_WINDOW_SETTINGS_CHANGED,
 	SDL_EVENT_WINDOW_FIRST,
 	SDL_EVENT_WINDOW_LAST,
-	SDL_EVENT_KEY_DOWN=0x300,
+	SDL_EVENT_KEY_DOWN=768,
 	SDL_EVENT_KEY_UP,
 	SDL_EVENT_TEXT_EDITING,
 	SDL_EVENT_TEXT_INPUT,
@@ -73,13 +73,13 @@ enum SDL_EventType:i32{
 	SDL_EVENT_TEXT_EDITING_CANDIDATES,
 	SDL_EVENT_SCREEN_KEYBOARD_SHOWN,
 	SDL_EVENT_SCREEN_KEYBOARD_HIDDEN,
-	SDL_EVENT_MOUSE_MOTION=0x400,
+	SDL_EVENT_MOUSE_MOTION=1024,
 	SDL_EVENT_MOUSE_BUTTON_DOWN,
 	SDL_EVENT_MOUSE_BUTTON_UP,
 	SDL_EVENT_MOUSE_WHEEL,
 	SDL_EVENT_MOUSE_ADDED,
 	SDL_EVENT_MOUSE_REMOVED,
-	SDL_EVENT_JOYSTICK_AXIS_MOTION=0x600,
+	SDL_EVENT_JOYSTICK_AXIS_MOTION=1536,
 	SDL_EVENT_JOYSTICK_BALL_MOTION,
 	SDL_EVENT_JOYSTICK_HAT_MOTION,
 	SDL_EVENT_JOYSTICK_BUTTON_DOWN,
@@ -88,7 +88,7 @@ enum SDL_EventType:i32{
 	SDL_EVENT_JOYSTICK_REMOVED,
 	SDL_EVENT_JOYSTICK_BATTERY_UPDATED,
 	SDL_EVENT_JOYSTICK_UPDATE_COMPLETE,
-	SDL_EVENT_GAMEPAD_AXIS_MOTION=0x650,
+	SDL_EVENT_GAMEPAD_AXIS_MOTION=1616,
 	SDL_EVENT_GAMEPAD_BUTTON_DOWN,
 	SDL_EVENT_GAMEPAD_BUTTON_UP,
 	SDL_EVENT_GAMEPAD_ADDED,
@@ -102,24 +102,24 @@ enum SDL_EventType:i32{
 	SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED,
 	SDL_EVENT_GAMEPAD_CAPSENSE_TOUCH,
 	SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE,
-	SDL_EVENT_FINGER_DOWN=0x700,
+	SDL_EVENT_FINGER_DOWN=1792,
 	SDL_EVENT_FINGER_UP,
 	SDL_EVENT_FINGER_MOTION,
 	SDL_EVENT_FINGER_CANCELED,
-	SDL_EVENT_PINCH_BEGIN=0x710,
+	SDL_EVENT_PINCH_BEGIN=1808,
 	SDL_EVENT_PINCH_UPDATE,
 	SDL_EVENT_PINCH_END,
-	SDL_EVENT_CLIPBOARD_UPDATE=0x900,
-	SDL_EVENT_DROP_FILE=0x1000,
+	SDL_EVENT_CLIPBOARD_UPDATE=2304,
+	SDL_EVENT_DROP_FILE=4096,
 	SDL_EVENT_DROP_TEXT,
 	SDL_EVENT_DROP_BEGIN,
 	SDL_EVENT_DROP_COMPLETE,
 	SDL_EVENT_DROP_POSITION,
-	SDL_EVENT_AUDIO_DEVICE_ADDED=0x1100,
+	SDL_EVENT_AUDIO_DEVICE_ADDED=4352,
 	SDL_EVENT_AUDIO_DEVICE_REMOVED,
 	SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED,
-	SDL_EVENT_SENSOR_UPDATE=0x1200,
-	SDL_EVENT_PEN_PROXIMITY_IN=0x1300,
+	SDL_EVENT_SENSOR_UPDATE=4608,
+	SDL_EVENT_PEN_PROXIMITY_IN=4864,
 	SDL_EVENT_PEN_PROXIMITY_OUT,
 	SDL_EVENT_PEN_DOWN,
 	SDL_EVENT_PEN_UP,
@@ -127,21 +127,21 @@ enum SDL_EventType:i32{
 	SDL_EVENT_PEN_BUTTON_UP,
 	SDL_EVENT_PEN_MOTION,
 	SDL_EVENT_PEN_AXIS,
-	SDL_EVENT_CAMERA_DEVICE_ADDED=0x1400,
+	SDL_EVENT_CAMERA_DEVICE_ADDED=5120,
 	SDL_EVENT_CAMERA_DEVICE_REMOVED,
 	SDL_EVENT_CAMERA_DEVICE_APPROVED,
 	SDL_EVENT_CAMERA_DEVICE_DENIED,
-	SDL_EVENT_RENDER_TARGETS_RESET=0x2000,
+	SDL_EVENT_RENDER_TARGETS_RESET=8192,
 	SDL_EVENT_RENDER_DEVICE_RESET,
 	SDL_EVENT_RENDER_DEVICE_LOST,
-	SDL_EVENT_PRIVATE0=0x4000,
+	SDL_EVENT_PRIVATE0=16384,
 	SDL_EVENT_PRIVATE1,
 	SDL_EVENT_PRIVATE2,
 	SDL_EVENT_PRIVATE3,
-	SDL_EVENT_POLL_SENTINEL=0x7f00,
-	SDL_EVENT_USER=0x8000,
-	SDL_EVENT_LAST=0xffff,
-	SDL_EVENT_ENUM_PADDING=0x7fffffff,
+	SDL_EVENT_POLL_SENTINEL=32512,
+	SDL_EVENT_USER=32768,
+	SDL_EVENT_LAST=65535,
+	SDL_EVENT_ENUM_PADDING=2147483647,
 };
 typedef Uint32 SDL_DisplayID;
 typedef i32 Sint32;
@@ -570,7 +570,7 @@ struct SDL_JoyButtonEvent{
 	Uint8 padding2;
 };
 enum SDL_PowerState:i32{
-	SDL_POWERSTATE_ERROR=-1,
+	SDL_POWERSTATE_ERROR=1,
 	SDL_POWERSTATE_UNKNOWN,
 	SDL_POWERSTATE_ON_BATTERY,
 	SDL_POWERSTATE_NO_BATTERY,
@@ -841,13 +841,56 @@ union SDL_Event{
 	struct SDL_ClipboardEvent clipboard;
 	arr_128_Uint8 padding;
 };
+struct SDL_GPUCommandBuffer;
+struct SDL_GPUTexture;
+struct SDL_FColor{
+	float r;
+	float g;
+	float b;
+	float a;
+};
+enum SDL_GPULoadOp:i32{
+	SDL_GPU_LOADOP_LOAD,
+	SDL_GPU_LOADOP_CLEAR,
+	SDL_GPU_LOADOP_DONT_CARE,
+};
+enum SDL_GPUStoreOp:i32{
+	SDL_GPU_STOREOP_STORE,
+	SDL_GPU_STOREOP_DONT_CARE,
+	SDL_GPU_STOREOP_RESOLVE,
+	SDL_GPU_STOREOP_RESOLVE_AND_STORE,
+};
+struct SDL_GPUColorTargetInfo{
+	struct SDL_GPUTexture* texture;
+	Uint32 mip_level;
+	Uint32 layer_or_depth_plane;
+	struct SDL_FColor clear_color;
+	enum SDL_GPULoadOp load_op;
+	enum SDL_GPUStoreOp store_op;
+	struct SDL_GPUTexture* resolve_texture;
+	Uint32 resolve_mip_level;
+	Uint32 resolve_layer;
+	bool cycle;
+	bool cycle_resolve_texture;
+	Uint8 padding1;
+	Uint8 padding2;
+};
+struct SDL_GPURenderPass;
+struct SDL_GPUDepthStencilTargetInfo;
 
 
 void _main_0();
 DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 DLLIMPORT extern struct SDL_Window* SDL_CreateWindow(i8* title,i32 w,i32 h,SDL_WindowFlags flags);
 DLLIMPORT extern struct SDL_GPUDevice* SDL_CreateGPUDevice(SDL_GPUShaderFormat format_flags,bool debug_mode,i8* name);
+DLLIMPORT extern bool SDL_ClaimWindowForGPUDevice(struct SDL_GPUDevice* device,struct SDL_Window* window);
 DLLIMPORT extern bool SDL_PollEvent(union SDL_Event* event);
+DLLIMPORT extern struct SDL_GPUCommandBuffer* SDL_AcquireGPUCommandBuffer(struct SDL_GPUDevice* device);
+DLLIMPORT extern bool SDL_WaitAndAcquireGPUSwapchainTexture(struct SDL_GPUCommandBuffer* command_buffer,struct SDL_Window* window,struct SDL_GPUTexture** swapchain_texture,Uint32* swapchain_texture_width,Uint32* swapchain_texture_height);
+DLLIMPORT extern struct SDL_GPURenderPass* SDL_BeginGPURenderPass(struct SDL_GPUCommandBuffer* command_buffer,struct SDL_GPUColorTargetInfo* color_target_infos,Uint32 num_color_targets,struct SDL_GPUDepthStencilTargetInfo* depth_stencil_target_info);
+DLLIMPORT extern void SDL_EndGPURenderPass(struct SDL_GPURenderPass* render_pass);
+DLLIMPORT extern bool SDL_SubmitGPUCommandBuffer(struct SDL_GPUCommandBuffer* command_buffer);
+DLLIMPORT extern void SDL_DestroyGPUDevice(struct SDL_GPUDevice* device);
 DLLIMPORT extern void SDL_DestroyWindow(struct SDL_Window* window);
 DLLIMPORT extern void SDL_Quit();
 
@@ -863,24 +906,62 @@ void _main_0(){
 	struct SDL_Window* window=_4;
 	const u32 _5=1u<<1;
 	const SDL_GPUShaderFormat _6=(SDL_GPUShaderFormat)_5;
-	struct SDL_GPUDevice* const _7=SDL_CreateGPUDevice(_6,true,{0});
+	struct SDL_GPUDevice* const _7=SDL_CreateGPUDevice(_6,true,0);
 	struct SDL_GPUDevice* device=_7;
+	const bool _8=SDL_ClaimWindowForGPUDevice(device,window);
 	bool running=true;
 	while(1){
 		if(!running)break;
 		union SDL_Event event={0};
 		while(1){
-			union SDL_Event* const _8=&event;
-			const bool _9=SDL_PollEvent(_8);
-			if(!_9)break;
-			Uint32* const _10=&event.type;
-			const enum SDL_EventType _11=(enum SDL_EventType)(*_10);
-			const bool _12=_11==256;
-			if(_12){
+			union SDL_Event* const _9=&event;
+			const bool _10=SDL_PollEvent(_9);
+			if(!_10)break;
+			Uint32* const _11=&event.type;
+			const enum SDL_EventType _12=(enum SDL_EventType)(*_11);
+			const bool _13=_12==256;
+			if(_13){
 				running=false;
 			}
 		}
+		struct SDL_GPUCommandBuffer* const _14=SDL_AcquireGPUCommandBuffer(device);
+		struct SDL_GPUCommandBuffer* cmdBuffer=_14;
+		struct SDL_GPUTexture* swapchain={0};
+		u32 width={0};
+		u32 height={0};
+		struct SDL_GPUTexture** const _15=&swapchain;
+		u32* const _16=&width;
+		Uint32* const _17=(Uint32*)_16;
+		u32* const _18=&height;
+		Uint32* const _19=(Uint32*)_18;
+		const bool _20=SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer,window,_15,_17,_19);
+		struct SDL_GPUColorTargetInfo colorTarget={0};
+		struct SDL_FColor* const _21=&colorTarget.clear_color;
+		float* const _22=&(*_21).r;
+		(*_22)=0.4f;
+		struct SDL_FColor* const _23=&colorTarget.clear_color;
+		float* const _24=&(*_23).g;
+		(*_24)=0.4f;
+		struct SDL_FColor* const _25=&colorTarget.clear_color;
+		float* const _26=&(*_25).b;
+		(*_26)=0.96f;
+		struct SDL_FColor* const _27=&colorTarget.clear_color;
+		float* const _28=&(*_27).a;
+		(*_28)=1.0f;
+		enum SDL_GPULoadOp* const _29=&colorTarget.load_op;
+		(*_29)=1;
+		enum SDL_GPUStoreOp* const _30=&colorTarget.store_op;
+		(*_30)=0;
+		struct SDL_GPUTexture** const _31=&colorTarget.texture;
+		(*_31)=swapchain;
+		struct SDL_GPUColorTargetInfo* const _32=&colorTarget;
+		const Uint32 _33=(Uint32)1u;
+		struct SDL_GPURenderPass* const _34=SDL_BeginGPURenderPass(cmdBuffer,_32,_33,0);
+		struct SDL_GPURenderPass* renderPass=_34;
+		SDL_EndGPURenderPass(renderPass);
+		const bool _35=SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
+	SDL_DestroyGPUDevice(device);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }

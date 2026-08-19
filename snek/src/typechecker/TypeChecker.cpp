@@ -993,7 +993,12 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 
 	if (expressionType->typeKind == TYPE_POINTER && targetType->typeKind == TYPE_POINTER)
 	{
-		if (targetType->pointer.elementType->typeKind == TYPE_VOID)
+		Type* elementType1 = expressionType->pointer.elementType;
+		Type* elementType2 = targetType->pointer.elementType;
+		elementType1 = unwrapType(elementType1);
+		elementType2 = unwrapType(elementType2);
+
+		if (elementType2->typeKind == TYPE_VOID || compareTypes(elementType1, elementType2))
 		{
 			if (ref)
 				insertImplicitCast(tc, ref, targetType);
@@ -1736,13 +1741,15 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		{
 			Identifier* identifier = (Identifier*)functionCall->expression;
 			resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
-			function = getIdentifierSymbol(identifier)->functionSet.overloads[identifier->functionOverloadID].declaration;
+			if (Symbol* symbol = getIdentifierSymbol(identifier))
+				function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
 		}
 		else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
 		{
 			MemberAccess* member = (MemberAccess*)functionCall->expression;
 			resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
-			function = getMemberAccessSymbol(member)->functionSet.overloads[member->functionOverloadID].declaration;
+			if (Symbol* symbol = getMemberAccessSymbol(member))
+				function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
 		}
 		else
 		{

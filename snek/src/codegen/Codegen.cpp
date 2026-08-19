@@ -330,8 +330,14 @@ static void declareEnum(Codegen* codegen, Enum* enum_)
 		if (enumValue->value)
 		{
 			emitString(buffer, "=");
-			Value value = emitExpression(codegen, enumValue->value, buffer);
-			emitValue(buffer, value);
+
+			int64_t intValue;
+			constantFold(enumValue->value, &intValue);
+
+			emitInteger(buffer, intValue);
+
+			//Value value = emitExpression(codegen, enumValue->value, buffer);
+			//emitValue(buffer, value);
 		}
 		emitString(buffer, ",\n");
 	}
@@ -801,10 +807,20 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	}
 	else if (expression->type == NODE_NULL_LITERAL)
 	{
-		Value value = {};
-		value.type = expression->inferredType;
-		strcat(value.name, "{0}");
-		return value;
+		if (expression->inferredType->typeKind == TYPE_POINTER)
+		{
+			Value value = {};
+			value.type = expression->inferredType;
+			strcat(value.name, "0");
+			return value;
+		}
+		else
+		{
+			Value value = {};
+			value.type = expression->inferredType;
+			strcat(value.name, "{0}");
+			return value;
+		}
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
@@ -1660,6 +1676,250 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	return {};
 }
 
+static void emitExpressionConstant(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
+{
+	if (expression->type == NODE_INT_LITERAL ||
+		expression->type == NODE_FLOAT_LITERAL ||
+		expression->type == NODE_STRING_LITERAL ||
+		expression->type == NODE_CHAR_LITERAL ||
+		expression->type == NODE_TRUE ||
+		expression->type == NODE_FALSE ||
+		expression->type == NODE_NULL_LITERAL)
+	{
+		Value value = emitExpression(codegen, expression, buffer);
+		emitValue(buffer, value);
+		return;
+	}
+	else if (expression->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = (Identifier*)expression;
+
+		Symbol* symbol = getIdentifierSymbol(identifier);
+		if (symbol->type == SYMBOL_VARIABLE)
+		{
+			Node* declaration = symbol->declaration;
+			if (declaration->type == NODE_GLOBAL_VARIABLE)
+			{
+				GlobalVariable* globalVariable = &declaration->globalVariable;
+				bool isConstant = globalVariable->storage & STORAGE_CONSTANT;
+
+				if (isConstant)
+				{
+					VariableDeclarator* declarator = getDeclarator(globalVariable, identifier->name);
+					SnekAssert(declarator->value);
+
+					return emitExpressionConstant(codegen, declarator->value, buffer);
+				}
+				else
+				{
+					SnekAssert(false);
+				}
+			}
+			else if (declaration->type == NODE_VARIABLE_DECLARATION)
+			{
+				VariableDeclaration* variable = &declaration->variableDeclaration;
+				bool isConstant = variable->storage & STORAGE_CONSTANT;
+
+				if (isConstant)
+				{
+					VariableDeclarator* declarator = getDeclarator(variable, identifier->name);
+					SnekAssert(declarator->value);
+
+					return emitExpressionConstant(codegen, declarator->value, buffer);
+				}
+				else
+				{
+					SnekAssert(false);
+				}
+			}
+		}
+		else if (symbol->type == SYMBOL_TYPE)
+		{
+		}
+		else if (symbol->type == SYMBOL_FUNCTION_SET)
+		{
+			SnekAssert(identifier->functionOverloadID != -1);
+			Function* function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+
+			if (symbol->file != codegen->currentFile->handle)
+			{
+				if (!codegen->declaredFunctions.contains(function))
+				{
+					declareFunction(codegen, function, &codegen->prototypesBuffer);
+					codegen->declaredFunctions.add(function);
+				}
+			}
+
+			return emitString(buffer, function->mangledName);
+		}
+		else if (symbol->type == SYMBOL_MACRO)
+		{
+		}
+
+		emitString(buffer, identifier->name);
+		return;
+	}
+	else if (expression->type == NODE_COMPOUND_EXPRESSION)
+	{
+		CompoundExpression* compound = (CompoundExpression*)expression;
+		emitExpressionConstant(codegen, compound->value, buffer);
+		return;
+	}
+	else if (expression->type == NODE_EXPRESSION_LIST)
+	{
+		ExpressionList* expressionList = (ExpressionList*)expression;
+
+		emitChar(buffer, '(');
+		emitType(codegen, expressionList->inferredType, buffer);
+		emitString(buffer, "){");
+
+		for (int i = 0; i < expressionList->numValues; i++)
+		{
+			emitExpressionConstant(codegen, expressionList->values[i], buffer);
+			if (i < expressionList->numValues - 1)
+				emitChar(buffer, ',');
+		}
+
+		emitChar(buffer, '}');
+		return;
+	}
+	else if (expression->type == NODE_BINARY_OPERATOR)
+	{
+		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
+
+		emitChar(buffer, '(');
+		emitExpressionConstant(codegen, binaryOperator->left, buffer);
+		emitOperator(buffer, binaryOperator->op);
+		emitExpressionConstant(codegen, binaryOperator->right, buffer);
+		emitChar(buffer, ')');
+		return;
+	}
+	else if (expression->type == NODE_UNARY_OPERATOR)
+	{
+		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
+
+		if (unaryOperator->op == OPERATOR_PLUS_PREFIX)
+		{
+			emitExpressionConstant(codegen, unaryOperator->operand, buffer);
+			return;
+		}
+		else if (unaryOperator->op == OPERATOR_MINUS_PREFIX)
+		{
+			emitChar(buffer, '-');
+			emitExpressionConstant(codegen, unaryOperator->operand, buffer);
+			return;
+		}
+		else if (unaryOperator->op == OPERATOR_LOGICAL_NOT)
+		{
+			emitChar(buffer, '!');
+			emitExpressionConstant(codegen, unaryOperator->operand, buffer);
+			return;
+		}
+		else if (unaryOperator->op == OPERATOR_BITWISE_NOT)
+		{
+			emitChar(buffer, '~');
+			emitExpressionConstant(codegen, unaryOperator->operand, buffer);
+			return;
+		}
+		else
+		{
+			SnekAssert(false);
+		}
+	}
+	else if (expression->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = (MemberAccess*)expression;
+
+		Type* operandType = member->operand->inferredType;
+
+		if (operandType->typeKind == TYPE_TYPE)
+		{
+			SnekAssert(member->operand->type == NODE_IDENTIFIER);
+
+			Identifier* typeName = (Identifier*)member->operand;
+			Symbol* symbol = getIdentifierSymbol(typeName);
+			SnekAssert(symbol);
+
+			if (symbol->declaration->type == NODE_ENUM)
+			{
+				Enum* enum_ = &symbol->declaration->enum_;
+
+				EnumValue* enumValue = enum_->values[member->index];
+
+				emitInteger(buffer, enumValue->intValue);
+				return;
+			}
+			else
+			{
+				SnekAssert(false);
+			}
+		}
+		else
+		{
+			SnekAssert(false);
+		}
+	}
+	else if (expression->type == NODE_TERNARY_CONDITION)
+	{
+		TernaryCondition* ternary = (TernaryCondition*)expression;
+
+		int64_t conditionValue;
+		if (constantFold(ternary->condition, &conditionValue))
+		{
+			if (conditionValue)
+				emitExpressionConstant(codegen, ternary->then, buffer);
+			else
+				emitExpressionConstant(codegen, ternary->else_, buffer);
+			return;
+		}
+		else
+		{
+			SnekAssert(false);
+		}
+	}
+	else if (expression->type == NODE_CAST)
+	{
+		Cast* cast = (Cast*)expression;
+
+		if (cast->targetType)
+			declareType(codegen, cast->targetType->inferredType);
+
+		Type* expressionType = cast->expression->inferredType;
+		Type* targetType = cast->inferredType;
+
+		if (targetType->typeKind == TYPE_STRING)
+		{
+			if (cast->expression2)
+			{
+				emitChar(buffer, '{');
+				emitExpressionConstant(codegen, cast->expression, buffer);
+				emitChar(buffer, ',');
+				emitExpressionConstant(codegen, cast->expression2, buffer);
+				emitChar(buffer, '}');
+				return;
+			}
+			else if (isCharPointerType(expressionType))
+			{
+				emitChar(buffer, '{');
+				emitExpressionConstant(codegen, cast->expression, buffer);
+				emitChar(buffer, ',');
+				if (cast->expression->type == NODE_STRING_LITERAL)
+					emitInteger(buffer, ((StringLiteral*)cast->expression)->value.length);
+				else
+				{
+					emitString(buffer, "__cstrl(");
+					emitExpressionConstant(codegen, cast->expression, buffer);
+					emitChar(buffer, ')');
+				}
+				emitChar(buffer, '}');
+				return;
+			}
+		}
+	}
+
+	SnekAssert(false);
+}
+
 static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* buffer)
 {
 	if (statement->type == NODE_BLOCK_STATEMENT)
@@ -2008,8 +2268,7 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 		if (declarator->value)
 		{
 			emitChar(buffer, '=');
-			Value value = emitExpression(codegen, declarator->value, buffer);
-			emitValue(buffer, value);
+			emitExpressionConstant(codegen, declarator->value, buffer);
 		}
 
 		emitString(buffer, ";\n");

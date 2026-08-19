@@ -1728,32 +1728,39 @@ int main()
 
 				Document* document = GetDocument(uri);
 
-				json position = params["position"];
-				int line = position["line"];
-				int character = position["character"];
-
-				json signatures = json::array();
-				int activeSignature = 0;
-				int activeParameter = 0;
-
-				document->astMutex.lock();
-
-				if (document->getFunctionSignature(line, character, signatures, activeSignature, activeParameter))
+				if (waitForDocumentTypeCheck(document, 200))
 				{
-					json result = {
-						{"signatures", signatures},
-						{"activeSignature", activeSignature},
-						{"activeParameter", activeParameter},
-					};
+					json position = params["position"];
+					int line = position["line"];
+					int character = position["character"];
 
-					sendResponse(request["id"], result);
+					json signatures = json::array();
+					int activeSignature = 0;
+					int activeParameter = 0;
+
+					document->astMutex.lock();
+
+					if (document->getFunctionSignature(line, character, signatures, activeSignature, activeParameter))
+					{
+						json result = {
+							{"signatures", signatures},
+							{"activeSignature", activeSignature},
+							{"activeParameter", activeParameter},
+						};
+
+						sendResponse(request["id"], result);
+					}
+					else
+					{
+						sendResponse(request["id"], nullptr);
+					}
+
+					document->astMutex.unlock();
 				}
 				else
 				{
 					sendResponse(request["id"], nullptr);
 				}
-
-				document->astMutex.unlock();
 			}
 			else if (method == "workspace/symbol")
 			{
