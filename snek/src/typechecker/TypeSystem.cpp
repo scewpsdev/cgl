@@ -64,6 +64,11 @@ Type* getVoidType(TypeSystem* types)
 	return &types->primitiveTypes[TYPE_VOID];
 }
 
+Type* getInt32Type(TypeSystem* types)
+{
+	return &types->primitiveTypes[TYPE_INT32];
+}
+
 Type* getStringType(TypeSystem* types)
 {
 	return &types->primitiveTypes[TYPE_STRING];

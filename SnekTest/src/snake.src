@@ -1,0 +1,41 @@
+import vendor.SDL3;
+
+
+func main() {
+	if !SDL_Init(SDL_INIT_VIDEO) {
+		return;
+	}
+
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	if !SDL_CreateWindowAndRenderer("Snake", 1280, 720, 0, &window, &renderer) {
+		return;
+	}
+
+	bool running = true;
+	while running {
+		SDL_Event event;
+		while SDL_PollEvent(&event) {
+			if (event.type as SDL_EventType == SDL_EventType.SDL_EVENT_QUIT)
+				running = false;
+		}
+
+		SDL_SetRenderDrawColor(renderer, 100, 149, 237, 0);
+		SDL_RenderClear(renderer);
+
+		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
+		SDL_FRect rect;
+		rect.x = 10;
+		rect.y = 10;
+		rect.w = 100;
+		rect.h = 100;
+		SDL_RenderRect(renderer, &rect);
+
+		SDL_RenderPresent(renderer);
+	}
+
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
+}

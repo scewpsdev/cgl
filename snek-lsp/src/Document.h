@@ -153,7 +153,7 @@ struct Document
 
 	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
 	Symbol* getSymbolAtPosition(int line, int col, int* overloadIdx);
-	void autocomplete(Scope* scope, nlohmann::json& items);
+	void autocomplete(Node* node, Scope* scope, char triggerCharacter, nlohmann::json& items);
 
 	void getSymbols(nlohmann::json& items);
 	void getWorkspaceSymbols(const std::string& query, nlohmann::json& items);

@@ -1,8 +1,0 @@
-import window;
-import snek.console;
-
-
-func main(string[] args)
-{
-	writeln("hello world");
-}

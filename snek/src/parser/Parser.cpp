@@ -242,12 +242,11 @@ static void rewind(Parser* parser, int cursor)
 
 static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 {
-	Token token = peekToken(parser);
+	Token token = nextToken(parser);
 
 	if (token.type == type)
 	{
 		if (outToken) *outToken = token;
-		nextToken(parser);
 		return true;
 	}
 
@@ -1585,47 +1584,73 @@ Statement* parseStatement(Parser* parser)
 		For* for_ = parser->arena->alloc<For>();
 		initNode((Node*)for_, NODE_FOR, start);
 
-		expectToken(parser, '(');
-
-		Token iteratorName;
-		if (expectToken(parser, TOKEN_IDENTIFIER, &iteratorName))
+		Token iteratorName = {};
+		if (nextIs(parser, TOKEN_IDENTIFIER, &iteratorName))
 		{
+			nextToken(parser);
 			for_->iteratorName = getTokenString(iteratorName, parser);
 		}
 
-		expectToken(parser, ',');
-
-		Expression* startValue = parseExpression(parser);
-		if (!startValue)
-		{
-			error(parser, getSourceLocation(parser), "Expression expected");
-		}
-		for_->startValue = startValue;
-
-		expectToken(parser, ',');
+		expectToken(parser, ':');
 
 		bool equals = false;
+		int equalsPosition = -1;
 		if (nextIs(parser, '='))
 		{
+			equalsPosition = parser->cursor;
 			nextToken(parser);
 			equals = true;
 		}
-		for_->equals = equals;
 
-		Expression* compareValue = parseExpression(parser);
-		if (!compareValue)
+		Expression* expression1 = parseExpression(parser);
+		if (!expression1)
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
+			expression1 = getErrorExpression(parser, parser->cursor);
 		}
-		for_->compareValue = compareValue;
 
-		if (!expectToken(parser, ')'))
-			skipPastToken(parser, ')');
+		Expression* expression2 = nullptr;
+
+		if (nextIs(parser, ','))
+		{
+			if (equals)
+			{
+				error(parser, getSourceLocation(&parser->lexer, equalsPosition), "= prefix only allowed for comparison value");
+			}
+
+			nextToken(parser);
+
+			if (nextIs(parser, '='))
+			{
+				nextToken(parser);
+				equals = true;
+			}
+
+			expression2 = parseExpression(parser);
+			if (!expression2)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+				expression2 = getErrorExpression(parser, parser->cursor);
+			}
+		}
+
+		if (expression2)
+		{
+			for_->startValue = expression1;
+			for_->compareValue = expression2;
+		}
+		else
+		{
+			for_->compareValue = expression1;
+		}
+
+		for_->equals = equals;
 
 		Statement* body = parseStatement(parser);
 		if (!body)
 		{
 			error(parser, getSourceLocation(parser), "Statement expected");
+			body = getErrorStatement(parser, parser->cursor);
 		}
 		for_->body = body;
 
@@ -1699,7 +1724,7 @@ Statement* parseStatement(Parser* parser)
 
 		if (TypeNode* type = parseType(parser))
 		{
-			if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
+			if ((nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser)) && (nextIs(parser, 1, ';') || nextIs(parser, 1, ',') || nextIs(parser, 1, '=')))
 			{
 				int mark = parser->scratch->mark();
 

@@ -67,7 +67,7 @@ static void growSymbolTable(SymbolTable* symbols)
 	symbols->capacity = newCapacity;
 }
 
-bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file)
+Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file)
 {
 	if (symbols->count * 4 >= symbols->capacity * 3)
 	{
@@ -107,7 +107,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 			}
 
 			symbols->count++;
-			return true;
+			return slot;
 		}
 
 		if (slot->key == h)
@@ -115,7 +115,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 			if (slot->type == SYMBOL_FUNCTION_SET)
 			{
 				if (slot->type != type)
-					return false;
+					return nullptr;
 
 				SnekAssert(declaration->type == NODE_FUNCTION);
 
@@ -130,11 +130,11 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 					.declaration = &declaration->function,
 				};
 
-				return true;
+				return slot;
 			}
 			else
 			{
-				return false;
+				return nullptr;
 			}
 		}
 
@@ -142,7 +142,7 @@ bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, 
 	}
 
 	SnekAssert(false);
-	return false;
+	return nullptr;
 }
 
 Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier)

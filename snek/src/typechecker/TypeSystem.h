@@ -106,6 +106,7 @@ bool isErrorType(Type* type);
 bool isCharPointerType(Type* type);
 
 Type* getVoidType(TypeSystem* types);
+Type* getInt32Type(TypeSystem* types);
 Type* getStringType(TypeSystem* types);
 Type* getErrorType(TypeSystem* types);
 

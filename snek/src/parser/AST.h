@@ -138,6 +138,8 @@ struct VariableDeclarator
 {
 	StringView name;
 	Expression* value;
+
+	Symbol* symbol;
 };
 
 struct Field : NodeBase
@@ -449,6 +451,7 @@ struct Struct : NodeBase
 	int numFields;
 
 	Type* structType;
+	Symbol* symbol;
 };
 
 struct Union : NodeBase
@@ -460,6 +463,7 @@ struct Union : NodeBase
 	int numFields;
 
 	Type* unionType;
+	Symbol* symbol;
 };
 
 struct EnumValue : NodeBase
@@ -480,6 +484,7 @@ struct Enum : NodeBase
 	int numValues;
 
 	Type* enumType;
+	Symbol* symbol;
 };
 
 struct Typedef : NodeBase
@@ -489,6 +494,7 @@ struct Typedef : NodeBase
 	TypeNode* value;
 
 	Type* aliasType;
+	Symbol* symbol;
 };
 
 struct Function : NodeBase
@@ -507,6 +513,7 @@ struct Function : NodeBase
 
 	Type* functionType;
 	StringView mangledName;
+	Symbol* symbol;
 
 	Scope* scope;
 };
@@ -681,7 +688,7 @@ void initNode(Node* node, NodeType type, int start);
 void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
-bool insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file);
+Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file);
 Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier);
 Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h);
 

@@ -142,7 +142,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 			if (struct_->name.length)
 			{
 				struct_->structType = createNamedStructType(file, struct_->name, struct_);
-				insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, file->handle);
+				struct_->symbol = insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, file->handle);
 			}
 
 			ast->structs[numStructs++] = struct_;
@@ -152,8 +152,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 			Union* union_ = &declaration->union_;
 
 			union_->unionType = createNamedUnionType(file, union_->name, union_);
-
-			insertSymbol(&tc->currentScope->symbols, union_->name, SYMBOL_TYPE, declaration, file->handle);
+			union_->symbol = insertSymbol(&tc->currentScope->symbols, union_->name, SYMBOL_TYPE, declaration, file->handle);
 
 			ast->unions[numUnions++] = union_;
 		}
@@ -162,8 +161,8 @@ void symbolCollection(TypeChecker* tc, File* file)
 			Enum* enum_ = &declaration->enum_;
 
 			enum_->enumType = createEnumType(file, enum_->name, enum_);
+			enum_->symbol = insertSymbol(&tc->currentScope->symbols, enum_->name, SYMBOL_TYPE, declaration, file->handle);
 
-			insertSymbol(&tc->currentScope->symbols, enum_->name, SYMBOL_TYPE, declaration, file->handle);
 			ast->enums[numEnums++] = enum_;
 		}
 		else if (declaration->type == NODE_TYPEDEF)
@@ -171,21 +170,23 @@ void symbolCollection(TypeChecker* tc, File* file)
 			Typedef* typedef_ = &declaration->typedef_;
 
 			typedef_->aliasType = createAliasType(file, typedef_->name, typedef_);
-
-			insertSymbol(&tc->currentScope->symbols, typedef_->name, SYMBOL_TYPE, declaration, file->handle);
+			typedef_->symbol = insertSymbol(&tc->currentScope->symbols, typedef_->name, SYMBOL_TYPE, declaration, file->handle);
 
 			ast->typedefs[numTypedefs++] = typedef_;
 		}
 		else if (declaration->type == NODE_FUNCTION)
 		{
-			insertSymbol(&tc->currentScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
+			Function* function = &declaration->function;
+
+			function->symbol = insertSymbol(&tc->currentScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
+
 			ast->functions[numFunctions++] = &declaration->function;
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
 			for (int i = 0; i < declaration->globalVariable.numDeclarators; i++)
 			{
-				insertSymbol(&tc->currentScope->symbols, declaration->globalVariable.declarators[i].name, SYMBOL_VARIABLE, declaration, file->handle);
+				declaration->globalVariable.declarators[i].symbol = insertSymbol(&tc->currentScope->symbols, declaration->globalVariable.declarators[i].name, SYMBOL_VARIABLE, declaration, file->handle);
 			}
 			ast->globalVariables[numGlobalVariables++] = &declaration->globalVariable;
 		}
@@ -1281,6 +1282,9 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 					char buffer[256];
 					buffer[0] = 0;
 					strcat(buffer, "(");
+					strcat(buffer, member->operand->inferredType->name.ptr);
+					if (numArgs)
+						strcat(buffer, ", ");
 					for (int i = 0; i < numArgs; i++)
 					{
 						strcat(buffer, args[i]->inferredType->name.ptr);
@@ -1297,6 +1301,9 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 					char buffer[256];
 					buffer[0] = 0;
 					strcat(buffer, "(");
+					strcat(buffer, member->operand->inferredType->name.ptr);
+					if (numArgs)
+						strcat(buffer, ", ");
 					for (int i = 0; i < numArgs; i++)
 					{
 						strcat(buffer, args[i]->inferredType->name.ptr);
@@ -1998,19 +2005,22 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		tc->loopDepth++;
 		for_->scope = pushScope(tc);
 
-		Type* startValueType = resolveExpression(tc, for_->startValue);
+		Type* startValueType = for_->startValue ? resolveExpression(tc, for_->startValue) : getInt32Type(tc->types);
 		Type* compareValueType = resolveExpression(tc, for_->compareValue);
 
-		if (!isNumericType(startValueType))
+		if (startValueType != getErrorType(tc->types) && !isNumericType(startValueType))
 		{
 			error(tc, (Node*)for_->startValue, "Initial value of for iterator must be a scalar");
 		}
-		if (!isNumericType(compareValueType))
+		if (startValueType != getErrorType(tc->types) && !isNumericType(compareValueType))
 		{
 			error(tc, (Node*)for_->compareValue, "Comparison value of for iterator must be a scalar");
 		}
 
-		insertSymbol(&for_->scope->symbols, for_->iteratorName, SYMBOL_VARIABLE, (Node*)statement, tc->currentFile->handle);
+		if (for_->iteratorName.length)
+		{
+			insertSymbol(&for_->scope->symbols, for_->iteratorName, SYMBOL_VARIABLE, (Node*)statement, tc->currentFile->handle);
+		}
 
 		resolveStatement(tc, for_->body);
 

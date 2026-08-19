@@ -5,82 +5,69 @@ externc func putchar(int c) int;
 externc func system(char* command) int;
 
 
-func write(char c)
-{
+func write(char c) {
 	putchar(c);
 }
 
-func write(string str)
-{
-    for (i, 0, str.length)
+func write(string str) {
+	for i : str.length {
 		putchar(str[i]);
+	}
 }
 
-func writeln(string str)
-{
-    for (i, 0, str.length)
+func writeln(string str) {
+	for i : str.length {
 		putchar(str[i]);
+	}
 	putchar('\n');
 }
 
-func write(char* str) int
-{
+func write(char* str) int {
 	int i = 0;
-	while str[i] != 0
-	{
+	while str[i] {
 		putchar(str[i++]);
 	}
 	return i;
 }
 
-func writeln(char* str) int
-{
+func writeln(char* str) int {
 	int i = 0;
-	while str[i] != 0
-	{
+	while str[i] {
 		putchar(str[i++]);
 	}
 	putchar('\n'); i++;
 	return i;
 }
 
-func write(float f)
-{
+func write(float f) {
 	writeFloat(f);
 }
 
-func writeln(float f)
-{
+func writeln(float f) {
 	writeFloat(f);
 	putchar('\n');
 }
 
-func write(long i)
-{
+func write(long i) {
 	writeInt(i);
 }
 
-func writeln(long i)
-{
+func writeln(long i) {
 	writeInt(i);
 	putchar('\n');
 }
 
-func write(ulong u)
-{
+func write(ulong u) {
 	writeInt(long(u));
 }
 
-func writeln(ulong u)
-{
+func writeln(ulong u) {
 	writeInt(long(u));
 	putchar('\n');
 }
 
-func writeInt(long value)
-{
-	if value == 0
-	{
+func writeInt(long value) {
+	if value == 0 {
 		putchar('0');
 		return;
 	}
@@ -91,24 +78,21 @@ func writeInt(long value)
 	bool isNegative = value < 0;
 	if isNegative value = -value;
 
-	while value != 0
-	{
+	while value {
 		buffer[len++] = char(value % 10 + '0');
 		value = value / 10;
 	}
 
-	if isNegative buffer[len++] = '-';
+	if isNegative
+		buffer[len++] = '-';
 
-    for (i, len - 1, =0)
-	{
+    for i : len - 1, =0 {
 		putchar(buffer[i]);
 	}
 }
 
-func writeUInt(ulong value)
-{
-	if value == 0
-	{
+func writeUInt(ulong value) {
+	if value == 0 {
 		putchar('0');
 		return;
 	}
@@ -116,20 +100,17 @@ func writeUInt(ulong value)
 	char[50] buffer;
 	int len = 0;
 
-	while value != 0
-	{
+	while value {
 		buffer[len++] = char(value % 10 + '0');
 		value = value / 10u;
 	}
 
-    for (i, len - 1, =0)
-	{
+    for i : len - 1, =0 {
 		putchar(buffer[i]);
 	}
 }
 
-func writeFloat(double value)
-{
+func writeFloat(double value) {
 	long ipart = long(value);
 	double fpart = value - ipart;
 
@@ -137,8 +118,7 @@ func writeFloat(double value)
 	putchar('.');
 
 	int precision = 6;
-    for (i, 0, precision)
-	{
+	for : precision {
 		fpart *= 10;
 		int digit = int(fpart);
 		putchar('0' + digit);
@@ -146,19 +126,16 @@ func writeFloat(double value)
 	}
 }
 
-func writeBoolean(bool b)
-{
+func writeBoolean(bool b) {
 	if b write("true");
 	else write("false");
 }
 
-func writePointer(void* ptr)
-{
+func writePointer(void* ptr) {
 	return;
 }
 
-func writeAny(any value)
-{
+func writeAny(any value) {
 	if (value.type == TypeKind.Int)
 		writeInt(int(value));
 	else if (value.type == TypeKind.Float)
@@ -171,25 +148,20 @@ func writeAny(any value)
 		write(string(value));
 	else
 		putchar('?');
-
 }
 
-func print(string format, any... args)
-{
+func print(string format, any... args) {
 	int varArgIdx = 0;
-    for (i, 0, format.length)
-	{
+	for i : format.length {
 		char c = format[i];
 		if (c == '%' && varArgIdx < args.length)
-		{
 			writeAny(args[varArgIdx++]);
-		}
-		else putchar(c);
+		else
+			putchar(c);
 	}
 }
 
-func println(string format, any... args)
-{
+func println(string format, any... args) {
 	print(format, args);
 	putchar('\n');
 }

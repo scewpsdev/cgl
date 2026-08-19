@@ -1700,31 +1700,44 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	{
 		For* for_ = (For*)statement;
 
-		if (isConstant(for_->startValue) && isConstant(for_->compareValue))
+		if ((!for_->startValue || isConstant(for_->startValue)) && isConstant(for_->compareValue))
 		{
-			int64_t startValue, compareValue;
-			constantFold(for_->startValue, &startValue);
+			int64_t startValue = 0, compareValue;
+			if (for_->startValue)
+				constantFold(for_->startValue, &startValue);
 			constantFold(for_->compareValue, &compareValue);
+
+			StringView iteratorName = for_->iteratorName.length ? for_->iteratorName : CreateString("__it");
 
 			emitIndentation(codegen, buffer);
 			emitString(buffer, "for(int ");
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitChar(buffer, '=');
 			emitInteger(buffer, startValue);
 			emitChar(buffer, ';');
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitChar(buffer, compareValue > startValue ? '<' : '>');
 			if (for_->equals)
 				emitChar(buffer, '=');
 			emitInteger(buffer, compareValue);
 			emitChar(buffer, ';');
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitString(buffer, compareValue > startValue ? "++" : "--");
 		}
 		else
 		{
-			Value startValue = emitExpression(codegen, for_->startValue, buffer);
+			Value startValue;
+			if (for_->startValue)
+				startValue = emitExpression(codegen, for_->startValue, buffer);
+			else
+			{
+				startValue = {};
+				strcat(startValue.name, "0");
+			}
+
 			Value compareValue = emitExpression(codegen, for_->compareValue, buffer);
+
+			StringView iteratorName = for_->iteratorName.length ? for_->iteratorName : CreateString("__it");
 
 			Value sign = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_INT32], buffer);
 
@@ -1735,11 +1748,11 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 
 			emitIndentation(codegen, buffer);
 			emitString(buffer, "for(int ");
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitChar(buffer, '=');
 			emitValue(buffer, startValue);
 			emitChar(buffer, ';');
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitChar(buffer, '*');
 			emitValue(buffer, sign);
 			emitChar(buffer, '<');
@@ -1749,7 +1762,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			emitChar(buffer, '*');
 			emitValue(buffer, sign);
 			emitChar(buffer, ';');
-			emitString(buffer, for_->iteratorName);
+			emitString(buffer, iteratorName);
 			emitString(buffer, "+=");
 			emitValue(buffer, sign);
 		}

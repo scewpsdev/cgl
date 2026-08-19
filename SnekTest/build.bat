@@ -1,2 +1,2 @@
 @echo off
-snekc build src/main.src lib/libSDL3.dll.a
+snekc build src/snake.src lib/libSDL3.dll.a

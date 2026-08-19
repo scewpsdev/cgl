@@ -589,19 +589,218 @@ static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 	}
 }
 
-void Document::autocomplete(Scope* scope, json& items)
+static void scanScopeForMemberFunction(Scope* scope, Type* operandType, nlohmann::json& items)
 {
-	while (scope)
+	for (int i = 0; i < scope->symbols.capacity; i++)
 	{
-		scanScopeForItems(scope, items);
-		scope = scope->parent;
-	}
-
-	for (int i = 0; i < file.dependencies.size; i++)
-	{
-		if (File* dependency = getFileFromHandle(file.dependencies[i]))
+		Symbol* symbol = &scope->symbols.slots[i];
+		if (symbol->key)
 		{
-			scanScopeForItems(dependency->ast.globalScope, items);
+			if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				for (int j = 0; j < symbol->functionSet.count; j++)
+				{
+					Function* overload = symbol->functionSet.overloads[j].declaration;
+
+					if (overload->numParams >= 1)
+					{
+						Type* paramType = overload->params[0]->paramType->inferredType;
+
+						if (compareTypes(paramType, operandType) || paramType->typeKind == TYPE_POINTER && compareTypes(paramType->pointer.elementType, operandType))
+						{
+							StringView name = symbol->name;
+							std::string nameStr = std::string(name.ptr, name.length);
+
+							CompletionItemType completionItem = COMPLETION_ITEM_FUNCTION;
+
+							items.push_back({
+								{"label", nameStr },
+								{"kind", completionItem},
+								{"data", {
+									{"symbol_id", std::to_string(symbol->key)},
+									{"file_id", std::to_string((uint64_t)symbol->file)}
+								}}
+								});
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void Document::autocomplete(Node* node, Scope* scope, char triggerCharacter, json& items)
+{
+	if (triggerCharacter == 0)
+	{
+		while (scope)
+		{
+			scanScopeForItems(scope, items);
+			scope = scope->parent;
+		}
+
+		for (int i = 0; i < file.dependencies.size; i++)
+		{
+			if (File* dependency = getFileFromHandle(file.dependencies[i]))
+			{
+				scanScopeForItems(dependency->ast.globalScope, items);
+			}
+		}
+	}
+	else if (triggerCharacter == '.')
+	{
+		if (node->type > NODE_EXPRESSION_START && node->type < NODE_EXPRESSION_END)
+		{
+			Expression* expression = (Expression*)node;
+			Type* operandType = expression->inferredType;
+
+			if (operandType->typeKind == TYPE_POINTER)
+				operandType = operandType->pointer.elementType;
+
+			if (operandType->typeKind == TYPE_STRUCT)
+			{
+				Struct* declaration = operandType->struct_.declaration;
+				Symbol* symbol = declaration->symbol;
+
+				int fieldID = 0;
+				for (int i = 0; i < declaration->numFields; i++)
+				{
+					Field* field = declaration->fields[i];
+					for (int j = 0; j < field->numDeclarators; j++)
+					{
+						items.push_back({
+							{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
+							{"kind", COMPLETION_ITEM_FIELD},
+							{"data", {
+								{"type_id", std::to_string((uint64_t)operandType)},
+								{"field_id", fieldID }
+							}}
+							});
+
+						fieldID++;
+					}
+				}
+			}
+			else if (operandType->typeKind == TYPE_UNION)
+			{
+				Union* declaration = operandType->union_.declaration;
+				Symbol* symbol = declaration->symbol;
+
+				int fieldID = 0;
+				for (int i = 0; i < declaration->numFields; i++)
+				{
+					Field* field = declaration->fields[i];
+					for (int j = 0; j < field->numDeclarators; j++)
+					{
+						items.push_back({
+							{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
+							{"kind", COMPLETION_ITEM_FIELD},
+							{"data", {
+								{"type_id", std::to_string((uint64_t)operandType)},
+								{"field_id", fieldID }
+							}}
+							});
+
+						fieldID++;
+					}
+				}
+			}
+			else if (operandType->typeKind == TYPE_STRING)
+			{
+				items.push_back({
+					{"label", "ptr"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 0 }
+					}}
+					});
+
+				items.push_back({
+					{"label", "length"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 1 }
+					}}
+					});
+			}
+			else if (operandType->typeKind == TYPE_ARRAY)
+			{
+				items.push_back({
+					{"label", "data"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 0 }
+					}}
+					});
+
+				items.push_back({
+					{"label", "length"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 1 }
+					}}
+					});
+			}
+			else if (operandType->typeKind == TYPE_ANY)
+			{
+				items.push_back({
+					{"label", "value"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 0 }
+					}}
+					});
+
+				items.push_back({
+					{"label", "type"},
+					{"kind", COMPLETION_ITEM_FIELD},
+					{"data", {
+						{"type_id", std::to_string((uint64_t)operandType)},
+						{"field_id", 1 }
+					}}
+					});
+			}
+			else if (operandType->typeKind == TYPE_TYPE)
+			{
+				SnekAssert(expression->type == NODE_IDENTIFIER);
+
+				Identifier* typeName = (Identifier*)expression;
+				if (Symbol* symbol = getIdentifierSymbol(typeName))
+				{
+					if (symbol->declaration->type == NODE_ENUM)
+					{
+						Enum* enum_ = &symbol->declaration->enum_;
+						for (int i = 0; i < enum_->numValues; i++)
+						{
+							EnumValue* enumValue = enum_->values[i];
+
+							items.push_back({
+								{"label", std::string(enumValue->name.ptr, enumValue->name.length)},
+								{"kind", COMPLETION_ITEM_ENUM_MEMBER},
+								{"data", {
+									{"type_id", std::to_string((uint64_t)operandType)},
+									{"field_id", i }
+								}}
+								});
+						}
+					}
+				}
+			}
+
+			scanScopeForMemberFunction(file.ast.globalScope, operandType, items);
+
+			for (int i = 0; i < file.dependencies.size; i++)
+			{
+				if (File* dependency = getFileFromHandle(file.dependencies[i]))
+				{
+					scanScopeForMemberFunction(dependency->ast.globalScope, operandType, items);
+				}
+			}
 		}
 	}
 }
@@ -935,6 +1134,8 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 				parenLevel++;
 		}
 	}
+
+	activeParameter = commas;
 
 	if (functionNameStart != -1 && functionNameEnd != -1)
 	{

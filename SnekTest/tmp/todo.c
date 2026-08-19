@@ -1,2 +1,2 @@
-// main.src
+// todo.src
 #include <snek.h>

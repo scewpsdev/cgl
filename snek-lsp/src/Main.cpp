@@ -342,150 +342,6 @@ static const char* GetExtensionFromPath(const char* path)
 	return ext;
 }
 
-/*
-static bool IsInRange(const AST::SourceLocation& a, const AST::SourceLocation& b, int line, int col)
-{
-	return (line > a.line || line == a.line && col >= a.col) && (line < b.line || line == b.line && col <= b.col);
-}
-
-static Scope* FindScopeAtSourceLocation(Scope* scope, int line, int col)
-{
-	Scope* result = nullptr;
-	if (IsInRange(scope->start, scope->end, line, col))
-		result = scope;
-
-	for (int i = 0; i < scope->children.size; i++)
-	{
-		if (Scope* childScope = FindScopeAtSourceLocation(scope->children[i], line, col))
-			result = childScope;
-	}
-
-	return result;
-}
-
-static void ProcessCompletionScope(Scope* scope, json& items, Resolver* resolver)
-{
-	for (int i = 0; i < scope->localVariables.size; i++)
-	{
-		items.push_back({
-			{"label", scope->localVariables[i]->name},
-			{"kind", COMPLETION_ITEM_VARIABLE},
-			});
-	}
-
-	if (scope->parent != resolver->globalScope)
-	{
-		ProcessCompletionScope(scope->parent, items, resolver);
-	}
-}
-
-static void autocompleteAST(AST::File* ast, Resolver* resolver, json& items)
-{
-	for (int i = 0; i < ast->globals.size; i++)
-	{
-		bool isConstant = (int)ast->globals[i]->flags & (int)AST::DeclarationFlags::Constant;
-		for (int j = 0; j < ast->globals[i]->declarators.size; j++)
-		{
-			items.push_back({
-				{"label", ast->globals[i]->declarators[j]->name},
-				{"kind", isConstant ? COMPLETION_ITEM_CONSTANT : COMPLETION_ITEM_VARIABLE},
-				});
-		}
-	}
-
-	for (int i = 0; i < ast->functions.size; i++)
-	{
-		items.push_back({
-			{"label", ast->functions[i]->name},
-			{"kind", COMPLETION_ITEM_FUNCTION},
-			});
-	}
-
-	for (int i = 0; i < ast->structs.size; i++)
-	{
-		items.push_back({
-			{"label", ast->structs[i]->name},
-			{"kind", COMPLETION_ITEM_STRUCT},
-			});
-	}
-
-	for (int i = 0; i < ast->classes.size; i++)
-	{
-		items.push_back({
-			{"label", ast->classes[i]->name},
-			{"kind", COMPLETION_ITEM_CLASS},
-			});
-	}
-
-	for (int i = 0; i < ast->typedefs.size; i++)
-	{
-		items.push_back({
-			{"label", ast->typedefs[i]->name},
-			{"kind", COMPLETION_ITEM_STRUCT},
-			});
-	}
-
-	for (int i = 0; i < ast->enums.size; i++)
-	{
-		items.push_back({
-			{"label", ast->enums[i]->name},
-			{"kind", COMPLETION_ITEM_ENUM},
-			});
-
-		for (int j = 0; j < ast->enums[i]->values.size; j++)
-		{
-			items.push_back({
-				{"label", ast->enums[i]->values[j]->name},
-				{"kind", COMPLETION_ITEM_ENUM_MEMBER},
-				});
-		}
-	}
-
-	for (int i = 0; i < ast->classes.size; i++)
-	{
-		items.push_back({
-			{"label", ast->classes[i]->name},
-			{"kind", COMPLETION_ITEM_CLASS},
-			});
-	}
-
-	for (int i = 0; i < ast->macros.size; i++)
-	{
-		items.push_back({
-			{"label", ast->macros[i]->name},
-			{"kind", COMPLETION_ITEM_VALUE},
-			});
-	}
-
-	for (int i = 0; i < ast->imports.size; i++)
-	{
-		for (int j = 0; j < ast->imports[i]->imports.size; j++)
-		{
-			items.push_back({
-				{"label", ast->imports[i]->imports[j].namespaces[0]},
-				{"kind", COMPLETION_ITEM_VALUE},
-				});
-		}
-	}
-}
-
-static void autocomplete(AST::File* currentFile, Resolver* resolver, json& items, int line, int col)
-{
-	if (Scope* scope = FindScopeAtSourceLocation(resolver->globalScope, line, col))
-	{
-		fprintf(stderr, "Found completion scope at %d, %d\n", scope->start.line, scope->start.col);
-		ProcessCompletionScope(scope, items, resolver);
-	}
-
-	autocompleteAST(currentFile, compiler->resolver, items);
-	for (int i = 0; i < compiler->resolver->asts.size; i++)
-	{
-		if (compiler->resolver->asts[i] != currentFile)
-			autocompleteAST(compiler->resolver->asts[i], compiler->resolver, items);
-	}
-}
-*/
-
 void printCapabilities(const json& j, const std::string& prefix = "") {
 	// Handle nested objects
 	if (j.is_object()) {
@@ -557,6 +413,7 @@ void Parse(List<Document*> documents)
 		parse(&document->file.parser, &document->file.ast);
 		document->state = DOCUMENT_STATE_PARSED;
 		document->needsTypeCheck = true;
+		document->lastChange = 0;
 
 		resolveDependencies(&document->file.parser, &document->file);
 
@@ -799,7 +656,6 @@ void ParserThread()
 			if (document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				parseList.add(document);
-				document->lastChange = 0;
 			}
 		}
 
@@ -837,6 +693,18 @@ void ParserThread()
 	}
 }
 
+static bool waitForDocumentTypeCheck(Document* document, int timeoutMs)
+{
+	int numIterations = timeoutMs / 10;
+	for (int i = 0; i < numIterations; i++)
+	{
+		if (document->state == DOCUMENT_STATE_TYPECHECKED && document->lastChange == 0)
+			return true;
+		SleepMS(10);
+	}
+	return false;
+}
+
 static void getFunctionDetailString(Function* function, std::stringstream& stream)
 {
 	if (function->storage & STORAGE_DLLEXPORT)
@@ -865,9 +733,16 @@ static void getFunctionDetailString(Function* function, std::stringstream& strea
 		Type* paramType = function->params[j]->paramType->inferredType;
 		std::string paramName = std::string(function->params[j]->name.ptr, function->params[j]->name.length);
 
-		std::string paramLabel = std::string(paramType->name.ptr, paramType->name.length) + ' ' + paramName;
+		std::string paramTypeStr = std::string(paramType->name.ptr, paramType->name.length);
 
-		stream << '\t' << paramLabel;
+		stream << '\t' << paramTypeStr;
+
+		if (function->functionType->function.variadic && j == function->numParams - 1)
+		{
+			stream << "...";
+		}
+
+		stream << ' ' << paramName;
 		if (j < function->numParams - 1)
 			stream << ",\n";
 	}
@@ -877,9 +752,9 @@ static void getFunctionDetailString(Function* function, std::stringstream& strea
 
 	stream << ')';
 
-	if (function->returnType)
+	if (function->functionType->function.returnType)
 	{
-		Type* returnType = function->returnType->inferredType;
+		Type* returnType = function->functionType->function.returnType;
 		stream << ' ' << std::string(returnType->name.ptr, returnType->name.length);
 	}
 
@@ -1213,6 +1088,161 @@ static bool resolveCompletionItem(std::string label, int kind, uint32_t symbolHa
 	return false;
 }
 
+static bool resolveCompletionItem(std::string label, int kind, Type* type, int fieldID, json& result)
+{
+	std::string detail;
+	std::string markdown;
+
+	std::stringstream stream;
+
+	if (type->typeKind == TYPE_STRUCT)
+	{
+		Struct* declaration = type->struct_.declaration;
+		Symbol* symbol = declaration->symbol;
+		Document* document = getDocument(symbol->file);
+
+		writeFilePath(document->localPath, stream);
+		stream << '.';
+		stream.write(type->name.ptr, type->name.length);
+		stream << '.' << label;
+		detail = stream.str();
+		stream.str("");
+		stream.clear();
+
+		Type* fieldType = type->struct_.fieldTypes[fieldID];
+		StringView fieldName = type->struct_.fieldNames[fieldID];
+
+		stream.write(fieldType->name.ptr, fieldType->name.length);
+		stream << ' ';
+		stream.write(type->name.ptr, type->name.length);
+		stream << '.';
+		stream.write(fieldName.ptr, fieldName.length);
+		stream << ';';
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_UNION)
+	{
+		Union* declaration = type->union_.declaration;
+		Symbol* symbol = declaration->symbol;
+		Document* document = getDocument(symbol->file);
+
+		writeFilePath(document->localPath, stream);
+		stream << '.';
+		stream.write(type->name.ptr, type->name.length);
+		stream << '.' << label;
+		detail = stream.str();
+		stream.str("");
+		stream.clear();
+
+		Type* fieldType = type->union_.fieldTypes[fieldID];
+		StringView fieldName = type->union_.fieldNames[fieldID];
+
+		stream.write(fieldType->name.ptr, fieldType->name.length);
+		stream << ' ';
+		stream.write(type->name.ptr, type->name.length);
+		stream << '.';
+		stream.write(fieldName.ptr, fieldName.length);
+		stream << ';';
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_ENUM)
+	{
+		Enum* declaration = type->enum_.declaration;
+		Symbol* symbol = declaration->symbol;
+		Document* document = getDocument(symbol->file);
+
+		writeFilePath(document->localPath, stream);
+		stream << '.';
+		stream.write(type->name.ptr, type->name.length);
+		stream << '.' << label;
+		detail = stream.str();
+		stream.str("");
+		stream.clear();
+
+		stream.write(type->name.ptr, type->name.length);
+		stream << ' ' << label << " = ";
+
+		EnumValue* enumValue = declaration->values[fieldID];
+		StringView valueStr = getRangedString(enumValue->value->start, enumValue->value->end, &document->file.parser);
+		stream.write(valueStr.ptr, valueStr.length);
+
+		stream << ';';
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_STRING)
+	{
+		if (fieldID == 0)
+			stream << "char* string.ptr;";
+		else if (fieldID == 1)
+			stream << "int string.length;";
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_ARRAY)
+	{
+		if (fieldID == 0)
+		{
+			stream.write(type->array.elementType->name.ptr, type->array.elementType->name.length);
+			stream << "* ";
+			stream.write(type->name.ptr, type->name.length);
+			stream << ".data;";
+		}
+		else if (fieldID == 1)
+		{
+			stream << "int ";
+			stream.write(type->name.ptr, type->name.length);
+			stream << ".length;";
+
+			stream << "int array.length;";
+		}
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_ANY)
+	{
+		if (fieldID == 0)
+			stream << "byte* any.value;";
+		else if (fieldID == 1)
+			stream << "int any.type;";
+
+		markdown = stream.str();
+	}
+	else if (type->typeKind == TYPE_OPTIONAL)
+	{
+		stream.write(type->optional.elementType->name.ptr, type->optional.elementType->name.length);
+		stream << ' ';
+		stream.write(type->name.ptr, type->name.length);
+		stream << ".value;";
+
+		markdown = stream.str();
+	}
+
+	if (detail != "" || markdown != "")
+	{
+		if (markdown != "")
+		{
+			markdown = "```sneklang\n" + markdown + "\n```";
+		}
+
+		result = {
+			{"label", label},
+			{"kind", kind},
+			{"detail", detail},
+			{"documentation", {
+				{"kind", "markdown"},
+				{"value", markdown}
+			}}
+		};
+
+		return true;
+	}
+
+	return false;
+}
+
 int main()
 {
 	SleepMS(5000);
@@ -1424,63 +1454,71 @@ int main()
 				int character = position["character"];
 
 				int triggerKind = 0;
-				std::string triggerCharacter = "";
+				char triggerCharacter = 0;
 				if (params.contains("context"))
 				{
 					json context = params["context"];
 					triggerKind = context["triggerKind"];
 					if (triggerKind == 2) // triggerCharacter
-						triggerCharacter = context["triggerCharacter"];
+					{
+						std::string triggerCharacterStr = context["triggerCharacter"];
+						triggerCharacter = triggerCharacterStr[0];
+					}
 				}
 
 				// normal identifier completion
 				if (triggerKind >= 0 && triggerKind <= 2) // invoke
 				{
-					json items = json::array();
-
-					Node* node = nullptr;
-					Scope* scope = nullptr;
-
-					document->astMutex.lock();
-
-					uint64_t beforeComplete = GetTimeNS();
-
-					document->getNodeAtPosition(line, character, &node, &scope);
-					document->autocomplete(scope, items);
-
-					uint64_t afterComplete = GetTimeNS();
-
-					document->astMutex.unlock();
-
-					float ms = (afterComplete - beforeComplete) / 1e6f;
-					fprintf(stderr, "autocomplete in %.3fms\n", ms);
-
-					/*
-					for (auto& pair : keywords)
+					if (waitForDocumentTypeCheck(document, 200))
 					{
-						std::string keyword = pair.first;
-						items.push_back({
-							{"label", keyword },
-							{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
+						json items = json::array();
+
+						Node* node = nullptr;
+						Scope* scope = nullptr;
+
+						document->astMutex.lock();
+
+						uint64_t beforeComplete = GetTimeNS();
+
+						document->getNodeAtPosition(line, character - triggerCharacter ? 2 : 1, &node, &scope);
+						document->autocomplete(node, scope, triggerCharacter, items);
+
+						uint64_t afterComplete = GetTimeNS();
+
+						document->astMutex.unlock();
+
+						float ms = (afterComplete - beforeComplete) / 1e6f;
+						fprintf(stderr, "autocomplete in %.3fms\n", ms);
+
+						/*
+						for (auto& pair : keywords)
+						{
+							std::string keyword = pair.first;
+							items.push_back({
+								{"label", keyword },
+								{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
+								});
+						}
+						*/
+
+						// TODO autocomplete using all parsed asts
+						//std::filesystem::path path = std::filesystem::path(uri);
+						//std::string name = path.stem().string();
+						//AST::File* ast = compiler->getASTByName(name.c_str());
+						//autocomplete(ast, compiler->resolver, items, line, character);
+
+						sendResponse(request["id"], {
+							{"isIncomplete", false},
+							{"items", items}
 							});
 					}
-					*/
-
-					// TODO autocomplete using all parsed asts
-					//std::filesystem::path path = std::filesystem::path(uri);
-					//std::string name = path.stem().string();
-					//AST::File* ast = compiler->getASTByName(name.c_str());
-					//autocomplete(ast, compiler->resolver, items, line, character);
-
-					if (triggerKind == 2)
+					else
 					{
-						fprintf(stderr, "trigger character %c\n", triggerCharacter[0]);
+						sendResponse(request["id"], {
+							{"isIncomplete", false},
+							{"items", json::array()}
+							});
 					}
-
-					sendResponse(request["id"], {
-						{"isIncomplete", false},
-						{"items", items}
-						});
 				}
 				else
 				{
@@ -1497,20 +1535,42 @@ int main()
 				std::string label = params["label"];
 				int kind = params["kind"];
 
-				std::string symbolHandleStr = params["data"]["symbol_id"];
-				std::string fileHandleStr = params["data"]["file_id"];
+				json data = params["data"];
 
-				uint32_t symbolHandle = std::stoul(symbolHandleStr);
-				FileHandle fileHandle = std::stoull(fileHandleStr);
-
-				json result;
-				if (resolveCompletionItem(label, kind, symbolHandle, fileHandle, result))
+				if (data.contains("symbol_id") && data.contains("file_id"))
 				{
-					sendResponse(request["id"], result);
+					std::string symbolHandleStr = data["symbol_id"];
+					std::string fileHandleStr = data["file_id"];
+
+					uint32_t symbolHandle = std::stoul(symbolHandleStr);
+					FileHandle fileHandle = std::stoull(fileHandleStr);
+
+					json result;
+					if (resolveCompletionItem(label, kind, symbolHandle, fileHandle, result))
+					{
+						sendResponse(request["id"], result);
+					}
+					else
+					{
+						sendErrorResponse(request["id"], -32801);
+					}
 				}
-				else
+				else if (data.contains("type_id") && data.contains("field_id"))
 				{
-					sendErrorResponse(request["id"], -32801);
+					std::string typeIDStr = data["type_id"];
+					int fieldID = data["field_id"];
+
+					Type* type = (Type*)std::stoull(typeIDStr);
+
+					json result;
+					if (resolveCompletionItem(label, kind, type, fieldID, result))
+					{
+						sendResponse(request["id"], result);
+					}
+					else
+					{
+						sendErrorResponse(request["id"], -32801);
+					}
 				}
 			}
 			else if (method == "textDocument/documentSymbol")

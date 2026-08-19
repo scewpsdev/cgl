@@ -1,0 +1,19 @@
+/*
+
+[X] better for syntax
+[ ] switch
+[ ] match
+[ ] default function arguments
+[ ] struct initializers
+[ ] runtime bounds checking
+[ ] pointer deref null checking
+[ ] named argument passing (especially for default arguments)
+[ ] multithreaded for
+[ ] optional types as nullable pointer?
+[ ] lambdas
+[ ] type introspection
+
+[X] struct field completions
+[X] member function completions
+
+*/

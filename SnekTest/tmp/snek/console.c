@@ -1,4 +1,4 @@
-// snek/console.src
+// snek\console.src
 #include <snek.h>
 
 
@@ -61,14 +61,13 @@ i32 _write_1pc(i8* str){
 	i32 i=0;
 	while(1){
 		i8* const _1=&str[i];
-		const i32 _2=(i32)(*_1);
-		const bool _3=_2!=0;
-		if(!_3)break;
-		const i32 _4=i;
+		const bool _2=(bool)(*_1);
+		if(!_2)break;
+		const i32 _3=i;
 		i=i+1;
-		i8* const _5=&str[_4];
-		const i32 _6=(i32)(*_5);
-		const i32 _7=putchar(_6);
+		i8* const _4=&str[_3];
+		const i32 _5=(i32)(*_4);
+		const i32 _6=putchar(_5);
 	}
 	return i;
 }
@@ -76,18 +75,17 @@ i32 _writeln_1pc(i8* str){
 	i32 i=0;
 	while(1){
 		i8* const _1=&str[i];
-		const i32 _2=(i32)(*_1);
-		const bool _3=_2!=0;
-		if(!_3)break;
-		const i32 _4=i;
+		const bool _2=(bool)(*_1);
+		if(!_2)break;
+		const i32 _3=i;
 		i=i+1;
-		i8* const _5=&str[_4];
-		const i32 _6=(i32)(*_5);
-		const i32 _7=putchar(_6);
+		i8* const _4=&str[_3];
+		const i32 _5=(i32)(*_4);
+		const i32 _6=putchar(_5);
 	}
-	const i32 _8=(i32)'\n';
-	const i32 _9=putchar(_8);
-	const i32 _10=i;
+	const i32 _7=(i32)'\n';
+	const i32 _8=putchar(_7);
+	const i32 _9=i;
 	i=i+1;
 	return i;
 }
@@ -137,34 +135,33 @@ void _writeInt_1l(i64 value){
 		value=_7;
 	}
 	while(1){
-		const i64 _8=(i64)0;
-		const bool _9=value!=_8;
-		if(!_9)break;
-		const i32 _10=len;
+		const bool _8=(bool)value;
+		if(!_8)break;
+		const i32 _9=len;
 		len=len+1;
-		i8* const _11=&buffer.data[_10];
-		const i64 _12=(i64)10;
-		const i64 _13=value%_12;
-		const i64 _14=(i64)'0';
-		const i64 _15=_13+_14;
-		const i8 _16=(i8)_15;
-		(*_11)=_16;
-		const i64 _17=(i64)10;
-		const i64 _18=value/_17;
-		value=_18;
+		i8* const _10=&buffer.data[_9];
+		const i64 _11=(i64)10;
+		const i64 _12=value%_11;
+		const i64 _13=(i64)'0';
+		const i64 _14=_12+_13;
+		const i8 _15=(i8)_14;
+		(*_10)=_15;
+		const i64 _16=(i64)10;
+		const i64 _17=value/_16;
+		value=_17;
 	}
 	if(isNegative){
-		const i32 _19=len;
+		const i32 _18=len;
 		len=len+1;
-		i8* const _20=&buffer.data[_19];
-		(*_20)='-';
+		i8* const _19=&buffer.data[_18];
+		(*_19)='-';
 	}
-	const i32 _21=len-1;
-	const i32 _22=0>=_21?1:-1;
-	for(int i=_21;i*_22<=0*_22;i+=_22){
-		i8* const _23=&buffer.data[i];
-		const i32 _24=(i32)(*_23);
-		const i32 _25=putchar(_24);
+	const i32 _20=len-1;
+	const i32 _21=0>=_20?1:-1;
+	for(int i=_20;i*_21<=0*_21;i+=_21){
+		i8* const _22=&buffer.data[i];
+		const i32 _23=(i32)(*_22);
+		const i32 _24=putchar(_23);
 	}
 }
 void _writeUInt_1ul(u64 value){
@@ -178,28 +175,27 @@ void _writeUInt_1ul(u64 value){
 	arr_50_i8 buffer={0};
 	i32 len=0;
 	while(1){
-		const u64 _5=(u64)0;
-		const bool _6=value!=_5;
-		if(!_6)break;
-		const i32 _7=len;
+		const bool _5=(bool)value;
+		if(!_5)break;
+		const i32 _6=len;
 		len=len+1;
-		i8* const _8=&buffer.data[_7];
-		const u64 _9=(u64)10;
-		const u64 _10=value%_9;
-		const u64 _11=(u64)'0';
-		const u64 _12=_10+_11;
-		const i8 _13=(i8)_12;
-		(*_8)=_13;
-		const u64 _14=(u64)10u;
-		const u64 _15=value/_14;
-		value=_15;
+		i8* const _7=&buffer.data[_6];
+		const u64 _8=(u64)10;
+		const u64 _9=value%_8;
+		const u64 _10=(u64)'0';
+		const u64 _11=_9+_10;
+		const i8 _12=(i8)_11;
+		(*_7)=_12;
+		const u64 _13=(u64)10u;
+		const u64 _14=value/_13;
+		value=_14;
 	}
-	const i32 _16=len-1;
-	const i32 _17=0>=_16?1:-1;
-	for(int i=_16;i*_17<=0*_17;i+=_17){
-		i8* const _18=&buffer.data[i];
-		const i32 _19=(i32)(*_18);
-		const i32 _20=putchar(_19);
+	const i32 _15=len-1;
+	const i32 _16=0>=_15?1:-1;
+	for(int i=_15;i*_16<=0*_16;i+=_16){
+		i8* const _17=&buffer.data[i];
+		const i32 _18=(i32)(*_17);
+		const i32 _19=putchar(_18);
 	}
 }
 void _writeFloat_1d(double value){
@@ -213,7 +209,7 @@ void _writeFloat_1d(double value){
 	const i32 _5=putchar(_4);
 	i32 precision=6;
 	const i32 _6=precision>=0?1:-1;
-	for(int i=0;i*_6<precision*_6;i+=_6){
+	for(int __it=0;__it*_6<precision*_6;__it+=_6){
 		const double _7=(double)10;
 		fpart*=_7;
 		const i32 _8=(i32)fpart;
