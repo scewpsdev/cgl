@@ -1,0 +1,26 @@
+import vendor.SDL3;
+import vendor.SDL3_ext;
+
+
+func main() {
+	SDL_Init(SDL_INIT_VIDEO);
+
+	SDL_Window* window = SDL_CreateWindow("Triangle", 1280, 720, 0);
+	SDL_GPUDevice* device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, null);
+
+	bool running = true;
+	while running {
+		SDL_Event event;
+		while SDL_PollEvent(&event) {
+			if event.type as SDL_EventType == SDL_EventType.SDL_EVENT_QUIT {
+				running = false;
+			}
+		}
+
+		
+	}
+
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
+}

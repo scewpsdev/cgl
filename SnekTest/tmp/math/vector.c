@@ -1,4 +1,4 @@
-// math/vector.src
+// math\vector.src
 #include <snek.h>
 
 

@@ -23,3 +23,10 @@ const ulong SDL_WINDOW_VULKAN = (0x0000000010000000);    /**< window usable for 
 const ulong SDL_WINDOW_METAL = (0x0000000020000000);    /**< window usable for Metal view */
 const ulong SDL_WINDOW_TRANSPARENT = (0x0000000040000000);    /**< window with transparent buffer */
 const ulong SDL_WINDOW_NOT_FOCUSABLE = (0x0000000080000000);    /**< window should not be focusable */
+
+const uint SDL_GPU_SHADERFORMAT_PRIVATE  = (1u << 0); /**< Shaders for NDA'd platforms. */
+const uint SDL_GPU_SHADERFORMAT_SPIRV    = (1u << 1); /**< SPIR-V shaders for Vulkan. */
+const uint SDL_GPU_SHADERFORMAT_DXBC     = (1u << 2); /**< DXBC SM5_1 shaders for D3D12. */
+const uint SDL_GPU_SHADERFORMAT_DXIL     = (1u << 3); /**< DXIL SM6_0 shaders for D3D12. */
+const uint SDL_GPU_SHADERFORMAT_MSL      = (1u << 4); /**< MSL shaders for Metal. */
+const uint SDL_GPU_SHADERFORMAT_METALLIB = (1u << 5); /**< Precompiled metallib shaders for Metal. */

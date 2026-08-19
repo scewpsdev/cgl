@@ -1,4 +1,4 @@
-// snek/any.src
+// snek\any.src
 #include <snek.h>
 
 

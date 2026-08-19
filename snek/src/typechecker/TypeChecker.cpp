@@ -940,8 +940,10 @@ static Type* unwrapType(Type* type)
 
 static bool isCastLegal(Type* expressionType, Type* targetType)
 {
-	expressionType = unwrapType(expressionType);
-	targetType = unwrapType(targetType);
+	while (expressionType->typeKind == TYPE_ALIAS || expressionType->typeKind == TYPE_ENUM)
+		expressionType = unwrapType(expressionType);
+	while (targetType->typeKind == TYPE_ALIAS || targetType->typeKind == TYPE_ENUM)
+		targetType = unwrapType(targetType);
 
 	if (compareTypes(expressionType, targetType))
 		return true;
@@ -1063,6 +1065,8 @@ static bool canCoerceType(Expression* arg, Type* targetType)
 		return true;
 	}
 	if (arg->type == NODE_STRING_LITERAL && (targetType->typeKind == TYPE_STRING || targetType->typeKind == TYPE_POINTER && targetType->pointer.elementType->typeKind == TYPE_INT8))
+		return true;
+	if (arg->type == NODE_NULL_LITERAL && targetType->typeKind == TYPE_POINTER)
 		return true;
 	return false;
 }
@@ -1532,7 +1536,10 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	}
 	else if (expression->type == NODE_NULL_LITERAL)
 	{
-		return expression->inferredType = &tc->types->primitiveTypes[TYPE_VOID];
+		if (expectedType && expectedType->typeKind == TYPE_POINTER)
+			return expression->inferredType = expectedType;
+		else
+			return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_UINT8], tc->currentFile);
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
@@ -1723,12 +1730,24 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			resolveExpression(tc, functionCall->args[i]);
 		}
 
+		Function* function = nullptr;
+
 		if (functionCall->expression->type == NODE_IDENTIFIER)
-			resolveIdentifier(tc, (Identifier*)functionCall->expression, true, functionCall->numArgs, functionCall->args);
+		{
+			Identifier* identifier = (Identifier*)functionCall->expression;
+			resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
+			function = getIdentifierSymbol(identifier)->functionSet.overloads[identifier->functionOverloadID].declaration;
+		}
 		else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
-			resolveMemberAccess(tc, (MemberAccess*)functionCall->expression, true, functionCall->numArgs, functionCall->args);
+		{
+			MemberAccess* member = (MemberAccess*)functionCall->expression;
+			resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
+			function = getMemberAccessSymbol(member)->functionSet.overloads[member->functionOverloadID].declaration;
+		}
 		else
+		{
 			resolveExpression(tc, functionCall->expression);
+		}
 
 		Type* functionType = functionCall->expression->inferredType;
 
@@ -1801,7 +1820,15 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				}
 				else if (paramType && !isAssignable(tc, argType, paramType, argRef))
 				{
-					error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+					if (function)
+					{
+						StringView paramName = function->params[i]->name;
+						error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter '%.*s' of type '%.*s'", argType->name.length, argType->name.ptr, paramName.length, paramName.ptr, paramType->name.length, paramType->name.ptr);
+					}
+					else
+					{
+						error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+					}
 				}
 			}
 

@@ -36,6 +36,22 @@ void destroyLexer(Lexer* lexer)
 	FreeList(&lexer->lineOffsets);
 }
 
+static int getUTF8Length(const char* ptr)
+{
+	unsigned char b = ptr[0];
+	if ((b & 0x80) == 0x00) // 1 bytes
+		return 1;
+	if ((b & 0xE0) == 0xC0) // 2 bytes
+		return 2;
+	if ((b & 0xF0) == 0xE0) // 3 bytes
+		return 3;
+	if ((b & 0xF8) == 0xF0) // 4 bytes
+		return 4;
+
+	SnekAssert(false);
+	return 0;
+}
+
 SourceLocation getSourceLocation(Lexer* lexer, int offset)
 {
 	for (int i = 0; i < lexer->lineOffsets.size - 1; i++)
@@ -43,13 +59,42 @@ SourceLocation getSourceLocation(Lexer* lexer, int offset)
 		if (lexer->lineOffsets[i + 1] > offset)
 		{
 			int line = i;
-			int col = offset - lexer->lineOffsets[i];
+			int lineOffset = lexer->lineOffsets[i];
+			int nextLine = lexer->lineOffsets[i + 1];
+
+			int col = 0;
+			while (lineOffset < nextLine)
+			{
+				lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+				col++;
+			}
+
 			return { lexer->filename, line, col };
 		}
 	}
 	int line = lexer->lineOffsets.size - 1;
 	int col = offset - lexer->lineOffsets[lexer->lineOffsets.size - 1];
 	return { lexer->filename, line, col };
+}
+
+int locationToOffset(Lexer* lexer, int line, int col)
+{
+	int lineOffset = lexer->lineOffsets[line];
+	for (int i = 0; i < col; i++)
+	{
+		lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+	}
+	return lineOffset;
+}
+
+int locationToLineOffset(Lexer* lexer, int line, int col)
+{
+	int lineOffset = lexer->lineOffsets[line];
+	for (int i = 0; i < col; i++)
+	{
+		lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+	}
+	return lineOffset - lexer->lineOffsets[line];
 }
 
 StringView getTokenString(Token token, const char* src)
@@ -573,6 +618,34 @@ static bool readIdentifier(Lexer* lexer, Token* token)
 	return true;
 }
 
+static int readUTF8(Lexer* lexer, const char* ptr)
+{
+	unsigned char b = ptr[0];
+	if ((b & 0x80) == 0x00) // 1 bytes
+	{
+		lexer->cursor += 1;
+		return (int)b;
+	}
+	if ((b & 0xE0) == 0xC0) // 2 bytes
+	{
+		lexer->cursor += 2;
+		return ((ptr[0] & 0x1F) << 6) | (ptr[1] & 0x3F);
+	}
+	if ((b & 0xF0) == 0xE0) // 3 bytes
+	{
+		lexer->cursor += 3;
+		return ((ptr[0] & 0x0F) << 12) | ((ptr[1] & 0x3F) << 6) | (ptr[2] & 0x3F);
+	}
+	if ((b & 0xF8) == 0xF0) // 4 bytes
+	{
+		lexer->cursor += 4;
+		return ((ptr[0] & 0x07) << 18) | ((ptr[1] & 0x3F) << 12) | ((ptr[2] & 0x3F) << 6) | (ptr[3] & 0x3F);
+	}
+
+	SnekAssert(false);
+	return 0;
+}
+
 Token nextToken(Lexer* lexer)
 {
 	skipWhitespace(lexer);
@@ -592,7 +665,16 @@ Token nextToken(Lexer* lexer)
 	if (readIdentifier(lexer, &token))
 		return token;
 
-	error(lexer, lexer->cursor, lexer->cursor + 1, "Undefined character '%c' (%d)", nextCharacter(lexer));
+	const char* ptr = &lexer->src[lexer->cursor];
+	if ((unsigned char)*ptr >= 0x80) // unicode
+	{
+		int unicode = readUTF8(lexer, ptr);
+		error(lexer, lexer->cursor, lexer->cursor + 1, "Undefined UTF8 character '%d'", unicode);
+	}
+	else
+	{
+		error(lexer, lexer->cursor, lexer->cursor + 1, "Undefined character '%c' (%d)", nextCharacter(lexer));
+	}
 
 	return nextToken(lexer);
 }

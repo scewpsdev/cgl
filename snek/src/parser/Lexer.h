@@ -122,6 +122,9 @@ void initLexer(Lexer* lexer, const char* filename, const char* src, int length, 
 void destroyLexer(Lexer* lexer);
 
 SourceLocation getSourceLocation(Lexer* lexer, int offset);
+int locationToOffset(Lexer* lexer, int line, int col);
+int locationToLineOffset(Lexer* lexer, int line, int col);
+
 StringView getTokenString(Token token, const char* src);
 
 TokenType getKeywordType(const char* str, int len);

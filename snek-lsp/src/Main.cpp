@@ -121,7 +121,8 @@ std::string escapeString(const std::string& input)
 	std::ostringstream escaped;
 
 	for (char c : input) {
-		switch (c) {
+		unsigned char uc = (unsigned char)c;
+		switch (uc) {
 		case '"':  escaped << "\\\""; break;
 		case '\\': escaped << "\\\\"; break;
 		case '\b': escaped << "\\b";  break;
@@ -131,10 +132,11 @@ std::string escapeString(const std::string& input)
 		case '\t': escaped << "\\t";  break;
 		default:
 			// Handle control characters (ASCII 0 to 31) using \u00xx format
-			if (static_cast<unsigned char>(c) < 32) {
+			if (uc < 32 || uc == 127) {
 				escaped << "\\u"
 					<< std::hex << std::setw(4) << std::setfill('0')
-					<< static_cast<int>(c);
+					<< uc
+					<< std::dec;
 			}
 			else {
 				escaped << c;
@@ -1486,8 +1488,12 @@ int main()
 
 						uint64_t beforeComplete = GetTimeNS();
 
-						document->getNodeAtPosition(line, character - triggerCharacter ? 2 : 1, &node, &scope);
-						document->autocomplete(node, scope, triggerCharacter, items);
+						document->getNodeAtPosition(line, character - (triggerCharacter ? 2 : 1), &node, &scope);
+
+						if (node)
+						{
+							document->autocomplete(node, scope, triggerCharacter, items);
+						}
 
 						uint64_t afterComplete = GetTimeNS();
 

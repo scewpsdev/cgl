@@ -20,6 +20,17 @@ static int LSPTokenComparator(LSPToken const* a, LSPToken const* b)
 	return a->offset < b->offset ? -1 : a->offset == b->offset ? 0 : 1;
 }
 
+// isalpha crashes when passing Ö
+static bool isAlpha(char c)
+{
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
+}
+
+static bool isDigit(char c)
+{
+	return c >= '0' && c <= '9';
+}
+
 static void textToLines(const std::string& text, List<char*>& lines)
 {
 	if (text == "")
@@ -80,8 +91,8 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 
 	textToLines(text, changeLines);
 
-	char* prefix = substring(lines[startLine], 0, startCol);
-	char* suffix = substring(lines[endLine], endCol);
+	char* prefix = substring(lines[startLine], 0, locationToLineOffset(&file.parser.lexer, startLine, startCol));
+	char* suffix = substring(lines[endLine], locationToLineOffset(&file.parser.lexer, endLine, endCol));
 
 	changeLines[0] = concatDelete(prefix, changeLines[0]);
 	changeLines[changeLines.size - 1] = concatDelete(changeLines[changeLines.size - 1], suffix);
@@ -367,6 +378,7 @@ static bool searchForNode(Node* node, Scope* scope, void* userPtr)
 {
 	NodeSearchParams* params = (NodeSearchParams*)userPtr;
 
+	SnekAssert(node->end >= node->start);
 	SourceLocation start = getSourceLocation(params->lexer, node->start);
 	SourceLocation end = getSourceLocation(params->lexer, node->end);
 
@@ -1115,7 +1127,7 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 		char c = lineStr[i];
 		if (functionNameEnd != -1)
 		{
-			bool identifier = isalpha(c) || isdigit(c) || c == '_';
+			bool identifier = isAlpha(c) || isDigit(c) || c == '_';
 			if (!identifier)
 			{
 				functionNameStart = i + 1;

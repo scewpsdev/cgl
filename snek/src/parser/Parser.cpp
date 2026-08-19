@@ -206,7 +206,8 @@ static Token nextToken(Parser* parser)
 
 		parser->lookaheadCount--;
 		parser->cursor = state;
-		parser->lastTokenEnd = token.offset + token.length;
+		if (token.offset)
+			parser->lastTokenEnd = token.offset + token.length;
 		return token;
 	}
 
@@ -1571,6 +1572,8 @@ Statement* parseStatement(Parser* parser)
 		else
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
+			while_->condition = getErrorExpression(parser, parser->cursor);
+			while_->then = getErrorStatement(parser, parser->cursor);
 		}
 
 		while_->end = parser->lastTokenEnd;
@@ -1797,6 +1800,8 @@ Statement* parseStatement(Parser* parser)
 
 				if (!expectToken(parser, ';'))
 					skipPastToken(parser, ';');
+
+				assignment->end = parser->lastTokenEnd;
 
 				return assignment;
 			}
