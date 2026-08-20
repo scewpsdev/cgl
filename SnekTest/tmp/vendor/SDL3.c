@@ -1,4 +1,4 @@
-// vendor/SDL3.src
+// vendor\SDL3.src
 #include <snek.h>
 
 
@@ -185,24 +185,24 @@ struct SDL_alignment_test{
 enum SDL_DUMMY_ENUM:i32{
 	DUMMY_ENUM_VALUE,
 };
-typedef void(*func_1_u64_void)(u64);
-typedef func_1_u64_void SDL_malloc_func;
-typedef void(*func_2_u64_u64_void)(u64,u64);
-typedef func_2_u64_u64_void SDL_calloc_func;
-typedef void(*func_2_ptr_u8_u64_void)(u8*,u64);
-typedef func_2_ptr_u8_u64_void SDL_realloc_func;
-typedef void(*func_1_ptr_u8_void)(u8*);
-typedef func_1_ptr_u8_void SDL_free_func;
+typedef void(*F1ul)(u64);
+typedef F1ul SDL_malloc_func;
+typedef void(*F2ulul)(u64,u64);
+typedef F2ulul SDL_calloc_func;
+typedef void(*F2pucul)(u8*,u64);
+typedef F2pucul SDL_realloc_func;
+typedef void(*F1puc)(u8*);
+typedef F1puc SDL_free_func;
 struct SDL_Environment{
 };
-typedef i32(*func_2_ptr_u8_ptr_u8_i32)(u8*,u8*);
-typedef func_2_ptr_u8_ptr_u8_i32 SDL_CompareCallback;
-typedef i32(*func_3_ptr_u8_ptr_u8_ptr_u8_i32)(u8*,u8*,u8*);
-typedef func_3_ptr_u8_ptr_u8_ptr_u8_i32 SDL_CompareCallback_r;
+typedef i32(*F2pucpuc_i)(u8*,u8*);
+typedef F2pucpuc_i SDL_CompareCallback;
+typedef i32(*F3pucpucpuc_i)(u8*,u8*,u8*);
+typedef F3pucpucpuc_i SDL_CompareCallback_r;
 struct SDL_iconv_t{
 };
-typedef void(*func_1_void_void)(void);
-typedef func_1_void_void SDL_FunctionPointer;
+typedef void(*F1v)(void);
+typedef F1v SDL_FunctionPointer;
 enum SDL_AssertState:i32{
 	SDL_ASSERTION_RETRY,
 	SDL_ASSERTION_BREAK,
@@ -219,8 +219,8 @@ struct SDL_AssertData{
 	i8* function;
 	struct SDL_AssertData* next;
 };
-typedef enum SDL_AssertState(*func_2_ptr_SDL_AssertData_ptr_u8_SDL_AssertState)(struct SDL_AssertData*,u8*);
-typedef func_2_ptr_SDL_AssertData_ptr_u8_SDL_AssertState SDL_AssertionHandler;
+typedef enum SDL_AssertState(*F2pSSDL_AssertDatapuc_ESDL_AssertState)(struct SDL_AssertData*,u8*);
+typedef F2pSSDL_AssertDatapuc_ESDL_AssertState SDL_AssertionHandler;
 struct SDL_AsyncIO{
 };
 enum SDL_AsyncIOTaskType:i32{
@@ -261,10 +261,10 @@ enum SDL_PropertyType:i32{
 	SDL_PROPERTY_TYPE_FLOAT,
 	SDL_PROPERTY_TYPE_BOOLEAN,
 };
-typedef void(*func_2_ptr_u8_ptr_u8_void)(u8*,u8*);
-typedef func_2_ptr_u8_ptr_u8_void SDL_CleanupPropertyCallback;
-typedef void(*func_3_ptr_u8_SDL_PropertiesID_ptr_i8_void)(u8*,SDL_PropertiesID,i8*);
-typedef func_3_ptr_u8_SDL_PropertiesID_ptr_i8_void SDL_EnumeratePropertiesCallback;
+typedef void(*F2pucpuc)(u8*,u8*);
+typedef F2pucpuc SDL_CleanupPropertyCallback;
+typedef void(*F3puctSDL_PropertiesIDpc)(u8*,SDL_PropertiesID,i8*);
+typedef F3puctSDL_PropertiesIDpc SDL_EnumeratePropertiesCallback;
 struct SDL_Thread{
 };
 typedef Uint64 SDL_ThreadID;
@@ -281,10 +281,10 @@ enum SDL_ThreadState:i32{
 	SDL_THREAD_DETACHED,
 	SDL_THREAD_COMPLETE,
 };
-typedef i32(*func_1_ptr_u8_i32)(u8*);
-typedef func_1_ptr_u8_i32 SDL_ThreadFunction;
-typedef void(*func_1_ptr_u8_void)(u8*);
-typedef func_1_ptr_u8_void SDL_TLSDestructorCallback;
+typedef i32(*F1puc_i)(u8*);
+typedef F1puc_i SDL_ThreadFunction;
+typedef void(*F1puc)(u8*);
+typedef F1puc SDL_TLSDestructorCallback;
 struct SDL_Mutex{
 };
 struct SDL_RWLock{
@@ -317,20 +317,20 @@ enum SDL_IOWhence:i32{
 	SDL_IO_SEEK_CUR,
 	SDL_IO_SEEK_END,
 };
-typedef Sint64(*func_1_ptr_u8_Sint64)(u8*);
-typedef Sint64(*func_3_ptr_u8_Sint64_SDL_IOWhence_Sint64)(u8*,Sint64,enum SDL_IOWhence);
-typedef u64(*func_4_ptr_u8_ptr_u8_u64_ptr_SDL_IOStatus_u64)(u8*,u8*,u64,enum SDL_IOStatus*);
-typedef u64(*func_4_ptr_u8_ptr_u8_u64_ptr_SDL_IOStatus_u64)(u8*,u8*,u64,enum SDL_IOStatus*);
-typedef bool(*func_2_ptr_u8_ptr_SDL_IOStatus_bool)(u8*,enum SDL_IOStatus*);
-typedef bool(*func_1_ptr_u8_bool)(u8*);
+typedef Sint64(*F1puc_tSint64)(u8*);
+typedef Sint64(*F3puctSint64ESDL_IOWhence_tSint64)(u8*,Sint64,enum SDL_IOWhence);
+typedef u64(*F4pucpuculpESDL_IOStatus_ul)(u8*,u8*,u64,enum SDL_IOStatus*);
+typedef u64(*F4pucpuculpESDL_IOStatus_ul)(u8*,u8*,u64,enum SDL_IOStatus*);
+typedef bool(*F2pucpESDL_IOStatus_b)(u8*,enum SDL_IOStatus*);
+typedef bool(*F1puc_b)(u8*);
 struct SDL_IOStreamInterface{
 	Uint32 version;
-	func_1_ptr_u8_Sint64 size;
-	func_3_ptr_u8_Sint64_SDL_IOWhence_Sint64 seek;
-	func_4_ptr_u8_ptr_u8_u64_ptr_SDL_IOStatus_u64 read;
-	func_4_ptr_u8_ptr_u8_u64_ptr_SDL_IOStatus_u64 write;
-	func_2_ptr_u8_ptr_SDL_IOStatus_bool flush;
-	func_1_ptr_u8_bool close;
+	F1puc_tSint64 size;
+	F3puctSint64ESDL_IOWhence_tSint64 seek;
+	F4pucpuculpESDL_IOStatus_ul read;
+	F4pucpuculpESDL_IOStatus_ul write;
+	F2pucpESDL_IOStatus_b flush;
+	F1puc_b close;
 };
 struct SDL_IOStream{
 };
@@ -356,12 +356,12 @@ struct SDL_AudioSpec{
 };
 struct SDL_AudioStream{
 };
-typedef void(*func_3_ptr_u8_ptr_u8_i32_void)(u8*,u8*,i32);
-typedef func_3_ptr_u8_ptr_u8_i32_void SDL_AudioStreamDataCompleteCallback;
-typedef void(*func_4_ptr_u8_ptr_SDL_AudioStream_i32_i32_void)(u8*,struct SDL_AudioStream*,i32,i32);
-typedef func_4_ptr_u8_ptr_SDL_AudioStream_i32_i32_void SDL_AudioStreamCallback;
-typedef void(*func_4_ptr_u8_ptr_SDL_AudioSpec_ptr_float_i32_void)(u8*,struct SDL_AudioSpec*,float*,i32);
-typedef func_4_ptr_u8_ptr_SDL_AudioSpec_ptr_float_i32_void SDL_AudioPostmixCallback;
+typedef void(*F3pucpuci)(u8*,u8*,i32);
+typedef F3pucpuci SDL_AudioStreamDataCompleteCallback;
+typedef void(*F4pucpSSDL_AudioStreamii)(u8*,struct SDL_AudioStream*,i32,i32);
+typedef F4pucpSSDL_AudioStreamii SDL_AudioStreamCallback;
+typedef void(*F4pucpSSDL_AudioSpecpfi)(u8*,struct SDL_AudioSpec*,float*,i32);
+typedef F4pucpSSDL_AudioSpecpfi SDL_AudioPostmixCallback;
 typedef Uint32 SDL_BlendMode;
 enum SDL_BlendOperation:i32{
 	SDL_BLENDOPERATION_ADD=1,
@@ -611,12 +611,12 @@ struct SDL_Palette{
 	Uint32 version;
 	i32 refcount;
 };
-typedef struct{Uint8 data[2];}arr_2_Uint8;
+typedef struct{const Uint8 data[2];}A2tUint8;
 struct SDL_PixelFormatDetails{
 	enum SDL_PixelFormat format;
 	Uint8 bits_per_pixel;
 	Uint8 bytes_per_pixel;
-	arr_2_Uint8 padding;
+	A2tUint8 padding;
 	Uint32 Rmask;
 	Uint32 Gmask;
 	Uint32 Bmask;
@@ -686,10 +686,10 @@ enum SDL_CameraPermissionState:i32{
 	SDL_CAMERA_PERMISSION_STATE_PENDING,
 	SDL_CAMERA_PERMISSION_STATE_APPROVED,
 };
-typedef void(*func_3_ptr_u8_ptr_i8_ptr_u64_void)(u8*,i8*,u64*);
-typedef func_3_ptr_u8_ptr_i8_ptr_u64_void SDL_ClipboardDataCallback;
-typedef void(*func_1_ptr_u8_void)(u8*);
-typedef func_1_ptr_u8_void SDL_ClipboardCleanupCallback;
+typedef void(*F3pucpcpul)(u8*,i8*,u64*);
+typedef F3pucpcpul SDL_ClipboardDataCallback;
+typedef void(*F1puc)(u8*);
+typedef F1puc SDL_ClipboardCleanupCallback;
 typedef Uint32 SDL_DisplayID;
 typedef Uint32 SDL_WindowID;
 enum SDL_SystemTheme:i32{
@@ -740,10 +740,10 @@ typedef u8* SDL_EGLConfig;
 typedef u8* SDL_EGLSurface;
 typedef i64 SDL_EGLAttrib;
 typedef i32 SDL_EGLint;
-typedef SDL_EGLAttrib*(*func_1_ptr_u8_ptr_SDL_EGLAttrib)(u8*);
-typedef func_1_ptr_u8_ptr_SDL_EGLAttrib SDL_EGLAttribArrayCallback;
-typedef SDL_EGLint*(*func_3_ptr_u8_SDL_EGLDisplay_SDL_EGLConfig_ptr_SDL_EGLint)(u8*,SDL_EGLDisplay,SDL_EGLConfig);
-typedef func_3_ptr_u8_SDL_EGLDisplay_SDL_EGLConfig_ptr_SDL_EGLint SDL_EGLIntArrayCallback;
+typedef SDL_EGLAttrib*(*F1puc_ptSDL_EGLAttrib)(u8*);
+typedef F1puc_ptSDL_EGLAttrib SDL_EGLAttribArrayCallback;
+typedef SDL_EGLint*(*F3puctSDL_EGLDisplaytSDL_EGLConfig_ptSDL_EGLint)(u8*,SDL_EGLDisplay,SDL_EGLConfig);
+typedef F3puctSDL_EGLDisplaytSDL_EGLConfig_ptSDL_EGLint SDL_EGLIntArrayCallback;
 enum SDL_GLAttr:i32{
 	SDL_GL_RED_SIZE,
 	SDL_GL_GREEN_SIZE,
@@ -790,22 +790,22 @@ enum SDL_HitTestResult:i32{
 	SDL_HITTEST_RESIZE_BOTTOMLEFT,
 	SDL_HITTEST_RESIZE_LEFT,
 };
-typedef enum SDL_HitTestResult(*func_3_ptr_SDL_Window_ptr_SDL_Point_ptr_u8_SDL_HitTestResult)(struct SDL_Window*,struct SDL_Point*,u8*);
-typedef func_3_ptr_SDL_Window_ptr_SDL_Point_ptr_u8_SDL_HitTestResult SDL_HitTest;
+typedef enum SDL_HitTestResult(*F3pSSDL_WindowpSSDL_Pointpuc_ESDL_HitTestResult)(struct SDL_Window*,struct SDL_Point*,u8*);
+typedef F3pSSDL_WindowpSSDL_Pointpuc_ESDL_HitTestResult SDL_HitTest;
 struct SDL_DialogFileFilter{
 	i8* name;
 	i8* pattern;
 };
-typedef void(*func_3_ptr_u8_ptr_ptr_i8_i32_void)(u8*,i8**,i32);
-typedef func_3_ptr_u8_ptr_ptr_i8_i32_void SDL_DialogFileCallback;
+typedef void(*F3pucppci)(u8*,i8**,i32);
+typedef F3pucppci SDL_DialogFileCallback;
 enum SDL_FileDialogType:i32{
 	SDL_FILEDIALOG_OPENFILE,
 	SDL_FILEDIALOG_SAVEFILE,
 	SDL_FILEDIALOG_OPENFOLDER,
 };
-typedef struct{Uint8 data[16];}arr_16_Uint8;
+typedef struct{const Uint8 data[16];}A16tUint8;
 struct SDL_GUID{
-	arr_16_Uint8 data;
+	A16tUint8 data;
 };
 enum SDL_PowerState:i32{
 	SDL_POWERSTATE_ERROR=1,
@@ -851,24 +851,24 @@ enum SDL_JoystickConnectionState:i32{
 	SDL_JOYSTICK_CONNECTION_WIRED,
 	SDL_JOYSTICK_CONNECTION_WIRELESS,
 };
-typedef struct{Uint16 data[3];}arr_3_Uint16;
+typedef struct{const Uint16 data[3];}A3tUint16;
 struct SDL_VirtualJoystickTouchpadDesc{
 	Uint16 nfingers;
-	arr_3_Uint16 padding;
+	A3tUint16 padding;
 };
 struct SDL_VirtualJoystickSensorDesc{
 	enum SDL_SensorType type;
 	float rate;
 };
-typedef struct{Uint16 data[2];}arr_2_Uint16;
-typedef void(*func_1_ptr_u8_void)(u8*);
-typedef void(*func_2_ptr_u8_i32_void)(u8*,i32);
-typedef bool(*func_3_ptr_u8_Uint16_Uint16_bool)(u8*,Uint16,Uint16);
-typedef bool(*func_3_ptr_u8_Uint16_Uint16_bool)(u8*,Uint16,Uint16);
-typedef bool(*func_4_ptr_u8_Uint8_Uint8_Uint8_bool)(u8*,Uint8,Uint8,Uint8);
-typedef bool(*func_3_ptr_u8_ptr_u8_i32_bool)(u8*,u8*,i32);
-typedef bool(*func_2_ptr_u8_bool_bool)(u8*,bool);
-typedef void(*func_1_ptr_u8_void)(u8*);
+typedef struct{const Uint16 data[2];}A2tUint16;
+typedef void(*F1puc)(u8*);
+typedef void(*F2puci)(u8*,i32);
+typedef bool(*F3puctUint16tUint16_b)(u8*,Uint16,Uint16);
+typedef bool(*F3puctUint16tUint16_b)(u8*,Uint16,Uint16);
+typedef bool(*F4puctUint8tUint8tUint8_b)(u8*,Uint8,Uint8,Uint8);
+typedef bool(*F3pucpuci_b)(u8*,u8*,i32);
+typedef bool(*F2pucb_b)(u8*,bool);
+typedef void(*F1puc)(u8*);
 struct SDL_VirtualJoystickDesc{
 	Uint32 version;
 	Uint16 type;
@@ -881,21 +881,21 @@ struct SDL_VirtualJoystickDesc{
 	Uint16 nhats;
 	Uint16 ntouchpads;
 	Uint16 nsensors;
-	arr_2_Uint16 padding2;
+	A2tUint16 padding2;
 	Uint32 button_mask;
 	Uint32 axis_mask;
 	i8* name;
 	struct SDL_VirtualJoystickTouchpadDesc* touchpads;
 	struct SDL_VirtualJoystickSensorDesc* sensors;
 	u8* userdata;
-	func_1_ptr_u8_void Update;
-	func_2_ptr_u8_i32_void SetPlayerIndex;
-	func_3_ptr_u8_Uint16_Uint16_bool Rumble;
-	func_3_ptr_u8_Uint16_Uint16_bool RumbleTriggers;
-	func_4_ptr_u8_Uint8_Uint8_Uint8_bool SetLED;
-	func_3_ptr_u8_ptr_u8_i32_bool SendEffect;
-	func_2_ptr_u8_bool_bool SetSensorsEnabled;
-	func_1_ptr_u8_void Cleanup;
+	F1puc Update;
+	F2puci SetPlayerIndex;
+	F3puctUint16tUint16_b Rumble;
+	F3puctUint16tUint16_b RumbleTriggers;
+	F4puctUint8tUint8tUint8_b SetLED;
+	F3pucpuci_b SendEffect;
+	F2pucb_b SetSensorsEnabled;
+	F1puc Cleanup;
 };
 struct SDL_Gamepad{
 };
@@ -984,30 +984,30 @@ typedef struct{
 	i32 axis;
 	i32 axis_min;
 	i32 axis_max;
-} struct_i32_i32_i32;
+} S3iii;
 typedef struct{
 	i32 hat;
 	i32 hat_mask;
-} struct_i32_i32;
+} S2ii;
 typedef union{
 	i32 button;
-	struct_i32_i32_i32 axis;
-	struct_i32_i32 hat;
-} union_i32_struct_i32_i32_i32_struct_i32_i32;
+	S3iii axis;
+	S2ii hat;
+} U3iS3iiiS2ii;
 typedef struct{
 	enum SDL_GamepadAxis axis;
 	i32 axis_min;
 	i32 axis_max;
-} struct_SDL_GamepadAxis_i32_i32;
+} S3ESDL_GamepadAxisii;
 typedef union{
 	enum SDL_GamepadButton button;
-	struct_SDL_GamepadAxis_i32_i32 axis;
-} union_SDL_GamepadButton_struct_SDL_GamepadAxis_i32_i32;
+	S3ESDL_GamepadAxisii axis;
+} U2ESDL_GamepadButtonS3ESDL_GamepadAxisii;
 struct SDL_GamepadBinding{
 	enum SDL_GamepadBindingType input_type;
-	union_i32_struct_i32_i32_i32_struct_i32_i32 input;
+	U3iS3iiiS2ii input;
 	enum SDL_GamepadBindingType output_type;
-	union_SDL_GamepadButton_struct_SDL_GamepadAxis_i32_i32 output;
+	U2ESDL_GamepadButtonS3ESDL_GamepadAxisii output;
 };
 enum SDL_Scancode:i32{
 	SDL_SCANCODE_UNKNOWN=0,
@@ -1329,8 +1329,8 @@ struct SDL_CursorFrameInfo{
 	Uint32 duration;
 };
 typedef Uint32 SDL_MouseButtonFlags;
-typedef void(*func_6_ptr_u8_Uint64_ptr_SDL_Window_SDL_MouseID_ptr_float_ptr_float_void)(u8*,Uint64,struct SDL_Window*,SDL_MouseID,float*,float*);
-typedef func_6_ptr_u8_Uint64_ptr_SDL_Window_SDL_MouseID_ptr_float_ptr_float_void SDL_MouseMotionTransformCallback;
+typedef void(*F6puctUint64pSSDL_WindowtSDL_MouseIDpfpf)(u8*,Uint64,struct SDL_Window*,SDL_MouseID,float*,float*);
+typedef F6puctUint64pSSDL_WindowtSDL_MouseIDpfpf SDL_MouseMotionTransformCallback;
 typedef Uint64 SDL_TouchID;
 typedef Uint64 SDL_FingerID;
 enum SDL_TouchDeviceType:i32{
@@ -1703,14 +1703,14 @@ struct SDL_GamepadTouchpadEvent{
 	float y;
 	float pressure;
 };
-typedef struct{float data[3];}arr_3_float;
+typedef struct{const float data[3];}A3f;
 struct SDL_GamepadSensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
 	Uint64 timestamp;
 	SDL_JoystickID which;
 	Sint32 sensor;
-	arr_3_float data;
+	A3f data;
 	Uint64 sensor_timestamp;
 };
 struct SDL_GamepadCapSenseEvent{
@@ -1836,13 +1836,13 @@ struct SDL_ClipboardEvent{
 	Sint32 num_mime_types;
 	i8** mime_types;
 };
-typedef struct{float data[6];}arr_6_float;
+typedef struct{const float data[6];}A6f;
 struct SDL_SensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
 	Uint64 timestamp;
 	SDL_SensorID which;
-	arr_6_float data;
+	A6f data;
 	Uint64 sensor_timestamp;
 };
 struct SDL_QuitEvent{
@@ -1864,8 +1864,8 @@ enum SDL_EventAction:i32{
 	SDL_PEEKEVENT,
 	SDL_GETEVENT,
 };
-typedef bool(*func_2_ptr_u8_ptr_SDL_Event_bool)(u8*,union SDL_Event*);
-typedef func_2_ptr_u8_ptr_SDL_Event_bool SDL_EventFilter;
+typedef bool(*F2pucpUSDL_Event_b)(u8*,union SDL_Event*);
+typedef F2pucpUSDL_Event_b SDL_EventFilter;
 enum SDL_Folder:i32{
 	SDL_FOLDER_HOME,
 	SDL_FOLDER_DESKTOP,
@@ -1899,8 +1899,8 @@ enum SDL_EnumerationResult:i32{
 	SDL_ENUM_SUCCESS,
 	SDL_ENUM_FAILURE,
 };
-typedef enum SDL_EnumerationResult(*func_3_ptr_u8_ptr_i8_ptr_i8_SDL_EnumerationResult)(u8*,i8*,i8*);
-typedef func_3_ptr_u8_ptr_i8_ptr_i8_SDL_EnumerationResult SDL_EnumerateDirectoryCallback;
+typedef enum SDL_EnumerationResult(*F3pucpcpc_ESDL_EnumerationResult)(u8*,i8*,i8*);
+typedef F3pucpcpc_ESDL_EnumerationResult SDL_EnumerateDirectoryCallback;
 struct SDL_GPUDevice{
 };
 struct SDL_GPUBuffer{
@@ -2520,10 +2520,10 @@ struct SDL_Haptic{
 typedef Uint16 SDL_HapticEffectType;
 typedef Uint8 SDL_HapticDirectionType;
 typedef i32 SDL_HapticEffectID;
-typedef struct{Sint32 data[3];}arr_3_Sint32;
+typedef struct{const Sint32 data[3];}A3tSint32;
 struct SDL_HapticDirection{
 	SDL_HapticDirectionType type;
-	arr_3_Sint32 dir;
+	A3tSint32 dir;
 };
 struct SDL_HapticConstant{
 	SDL_HapticEffectType type;
@@ -2554,7 +2554,7 @@ struct SDL_HapticPeriodic{
 	Uint16 fade_length;
 	Uint16 fade_level;
 };
-typedef struct{Sint16 data[3];}arr_3_Sint16;
+typedef struct{const Sint16 data[3];}A3tSint16;
 struct SDL_HapticCondition{
 	SDL_HapticEffectType type;
 	struct SDL_HapticDirection direction;
@@ -2562,12 +2562,12 @@ struct SDL_HapticCondition{
 	Uint16 delay;
 	Uint16 button;
 	Uint16 interval;
-	arr_3_Uint16 right_sat;
-	arr_3_Uint16 left_sat;
-	arr_3_Sint16 right_coeff;
-	arr_3_Sint16 left_coeff;
-	arr_3_Uint16 deadband;
-	arr_3_Sint16 center;
+	A3tUint16 right_sat;
+	A3tUint16 left_sat;
+	A3tSint16 right_coeff;
+	A3tSint16 left_coeff;
+	A3tUint16 deadband;
+	A3tSint16 center;
 };
 struct SDL_HapticRamp{
 	SDL_HapticEffectType type;
@@ -2637,24 +2637,24 @@ enum SDL_HintPriority:i32{
 	SDL_HINT_NORMAL,
 	SDL_HINT_OVERRIDE,
 };
-typedef void(*func_4_ptr_u8_ptr_i8_ptr_i8_ptr_i8_void)(u8*,i8*,i8*,i8*);
-typedef func_4_ptr_u8_ptr_i8_ptr_i8_ptr_i8_void SDL_HintCallback;
+typedef void(*F4pucpcpcpc)(u8*,i8*,i8*,i8*);
+typedef F4pucpcpcpc SDL_HintCallback;
 typedef Uint32 SDL_InitFlags;
 enum SDL_AppResult:i32{
 	SDL_APP_CONTINUE,
 	SDL_APP_SUCCESS,
 	SDL_APP_FAILURE,
 };
-typedef enum SDL_AppResult(*func_3_ptr_ptr_u8_i32_ptr_ptr_i8_SDL_AppResult)(u8**,i32,i8**);
-typedef func_3_ptr_ptr_u8_i32_ptr_ptr_i8_SDL_AppResult SDL_AppInit_func;
-typedef enum SDL_AppResult(*func_1_ptr_u8_SDL_AppResult)(u8*);
-typedef func_1_ptr_u8_SDL_AppResult SDL_AppIterate_func;
-typedef enum SDL_AppResult(*func_2_ptr_u8_ptr_SDL_Event_SDL_AppResult)(u8*,union SDL_Event*);
-typedef func_2_ptr_u8_ptr_SDL_Event_SDL_AppResult SDL_AppEvent_func;
-typedef void(*func_2_ptr_u8_SDL_AppResult_void)(u8*,enum SDL_AppResult);
-typedef func_2_ptr_u8_SDL_AppResult_void SDL_AppQuit_func;
-typedef void(*func_1_ptr_u8_void)(u8*);
-typedef func_1_ptr_u8_void SDL_MainThreadCallback;
+typedef enum SDL_AppResult(*F3ppucippc_ESDL_AppResult)(u8**,i32,i8**);
+typedef F3ppucippc_ESDL_AppResult SDL_AppInit_func;
+typedef enum SDL_AppResult(*F1puc_ESDL_AppResult)(u8*);
+typedef F1puc_ESDL_AppResult SDL_AppIterate_func;
+typedef enum SDL_AppResult(*F2pucpUSDL_Event_ESDL_AppResult)(u8*,union SDL_Event*);
+typedef F2pucpUSDL_Event_ESDL_AppResult SDL_AppEvent_func;
+typedef void(*F2pucESDL_AppResult)(u8*,enum SDL_AppResult);
+typedef F2pucESDL_AppResult SDL_AppQuit_func;
+typedef void(*F1puc)(u8*);
+typedef F1puc SDL_MainThreadCallback;
 struct SDL_SharedObject{
 };
 struct SDL_Locale{
@@ -2694,8 +2694,8 @@ enum SDL_LogPriority:i32{
 	SDL_LOG_PRIORITY_CRITICAL,
 	SDL_LOG_PRIORITY_COUNT,
 };
-typedef void(*func_4_ptr_u8_i32_SDL_LogPriority_ptr_i8_void)(u8*,i32,enum SDL_LogPriority,i8*);
-typedef func_4_ptr_u8_i32_SDL_LogPriority_ptr_i8_void SDL_LogOutputFunction;
+typedef void(*F4puciESDL_LogPrioritypc)(u8*,i32,enum SDL_LogPriority,i8*);
+typedef F4puciESDL_LogPrioritypc SDL_LogOutputFunction;
 typedef Uint32 SDL_MessageBoxFlags;
 typedef Uint32 SDL_MessageBoxButtonFlags;
 struct SDL_MessageBoxButtonData{
@@ -2716,9 +2716,9 @@ enum SDL_MessageBoxColorType:i32{
 	SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED,
 	SDL_MESSAGEBOX_COLOR_COUNT,
 };
-typedef struct{struct SDL_MessageBoxColor* data;u64 length;}arr_0_SDL_MessageBoxColor;
+typedef struct{const struct SDL_MessageBoxColor* data;u64 length;}A0SSDL_MessageBoxColor;
 struct SDL_MessageBoxColorScheme{
-	arr_0_SDL_MessageBoxColor colors;
+	A0SSDL_MessageBoxColor colors;
 };
 struct SDL_MessageBoxData{
 	SDL_MessageBoxFlags flags;
@@ -2777,41 +2777,41 @@ struct SDL_GPURenderStateCreateInfo{
 };
 struct SDL_GPURenderState{
 };
-typedef bool(*func_1_ptr_u8_bool)(u8*);
-typedef bool(*func_1_ptr_u8_bool)(u8*);
-typedef bool(*func_4_ptr_u8_ptr_i8_SDL_EnumerateDirectoryCallback_ptr_u8_bool)(u8*,i8*,SDL_EnumerateDirectoryCallback,u8*);
-typedef bool(*func_3_ptr_u8_ptr_i8_ptr_SDL_PathInfo_bool)(u8*,i8*,struct SDL_PathInfo*);
-typedef bool(*func_4_ptr_u8_ptr_i8_ptr_u8_Uint64_bool)(u8*,i8*,u8*,Uint64);
-typedef bool(*func_4_ptr_u8_ptr_i8_ptr_u8_Uint64_bool)(u8*,i8*,u8*,Uint64);
-typedef bool(*func_2_ptr_u8_ptr_i8_bool)(u8*,i8*);
-typedef bool(*func_2_ptr_u8_ptr_i8_bool)(u8*,i8*);
-typedef bool(*func_3_ptr_u8_ptr_i8_ptr_i8_bool)(u8*,i8*,i8*);
-typedef bool(*func_3_ptr_u8_ptr_i8_ptr_i8_bool)(u8*,i8*,i8*);
-typedef Uint64(*func_1_ptr_u8_Uint64)(u8*);
+typedef bool(*F1puc_b)(u8*);
+typedef bool(*F1puc_b)(u8*);
+typedef bool(*F4pucpctSDL_EnumerateDirectoryCallbackpuc_b)(u8*,i8*,SDL_EnumerateDirectoryCallback,u8*);
+typedef bool(*F3pucpcpSSDL_PathInfo_b)(u8*,i8*,struct SDL_PathInfo*);
+typedef bool(*F4pucpcpuctUint64_b)(u8*,i8*,u8*,Uint64);
+typedef bool(*F4pucpcpuctUint64_b)(u8*,i8*,u8*,Uint64);
+typedef bool(*F2pucpc_b)(u8*,i8*);
+typedef bool(*F2pucpc_b)(u8*,i8*);
+typedef bool(*F3pucpcpc_b)(u8*,i8*,i8*);
+typedef bool(*F3pucpcpc_b)(u8*,i8*,i8*);
+typedef Uint64(*F1puc_tUint64)(u8*);
 struct SDL_StorageInterface{
 	Uint32 version;
-	func_1_ptr_u8_bool close;
-	func_1_ptr_u8_bool ready;
-	func_4_ptr_u8_ptr_i8_SDL_EnumerateDirectoryCallback_ptr_u8_bool enumerate;
-	func_3_ptr_u8_ptr_i8_ptr_SDL_PathInfo_bool info;
-	func_4_ptr_u8_ptr_i8_ptr_u8_Uint64_bool read_file;
-	func_4_ptr_u8_ptr_i8_ptr_u8_Uint64_bool write_file;
-	func_2_ptr_u8_ptr_i8_bool mkdir;
-	func_2_ptr_u8_ptr_i8_bool remove;
-	func_3_ptr_u8_ptr_i8_ptr_i8_bool rename;
-	func_3_ptr_u8_ptr_i8_ptr_i8_bool copy;
-	func_1_ptr_u8_Uint64 space_remaining;
+	F1puc_b close;
+	F1puc_b ready;
+	F4pucpctSDL_EnumerateDirectoryCallbackpuc_b enumerate;
+	F3pucpcpSSDL_PathInfo_b info;
+	F4pucpcpuctUint64_b read_file;
+	F4pucpcpuctUint64_b write_file;
+	F2pucpc_b mkdir;
+	F2pucpc_b remove;
+	F3pucpcpc_b rename;
+	F3pucpcpc_b copy;
+	F1puc_tUint64 space_remaining;
 };
 struct SDL_Storage{
 };
 struct MSG{
 };
-typedef bool(*func_2_ptr_u8_ptr_MSG_bool)(u8*,struct MSG*);
-typedef func_2_ptr_u8_ptr_MSG_bool SDL_WindowsMessageHook;
+typedef bool(*F2pucpSMSG_b)(u8*,struct MSG*);
+typedef F2pucpSMSG_b SDL_WindowsMessageHook;
 struct XEvent{
 };
-typedef bool(*func_2_ptr_u8_ptr_XEvent_bool)(u8*,struct XEvent*);
-typedef func_2_ptr_u8_ptr_XEvent_bool SDL_X11EventHook;
+typedef bool(*F2pucpSXEvent_b)(u8*,struct XEvent*);
+typedef F2pucpSXEvent_b SDL_X11EventHook;
 enum SDL_Sandbox:i32{
 	SDL_SANDBOX_NONE=0,
 	SDL_SANDBOX_UNKNOWN_CONTAINER,
@@ -2840,10 +2840,10 @@ enum SDL_TimeFormat:i32{
 	SDL_TIME_FORMAT_12HR=1,
 };
 typedef Uint32 SDL_TimerID;
-typedef Uint32(*func_3_ptr_u8_SDL_TimerID_Uint32_Uint32)(u8*,SDL_TimerID,Uint32);
-typedef func_3_ptr_u8_SDL_TimerID_Uint32_Uint32 SDL_TimerCallback;
-typedef Uint64(*func_3_ptr_u8_SDL_TimerID_Uint64_Uint64)(u8*,SDL_TimerID,Uint64);
-typedef func_3_ptr_u8_SDL_TimerID_Uint64_Uint64 SDL_NSTimerCallback;
+typedef Uint32(*F3puctSDL_TimerIDtUint32_tUint32)(u8*,SDL_TimerID,Uint32);
+typedef F3puctSDL_TimerIDtUint32_tUint32 SDL_TimerCallback;
+typedef Uint64(*F3puctSDL_TimerIDtUint64_tUint64)(u8*,SDL_TimerID,Uint64);
+typedef F3puctSDL_TimerIDtUint64_tUint64 SDL_NSTimerCallback;
 struct SDL_Tray{
 };
 struct SDL_TrayMenu{
@@ -2851,10 +2851,10 @@ struct SDL_TrayMenu{
 struct SDL_TrayEntry{
 };
 typedef Uint32 SDL_TrayEntryFlags;
-typedef void(*func_2_ptr_u8_ptr_SDL_TrayEntry_void)(u8*,struct SDL_TrayEntry*);
-typedef func_2_ptr_u8_ptr_SDL_TrayEntry_void SDL_TrayCallback;
-typedef bool(*func_2_ptr_u8_ptr_SDL_Tray_bool)(u8*,struct SDL_Tray*);
-typedef func_2_ptr_u8_ptr_SDL_Tray_bool SDL_TrayClickCallback;
+typedef void(*F2pucpSSDL_TrayEntry)(u8*,struct SDL_TrayEntry*);
+typedef F2pucpSSDL_TrayEntry SDL_TrayCallback;
+typedef bool(*F2pucpSSDL_Tray_b)(u8*,struct SDL_Tray*);
+typedef F2pucpSSDL_Tray_b SDL_TrayClickCallback;
 
 
 extern void* alloca(u64 _0);
@@ -4105,9 +4105,9 @@ DLLIMPORT extern i32 SDL_GetVersion();
 DLLIMPORT extern i8* SDL_GetRevision();
 
 
-const u32 __bool_true_false_are_defined=1;
-const u32 SDL_NOLONGLONG=1;
-const u32 SDL_INVALID_UNICODE_CODEPOINT=0xfffd;
+const u32 __bool_true_false_are_defined=1u;
+const u32 SDL_NOLONGLONG=1u;
+const u32 SDL_INVALID_UNICODE_CODEPOINT=0xfffdu;
 const double SDL_PI_D=3.141592653589793238462643383279502884;
 const double SDL_PI_F=3.141592653589793238462643383279502884F;
 const u32 SDL_BLENDMODE_NONE=0x0u;
@@ -4118,16 +4118,16 @@ const u32 SDL_BLENDMODE_ADD_PREMULTIPLIED=0x20u;
 const u32 SDL_BLENDMODE_MOD=0x4u;
 const u32 SDL_BLENDMODE_MUL=0x8u;
 const u32 SDL_BLENDMODE_INVALID=0x7fffffffu;
-const u32 SDL_CACHELINE_SIZE=128;
+const u32 SDL_CACHELINE_SIZE=128u;
 const u32 SDL_ELF_NOTE_DLOPEN_TYPE=0x407c0c0au;
-const u32 SDL_LIL_ENDIAN=1234;
-const u32 SDL_BIG_ENDIAN=4321;
-const u32 SDL_GPU_SHADERFORMAT_INVALID=0;
+const u32 SDL_LIL_ENDIAN=1234u;
+const u32 SDL_BIG_ENDIAN=4321u;
+const u32 SDL_GPU_SHADERFORMAT_INVALID=0u;
 const u32 SDL_HAPTIC_INFINITY=4294967295u;
-const u32 SDL_HAPTIC_POLAR=0;
-const u32 SDL_HAPTIC_CARTESIAN=1;
-const u32 SDL_HAPTIC_SPHERICAL=2;
-const u32 SDL_HAPTIC_STEERING_AXIS=3;
+const u32 SDL_HAPTIC_POLAR=0u;
+const u32 SDL_HAPTIC_CARTESIAN=1u;
+const u32 SDL_HAPTIC_SPHERICAL=2u;
+const u32 SDL_HAPTIC_STEERING_AXIS=3u;
 const u32 SDL_INIT_AUDIO=0x10u;
 const u32 SDL_INIT_VIDEO=0x20u;
 const u32 SDL_INIT_JOYSTICK=0x200u;
@@ -4136,7 +4136,7 @@ const u32 SDL_INIT_GAMEPAD=0x2000u;
 const u32 SDL_INIT_EVENTS=0x4000u;
 const u32 SDL_INIT_SENSOR=0x8000u;
 const u32 SDL_INIT_CAMERA=0x10000u;
-const u32 SDL_JOYSTICK_AXIS_MAX=32767;
+const u32 SDL_JOYSTICK_AXIS_MAX=32767u;
 const i32 SDL_JOYSTICK_AXIS_MIN=-32768;
 const u32 SDL_HAT_CENTERED=0x0u;
 const u32 SDL_HAT_UP=0x1u;
@@ -4420,84 +4420,84 @@ const u32 SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT=0x80u;
 const u32 SDL_MESSAGEBOX_BUTTONS_RIGHT_TO_LEFT=0x100u;
 const u32 SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT=0x1u;
 const u32 SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT=0x2u;
-const u32 SDL_BUTTON_LEFT=1;
-const u32 SDL_BUTTON_MIDDLE=2;
-const u32 SDL_BUTTON_RIGHT=3;
-const u32 SDL_BUTTON_X1=4;
-const u32 SDL_BUTTON_X2=5;
-const u32 SDL_ALPHA_OPAQUE=255;
+const u32 SDL_BUTTON_LEFT=1u;
+const u32 SDL_BUTTON_MIDDLE=2u;
+const u32 SDL_BUTTON_RIGHT=3u;
+const u32 SDL_BUTTON_X1=4u;
+const u32 SDL_BUTTON_X2=5u;
+const u32 SDL_ALPHA_OPAQUE=255u;
 const float SDL_ALPHA_OPAQUE_FLOAT=1.0f;
-const u32 SDL_ALPHA_TRANSPARENT=0;
-const u32 SDL_RENDERER_VSYNC_DISABLED=0;
-const u32 SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE=8;
+const u32 SDL_ALPHA_TRANSPARENT=0u;
+const u32 SDL_RENDERER_VSYNC_DISABLED=0u;
+const u32 SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE=8u;
 const float SDL_STANDARD_GRAVITY=9.80665f;
 const u32 SDL_SURFACE_PREALLOCATED=0x1u;
 const u32 SDL_SURFACE_LOCK_NEEDED=0x2u;
 const u32 SDL_SURFACE_LOCKED=0x4u;
 const u32 SDL_SURFACE_SIMD_ALIGNED=0x8u;
-const u32 SDL_ANDROID_EXTERNAL_STORAGE_READ=0x1;
-const u32 SDL_ANDROID_EXTERNAL_STORAGE_WRITE=0x2;
-const u32 SDL_MS_PER_SECOND=1000;
-const u32 SDL_US_PER_SECOND=1000000;
+const u32 SDL_ANDROID_EXTERNAL_STORAGE_READ=0x1u;
+const u32 SDL_ANDROID_EXTERNAL_STORAGE_WRITE=0x2u;
+const u32 SDL_MS_PER_SECOND=1000u;
+const u32 SDL_US_PER_SECOND=1000000u;
 const u32 SDL_NS_PER_SECOND=1000000000ll;
-const u32 SDL_NS_PER_MS=1000000;
-const u32 SDL_NS_PER_US=1000;
+const u32 SDL_NS_PER_MS=1000000u;
+const u32 SDL_NS_PER_US=1000u;
 const u32 SDL_TRAYENTRY_BUTTON=0x1u;
 const u32 SDL_TRAYENTRY_CHECKBOX=0x2u;
 const u32 SDL_TRAYENTRY_SUBMENU=0x4u;
 const u32 SDL_TRAYENTRY_DISABLED=0x80000000u;
 const u32 SDL_TRAYENTRY_CHECKED=0x40000000u;
-const u32 SDL_MAJOR_VERSION=3;
-const u32 SDL_MINOR_VERSION=5;
-const u32 SDL_MICRO_VERSION=0;
+const u32 SDL_MAJOR_VERSION=3u;
+const u32 SDL_MINOR_VERSION=5u;
+const u32 SDL_MICRO_VERSION=0u;
 const u32 SDL_WINDOWPOS_UNDEFINED_MASK=0x1fff0000u;
 const u32 SDL_WINDOWPOS_CENTERED_MASK=0x2fff0000u;
-const u32 SDL_GL_CONTEXT_PROFILE_CORE=0x1;
-const u32 SDL_GL_CONTEXT_PROFILE_COMPATIBILITY=0x2;
-const u32 SDL_GL_CONTEXT_PROFILE_ES=0x4;
-const u32 SDL_GL_CONTEXT_DEBUG_FLAG=0x1;
-const u32 SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG=0x2;
-const u32 SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG=0x4;
-const u32 SDL_GL_CONTEXT_RESET_ISOLATION_FLAG=0x8;
-const u32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_NONE=0x0;
-const u32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH=0x1;
-const u32 SDL_GL_CONTEXT_RESET_NO_NOTIFICATION=0x0;
-const u32 SDL_GL_CONTEXT_RESET_LOSE_CONTEXT=0x1;
-const u32 SDL_WINDOW_SURFACE_VSYNC_DISABLED=0;
-const u32 SDL_PLATFORM_AIX=1;
-const u32 SDL_PLATFORM_HAIKU=1;
-const u32 SDL_PLATFORM_BSDI=1;
-const u32 SDL_PLATFORM_FREEBSD=1;
-const u32 SDL_PLATFORM_HPUX=1;
-const u32 SDL_PLATFORM_IRIX=1;
-const u32 SDL_PLATFORM_LINUX=1;
-const u32 SDL_PLATFORM_ANDROID=1;
-const u32 SDL_PLATFORM_UNIX=1;
-const u32 SDL_PLATFORM_APPLE=1;
-const u32 SDL_PLATFORM_TVOS=1;
-const u32 SDL_PLATFORM_VISIONOS=1;
-const u32 SDL_PLATFORM_IOS=1;
-const u32 SDL_PLATFORM_MACOS=1;
-const u32 SDL_PLATFORM_EMSCRIPTEN=1;
-const u32 SDL_PLATFORM_NETBSD=1;
-const u32 SDL_PLATFORM_OPENBSD=1;
-const u32 SDL_PLATFORM_OS2=1;
-const u32 SDL_PLATFORM_OSF=1;
-const u32 SDL_PLATFORM_QNXNTO=1;
-const u32 SDL_PLATFORM_RISCOS=1;
-const u32 SDL_PLATFORM_SOLARIS=1;
-const u32 SDL_PLATFORM_CYGWIN=1;
-const u32 SDL_PLATFORM_WINDOWS=1;
-const u32 SDL_PLATFORM_WINGDK=1;
-const u32 SDL_PLATFORM_XBOXONE=1;
-const u32 SDL_PLATFORM_XBOXSERIES=1;
-const u32 SDL_PLATFORM_WIN32=1;
-const u32 SDL_PLATFORM_GDK=1;
-const u32 SDL_PLATFORM_PSP=1;
-const u32 SDL_PLATFORM_PS2=1;
-const u32 SDL_PLATFORM_VITA=1;
-const u32 SDL_PLATFORM_3DS=1;
-const u32 SDL_PLATFORM_NGAGE=1;
-const u32 SDL_PLATFORM_DOS=1;
-const u32 SDL_PLATFORM_HURD=1;
-const u32 NULL=0;
+const u32 SDL_GL_CONTEXT_PROFILE_CORE=0x1u;
+const u32 SDL_GL_CONTEXT_PROFILE_COMPATIBILITY=0x2u;
+const u32 SDL_GL_CONTEXT_PROFILE_ES=0x4u;
+const u32 SDL_GL_CONTEXT_DEBUG_FLAG=0x1u;
+const u32 SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG=0x2u;
+const u32 SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG=0x4u;
+const u32 SDL_GL_CONTEXT_RESET_ISOLATION_FLAG=0x8u;
+const u32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_NONE=0x0u;
+const u32 SDL_GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH=0x1u;
+const u32 SDL_GL_CONTEXT_RESET_NO_NOTIFICATION=0x0u;
+const u32 SDL_GL_CONTEXT_RESET_LOSE_CONTEXT=0x1u;
+const u32 SDL_WINDOW_SURFACE_VSYNC_DISABLED=0u;
+const u32 SDL_PLATFORM_AIX=1u;
+const u32 SDL_PLATFORM_HAIKU=1u;
+const u32 SDL_PLATFORM_BSDI=1u;
+const u32 SDL_PLATFORM_FREEBSD=1u;
+const u32 SDL_PLATFORM_HPUX=1u;
+const u32 SDL_PLATFORM_IRIX=1u;
+const u32 SDL_PLATFORM_LINUX=1u;
+const u32 SDL_PLATFORM_ANDROID=1u;
+const u32 SDL_PLATFORM_UNIX=1u;
+const u32 SDL_PLATFORM_APPLE=1u;
+const u32 SDL_PLATFORM_TVOS=1u;
+const u32 SDL_PLATFORM_VISIONOS=1u;
+const u32 SDL_PLATFORM_IOS=1u;
+const u32 SDL_PLATFORM_MACOS=1u;
+const u32 SDL_PLATFORM_EMSCRIPTEN=1u;
+const u32 SDL_PLATFORM_NETBSD=1u;
+const u32 SDL_PLATFORM_OPENBSD=1u;
+const u32 SDL_PLATFORM_OS2=1u;
+const u32 SDL_PLATFORM_OSF=1u;
+const u32 SDL_PLATFORM_QNXNTO=1u;
+const u32 SDL_PLATFORM_RISCOS=1u;
+const u32 SDL_PLATFORM_SOLARIS=1u;
+const u32 SDL_PLATFORM_CYGWIN=1u;
+const u32 SDL_PLATFORM_WINDOWS=1u;
+const u32 SDL_PLATFORM_WINGDK=1u;
+const u32 SDL_PLATFORM_XBOXONE=1u;
+const u32 SDL_PLATFORM_XBOXSERIES=1u;
+const u32 SDL_PLATFORM_WIN32=1u;
+const u32 SDL_PLATFORM_GDK=1u;
+const u32 SDL_PLATFORM_PSP=1u;
+const u32 SDL_PLATFORM_PS2=1u;
+const u32 SDL_PLATFORM_VITA=1u;
+const u32 SDL_PLATFORM_3DS=1u;
+const u32 SDL_PLATFORM_NGAGE=1u;
+const u32 SDL_PLATFORM_DOS=1u;
+const u32 SDL_PLATFORM_HURD=1u;
+const u32 NULL=0u;

@@ -965,9 +965,36 @@ static bool isCastLegal(Type* expressionType, Type* targetType)
 	return false;
 }
 
+static bool canCoerceType(Expression* arg, Type* targetType)
+{
+	if (arg->type == NODE_INT_LITERAL && isIntegerType(targetType))
+	{
+		IntLiteral* intLiteral = (IntLiteral*)arg;
+		if (intLiteral->negative && isUnsignedType(targetType))
+			return false;
+		return true;
+	}
+	if (arg->type == NODE_INT_LITERAL && isFloatingPointType(targetType))
+		return true;
+	if (arg->type == NODE_FLOAT_LITERAL && isFloatingPointType(targetType))
+		return true;
+	if (arg->type == NODE_STRING_LITERAL && (targetType->typeKind == TYPE_STRING || targetType->typeKind == TYPE_POINTER && targetType->pointer.elementType->typeKind == TYPE_INT8))
+		return true;
+	if (arg->type == NODE_NULL_LITERAL && targetType->typeKind == TYPE_POINTER)
+		return true;
+	if (arg->type == NODE_EXPRESSION_LIST && targetType->typeKind == TYPE_STRUCT && ((ExpressionList*)arg)->numValues == targetType->struct_.numFields)
+		return true;
+	if (arg->type == NODE_ARRAY_INITIALIZER && targetType->typeKind == TYPE_ARRAY && isConstant(arg) && (targetType->array.size == 0 || targetType->array.size == ((ArrayInitializer*)arg)->numValues))
+		return true;
+	return false;
+}
+
 static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType, Expression** ref)
 {
 	if (compareTypes(expressionType, targetType))
+		return true;
+
+	if (ref && *ref && canCoerceType(*ref, targetType))
 		return true;
 
 	if (isNumericType(expressionType) && isNumericType(targetType))
@@ -1058,22 +1085,6 @@ OperatorType assignmentOperatorToBinary(OperatorType op)
 		SnekAssert(false);
 		return OPERATOR_NULL;
 	}
-}
-
-static bool canCoerceType(Expression* arg, Type* targetType)
-{
-	if (arg->type == NODE_INT_LITERAL && isIntegerType(targetType))
-	{
-		IntLiteral* intLiteral = (IntLiteral*)arg;
-		if (intLiteral->negative && isUnsignedType(targetType))
-			return false;
-		return true;
-	}
-	if (arg->type == NODE_STRING_LITERAL && (targetType->typeKind == TYPE_STRING || targetType->typeKind == TYPE_POINTER && targetType->pointer.elementType->typeKind == TYPE_INT8))
-		return true;
-	if (arg->type == NODE_NULL_LITERAL && targetType->typeKind == TYPE_POINTER)
-		return true;
-	return false;
 }
 
 static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression* arg)
@@ -1363,7 +1374,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	if (operandType->typeKind == TYPE_STRUCT)
 	{
 		if (member->index == -1)
-			member->index = getFieldIndex(member->name, operandType->struct_.numFields, operandType->struct_.fieldNames);
+			member->index = getFieldIndex(member->name, operandType->struct_.numFields + operandType->struct_.numOffsetFields, operandType->struct_.fieldNames);
 		if (member->index == -1)
 		{
 			error(tc, member->name, "Undefined struct field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
@@ -1554,35 +1565,100 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
 		CompoundExpression* compound = (CompoundExpression*)expression;
-		resolveExpression(tc, compound->value);
+		resolveExpression(tc, compound->value, expectedType);
 		return expression->inferredType = compound->value->inferredType;
 	}
 	else if (expression->type == NODE_EXPRESSION_LIST)
 	{
 		ExpressionList* expressionList = (ExpressionList*)expression;
 
-		int mark = tc->scratch->mark();
-
-		for (int i = 0; i < expressionList->numValues; i++)
+		if (expectedType && expectedType->typeKind == TYPE_STRUCT)
 		{
-			if (expressionList->values[i])
+			expression->inferredType = expectedType;
+
+			if (expectedType->struct_.numFields != expressionList->numValues)
 			{
-				resolveExpression(tc, expressionList->values[i]);
-				tc->scratch->add(expressionList->values[i]->inferredType);
+				error(tc, (Node*)expressionList, "%d initializer values should be %d for type '%.*s'", expressionList->numValues, expectedType->struct_.numFields, expectedType->name.length, expectedType->name.ptr);
+				return expression->inferredType;
 			}
-			else
+
+			for (int i = 0; i < expressionList->numValues; i++)
 			{
-				tc->scratch->add(getErrorType(tc->types));
+				if (expressionList->values[i])
+				{
+					Type* targetType = expectedType->struct_.fieldTypes[i];
+
+					resolveExpression(tc, expressionList->values[i], targetType);
+
+					Type* fieldType = expressionList->values[i]->inferredType;
+
+					if (!isAssignable(tc, fieldType, targetType, &expressionList->values[i]))
+					{
+						if (expectedType->struct_.fieldNames)
+						{
+							StringView fieldName = expectedType->struct_.fieldNames[i];
+							error(tc, (Node*)expressionList->values[i], "Can't assign value of type '%.*s' to struct field '%.*s' of type '%.*s'", fieldType->name.length, fieldType->name.ptr, fieldName.length, fieldName.ptr, targetType->name.length, targetType->name.ptr);
+						}
+						else
+						{
+							error(tc, (Node*)expressionList->values[i], "Can't assign value of type '%.*s' to struct field #%d of type '%.*s'", fieldType->name.length, fieldType->name.ptr, i, targetType->name.length, targetType->name.ptr);
+						}
+					}
+				}
+			}
+
+			return expression->inferredType;
+		}
+		else
+		{
+			int mark = tc->scratch->mark();
+
+			for (int i = 0; i < expressionList->numValues; i++)
+			{
+				if (expressionList->values[i])
+				{
+					resolveExpression(tc, expressionList->values[i]);
+					tc->scratch->add(expressionList->values[i]->inferredType);
+				}
+				else
+				{
+					tc->scratch->add(getErrorType(tc->types));
+				}
+			}
+
+			Type** valueTypes = tc->scratch->getData<Type*>(mark);
+
+			expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr, tc->currentFile);
+
+			tc->scratch->release(mark);
+
+			return expression->inferredType;
+		}
+	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+
+		Type* elementType = expectedType && expectedType->typeKind == TYPE_ARRAY ? expectedType->array.elementType : nullptr;
+
+		for (int i = 0; i < arrayInitializer->numValues; i++)
+		{
+			if (arrayInitializer->values[i])
+			{
+				resolveExpression(tc, arrayInitializer->values[i], elementType);
+
+				Type* valueType = arrayInitializer->values[i]->inferredType;
+				if (!elementType)
+					elementType = valueType;
+
+				if (!isErrorType(elementType) && !isAssignable(tc, valueType, elementType, &arrayInitializer->values[i]))
+				{
+					error(tc, (Node*)arrayInitializer->values[i], "Can't assign value of type '%.*s' to array element #%d of type '%.*s'", valueType->name.length, valueType->name.ptr, i, elementType->name.length, elementType->name.ptr);
+				}
 			}
 		}
 
-		Type** valueTypes = tc->scratch->getData<Type*>(mark);
-
-		expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr, tc->currentFile);
-
-		tc->scratch->release(mark);
-
-		return expression->inferredType;
+		return expression->inferredType = expectedType && expectedType->typeKind == TYPE_ARRAY ? expectedType : getArrayType(tc->types, elementType, arrayInitializer->numValues, tc->currentFile);
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -2170,7 +2246,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		Assignment* assignment = (Assignment*)statement;
 
 		Type* expressionType = resolveExpression(tc, assignment->expression);
-		Type* valueType = resolveExpression(tc, assignment->value);
+		Type* valueType = resolveExpression(tc, assignment->value, expressionType);
 
 		if (!isLValue(assignment->expression))
 		{
@@ -2238,19 +2314,29 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 	pushScope(tc, file->ast.globalScope);
 
+	// Primitive global initializers
 	for (int i = 0; i < ast->numGlobalVariables; i++)
 	{
 		GlobalVariable* globalVariable = ast->globalVariables[i];
 		resolveType(tc, globalVariable->variableType);
 		for (int j = 0; j < globalVariable->numDeclarators; j++)
 		{
-			if (globalVariable->declarators[j].value)
+			Expression* value = globalVariable->declarators[j].value;
+			StringView name = globalVariable->declarators[j].name;
+			if (value)
 			{
-				resolveExpression(tc, globalVariable->declarators[j].value);
-
-				if (!isConstant(globalVariable->declarators[j].value))
+				if (isPrimitiveType(globalVariable->variableType->inferredType))
 				{
-					error(tc, (Node*)globalVariable, "Global variable initializer must be a constant value");
+					resolveExpression(tc, value, globalVariable->variableType->inferredType);
+
+					if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+					{
+						error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
+					}
+					else if (value->inferredType != getErrorType(tc->types) && !isConstant(value))
+					{
+						error(tc, (Node*)value, "Global variable initializer must be a constant value");
+					}
 				}
 			}
 			else if (globalVariable->storage & STORAGE_CONSTANT)
@@ -2314,16 +2400,35 @@ void symbolResolution(TypeChecker* tc, File* file)
 	{
 		Struct* struct_ = ast->structs[i];
 
+		int numFields = 0;
+		int numOffsetFields = 0;
+
 		int mark = tc->scratch->mark();
 
 		for (int j = 0; j < struct_->numFields; j++)
 		{
 			resolveField(tc, struct_->fields[j]);
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-				tc->scratch->add(struct_->fields[j]->variableType->inferredType);
+			{
+				if (!struct_->fields[j]->declarators[k].hasOffset)
+				{
+					tc->scratch->add(struct_->fields[j]->variableType->inferredType);
+					numFields++;
+				}
+			}
 		}
-
-		int numFields = tc->scratch->count<Type*>(mark);
+		for (int j = 0; j < struct_->numFields; j++)
+		{
+			resolveField(tc, struct_->fields[j]);
+			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+			{
+				if (struct_->fields[j]->declarators[k].hasOffset)
+				{
+					tc->scratch->add(struct_->fields[j]->variableType->inferredType);
+					numOffsetFields++;
+				}
+			}
+		}
 
 		int mark2 = tc->scratch->mark();
 
@@ -2331,10 +2436,26 @@ void symbolResolution(TypeChecker* tc, File* file)
 		{
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
 			{
-				if (struct_->fields[j]->declarators[k].name.length)
-					tc->scratch->add(struct_->fields[j]->declarators[k].name);
-				else
-					tc->scratch->add(StringView{});
+				if (!struct_->fields[j]->declarators[k].hasOffset)
+				{
+					if (struct_->fields[j]->declarators[k].name.length)
+						tc->scratch->add(struct_->fields[j]->declarators[k].name);
+					else
+						tc->scratch->add(StringView{});
+				}
+			}
+		}
+		for (int j = 0; j < struct_->numFields; j++)
+		{
+			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+			{
+				if (struct_->fields[j]->declarators[k].hasOffset)
+				{
+					if (struct_->fields[j]->declarators[k].name.length)
+						tc->scratch->add(struct_->fields[j]->declarators[k].name);
+					else
+						tc->scratch->add(StringView{});
+				}
 			}
 		}
 
@@ -2344,10 +2465,16 @@ void symbolResolution(TypeChecker* tc, File* file)
 		{
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
 			{
+				if (!struct_->fields[j]->declarators[k].hasOffset)
+					tc->scratch->add(-1);
+			}
+		}
+		for (int j = 0; j < struct_->numFields; j++)
+		{
+			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+			{
 				if (struct_->fields[j]->declarators[k].hasOffset)
 					tc->scratch->add(struct_->fields[j]->declarators[k].offset);
-				else
-					tc->scratch->add(-1);
 			}
 		}
 
@@ -2357,7 +2484,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 		if (struct_->structType)
 		{
-			resolveNamedStructType(struct_->structType, numFields, fieldTypes, fieldNames, fieldOffsets, file);
+			resolveNamedStructType(struct_->structType, numFields, numOffsetFields, fieldTypes, fieldNames, fieldOffsets, file);
 		}
 
 		tc->scratch->release(mark);
@@ -2495,28 +2622,58 @@ void symbolResolution(TypeChecker* tc, File* file)
 	popScope(tc);
 }
 
-void typeCheckFunction(TypeChecker* tc, Function* function, File* file)
+void typeCheckFunctions(TypeChecker* tc, File* file)
 {
 	tc->currentFile = file;
 
 	pushScope(tc, file->ast.globalScope);
 
-	if (!function->value)
+	AST* ast = &file->ast;
+
+	// Non primitive global initializers
+	for (int i = 0; i < ast->numGlobalVariables; i++)
 	{
-		Function* lastFunction = tc->currentFunction;
-		tc->currentFunction = function;
-
-		pushScope(tc, function->scope);
-
-		for (int i = 0; i < function->numStatements; i++)
+		GlobalVariable* globalVariable = ast->globalVariables[i];
+		for (int j = 0; j < globalVariable->numDeclarators; j++)
 		{
-			if (function->statements[i])
-				resolveStatement(tc, function->statements[i]);
+			Expression* value = globalVariable->declarators[j].value;
+			StringView name = globalVariable->declarators[j].name;
+			if (value && !isPrimitiveType(globalVariable->variableType->inferredType))
+			{
+				resolveExpression(tc, value, globalVariable->variableType->inferredType);
+
+				if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+				{
+					error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
+				}
+				else if (value->inferredType != getErrorType(tc->types) && !isConstant(value))
+				{
+					error(tc, (Node*)value, "Global variable initializer must be a constant value");
+				}
+			}
 		}
+	}
 
-		popScope(tc);
+	for (int i = 0; i < ast->numFunctions; i++)
+	{
+		Function* function = ast->functions[i];
+		if (!function->value)
+		{
+			Function* lastFunction = tc->currentFunction;
+			tc->currentFunction = function;
 
-		tc->currentFunction = lastFunction;
+			pushScope(tc, function->scope);
+
+			for (int i = 0; i < function->numStatements; i++)
+			{
+				if (function->statements[i])
+					resolveStatement(tc, function->statements[i]);
+			}
+
+			popScope(tc);
+
+			tc->currentFunction = lastFunction;
+		}
 	}
 
 	popScope(tc);

@@ -3,19 +3,19 @@
 
 
 extern i32 strncmp(i8* str1,i8* str2,u64 n);
-string _substring_3stii(string str,i32 offset,i32 count);
-bool _startsWith_2stst(string str,string value);
-bool _endsWith_2stst(string str,string value);
+string _substring_F3stii_st(string str,i32 offset,i32 count);
+bool _startsWith_F2stst_b(string str,string value);
+bool _endsWith_F2stst_b(string str,string value);
 
 
-string _substring_3stii(string str,i32 offset,i32 count){
+string _substring_F3stii_st(string str,i32 offset,i32 count){
 i8* const _1=str.ptr;
 const i64 _2=(i64)offset;
 i8* const _3=_1+_2;
 const string _4={_3,count};
 	return _4;
 }
-bool _startsWith_2stst(string str,string value){
+bool _startsWith_F2stst_b(string str,string value){
 const u64 _1=str.length;
 const u64 _2=value.length;
 const bool _3=_1>=_2;
@@ -27,7 +27,7 @@ const bool _8=_7==0;
 const bool _9=_3&&_8;
 	return _9;
 }
-bool _endsWith_2stst(string str,string value){
+bool _endsWith_F2stst_b(string str,string value){
 const u64 _1=str.length;
 const u64 _2=value.length;
 const bool _3=_1>=_2;

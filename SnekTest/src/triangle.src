@@ -1,6 +1,19 @@
 import vendor.SDL3;
 import vendor.SDL3_ext;
+import math.vector;
 
+
+struct Vertex {
+	vec3 position;
+	vec4 color;
+}
+
+const Vertex[3] vertices = [
+	(( 0.0,  0.5, 0), (0, 0, 1, 1)),     // top vertex
+    ((-0.5, -0.5, 0), (1, 0, 1, 1)),   // bottom left vertex
+    (( 0.5, -0.5, 0), (0, 1, 1, 1))     // bottom right vertex
+];
+ 
 
 func main() {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -8,6 +21,39 @@ func main() {
 	SDL_Window* window = SDL_CreateWindow("Triangle", 1280, 720, 0);
 	SDL_GPUDevice* device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, null);
 	SDL_ClaimWindowForGPUDevice(device, window);
+
+	SDL_GPUBufferCreateInfo bufferInfo;
+	bufferInfo.size = sizeof(vertices);
+	bufferInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+	SDL_GPUBuffer* vertexBuffer = SDL_CreateGPUBuffer(device, &bufferInfo);
+
+	SDL_GPUTransferBufferCreateInfo transferBufferInfo;
+	transferBufferInfo.size = sizeof(vertices);
+	transferBufferInfo.usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
+
+	Vertex* vertexData = SDL_MapGPUTransferBuffer(device, transferBuffer, false) as Vertex*;
+	for i : vertices.length {
+		vertexData[i] = vertices[i];
+	}
+	SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+
+	SDL_GPUCommandBuffer* cmdBuffer = SDL_AcquireGPUCommandBuffer(device);
+	SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuffer);
+
+	SDL_GPUTransferBufferLocation src;
+	src.transfer_buffer = transferBuffer;
+
+	SDL_GPUBufferRegion dst;
+	dst.buffer = vertexBuffer;
+	dst.size = sizeof(vertices);
+
+	SDL_UploadToGPUBuffer(copyPass, &src, &dst, true);
+
+	SDL_EndGPUCopyPass(copyPass);
+	SDL_SubmitGPUCommandBuffer(cmdBuffer);
+
+	// load shader
 
 	bool running = true;
 	while running {
@@ -25,21 +71,21 @@ func main() {
 		SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer, window, &swapchain, &width, &height);
 
 		SDL_GPUColorTargetInfo colorTarget;
-		//colorTarget.clear_color = (1.0, 0.88, 0.76, 1.0);
-		colorTarget.clear_color.r = 0.4f;
-		colorTarget.clear_color.g = 0.4f;
-		colorTarget.clear_color.b = 0.96f;
-		colorTarget.clear_color.a = 1.0f;
+		colorTarget.clear_color = (0.4, 0.4, 1.0, 1.0);
 		colorTarget.load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR;
 		colorTarget.store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE;
 		colorTarget.texture = swapchain;
 
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdBuffer, &colorTarget, 1, null);
 
+		// draw stuff
+
 		SDL_EndGPURenderPass(renderPass);
 
 		SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
+
+	SDL_ReleaseGPUBuffer(device, vertexBuffer);
 
 	SDL_DestroyGPUDevice(device);
 

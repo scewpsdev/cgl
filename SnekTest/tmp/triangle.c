@@ -2,6 +2,27 @@
 #include <snek.h>
 
 
+struct Vertex;
+struct vec2{
+	float x;
+	float y;
+};
+struct vec3{
+	float x;
+	float y;
+	float z;
+};
+struct vec4{
+	float x;
+	float y;
+	float z;
+	float w;
+};
+struct Vertex{
+	struct vec3 position;
+	struct vec4 color;
+};
+typedef struct{const struct Vertex* data;u64 length;}A0SVertex;
 typedef u32 Uint32;
 typedef Uint32 SDL_InitFlags;
 struct SDL_Window;
@@ -9,6 +30,13 @@ typedef u64 Uint64;
 typedef Uint64 SDL_WindowFlags;
 struct SDL_GPUDevice;
 typedef Uint32 SDL_GPUShaderFormat;
+typedef Uint32 SDL_GPUBufferUsageFlags;
+typedef Uint32 SDL_PropertiesID;
+struct SDL_GPUBufferCreateInfo{
+	SDL_GPUBufferUsageFlags usage;
+	Uint32 size;
+	SDL_PropertiesID props;
+};
 struct SDL_CommonEvent{
 	Uint32 type;
 	Uint32 reserved;
@@ -624,14 +652,14 @@ struct SDL_GamepadTouchpadEvent{
 	float y;
 	float pressure;
 };
-typedef struct{float data[3];}arr_3_float;
+typedef struct{const float data[3];}A3f;
 struct SDL_GamepadSensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
 	Uint64 timestamp;
 	SDL_JoystickID which;
 	Sint32 sensor;
-	arr_3_float data;
+	A3f data;
 	Uint64 sensor_timestamp;
 };
 struct SDL_GamepadCapSenseEvent{
@@ -663,13 +691,13 @@ struct SDL_CameraDeviceEvent{
 	SDL_CameraID which;
 };
 typedef Uint32 SDL_SensorID;
-typedef struct{float data[6];}arr_6_float;
+typedef struct{const float data[6];}A6f;
 struct SDL_SensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
 	Uint64 timestamp;
 	SDL_SensorID which;
-	arr_6_float data;
+	A6f data;
 	Uint64 sensor_timestamp;
 };
 struct SDL_QuitEvent{
@@ -797,7 +825,7 @@ struct SDL_ClipboardEvent{
 	Sint32 num_mime_types;
 	i8** mime_types;
 };
-typedef struct{Uint8 data[128];}arr_128_Uint8;
+typedef struct{const Uint8 data[128];}A128tUint8;
 union SDL_Event{
 	Uint32 type;
 	struct SDL_CommonEvent common;
@@ -839,7 +867,7 @@ union SDL_Event{
 	struct SDL_RenderEvent render;
 	struct SDL_DropEvent drop;
 	struct SDL_ClipboardEvent clipboard;
-	arr_128_Uint8 padding;
+	A128tUint8 padding;
 };
 struct SDL_GPUCommandBuffer;
 struct SDL_GPUTexture;
@@ -879,7 +907,7 @@ struct SDL_GPURenderPass;
 struct SDL_GPUDepthStencilTargetInfo;
 
 
-void _main_0();
+void _main_F0();
 DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 DLLIMPORT extern struct SDL_Window* SDL_CreateWindow(i8* title,i32 w,i32 h,SDL_WindowFlags flags);
 DLLIMPORT extern struct SDL_GPUDevice* SDL_CreateGPUDevice(SDL_GPUShaderFormat format_flags,bool debug_mode,i8* name);
@@ -895,10 +923,11 @@ DLLIMPORT extern void SDL_DestroyWindow(struct SDL_Window* window);
 DLLIMPORT extern void SDL_Quit();
 
 
+const A0SVertex vertices={(const struct Vertex[]){(struct Vertex){(struct vec3){0.0,0.5,0},(struct vec4){0,0,1,1}},(struct Vertex){(struct vec3){-0.5,-0.5,0},(struct vec4){1,0,1,1}},(struct Vertex){(struct vec3){0.5,-0.5,0},(struct vec4){0,1,1,1}}}, 3};
 static i8* const _G1="Triangle";
 
 
-void _main_0(){
+void _main_F0(){
 	const SDL_InitFlags _1=(SDL_InitFlags)0x20u;
 	const bool _2=SDL_Init(_1);
 	const SDL_WindowFlags _3=(SDL_WindowFlags)0llu;
@@ -909,6 +938,7 @@ void _main_0(){
 	struct SDL_GPUDevice* const _7=SDL_CreateGPUDevice(_6,true,0);
 	struct SDL_GPUDevice* device=_7;
 	const bool _8=SDL_ClaimWindowForGPUDevice(device,window);
+	struct SDL_GPUBufferCreateInfo bufferInfo={0};
 	bool running=true;
 	while(1){
 		if(!running)break;
@@ -937,35 +967,26 @@ void _main_0(){
 		const bool _20=SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer,window,_15,_17,_19);
 		struct SDL_GPUColorTargetInfo colorTarget={0};
 		struct SDL_FColor* const _21=&colorTarget.clear_color;
-		float* const _22=&(*_21).r;
-		(*_22)=0.4f;
-		struct SDL_FColor* const _23=&colorTarget.clear_color;
-		float* const _24=&(*_23).g;
-		(*_24)=0.4f;
-		struct SDL_FColor* const _25=&colorTarget.clear_color;
-		float* const _26=&(*_25).b;
-		(*_26)=0.96f;
-		struct SDL_FColor* const _27=&colorTarget.clear_color;
-		float* const _28=&(*_27).a;
-		(*_28)=1.0f;
-		enum SDL_GPULoadOp* const _29=&colorTarget.load_op;
-		(*_29)=1;
-		enum SDL_GPUStoreOp* const _30=&colorTarget.store_op;
-		(*_30)=0;
-		struct SDL_GPUTexture** const _31=&colorTarget.texture;
-		(*_31)=swapchain;
-		struct SDL_GPUColorTargetInfo* const _32=&colorTarget;
-		const Uint32 _33=(Uint32)1u;
-		struct SDL_GPURenderPass* const _34=SDL_BeginGPURenderPass(cmdBuffer,_32,_33,0);
-		struct SDL_GPURenderPass* renderPass=_34;
+		const struct SDL_FColor _22={0.4,0.4,1.0,1.0};
+		(*_21)=_22;
+		enum SDL_GPULoadOp* const _23=&colorTarget.load_op;
+		(*_23)=1;
+		enum SDL_GPUStoreOp* const _24=&colorTarget.store_op;
+		(*_24)=0;
+		struct SDL_GPUTexture** const _25=&colorTarget.texture;
+		(*_25)=swapchain;
+		struct SDL_GPUColorTargetInfo* const _26=&colorTarget;
+		const Uint32 _27=(Uint32)1u;
+		struct SDL_GPURenderPass* const _28=SDL_BeginGPURenderPass(cmdBuffer,_26,_27,0);
+		struct SDL_GPURenderPass* renderPass=_28;
 		SDL_EndGPURenderPass(renderPass);
-		const bool _35=SDL_SubmitGPUCommandBuffer(cmdBuffer);
+		const bool _29=SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
 	SDL_DestroyGPUDevice(device);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
 int main(int argc, char* argv[]){
-	_main_0();
+	_main_F0();
 	return 0;
 }

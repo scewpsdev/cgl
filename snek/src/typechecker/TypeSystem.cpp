@@ -59,6 +59,26 @@ bool isCharPointerType(Type* type)
 	return type->typeKind == TYPE_POINTER && type->pointer.elementType->typeKind == TYPE_INT8;
 }
 
+bool isPrimitiveType(Type* type)
+{
+	return
+		type->typeKind == TYPE_VOID ||
+		type->typeKind == TYPE_INT8 ||
+		type->typeKind == TYPE_INT16 ||
+		type->typeKind == TYPE_INT32 ||
+		type->typeKind == TYPE_INT64 ||
+		type->typeKind == TYPE_UINT8 ||
+		type->typeKind == TYPE_UINT16 ||
+		type->typeKind == TYPE_UINT32 ||
+		type->typeKind == TYPE_UINT64 ||
+		type->typeKind == TYPE_FLOAT ||
+		type->typeKind == TYPE_DOUBLE ||
+		type->typeKind == TYPE_BOOL ||
+		type->typeKind == TYPE_ANY ||
+		type->typeKind == TYPE_STRING ||
+		type->typeKind == TYPE_TYPE;
+}
+
 Type* getVoidType(TypeSystem* types)
 {
 	return &types->primitiveTypes[TYPE_VOID];
@@ -438,323 +458,7 @@ static bool isPrimitiveDerivative(Type* type)
 	}
 }
 
-Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_POINTER;
-	key.pointer.elementType = elementType;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		type->name = createTypeString(arena, "%.*s*", elementType->name.length, elementType->name.ptr);
-		type->mangledName = createTypeString(arena, "ptr_%.*s", elementType->mangledName.length, elementType->mangledName.ptr);
-	}
-
-	return type;
-}
-
-Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_OPTIONAL;
-	key.optional.elementType = elementType;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		type->name = createTypeString(arena, "%.*s?", elementType->name.length, elementType->name.ptr);
-		type->mangledName = createTypeString(arena, "opt_%.*s", elementType->mangledName.length, elementType->mangledName.ptr);
-	}
-
-	return type;
-}
-
-Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_STRUCT;
-	key.struct_.numFields = numElements;
-	key.struct_.fieldTypes = fieldTypes;
-	key.struct_.fieldNames = fieldNames;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		type->struct_.fieldTypes = copyTypes(arena, numElements, fieldTypes);
-		if (type->struct_.fieldNames)
-			type->struct_.fieldNames = copyNames(arena, numElements, fieldNames);
-
-		type->name = createTypeString(arena, "<struct>");
-
-		char elementTypes[256] = "";
-		for (int i = 0; i < type->struct_.numFields; i++)
-		{
-			Type* fieldType = type->struct_.fieldTypes[i];
-			strncat(elementTypes, fieldType->mangledName.ptr, fieldType->mangledName.length);
-			if (i < type->struct_.numFields - 1)
-				strcat(elementTypes, "_");
-		}
-		type->mangledName = createTypeString(arena, "struct_%s", elementTypes);
-	}
-
-	return type;
-}
-
-Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_UNION;
-	key.union_.numFields = numElements;
-	key.union_.fieldTypes = fieldTypes;
-	key.union_.fieldNames = fieldNames;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		type->union_.fieldTypes = copyTypes(arena, numElements, fieldTypes);
-		if (type->union_.fieldNames)
-			type->union_.fieldNames = copyNames(arena, numElements, fieldNames);
-
-		type->name = createTypeString(arena, "<union>");
-
-		char elementTypes[256] = "";
-		for (int i = 0; i < type->union_.numFields; i++)
-		{
-			Type* fieldType = type->union_.fieldTypes[i];
-			strncat(elementTypes, fieldType->mangledName.ptr, fieldType->mangledName.length);
-			if (i < type->union_.numFields - 1)
-				strcat(elementTypes, "_");
-		}
-		type->mangledName = createTypeString(arena, "union_%s", elementTypes);
-	}
-
-	return type;
-}
-
-Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_FUNCTION;
-	key.function.returnType = returnType;
-	key.function.numParams = numParams;
-	key.function.paramTypes = paramTypes;
-	key.function.variadic = variadic;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		type->function.paramTypes = copyTypes(arena, numParams, paramTypes);
-
-		char buffer[256];
-		buffer[0] = 0;
-		strcat(buffer, "func(");
-		for (int i = 0; i < numParams; i++)
-		{
-			strcat(buffer, paramTypes[i]->name.ptr);
-			if (i < numParams - 1)
-				strcat(buffer, ",");
-		}
-		strcat(buffer, ")");
-
-		if (returnType)
-		{
-			strcat(buffer, "->");
-			strcat(buffer, returnType->name.ptr);
-		}
-
-		type->name = createTypeString(arena, "%s", buffer);
-
-		char paramTypes[256] = "";
-		for (int i = 0; i < type->function.numParams; i++)
-		{
-			Type* paramType = type->function.paramTypes[i];
-			strncat(paramTypes, paramType->mangledName.ptr, paramType->mangledName.length);
-			if (i < type->function.numParams - 1)
-				strcat(paramTypes, "_");
-		}
-
-		StringView returnTypeStr = type->function.returnType ? type->function.returnType->mangledName : types->primitiveTypes[TYPE_VOID].mangledName;
-
-		type->mangledName = createTypeString(arena, "func_%d_%s_%.*s", type->function.numParams, paramTypes, returnTypeStr.length, returnTypeStr.ptr);
-	}
-
-	return type;
-}
-
-Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file)
-{
-	Type key = {};
-	key.typeKind = TYPE_ARRAY;
-	key.array.elementType = elementType;
-	key.array.size = size;
-
-	bool primitive = isPrimitiveDerivative(&key);
-	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
-	Arena* arena = primitive ? types->arena : &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	if (newType)
-	{
-		if (size)
-			type->name = createTypeString(arena, "%.*s[%llu]", elementType->name.length, elementType->name.ptr, size);
-		else
-			type->name = createTypeString(arena, "%.*s[]", elementType->name.length, elementType->name.ptr);
-
-		type->mangledName = createTypeString(arena, "arr_%llu_%.*s", type->array.size, elementType->mangledName.length, elementType->mangledName.ptr);
-	}
-
-	return type;
-}
-
-Type* createNamedStructType(File* file, StringView name, Struct* declaration)
-{
-	Type key = {};
-	key.typeKind = TYPE_STRUCT;
-	key.struct_.name = name;
-
-	TypeTable* typeTable = &file->typeTable;
-	Arena* arena = &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	SnekAssert(newType);
-
-	type->struct_.name = copy(name);
-	type->struct_.declaration = declaration;
-	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	type->mangledName = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	return type;
-}
-
-void resolveNamedStructType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file)
-{
-	type->struct_.numFields = numFields;
-	type->struct_.fieldTypes = copyTypes(&file->arena, numFields, fieldTypes);
-	type->struct_.fieldNames = copyNames(&file->arena, numFields, fieldNames);
-	type->struct_.fieldOffsets = copyOffsets(&file->arena, numFields, fieldOffsets);
-}
-
-Type* createNamedUnionType(File* file, StringView name, Union* declaration)
-{
-	Type key = {};
-	key.typeKind = TYPE_UNION;
-	key.union_.name = name;
-
-	TypeTable* typeTable = &file->typeTable;
-	Arena* arena = &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	SnekAssert(newType);
-
-	type->union_.name = copy(name);
-	type->union_.declaration = declaration;
-	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	type->mangledName = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	return type;
-}
-
-void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file)
-{
-	type->union_.numFields = numFields;
-	type->union_.fieldTypes = copyTypes(&file->arena, numFields, fieldTypes);
-	type->union_.fieldNames = copyNames(&file->arena, numFields, fieldNames);
-}
-
-Type* createEnumType(File* file, StringView name, Enum* declaration)
-{
-	Type key = {};
-	key.typeKind = TYPE_ENUM;
-	key.enum_.name = name;
-
-	TypeTable* typeTable = &file->typeTable;
-	Arena* arena = &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	SnekAssert(newType);
-
-	type->enum_.name = copy(name);
-	type->enum_.declaration = declaration;
-	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
-	type->mangledName = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	return type;
-}
-
-void resolveEnumType(Type* type, Type* valueType)
-{
-	type->enum_.valueType = valueType;
-}
-
-Type* createAliasType(File* file, StringView name, Typedef* declaration)
-{
-	Type key = {};
-	key.typeKind = TYPE_ALIAS;
-	key.alias.name = name;
-
-	TypeTable* typeTable = &file->typeTable;
-	Arena* arena = &file->arena;
-
-	bool newType;
-	Type* type = internType(typeTable, key, arena, &newType);
-
-	SnekAssert(newType);
-
-	type->alias.name = copy(name);
-	type->alias.declaration = declaration;
-	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
-	type->mangledName = createTypeString(arena, "%.*s", name.length, name.ptr);
-
-	return type;
-}
-
-void resolveAliasType(Type* type, Type* value)
-{
-	type->alias.valueType = value;
-}
-
-static void appendTypeCharacter(char* buffer, Type* type)
+static void mangleType(char* buffer, Type* type)
 {
 	switch (type->typeKind)
 	{
@@ -804,11 +508,27 @@ static void appendTypeCharacter(char* buffer, Type* type)
 		strcat(buffer, "S");
 		if (type->struct_.name.length)
 			strncat(buffer, type->struct_.name.ptr, type->struct_.name.length);
+		else
+		{
+			sprintf(buffer + strlen(buffer), "%d", type->struct_.numFields);
+			for (int i = 0; i < type->struct_.numFields; i++)
+			{
+				mangleType(buffer, type->struct_.fieldTypes[i]);
+			}
+		}
 		break;
 	case TYPE_UNION:
 		strcat(buffer, "U");
 		if (type->union_.name.length)
 			strncat(buffer, type->union_.name.ptr, type->union_.name.length);
+		else
+		{
+			sprintf(buffer + strlen(buffer), "%d", type->union_.numFields);
+			for (int i = 0; i < type->union_.numFields; i++)
+			{
+				mangleType(buffer, type->union_.fieldTypes[i]);
+			}
+		}
 		break;
 	case TYPE_ENUM:
 		strcat(buffer, "E");
@@ -822,18 +542,27 @@ static void appendTypeCharacter(char* buffer, Type* type)
 		break;
 	case TYPE_POINTER:
 		strcat(buffer, "p");
-		appendTypeCharacter(buffer, type->pointer.elementType);
+		mangleType(buffer, type->pointer.elementType);
 		break;
 	case TYPE_OPTIONAL:
 		strcat(buffer, "o");
-		appendTypeCharacter(buffer, type->optional.elementType);
+		mangleType(buffer, type->optional.elementType);
 		break;
 	case TYPE_FUNCTION:
 		strcat(buffer, "F");
+		sprintf(buffer + strlen(buffer), "%d", type->function.numParams);
+		for (int i = 0; i < type->function.numParams; i++)
+			mangleType(buffer, type->function.paramTypes[i]);
+		if (type->function.returnType)
+		{
+			strcat(buffer, "_");
+			mangleType(buffer, type->function.returnType);
+		}
 		break;
 	case TYPE_ARRAY:
 		strcat(buffer, "A");
-		appendTypeCharacter(buffer, type->array.elementType);
+		sprintf(buffer + strlen(buffer), "%llu", type->array.size);
+		mangleType(buffer, type->array.elementType);
 		break;
 	case TYPE_TYPE:
 		strcat(buffer, "T");
@@ -843,21 +572,321 @@ static void appendTypeCharacter(char* buffer, Type* type)
 	}
 }
 
+Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_POINTER;
+	key.pointer.elementType = elementType;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->name = createTypeString(arena, "%.*s*", elementType->name.length, elementType->name.ptr);
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_OPTIONAL;
+	key.optional.elementType = elementType;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->name = createTypeString(arena, "%.*s?", elementType->name.length, elementType->name.ptr);
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_STRUCT;
+	key.struct_.numFields = numElements;
+	key.struct_.fieldTypes = fieldTypes;
+	key.struct_.fieldNames = fieldNames;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->struct_.fieldTypes = copyTypes(arena, numElements, fieldTypes);
+		if (type->struct_.fieldNames)
+			type->struct_.fieldNames = copyNames(arena, numElements, fieldNames);
+
+		type->name = createTypeString(arena, "<struct>");
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_UNION;
+	key.union_.numFields = numElements;
+	key.union_.fieldTypes = fieldTypes;
+	key.union_.fieldNames = fieldNames;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->union_.fieldTypes = copyTypes(arena, numElements, fieldTypes);
+		if (type->union_.fieldNames)
+			type->union_.fieldNames = copyNames(arena, numElements, fieldNames);
+
+		type->name = createTypeString(arena, "<union>");
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_FUNCTION;
+	key.function.returnType = returnType;
+	key.function.numParams = numParams;
+	key.function.paramTypes = paramTypes;
+	key.function.variadic = variadic;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->function.paramTypes = copyTypes(arena, numParams, paramTypes);
+
+		char buffer[256];
+		buffer[0] = 0;
+		strcat(buffer, "func(");
+		for (int i = 0; i < numParams; i++)
+		{
+			strcat(buffer, paramTypes[i]->name.ptr);
+			if (i < numParams - 1)
+				strcat(buffer, ",");
+		}
+		strcat(buffer, ")");
+
+		if (returnType)
+		{
+			strcat(buffer, "->");
+			strcat(buffer, returnType->name.ptr);
+		}
+
+		type->name = createTypeString(arena, "%s", buffer);
+
+		buffer[0] = 0;
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_ARRAY;
+	key.array.elementType = elementType;
+	key.array.size = size;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		if (size)
+			type->name = createTypeString(arena, "%.*s[%llu]", elementType->name.length, elementType->name.ptr, size);
+		else
+			type->name = createTypeString(arena, "%.*s[]", elementType->name.length, elementType->name.ptr);
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	return type;
+}
+
+Type* createNamedStructType(File* file, StringView name, Struct* declaration)
+{
+	Type key = {};
+	key.typeKind = TYPE_STRUCT;
+	key.struct_.name = name;
+
+	TypeTable* typeTable = &file->typeTable;
+	Arena* arena = &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	SnekAssert(newType);
+
+	type->struct_.name = copy(name);
+	type->struct_.declaration = declaration;
+	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
+
+	char buffer[256] = "";
+	mangleType(buffer, type);
+	type->mangledName = copy(CreateString(buffer), arena);
+
+	return type;
+}
+
+void resolveNamedStructType(Type* type, int numFields, int numOffsetFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file)
+{
+	type->struct_.numFields = numFields;
+	type->struct_.numOffsetFields = numOffsetFields;
+	type->struct_.fieldTypes = copyTypes(&file->arena, numFields + numOffsetFields, fieldTypes);
+	type->struct_.fieldNames = copyNames(&file->arena, numFields + numOffsetFields, fieldNames);
+	type->struct_.fieldOffsets = copyOffsets(&file->arena, numFields + numOffsetFields, fieldOffsets);
+}
+
+Type* createNamedUnionType(File* file, StringView name, Union* declaration)
+{
+	Type key = {};
+	key.typeKind = TYPE_UNION;
+	key.union_.name = name;
+
+	TypeTable* typeTable = &file->typeTable;
+	Arena* arena = &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	SnekAssert(newType);
+
+	type->union_.name = copy(name);
+	type->union_.declaration = declaration;
+	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
+
+	char buffer[256] = "";
+	mangleType(buffer, type);
+	type->mangledName = copy(CreateString(buffer), arena);
+
+	return type;
+}
+
+void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file)
+{
+	type->union_.numFields = numFields;
+	type->union_.fieldTypes = copyTypes(&file->arena, numFields, fieldTypes);
+	type->union_.fieldNames = copyNames(&file->arena, numFields, fieldNames);
+}
+
+Type* createEnumType(File* file, StringView name, Enum* declaration)
+{
+	Type key = {};
+	key.typeKind = TYPE_ENUM;
+	key.enum_.name = name;
+
+	TypeTable* typeTable = &file->typeTable;
+	Arena* arena = &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	SnekAssert(newType);
+
+	type->enum_.name = copy(name);
+	type->enum_.declaration = declaration;
+	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
+
+	char buffer[256] = "";
+	mangleType(buffer, type);
+	type->mangledName = copy(CreateString(buffer), arena);
+
+	return type;
+}
+
+void resolveEnumType(Type* type, Type* valueType)
+{
+	type->enum_.valueType = valueType;
+}
+
+Type* createAliasType(File* file, StringView name, Typedef* declaration)
+{
+	Type key = {};
+	key.typeKind = TYPE_ALIAS;
+	key.alias.name = name;
+
+	TypeTable* typeTable = &file->typeTable;
+	Arena* arena = &file->arena;
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	SnekAssert(newType);
+
+	type->alias.name = copy(name);
+	type->alias.declaration = declaration;
+	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
+
+	char buffer[256] = "";
+	mangleType(buffer, type);
+	type->mangledName = copy(CreateString(buffer), arena);
+
+	return type;
+}
+
+void resolveAliasType(Type* type, Type* value)
+{
+	type->alias.valueType = value;
+}
+
 StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena)
 {
-	char paramTypes[256] = "";
-	for (int i = 0; i < functionType->function.numParams; i++)
-	{
-		Type* paramType = functionType->function.paramTypes[i];
-		appendTypeCharacter(paramTypes, paramType);
-	}
-
-	StringView mangledName = createTypeString(arena, "_%.*s_%d%s", name.length, name.ptr, functionType->function.numParams, paramTypes);
-	if (functionType->function.returnType)
-	{
-		strcat(mangledName.ptr, "_");
-		appendTypeCharacter(mangledName.ptr, functionType->function.returnType);
-	}
-
-	return mangledName;
+	return createTypeString(arena, "_%.*s_%.*s", name.length, name.ptr, functionType->mangledName.length, functionType->mangledName.ptr);
 }

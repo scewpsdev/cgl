@@ -337,6 +337,16 @@ bool isConstant(Expression* expression)
 		}
 		return true;
 	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+		for (int i = 0; i < arrayInitializer->numValues; i++)
+		{
+			if (!isConstant(arrayInitializer->values[i]))
+				return false;
+		}
+		return true;
+	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
 		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
@@ -837,6 +847,15 @@ void resetExpression(Expression** ref)
 				resetExpression(&expressionList->values[i]);
 		}
 	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+		for (int i = 0; i < arrayInitializer->numValues; i++)
+		{
+			if (arrayInitializer->values[i])
+				resetExpression(&arrayInitializer->values[i]);
+		}
+	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
 		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
@@ -1182,6 +1201,15 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 		{
 			if (expressionList->values[i])
 				traverseExpression(expressionList->values[i], scope, visitor, userPtr);
+		}
+	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+		for (int i = 0; i < arrayInitializer->numValues; i++)
+		{
+			if (arrayInitializer->values[i])
+				traverseExpression(arrayInitializer->values[i], scope, visitor, userPtr);
 		}
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)

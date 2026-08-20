@@ -111,6 +111,14 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 		lines.insert(startLine + i, changeLines[i]);
 	}
 
+	// preliminary line offset update in case we need this before the parser runs
+	int currentOffset = 0;
+	for (int i = 0; i < lines.size; i++)
+	{
+		file.parser.lexer.lineOffsets.add(currentOffset);
+		currentOffset += (int)strlen(lines[i]) + 1;
+	}
+
 	linesMutex.unlock();
 
 	FreeList(&changeLines);
@@ -664,153 +672,154 @@ void Document::autocomplete(Node* node, Scope* scope, char triggerCharacter, jso
 		if (node->type > NODE_EXPRESSION_START && node->type < NODE_EXPRESSION_END)
 		{
 			Expression* expression = (Expression*)node;
-			Type* operandType = expression->inferredType;
-
-			if (operandType->typeKind == TYPE_POINTER)
-				operandType = operandType->pointer.elementType;
-
-			if (operandType->typeKind == TYPE_STRUCT)
+			if (Type* operandType = expression->inferredType)
 			{
-				Struct* declaration = operandType->struct_.declaration;
-				Symbol* symbol = declaration->symbol;
+				if (operandType->typeKind == TYPE_POINTER)
+					operandType = operandType->pointer.elementType;
 
-				int fieldID = 0;
-				for (int i = 0; i < declaration->numFields; i++)
+				if (operandType->typeKind == TYPE_STRUCT)
 				{
-					Field* field = declaration->fields[i];
-					for (int j = 0; j < field->numDeclarators; j++)
+					Struct* declaration = operandType->struct_.declaration;
+					Symbol* symbol = declaration->symbol;
+
+					int fieldID = 0;
+					for (int i = 0; i < declaration->numFields; i++)
 					{
-						items.push_back({
-							{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
-							{"kind", COMPLETION_ITEM_FIELD},
-							{"data", {
-								{"type_id", std::to_string((uint64_t)operandType)},
-								{"field_id", fieldID }
-							}}
-							});
-
-						fieldID++;
-					}
-				}
-			}
-			else if (operandType->typeKind == TYPE_UNION)
-			{
-				Union* declaration = operandType->union_.declaration;
-				Symbol* symbol = declaration->symbol;
-
-				int fieldID = 0;
-				for (int i = 0; i < declaration->numFields; i++)
-				{
-					Field* field = declaration->fields[i];
-					for (int j = 0; j < field->numDeclarators; j++)
-					{
-						items.push_back({
-							{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
-							{"kind", COMPLETION_ITEM_FIELD},
-							{"data", {
-								{"type_id", std::to_string((uint64_t)operandType)},
-								{"field_id", fieldID }
-							}}
-							});
-
-						fieldID++;
-					}
-				}
-			}
-			else if (operandType->typeKind == TYPE_STRING)
-			{
-				items.push_back({
-					{"label", "ptr"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 0 }
-					}}
-					});
-
-				items.push_back({
-					{"label", "length"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 1 }
-					}}
-					});
-			}
-			else if (operandType->typeKind == TYPE_ARRAY)
-			{
-				items.push_back({
-					{"label", "data"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 0 }
-					}}
-					});
-
-				items.push_back({
-					{"label", "length"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 1 }
-					}}
-					});
-			}
-			else if (operandType->typeKind == TYPE_ANY)
-			{
-				items.push_back({
-					{"label", "value"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 0 }
-					}}
-					});
-
-				items.push_back({
-					{"label", "type"},
-					{"kind", COMPLETION_ITEM_FIELD},
-					{"data", {
-						{"type_id", std::to_string((uint64_t)operandType)},
-						{"field_id", 1 }
-					}}
-					});
-			}
-			else if (operandType->typeKind == TYPE_TYPE)
-			{
-				SnekAssert(expression->type == NODE_IDENTIFIER);
-
-				Identifier* typeName = (Identifier*)expression;
-				if (Symbol* symbol = getIdentifierSymbol(typeName))
-				{
-					if (symbol->declaration->type == NODE_ENUM)
-					{
-						Enum* enum_ = &symbol->declaration->enum_;
-						for (int i = 0; i < enum_->numValues; i++)
+						Field* field = declaration->fields[i];
+						for (int j = 0; j < field->numDeclarators; j++)
 						{
-							EnumValue* enumValue = enum_->values[i];
-
 							items.push_back({
-								{"label", std::string(enumValue->name.ptr, enumValue->name.length)},
-								{"kind", COMPLETION_ITEM_ENUM_MEMBER},
+								{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
+								{"kind", COMPLETION_ITEM_FIELD},
 								{"data", {
 									{"type_id", std::to_string((uint64_t)operandType)},
-									{"field_id", i }
+									{"field_id", fieldID }
 								}}
 								});
+
+							fieldID++;
 						}
 					}
 				}
-			}
-
-			scanScopeForMemberFunction(file.ast.globalScope, operandType, items);
-
-			for (int i = 0; i < file.dependencies.size; i++)
-			{
-				if (File* dependency = getFileFromHandle(file.dependencies[i]))
+				else if (operandType->typeKind == TYPE_UNION)
 				{
-					scanScopeForMemberFunction(dependency->ast.globalScope, operandType, items);
+					Union* declaration = operandType->union_.declaration;
+					Symbol* symbol = declaration->symbol;
+
+					int fieldID = 0;
+					for (int i = 0; i < declaration->numFields; i++)
+					{
+						Field* field = declaration->fields[i];
+						for (int j = 0; j < field->numDeclarators; j++)
+						{
+							items.push_back({
+								{"label", std::string(field->declarators[j].name.ptr, field->declarators[j].name.length) },
+								{"kind", COMPLETION_ITEM_FIELD},
+								{"data", {
+									{"type_id", std::to_string((uint64_t)operandType)},
+									{"field_id", fieldID }
+								}}
+								});
+
+							fieldID++;
+						}
+					}
+				}
+				else if (operandType->typeKind == TYPE_STRING)
+				{
+					items.push_back({
+						{"label", "ptr"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 0 }
+						}}
+						});
+
+					items.push_back({
+						{"label", "length"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 1 }
+						}}
+						});
+				}
+				else if (operandType->typeKind == TYPE_ARRAY)
+				{
+					items.push_back({
+						{"label", "data"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 0 }
+						}}
+						});
+
+					items.push_back({
+						{"label", "length"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 1 }
+						}}
+						});
+				}
+				else if (operandType->typeKind == TYPE_ANY)
+				{
+					items.push_back({
+						{"label", "value"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 0 }
+						}}
+						});
+
+					items.push_back({
+						{"label", "type"},
+						{"kind", COMPLETION_ITEM_FIELD},
+						{"data", {
+							{"type_id", std::to_string((uint64_t)operandType)},
+							{"field_id", 1 }
+						}}
+						});
+				}
+				else if (operandType->typeKind == TYPE_TYPE)
+				{
+					SnekAssert(expression->type == NODE_IDENTIFIER);
+
+					Identifier* typeName = (Identifier*)expression;
+					if (Symbol* symbol = getIdentifierSymbol(typeName))
+					{
+						if (symbol->declaration->type == NODE_ENUM)
+						{
+							Enum* enum_ = &symbol->declaration->enum_;
+							for (int i = 0; i < enum_->numValues; i++)
+							{
+								EnumValue* enumValue = enum_->values[i];
+
+								items.push_back({
+									{"label", std::string(enumValue->name.ptr, enumValue->name.length)},
+									{"kind", COMPLETION_ITEM_ENUM_MEMBER},
+									{"data", {
+										{"type_id", std::to_string((uint64_t)operandType)},
+										{"field_id", i }
+									}}
+									});
+							}
+						}
+					}
+				}
+
+				scanScopeForMemberFunction(file.ast.globalScope, operandType, items);
+
+				for (int i = 0; i < file.dependencies.size; i++)
+				{
+					if (File* dependency = getFileFromHandle(file.dependencies[i]))
+					{
+						scanScopeForMemberFunction(dependency->ast.globalScope, operandType, items);
+					}
 				}
 			}
 		}

@@ -23,6 +23,7 @@ struct Type
 		struct {
 			StringView name;
 			int numFields;
+			int numOffsetFields;
 			Type** fieldTypes;
 			StringView* fieldNames;
 			int* fieldOffsets;
@@ -105,6 +106,7 @@ bool isTruthyType(Type* type);
 bool isNumericType(Type* type);
 bool isErrorType(Type* type);
 bool isCharPointerType(Type* type);
+bool isPrimitiveType(Type* type);
 
 Type* getVoidType(TypeSystem* types);
 Type* getInt32Type(TypeSystem* types);
@@ -125,7 +127,7 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file);
 
 Type* createNamedStructType(File* file, StringView name, Struct* declaration);
-void resolveNamedStructType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file);
+void resolveNamedStructType(Type* type, int numFields, int numOffsetFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file);
 
 Type* createNamedUnionType(File* file, StringView name, Union* declaration);
 void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file);

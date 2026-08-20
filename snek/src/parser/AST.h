@@ -41,6 +41,7 @@ enum NodeType : uint8_t
 	NODE_IDENTIFIER,
 	NODE_COMPOUND_EXPRESSION,
 	NODE_EXPRESSION_LIST,
+	NODE_ARRAY_INITIALIZER,
 	NODE_BINARY_OPERATOR,
 	NODE_UNARY_OPERATOR,
 	NODE_FUNCTION_CALL,
@@ -250,6 +251,12 @@ struct CompoundExpression : Expression
 };
 
 struct ExpressionList : Expression
+{
+	Expression** values;
+	int numValues;
+};
+
+struct ArrayInitializer : Expression
 {
 	Expression** values;
 	int numValues;

@@ -33,6 +33,6 @@ void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, File* file);
 void symbolResolution(TypeChecker* tc, File* file);
-void typeCheckFunction(TypeChecker* tc, Function* function, File* file);
+void typeCheckFunctions(TypeChecker* tc, File* file);
 
 Symbol* getIdentifierSymbol(Identifier* identifier);

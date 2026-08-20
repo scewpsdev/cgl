@@ -1,6 +1,8 @@
 #pragma once
 
 
+struct Arena;
+
 struct StringView
 {
 	char* ptr;
@@ -19,6 +21,7 @@ StringView CreateString(const char* start, int length);
 StringView CreateString(const char* ptr);
 
 StringView copy(StringView from);
+StringView copy(StringView from, Arena* arena);
 void destroy(StringView str);
 
 bool compareString(StringView a, StringView b);

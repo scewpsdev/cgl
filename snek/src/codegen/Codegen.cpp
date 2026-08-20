@@ -402,6 +402,7 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	emitString(buffer, "typedef struct{");
 	if (type->array.size)
 	{
+		emitString(buffer, "const ");
 		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, " data[");
 		emitInteger(buffer, type->array.size);
@@ -409,6 +410,7 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	}
 	else
 	{
+		emitString(buffer, "const ");
 		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, "* data;u64 length;}");
 	}
@@ -696,6 +698,8 @@ static void emitOperator(CodeBuffer* buffer, OperatorType op)
 	}
 }
 
+static void emitExpressionConstant(Codegen* codegen, Expression* expression, CodeBuffer* buffer);
+
 static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
 {
 	if (expression->type == NODE_INT_LITERAL)
@@ -919,6 +923,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value* values = codegen->scratch.getData<Value>(mark);
 
+		declareType(codegen, expressionList->inferredType);
+
 		Value tuple = declareLocalValue(codegen, expressionList->inferredType, buffer);
 		emitChar(buffer, '{');
 
@@ -935,6 +941,74 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		codegen->scratch.release(mark);
 
 		return tuple;
+	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+
+		SnekAssert(arrayInitializer->inferredType->typeKind == TYPE_ARRAY);
+
+		if (arrayInitializer->inferredType->array.size == 0)
+		{
+			declareType(codegen, arrayInitializer->inferredType);
+
+			Value ptr = createGlobalValue(codegen, nullptr);
+
+			emitString(&codegen->globalsBuffer, "static ");
+			emitType(codegen, arrayInitializer->inferredType->array.elementType, &codegen->globalsBuffer);
+			emitString(&codegen->globalsBuffer, "* const ");
+			emitValue(&codegen->globalsBuffer, ptr);
+			emitString(&codegen->globalsBuffer, "={");
+			for (int i = 0; i < arrayInitializer->numValues; i++)
+			{
+				emitExpressionConstant(codegen, arrayInitializer->values[i], &codegen->globalsBuffer);
+				if (i < arrayInitializer->numValues - 1)
+					emitChar(buffer, ',');
+			}
+			emitString(&codegen->globalsBuffer, "};\n");
+
+			Value arr = declareLocalValue(codegen, arrayInitializer->inferredType, buffer);
+
+			emitChar(buffer, '(');
+			emitType(codegen, arrayInitializer->inferredType, buffer);
+			emitString(buffer, "){");
+			emitValue(buffer, ptr);
+			emitChar(buffer, ',');
+			emitInteger(buffer, arrayInitializer->numValues);
+			emitString(buffer, "};\n");
+
+			return arr;
+		}
+		else
+		{
+			int mark = codegen->scratch.mark();
+			for (int i = 0; i < arrayInitializer->numValues; i++)
+			{
+				Value value = emitExpression(codegen, arrayInitializer->values[i], buffer);
+				codegen->scratch.add(value);
+			}
+
+			Value* values = codegen->scratch.getData<Value>(mark);
+
+			declareType(codegen, arrayInitializer->inferredType);
+
+			Value array = declareLocalValue(codegen, arrayInitializer->inferredType, buffer);
+			emitChar(buffer, '{');
+
+			for (int i = 0; i < arrayInitializer->numValues; i++)
+			{
+				Value value = values[i];
+				emitValue(buffer, value);
+				if (i < arrayInitializer->numValues - 1)
+					emitChar(buffer, ',');
+			}
+
+			emitString(buffer, "};\n");
+
+			codegen->scratch.release(mark);
+
+			return array;
+		}
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -1769,6 +1843,8 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 	{
 		ExpressionList* expressionList = (ExpressionList*)expression;
 
+		declareType(codegen, expressionList->inferredType);
+
 		emitChar(buffer, '(');
 		emitType(codegen, expressionList->inferredType, buffer);
 		emitString(buffer, "){");
@@ -1782,6 +1858,51 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 
 		emitChar(buffer, '}');
 		return;
+	}
+	else if (expression->type == NODE_ARRAY_INITIALIZER)
+	{
+		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
+
+		SnekAssert(arrayInitializer->inferredType->typeKind == TYPE_ARRAY);
+
+		if (arrayInitializer->inferredType->array.size == 0)
+		{
+			declareType(codegen, arrayInitializer->inferredType);
+
+			emitString(buffer, "{(const ");
+			emitType(codegen, arrayInitializer->inferredType->array.elementType, buffer);
+			emitString(buffer, "[]){");
+
+			for (int i = 0; i < arrayInitializer->numValues; i++)
+			{
+				emitExpressionConstant(codegen, arrayInitializer->values[i], buffer);
+				if (i < arrayInitializer->numValues - 1)
+					emitChar(buffer, ',');
+			}
+
+			emitString(buffer, "}, ");
+			emitInteger(buffer, arrayInitializer->numValues);
+			emitChar(buffer, '}');
+			return;
+		}
+		else
+		{
+			declareType(codegen, arrayInitializer->inferredType);
+
+			emitChar(buffer, '(');
+			emitType(codegen, arrayInitializer->inferredType, buffer);
+			emitString(buffer, "){");
+
+			for (int i = 0; i < arrayInitializer->numValues; i++)
+			{
+				emitExpressionConstant(codegen, arrayInitializer->values[i], buffer);
+				if (i < arrayInitializer->numValues - 1)
+					emitChar(buffer, ',');
+			}
+
+			emitChar(buffer, '}');
+			return;
+		}
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -2254,6 +2375,8 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 
 static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable, CodeBuffer* buffer)
 {
+	declareType(codegen, globalVariable->variableType->inferredType);
+
 	for (int i = 0; i < globalVariable->numDeclarators; i++)
 	{
 		VariableDeclarator* declarator = &globalVariable->declarators[i];

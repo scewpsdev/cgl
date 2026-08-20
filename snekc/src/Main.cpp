@@ -384,10 +384,7 @@ static void typeCheckFunctionsRange(List<SourceFile*>& files, int start, int end
 	{
 		SourceFile* file = files[i];
 
-		for (int j = 0; j < file->file.ast.numFunctions; j++)
-		{
-			typeCheckFunction(&file->file.typeChecker, file->file.ast.functions[j], &file->file);
-		}
+		typeCheckFunctions(&file->file.typeChecker, &file->file);
 
 		file->state = FILE_STATE_TYPECHECKED;
 	}

@@ -243,10 +243,11 @@ static void rewind(Parser* parser, int cursor)
 
 static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 {
-	Token token = nextToken(parser);
+	Token token = peekToken(parser);
 
 	if (token.type == type)
 	{
+		nextToken(parser);
 		if (outToken) *outToken = token;
 		return true;
 	}
@@ -787,8 +788,7 @@ Expression* parseAtom(Parser* parser)
 
 				expressionList->values = parseExpressionList(parser, expression, &expressionList->numValues);
 
-				if (!expectToken(parser, ')'))
-					skipPastToken(parser, ')');
+				expectToken(parser, ')');
 
 				expressionList->end = parser->lastTokenEnd;
 
@@ -796,8 +796,7 @@ Expression* parseAtom(Parser* parser)
 			}
 			else
 			{
-				if (!expectToken(parser, ')'))
-					skipPastToken(parser, ')');
+				expectToken(parser, ')');
 
 				CompoundExpression* compound = parser->arena->alloc<CompoundExpression>();
 				initNode((Node*)compound, NODE_COMPOUND_EXPRESSION, start);
@@ -806,6 +805,32 @@ Expression* parseAtom(Parser* parser)
 
 				return compound;
 			}
+		}
+		else
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+			skipPastToken(parser, ')');
+			return getErrorExpression(parser, start);
+		}
+	}
+	else if (nextIs(parser, '['))
+	{
+		nextToken(parser);
+
+		int numValues = 0;
+		if (Expression** values = parseExpressionList(parser, nullptr, &numValues))
+		{
+			ArrayInitializer* arrayInitializer = parser->arena->alloc<ArrayInitializer>();
+			initNode((Node*)arrayInitializer, NODE_ARRAY_INITIALIZER, start);
+
+			arrayInitializer->values = values;
+			arrayInitializer->numValues = numValues;
+
+			expectToken(parser, ']');
+
+			arrayInitializer->end = parser->lastTokenEnd;
+
+			return arrayInitializer;
 		}
 		else
 		{
@@ -1894,8 +1919,7 @@ Field* parseField(Parser* parser)
 			nextToken(parser);
 	}
 
-	if (!expectToken(parser, ';'))
-		skipPastToken(parser, ';');
+	expectToken(parser, ';');
 
 	field->declarators = copyFromScratchBuffer<VariableDeclarator>(parser, mark, &field->numDeclarators);
 
@@ -2218,8 +2242,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 			nextToken(parser);
 	}
 
-	if (!expectToken(parser, ';'))
-		skipPastToken(parser, ';');
+	expectToken(parser, ';');
 
 	GlobalVariable* globalVariable = parser->arena->alloc<GlobalVariable>();
 	initNode((Node*)globalVariable, NODE_GLOBAL_VARIABLE, start);

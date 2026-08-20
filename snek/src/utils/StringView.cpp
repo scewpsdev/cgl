@@ -1,6 +1,7 @@
 #include "StringView.h"
 
 #include "Log.h"
+#include "utils/Arena.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -61,6 +62,16 @@ StringView copy(StringView from)
 	StringView str = {};
 	str.length = from.length;
 	str.ptr = (char*)malloc(from.length + 1);
+	memcpy(str.ptr, from.ptr, from.length);
+	str.ptr[str.length] = 0;
+	return str;
+}
+
+StringView copy(StringView from, Arena* arena)
+{
+	StringView str = {};
+	str.length = from.length;
+	str.ptr = (char*)arena->alloc(from.length + 1);
 	memcpy(str.ptr, from.ptr, from.length);
 	str.ptr[str.length] = 0;
 	return str;
