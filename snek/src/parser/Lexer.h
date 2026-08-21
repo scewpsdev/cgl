@@ -103,27 +103,20 @@ struct SourceLocation
 
 struct Arena;
 struct Diagnostics;
+struct File;
 
 struct Lexer
 {
-	const char* filename;
-	const char* src;
-	int length;
+	File* file;
 	int cursor;
-
-	List<int> lineOffsets;
-
-	Arena* arena;
-	Diagnostics* diagnostics;
 };
 
 
-void initLexer(Lexer* lexer, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics);
-void destroyLexer(Lexer* lexer);
+void initLexer(Lexer* lexer, File* file);
 
-SourceLocation getSourceLocation(Lexer* lexer, int offset);
-int locationToOffset(Lexer* lexer, int line, int col);
-int locationToLineOffset(Lexer* lexer, int line, int col);
+SourceLocation getSourceLocation(File* file, int offset);
+int locationToOffset(File* file, int line, int col);
+int locationToLineOffset(File* file, int line, int col);
 
 StringView getTokenString(Token token, const char* src);
 

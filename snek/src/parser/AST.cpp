@@ -1228,6 +1228,14 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 		if (cast->targetType)
 			traverseType(cast->targetType, scope, visitor, userPtr);
 	}
+	else if (expression->type == NODE_SIZEOF)
+	{
+		Sizeof* sizeof_ = (Sizeof*)expression;
+		if (sizeof_->expression)
+			traverseExpression(sizeof_->expression, scope, visitor, userPtr);
+		else if (sizeof_->targetType)
+			traverseType(sizeof_->targetType, scope, visitor, userPtr);
+	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;

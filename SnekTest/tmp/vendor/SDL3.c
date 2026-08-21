@@ -611,7 +611,7 @@ struct SDL_Palette{
 	Uint32 version;
 	i32 refcount;
 };
-typedef struct{const Uint8 data[2];}A2tUint8;
+typedef struct{Uint8 data[2];}A2tUint8;
 struct SDL_PixelFormatDetails{
 	enum SDL_PixelFormat format;
 	Uint8 bits_per_pixel;
@@ -803,7 +803,7 @@ enum SDL_FileDialogType:i32{
 	SDL_FILEDIALOG_SAVEFILE,
 	SDL_FILEDIALOG_OPENFOLDER,
 };
-typedef struct{const Uint8 data[16];}A16tUint8;
+typedef struct{Uint8 data[16];}A16tUint8;
 struct SDL_GUID{
 	A16tUint8 data;
 };
@@ -851,7 +851,7 @@ enum SDL_JoystickConnectionState:i32{
 	SDL_JOYSTICK_CONNECTION_WIRED,
 	SDL_JOYSTICK_CONNECTION_WIRELESS,
 };
-typedef struct{const Uint16 data[3];}A3tUint16;
+typedef struct{Uint16 data[3];}A3tUint16;
 struct SDL_VirtualJoystickTouchpadDesc{
 	Uint16 nfingers;
 	A3tUint16 padding;
@@ -860,7 +860,7 @@ struct SDL_VirtualJoystickSensorDesc{
 	enum SDL_SensorType type;
 	float rate;
 };
-typedef struct{const Uint16 data[2];}A2tUint16;
+typedef struct{Uint16 data[2];}A2tUint16;
 typedef void(*F1puc)(u8*);
 typedef void(*F2puci)(u8*,i32);
 typedef bool(*F3puctUint16tUint16_b)(u8*,Uint16,Uint16);
@@ -1703,7 +1703,7 @@ struct SDL_GamepadTouchpadEvent{
 	float y;
 	float pressure;
 };
-typedef struct{const float data[3];}A3f;
+typedef struct{float data[3];}A3f;
 struct SDL_GamepadSensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
@@ -1836,7 +1836,7 @@ struct SDL_ClipboardEvent{
 	Sint32 num_mime_types;
 	i8** mime_types;
 };
-typedef struct{const float data[6];}A6f;
+typedef struct{float data[6];}A6f;
 struct SDL_SensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
@@ -2520,7 +2520,7 @@ struct SDL_Haptic{
 typedef Uint16 SDL_HapticEffectType;
 typedef Uint8 SDL_HapticDirectionType;
 typedef i32 SDL_HapticEffectID;
-typedef struct{const Sint32 data[3];}A3tSint32;
+typedef struct{Sint32 data[3];}A3tSint32;
 struct SDL_HapticDirection{
 	SDL_HapticDirectionType type;
 	A3tSint32 dir;
@@ -2554,7 +2554,7 @@ struct SDL_HapticPeriodic{
 	Uint16 fade_length;
 	Uint16 fade_level;
 };
-typedef struct{const Sint16 data[3];}A3tSint16;
+typedef struct{Sint16 data[3];}A3tSint16;
 struct SDL_HapticCondition{
 	SDL_HapticEffectType type;
 	struct SDL_HapticDirection direction;
@@ -2716,7 +2716,7 @@ enum SDL_MessageBoxColorType:i32{
 	SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED,
 	SDL_MESSAGEBOX_COLOR_COUNT,
 };
-typedef struct{const struct SDL_MessageBoxColor* data;u64 length;}A0SSDL_MessageBoxColor;
+typedef struct{struct SDL_MessageBoxColor* data;u64 length;}A0SSDL_MessageBoxColor;
 struct SDL_MessageBoxColorScheme{
 	A0SSDL_MessageBoxColor colors;
 };

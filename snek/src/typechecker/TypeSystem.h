@@ -110,6 +110,7 @@ bool isPrimitiveType(Type* type);
 
 Type* getVoidType(TypeSystem* types);
 Type* getInt32Type(TypeSystem* types);
+Type* getUInt64Type(TypeSystem* types);
 Type* getStringType(TypeSystem* types);
 Type* getErrorType(TypeSystem* types);
 

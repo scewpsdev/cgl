@@ -12,6 +12,8 @@ struct Diagnostics;
 
 struct Parser
 {
+	File* file;
+
 	Lexer lexer;
 	int cursor, lastTokenEnd;
 
@@ -26,19 +28,18 @@ struct Parser
 };
 
 
-void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics);
-void destroyParser(Parser* parser);
+void initParser(Parser* parser, File* file);
 
 void error(Parser* parser, Node* node, const char* fmt, ...);
 
 SourceLocation getSourceLocation(Parser* parser);
-SourceLocation getSourceLocation(Parser* parser, Token token);
-void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end);
-void getSourceLocation(Parser* parser, Node* node, SourceLocation* start, SourceLocation* end);
-void getSourceLocation(Parser* parser, StringView str, SourceLocation* start, SourceLocation* end);
+SourceLocation getSourceLocation(File* file, Token token);
+void getSourceLocation(File* file, Token token, SourceLocation* start, SourceLocation* end);
+void getSourceLocation(File* file, Node* node, SourceLocation* start, SourceLocation* end);
+void getSourceLocation(File* file, StringView str, SourceLocation* start, SourceLocation* end);
 
-StringView getTokenString(Token token, Parser* parser);
-StringView getRangedString(int start, int end, Parser* parser);
+StringView getTokenString(Token token, File* file);
+StringView getRangedString(int start, int end, File* file);
 
 void parse(Parser* parser, AST* ast);
 

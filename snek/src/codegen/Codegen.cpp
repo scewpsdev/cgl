@@ -402,7 +402,7 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	emitString(buffer, "typedef struct{");
 	if (type->array.size)
 	{
-		emitString(buffer, "const ");
+		//emitString(buffer, "const ");
 		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, " data[");
 		emitInteger(buffer, type->array.size);
@@ -410,7 +410,7 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	}
 	else
 	{
-		emitString(buffer, "const ");
+		//emitString(buffer, "const ");
 		emitType(codegen, type->array.elementType, buffer);
 		emitString(buffer, "* data;u64 length;}");
 	}
@@ -442,6 +442,7 @@ static void declareTypeStub(Codegen* codegen, Type* type)
 	}
 	else if (type->typeKind == TYPE_ALIAS)
 	{
+		declareTypedef(codegen, type->alias.declaration);
 	}
 }
 
@@ -825,6 +826,17 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			strcat(value.name, "{0}");
 			return value;
 		}
+	}
+	else if (expression->type == NODE_SIZEOF)
+	{
+		Sizeof* sizeof_ = (Sizeof*)expression;
+
+		Value value = declareLocalValue(codegen, sizeof_->inferredType, buffer);
+		emitString(buffer, "(u64)sizeof(");
+		emitType(codegen, sizeof_->expressionType, buffer);
+		emitString(buffer, ");\n");
+
+		return value;
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
@@ -1762,6 +1774,18 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 	{
 		Value value = emitExpression(codegen, expression, buffer);
 		emitValue(buffer, value);
+		return;
+	}
+	else if (expression->type == NODE_SIZEOF)
+	{
+		Sizeof* sizeof_ = (Sizeof*)expression;
+
+		declareType(codegen, sizeof_->expressionType);
+
+		emitString(buffer, "(u64)sizeof(");
+		emitType(codegen, sizeof_->expressionType, buffer);
+		emitString(buffer, ")");
+
 		return;
 	}
 	else if (expression->type == NODE_IDENTIFIER)

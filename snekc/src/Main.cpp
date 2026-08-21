@@ -34,6 +34,9 @@ struct SourceFile
 	int length;
 	File file;
 
+	Parser parser;
+	TypeChecker typeChecker;
+
 	Codegen codegen;
 };
 
@@ -181,7 +184,7 @@ static bool addSourceFile(Compiler* compiler, const char* localPath)
 	{
 		file->src = src;
 
-		initFile(&file->file, localPath, &compiler->blockPool);
+		initFile(&file->file, localPath, file->src, file->length, &compiler->blockPool);
 
 		compiler->sourceFiles.add(file);
 
@@ -284,14 +287,21 @@ File* getFileFromHandle(FileHandle fileHandle)
 	return nullptr;
 }
 
+bool isFileLoaded(FileHandle fileHandle)
+{
+	if (SourceFile* file = getSourceFile(fileHandle))
+		return true;
+	return false;
+}
+
 static void parseFilesRange(List<SourceFile*>& files, int start, int end)
 {
 	for (int i = start; i < end; i++)
 	{
 		SourceFile* file = files[i];
 
-		initParser(&file->file.parser, file->path, file->src, file->length, &file->file.arena, &file->file.scratch, &file->file.diagnostics);
-		parse(&file->file.parser, &file->file.ast);
+		initParser(&file->parser, &file->file);
+		parse(&file->parser, &file->file.ast);
 		//destroyParser(&file->file.parser);
 
 		file->state = FILE_STATE_PARSED;
@@ -334,8 +344,8 @@ static void symbolCollectFilesRange(List<SourceFile*>& files, int start, int end
 		SourceFile* file = files[i];
 
 		initTypeTable(&file->file.typeTable, &file->file.arena, 64);
-		initTypeChecker(&file->file.typeChecker, &file->file.arena, &file->file.scratch, &file->file.parser.lexer, &file->file.diagnostics, &compiler.types);
-		symbolCollection(&file->file.typeChecker, &file->file);
+		initTypeChecker(&file->typeChecker, &file->file.arena, &file->file.scratch, &file->file.diagnostics, &compiler.types);
+		symbolCollection(&file->typeChecker, &file->file);
 	}
 }
 
@@ -374,7 +384,7 @@ static void symbolResolveFiles(List<SourceFile*>& files)
 	{
 		SourceFile* file = files[i];
 
-		symbolResolution(&file->file.typeChecker, &file->file);
+		symbolResolution(&file->typeChecker, &file->file);
 	}
 }
 
@@ -384,7 +394,7 @@ static void typeCheckFunctionsRange(List<SourceFile*>& files, int start, int end
 	{
 		SourceFile* file = files[i];
 
-		typeCheckFunctions(&file->file.typeChecker, &file->file);
+		typeCheckFunctions(&file->typeChecker, &file->file);
 
 		file->state = FILE_STATE_TYPECHECKED;
 	}
@@ -564,7 +574,7 @@ int main(int argc, const char* argv[])
 					{
 						if (!addSourceFile(&compiler, localPath))
 						{
-							error(&file->file.parser, declaration, "Undefined module '%s'", localPath);
+							error(&file->parser, declaration, "Undefined module '%s'", localPath);
 						}
 					}
 

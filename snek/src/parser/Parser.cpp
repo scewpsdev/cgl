@@ -12,50 +12,46 @@
 #include <stdarg.h>
 
 
-void initParser(Parser* parser, const char* filename, const char* src, int length, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics)
+void initParser(Parser* parser, File* file)
 {
 	*parser = {};
 
-	initLexer(&parser->lexer, filename, src, length, arena, diagnostics);
-
-	parser->arena = arena;
-	parser->scratch = scratch;
-	parser->diagnostics = diagnostics;
+	parser->file = file;
+	parser->arena = &file->arena;
+	parser->scratch = &file->scratch;
+	parser->diagnostics = &file->diagnostics;
 	parser->lookaheadCount = 0;
 	parser->lastTokenEnd = 0;
-}
 
-void destroyParser(Parser* parser)
-{
-	destroyLexer(&parser->lexer);
+	initLexer(&parser->lexer, file);
 }
 
 SourceLocation getSourceLocation(Parser* parser)
 {
-	return getSourceLocation(&parser->lexer, parser->cursor);
+	return getSourceLocation(parser->file, parser->cursor);
 }
 
-SourceLocation getSourceLocation(Parser* parser, Token token)
+SourceLocation getSourceLocation(File* file, Token token)
 {
-	return getSourceLocation(&parser->lexer, token.offset);
+	return getSourceLocation(file, token.offset);
 }
 
-void getSourceLocation(Parser* parser, Token token, SourceLocation* start, SourceLocation* end)
+void getSourceLocation(File* file, Token token, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(&parser->lexer, token.offset);
-	*end = getSourceLocation(&parser->lexer, token.offset + token.length);
+	*start = getSourceLocation(file, token.offset);
+	*end = getSourceLocation(file, token.offset + token.length);
 }
 
-void getSourceLocation(Parser* parser, Node* node, SourceLocation* start, SourceLocation* end)
+void getSourceLocation(File* file, Node* node, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(&parser->lexer, node->start);
-	*end = getSourceLocation(&parser->lexer, node->end);
+	*start = getSourceLocation(file, node->start);
+	*end = getSourceLocation(file, node->end);
 }
 
-void getSourceLocation(Parser* parser, StringView str, SourceLocation* start, SourceLocation* end)
+void getSourceLocation(File* file, StringView str, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
-	*end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+	*start = getSourceLocation(file, (int)(str.ptr - file->src));
+	*end = getSourceLocation(file, (int)(str.ptr - file->src) + str.length);
 }
 
 static void getTokenRange(Token token, int* start, int* end)
@@ -64,14 +60,14 @@ static void getTokenRange(Token token, int* start, int* end)
 	*end = token.offset + token.length;
 }
 
-StringView getTokenString(Token token, Parser* parser)
+StringView getTokenString(Token token, File* file)
 {
-	return getTokenString(token, parser->lexer.src);
+	return getTokenString(token, file->src);
 }
 
-StringView getRangedString(int start, int end, Parser* parser)
+StringView getRangedString(int start, int end, File* file)
 {
-	return CreateString(parser->lexer.src + start, end - start);
+	return CreateString(file->src + start, end - start);
 }
 
 static const char* getTokenTypeName(int type)
@@ -181,15 +177,15 @@ void error(Parser* parser, Node* node, const char* fmt, ...)
 
 	va_end(args);
 
-	SourceLocation start = getSourceLocation(&parser->lexer, node->start);
-	SourceLocation end = getSourceLocation(&parser->lexer, node->end);
+	SourceLocation start = getSourceLocation(parser->file, node->start);
+	SourceLocation end = getSourceLocation(parser->file, node->end);
 
 	logMessage(parser->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
 }
 
 static bool hasNext(Parser* parser)
 {
-	return parser->cursor < parser->lexer.length;
+	return parser->cursor < parser->file->length;
 }
 
 static Token nextToken(Parser* parser)
@@ -255,7 +251,7 @@ static bool expectToken(Parser* parser, int type, Token* outToken = nullptr)
 	SourceLocation start, end;
 	if (token.type)
 	{
-		getSourceLocation(parser, token, &start, &end);
+		getSourceLocation(parser->file, token, &start, &end);
 	}
 	else
 	{
@@ -477,7 +473,7 @@ static TypeNode* parseBasicType(Parser* parser)
 		NamedType* type = parser->arena->alloc<NamedType>();
 		initType((TypeNode*)type, NODE_NAMED_TYPE, TYPE_NULL, start);
 		type->end = end;
-		type->name = getTokenString(token, parser);
+		type->name = getTokenString(token, parser->file);
 		return type;
 	}
 	else if (token.type == TOKEN_FUNCTION && peekToken(parser, 1).type == '(')
@@ -660,7 +656,10 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 		if (Expression* expression = parseExpression(parser))
 			parser->scratch->add(expression);
 		else
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
 			parser->scratch->add(getErrorExpression(parser, parser->cursor));
+		}
 
 		next = nextIs(parser, ',');
 		if (next)
@@ -685,7 +684,7 @@ Expression* parseAtom(Parser* parser)
 
 		IntLiteral* intLiteral = parser->arena->alloc<IntLiteral>();
 		initNode((Node*)intLiteral, NODE_INT_LITERAL, start);
-		intLiteral->value = getTokenString(token, parser);
+		intLiteral->value = getTokenString(token, parser->file);
 		intLiteral->end = parser->lastTokenEnd;
 
 		return intLiteral;
@@ -696,7 +695,7 @@ Expression* parseAtom(Parser* parser)
 
 		FloatLiteral* floatLiteral = parser->arena->alloc<FloatLiteral>();
 		initNode((Node*)floatLiteral, NODE_FLOAT_LITERAL, start);
-		floatLiteral->value = getTokenString(token, parser);
+		floatLiteral->value = getTokenString(token, parser->file);
 		floatLiteral->end = parser->lastTokenEnd;
 
 		return floatLiteral;
@@ -707,7 +706,7 @@ Expression* parseAtom(Parser* parser)
 
 		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
 		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
-		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 1], token.length - 2);
+		stringLiteral->value = CreateString(&parser->file->src[token.offset + 1], token.length - 2);
 		stringLiteral->end = parser->lastTokenEnd;
 
 		return stringLiteral;
@@ -718,7 +717,7 @@ Expression* parseAtom(Parser* parser)
 
 		StringLiteral* stringLiteral = parser->arena->alloc<StringLiteral>();
 		initNode((Node*)stringLiteral, NODE_STRING_LITERAL, start);
-		stringLiteral->value = CreateString(&parser->lexer.src[token.offset + 4], token.length - 8);
+		stringLiteral->value = CreateString(&parser->file->src[token.offset + 4], token.length - 8);
 		stringLiteral->end = parser->lastTokenEnd;
 
 		return stringLiteral;
@@ -729,7 +728,7 @@ Expression* parseAtom(Parser* parser)
 
 		CharLiteral* charLiteral = parser->arena->alloc<CharLiteral>();
 		initNode((Node*)charLiteral, NODE_CHAR_LITERAL, start);
-		charLiteral->value = CreateString(&parser->lexer.src[token.offset + 1], token.length - 2);
+		charLiteral->value = CreateString(&parser->lexer.file->src[token.offset + 1], token.length - 2);
 		charLiteral->end = parser->lastTokenEnd;
 
 		return charLiteral;
@@ -764,13 +763,42 @@ Expression* parseAtom(Parser* parser)
 
 		return expression;
 	}
+	else if (nextIs(parser, TOKEN_SIZEOF))
+	{
+		nextToken(parser);
+
+		expectToken(parser, '(');
+
+		Sizeof* sizeof_ = parser->arena->alloc<Sizeof>();
+		initNode((Node*)sizeof_, NODE_SIZEOF, start);
+
+		if (Expression* expression = parseExpression(parser))
+		{
+			sizeof_->expression = expression;
+		}
+		else if (TypeNode* type = parseType(parser))
+		{
+			sizeof_->targetType = type;
+		}
+		else
+		{
+			error(parser, getSourceLocation(parser), "Expression or type expected");
+			sizeof_->expression = getErrorExpression(parser, parser->cursor);
+		}
+
+		expectToken(parser, ')');
+
+		sizeof_->end = parser->lastTokenEnd;
+
+		return sizeof_;
+	}
 	else if (nextIs(parser, TOKEN_IDENTIFIER, &token) || nextIsKeyword(parser))
 	{
 		nextToken(parser);
 
 		Identifier* identifier = parser->arena->alloc<Identifier>();
 		initNode((Node*)identifier, NODE_IDENTIFIER, start);
-		identifier->name = getTokenString(token, parser);
+		identifier->name = getTokenString(token, parser->file);
 		identifier->end = parser->lastTokenEnd;
 
 		return identifier;
@@ -809,7 +837,6 @@ Expression* parseAtom(Parser* parser)
 		else
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
-			skipPastToken(parser, ')');
 			return getErrorExpression(parser, start);
 		}
 	}
@@ -835,7 +862,6 @@ Expression* parseAtom(Parser* parser)
 		else
 		{
 			error(parser, getSourceLocation(parser), "Expression expected");
-			skipPastToken(parser, ')');
 			return getErrorExpression(parser, start);
 		}
 	}
@@ -1211,7 +1237,10 @@ Expression* parsePostfixOperator(Parser* parser)
 					if (Expression* expression = parseExpression(parser))
 						cast->expression = expression;
 					else
+					{
+						error(parser, getSourceLocation(parser), "Expression expected");
 						cast->expression = getErrorExpression(parser, parser->cursor);
+					}
 
 					if (castType->typeKind == TYPE_STRING)
 					{
@@ -1266,19 +1295,19 @@ Expression* parsePostfixOperator(Parser* parser)
 				if (nextIs(parser, TOKEN_IDENTIFIER) || nextIsKeyword(parser))
 				{
 					Token identifier = nextToken(parser);
-					member->name = getTokenString(identifier, parser);
+					member->name = getTokenString(identifier, parser->file);
 					member->index = -1;
 				}
 				else if (nextIs(parser, TOKEN_INT_LITERAL))
 				{
 					Token index = nextToken(parser);
-					member->index = getConstantInt(getTokenString(index, parser));
+					member->index = getConstantInt(getTokenString(index, parser->file));
 				}
 				else
 				{
 					Token token = nextToken(parser);
 					SourceLocation start, end;
-					getSourceLocation(parser, token, &start, &end);
+					getSourceLocation(parser->file, token, &start, &end);
 					error(parser, start, end, "Identifier or integer expected");
 				}
 
@@ -1433,7 +1462,7 @@ Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 				}
 				else
 				{
-					StringView operatorString = getRangedString(operatorStart, operatorEnd, parser);
+					StringView operatorString = getRangedString(operatorStart, operatorEnd, parser->file);
 					error(parser, getSourceLocation(parser), "Expected expression after operator %.*s", operatorString.length, operatorString.ptr);
 					return left;
 				}
@@ -1452,29 +1481,30 @@ Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 
 Expression* parseExpression(Parser* parser)
 {
-	Expression* expression = parseBinaryOperator(parser, OPERATOR_NULL);
-
-	if (nextIs(parser, '?'))
+	if (Expression* expression = parseBinaryOperator(parser, OPERATOR_NULL))
 	{
-		nextToken(parser);
+		if (nextIs(parser, '?'))
+		{
+			nextToken(parser);
 
-		Expression* then = parseExpression(parser);
+			Expression* then = parseExpression(parser);
 
-		expectToken(parser, ':');
+			expectToken(parser, ':');
 
-		Expression* else_ = parseExpression(parser);
+			Expression* else_ = parseExpression(parser);
 
-		TernaryCondition* ternary = parser->arena->alloc<TernaryCondition>();
-		initNode((Node*)ternary, NODE_TERNARY_CONDITION, expression->start);
-		ternary->condition = expression;
-		ternary->then = then;
-		ternary->else_ = else_;
-		ternary->end = parser->lastTokenEnd;
+			TernaryCondition* ternary = parser->arena->alloc<TernaryCondition>();
+			initNode((Node*)ternary, NODE_TERNARY_CONDITION, expression->start);
+			ternary->condition = expression;
+			ternary->then = then;
+			ternary->else_ = else_;
+			ternary->end = parser->lastTokenEnd;
 
-		return ternary;
+			return ternary;
+		}
+		return expression;
 	}
-
-	return expression;
+	return nullptr;
 }
 
 static Statement** parseCodeBlock(Parser* parser, int endToken, int* numStatements)
@@ -1490,9 +1520,9 @@ static Statement** parseCodeBlock(Parser* parser, int endToken, int* numStatemen
 		else
 		{
 			Token token = nextToken(parser);
-			StringView tokenStr = getTokenString(token, parser);
+			StringView tokenStr = getTokenString(token, parser->file);
 			SourceLocation start, end;
-			getSourceLocation(parser, token, &start, &end);
+			getSourceLocation(parser->file, token, &start, &end);
 			error(parser, start, end, "Unexpected token '%.*s'", tokenStr.length, tokenStr.ptr);
 		}
 	}
@@ -1616,7 +1646,7 @@ Statement* parseStatement(Parser* parser)
 		if (nextIs(parser, TOKEN_IDENTIFIER, &iteratorName))
 		{
 			nextToken(parser);
-			for_->iteratorName = getTokenString(iteratorName, parser);
+			for_->iteratorName = getTokenString(iteratorName, parser->file);
 		}
 
 		expectToken(parser, ':');
@@ -1643,7 +1673,7 @@ Statement* parseStatement(Parser* parser)
 		{
 			if (equals)
 			{
-				error(parser, getSourceLocation(&parser->lexer, equalsPosition), "= prefix only allowed for comparison value");
+				error(parser, getSourceLocation(parser->file, equalsPosition), "= prefix only allowed for comparison value");
 			}
 
 			nextToken(parser);
@@ -1762,7 +1792,7 @@ Statement* parseStatement(Parser* parser)
 					Token identifier = nextToken(parser);
 
 					VariableDeclarator declarator = {};
-					declarator.name = getTokenString(identifier, parser);
+					declarator.name = getTokenString(identifier, parser->file);
 					declarator.value = nullptr;
 
 					if (nextIs(parser, '='))
@@ -1881,13 +1911,13 @@ Field* parseField(Parser* parser)
 		}
 
 		VariableDeclarator declarator = {};
-		declarator.name = getTokenString(identifier, parser);
+		declarator.name = getTokenString(identifier, parser->file);
 		declarator.value = nullptr;
 
 		if (nextIs(parser, '@') && nextIs(parser, 1, TOKEN_IDENTIFIER))
 		{
 			nextToken(parser);
-			StringView tag = getTokenString(nextToken(parser), parser);
+			StringView tag = getTokenString(nextToken(parser), parser->file);
 			if (compareString(tag, "offset"))
 			{
 				declarator.hasOffset = true;
@@ -1895,7 +1925,7 @@ Field* parseField(Parser* parser)
 				Token offset;
 				if (expectToken(parser, TOKEN_INT_LITERAL, &offset))
 				{
-					declarator.offset = (int)getConstantInt(getTokenString(offset, parser));
+					declarator.offset = (int)getConstantInt(getTokenString(offset, parser->file));
 				}
 				expectToken(parser, ')');
 			}
@@ -1945,7 +1975,7 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 		return struct_;
 	}
 
-	struct_->name = getTokenString(identifier, parser);
+	struct_->name = getTokenString(identifier, parser->file);
 
 	if (nextIs(parser, ';'))
 	{
@@ -1990,7 +2020,7 @@ Union* parseUnion(Parser* parser, uint32_t storage, int start)
 		return union_;
 	}
 
-	union_->name = getTokenString(identifier, parser);
+	union_->name = getTokenString(identifier, parser->file);
 
 	if (nextIs(parser, ';'))
 	{
@@ -2030,7 +2060,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 
 	Token identifier;
 	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
-	enum_->name = getTokenString(identifier, parser);
+	enum_->name = getTokenString(identifier, parser->file);
 
 	if (nextIs(parser, '='))
 	{
@@ -2048,7 +2078,7 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 
 		EnumValue* enumValue = parser->arena->alloc<EnumValue>();
 		initNode((Node*)enumValue, NODE_ENUM_VALUE, start);
-		enumValue->name = getTokenString(identifier, parser);
+		enumValue->name = getTokenString(identifier, parser->file);
 
 		if (nextIs(parser, '='))
 		{
@@ -2083,7 +2113,7 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 
 	Token identifier;
 	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
-	typedef_->name = getTokenString(identifier, parser);
+	typedef_->name = getTokenString(identifier, parser->file);
 
 	if (nextIs(parser, '='))
 	{
@@ -2101,12 +2131,14 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 
 Parameter* parseParameter(Parser* parser)
 {
+	int start = parser->cursor;
+
 	TypeNode* type = parseType(parser);
 	if (!type)
 		return nullptr;
 
 	Parameter* parameter = parser->arena->alloc<Parameter>();
-	initNode((Node*)parameter, NODE_PARAMETER, parser->cursor);
+	initNode((Node*)parameter, NODE_PARAMETER, start);
 	parameter->paramType = type;
 
 	bool variadic = false;
@@ -2124,7 +2156,7 @@ Parameter* parseParameter(Parser* parser)
 	else
 		expectToken(parser, TOKEN_IDENTIFIER, &nameToken);
 
-	parameter->name = getTokenString(nameToken, parser);
+	parameter->name = getTokenString(nameToken, parser->file);
 	parameter->variadic = variadic;
 	parameter->end = parser->lastTokenEnd;
 
@@ -2141,7 +2173,7 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 
 	Token identifier;
 	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
-	function->name = getTokenString(identifier, parser);
+	function->name = getTokenString(identifier, parser->file);
 
 	if (expectToken(parser, '('))
 	{
@@ -2221,7 +2253,7 @@ GlobalVariable* parseGlobalVariable(Parser* parser, TypeNode* type, uint32_t sto
 		}
 
 		VariableDeclarator declarator = {};
-		declarator.name = getTokenString(identifier, parser);
+		declarator.name = getTokenString(identifier, parser->file);
 		declarator.value = nullptr;
 
 		if (nextIs(parser, '='))
@@ -2268,7 +2300,7 @@ Macro* parseMacro(Parser* parser, uint32_t storage, int start)
 	Macro* macro = parser->arena->alloc<Macro>();
 	initNode((Node*)macro, NODE_MACRO, start);
 	macro->storage = storage;
-	macro->name = getTokenString(identifier, parser);
+	macro->name = getTokenString(identifier, parser->file);
 
 	if (nextIs(parser, ';'))
 	{
@@ -2302,7 +2334,7 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 	int mark = parser->scratch->mark();
 
-	parser->scratch->add(getTokenString(identifier, parser));
+	parser->scratch->add(getTokenString(identifier, parser->file));
 
 	while (nextIs(parser, '.'))
 	{
@@ -2314,7 +2346,7 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 		identifier = nextToken(parser);
 
-		parser->scratch->add(getTokenString(identifier, parser));
+		parser->scratch->add(getTokenString(identifier, parser->file));
 	}
 
 	import_->path = copyFromScratchBuffer<StringView>(parser, mark, &import_->pathCount);
@@ -2423,8 +2455,8 @@ void parseFile(Parser* parser, AST* ast)
 			nextToken(parser);
 
 			SourceLocation start, end;
-			getSourceLocation(parser, token, &start, &end);
-			StringView tokenStr = getTokenString(token, parser);
+			getSourceLocation(parser->file, token, &start, &end);
+			StringView tokenStr = getTokenString(token, parser->file);
 			error(parser, start, end, "Unexpected token '%.*s'", tokenStr.length, tokenStr.ptr);
 
 			if (token.type == '{')
@@ -2454,7 +2486,7 @@ void resolveDependencies(Parser* parser, File* file)
 			char buffer[256];
 			getLocalPathFromModuleName(buffer, declaration->import.path, declaration->import.pathCount);
 			FileHandle fileHandle = getFileHandle(buffer);
-			if (getFileFromHandle(fileHandle))
+			if (isFileLoaded(fileHandle))
 				file->dependencies.add(fileHandle);
 			else
 			{

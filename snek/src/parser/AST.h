@@ -49,6 +49,7 @@ enum NodeType : uint8_t
 	NODE_MEMBER_ACCESS,
 	NODE_TERNARY_CONDITION,
 	NODE_CAST,
+	NODE_SIZEOF,
 	NODE_EXPRESSION_END,
 
 	NODE_STATEMENT_START,
@@ -382,6 +383,14 @@ struct Cast : Expression
 	bool implicit;
 };
 
+struct Sizeof : Expression
+{
+	Expression* expression;
+	TypeNode* targetType;
+
+	Type* expressionType;
+};
+
 
 struct Statement : NodeBase
 {
@@ -587,6 +596,7 @@ struct Node
 		MemberAccess memberAccess;
 		TernaryCondition ternaryCondition;
 		Cast cast;
+		Sizeof sizeof_;
 
 		ErrorStatement errorStatement;
 		BlockStatement blockStatement;

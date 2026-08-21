@@ -1,5 +1,6 @@
 #include "Lexer.h"
 
+#include "File.h"
 #include "Keywords.h"
 #include "Diagnostics.h"
 #include "utils/Arena.h"
@@ -12,28 +13,12 @@
 #include <string>
 
 
-void initLexer(Lexer* lexer, const char* filename, const char* src, int length, Arena* arena, Diagnostics* diagnostics)
+void initLexer(Lexer* lexer, File* file)
 {
 	*lexer = {};
 
-	lexer->filename = filename;
-	lexer->src = src;
-	lexer->length = length;
-	lexer->arena = arena;
-	lexer->diagnostics = diagnostics;
+	lexer->file = file;
 	lexer->cursor = 0;
-
-	lexer->lineOffsets.add(0);
-	for (int i = 0; i < length; i++)
-	{
-		if (src[i] == '\n')
-			lexer->lineOffsets.add(i + 1);
-	}
-}
-
-void destroyLexer(Lexer* lexer)
-{
-	FreeList(&lexer->lineOffsets);
 }
 
 static int getUTF8Length(const char* ptr)
@@ -52,49 +37,49 @@ static int getUTF8Length(const char* ptr)
 	return 0;
 }
 
-SourceLocation getSourceLocation(Lexer* lexer, int offset)
+SourceLocation getSourceLocation(File* file, int offset)
 {
-	for (int i = 0; i < lexer->lineOffsets.size - 1; i++)
+	for (int i = 0; i < file->lineOffsets.size - 1; i++)
 	{
-		if (lexer->lineOffsets[i + 1] > offset)
+		if (file->lineOffsets[i + 1] > offset)
 		{
 			int line = i;
-			int lineOffset = lexer->lineOffsets[i];
-			int nextLine = lexer->lineOffsets[i + 1];
+			int lineOffset = file->lineOffsets[i];
+			int nextLine = file->lineOffsets[i + 1];
 
 			int col = 0;
 			while (lineOffset < offset)
 			{
-				lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+				lineOffset += getUTF8Length(&file->src[lineOffset]);
 				col++;
 			}
 
-			return { lexer->filename, line, col };
+			return { file->localPath, line, col };
 		}
 	}
-	int line = lexer->lineOffsets.size - 1;
-	int col = offset - lexer->lineOffsets[lexer->lineOffsets.size - 1];
-	return { lexer->filename, line, col };
+	int line = file->lineOffsets.size - 1;
+	int col = offset - file->lineOffsets[file->lineOffsets.size - 1];
+	return { file->localPath, line, col };
 }
 
-int locationToOffset(Lexer* lexer, int line, int col)
+int locationToOffset(File* file, int line, int col)
 {
-	int lineOffset = lexer->lineOffsets[line];
+	int lineOffset = file->lineOffsets[line];
 	for (int i = 0; i < col; i++)
 	{
-		lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+		lineOffset += getUTF8Length(&file->src[lineOffset]);
 	}
 	return lineOffset;
 }
 
-int locationToLineOffset(Lexer* lexer, int line, int col)
+int locationToLineOffset(File* file, int line, int col)
 {
-	int lineOffset = lexer->lineOffsets[line];
+	int lineOffset = file->lineOffsets[line];
 	for (int i = 0; i < col; i++)
 	{
-		lineOffset += getUTF8Length(&lexer->src[lineOffset]);
+		lineOffset += getUTF8Length(&file->src[lineOffset]);
 	}
-	return lineOffset - lexer->lineOffsets[line];
+	return lineOffset - file->lineOffsets[line];
 }
 
 StringView getTokenString(Token token, const char* src)
@@ -104,35 +89,33 @@ StringView getTokenString(Token token, const char* src)
 
 static void error(Lexer* lexer, int start, int end, const char* fmt, ...)
 {
-	if (!lexer->diagnostics) return;
-
-	SourceLocation startLocation = getSourceLocation(lexer, start);
-	SourceLocation endLocation = getSourceLocation(lexer, end);
+	SourceLocation startLocation = getSourceLocation(lexer->file, start);
+	SourceLocation endLocation = getSourceLocation(lexer->file, end);
 
 	va_list args;
 	va_start(args, fmt);
 
 	int length = vsnprintf(nullptr, 0, fmt, args);
-	char* msg = (char*)lexer->arena->alloc(length + 1);
+	char* msg = (char*)lexer->file->arena.alloc(length + 1);
 	vsnprintf(msg, length + 1, fmt, args);
 
 	va_end(args);
 
-	logMessage(lexer->diagnostics, msg, startLocation.line, startLocation.col, endLocation.line, endLocation.col, DIAGNOSTICS_ERROR);
+	logMessage(&lexer->file->diagnostics, msg, startLocation.line, startLocation.col, endLocation.line, endLocation.col, DIAGNOSTICS_ERROR);
 }
 
 static char peekCharacter(Lexer* lexer, int offset = 0)
 {
-	if (lexer->cursor >= lexer->length)
+	if (lexer->cursor >= lexer->file->length)
 		return 0;
-	return lexer->src[lexer->cursor + offset];
+	return lexer->file->src[lexer->cursor + offset];
 }
 
 static char nextCharacter(Lexer* lexer)
 {
-	if (lexer->cursor >= lexer->length)
+	if (lexer->cursor >= lexer->file->length)
 		return 0;
-	return lexer->src[lexer->cursor++];
+	return lexer->file->src[lexer->cursor++];
 }
 
 // replacement for isalpha because that one crashes when passing ö
@@ -610,7 +593,7 @@ static bool readIdentifier(Lexer* lexer, Token* token)
 
 	int end = lexer->cursor;
 	int length = end - start;
-	token->type = getKeywordType(&lexer->src[start], length);
+	token->type = getKeywordType(&lexer->file->src[start], length);
 	token->length = length;
 
 	skipWhitespace(lexer);
@@ -650,7 +633,7 @@ Token nextToken(Lexer* lexer)
 {
 	skipWhitespace(lexer);
 
-	if (lexer->cursor >= lexer->length)
+	if (lexer->cursor >= lexer->file->length)
 		return {};
 
 	Token token = {};
@@ -665,7 +648,7 @@ Token nextToken(Lexer* lexer)
 	if (readIdentifier(lexer, &token))
 		return token;
 
-	const char* ptr = &lexer->src[lexer->cursor];
+	const char* ptr = &lexer->file->src[lexer->cursor];
 	if ((unsigned char)*ptr >= 0x80) // unicode
 	{
 		int unicode = readUTF8(lexer, ptr);

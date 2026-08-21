@@ -2,8 +2,8 @@
 #include <snek.h>
 
 
-typedef struct{const i8 data[50];}A50c;
-typedef struct{const any* data;u64 length;}A0a;
+typedef struct{i8 data[50];}A50c;
+typedef struct{any* data;u64 length;}A0a;
 
 
 extern i32 putchar(i32 c);

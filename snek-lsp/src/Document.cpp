@@ -53,8 +53,12 @@ static void textToLines(const std::string& text, List<char*>& lines)
 	}
 }
 
-void Document::init(const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool)
+void Document::init(std::string uri, const char* localPath, const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool)
 {
+	this->uri = uri;
+	this->localPath = _strdup(localPath);
+	this->fileHandle = getFileHandle(localPath);
+
 	textToLines(text, lines);
 
 	open = false;
@@ -62,8 +66,6 @@ void Document::init(const std::string& text, TypeSystem* types, GlobalBlockPool*
 	lastChange = GetTimeNS();
 
 	state = DOCUMENT_STATE_UNPARSED;
-
-	initFile(&file, localPath.c_str(), blockPool);
 }
 
 void Document::onOpen(std::string& text)
@@ -91,8 +93,8 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 
 	textToLines(text, changeLines);
 
-	char* prefix = substring(lines[startLine], 0, locationToLineOffset(&file.parser.lexer, startLine, startCol));
-	char* suffix = substring(lines[endLine], locationToLineOffset(&file.parser.lexer, endLine, endCol));
+	char* prefix = substring(lines[startLine], 0, locationToLineOffset(file, startLine, startCol));
+	char* suffix = substring(lines[endLine], locationToLineOffset(file, endLine, endCol));
 
 	changeLines[0] = concatDelete(prefix, changeLines[0]);
 	changeLines[changeLines.size - 1] = concatDelete(changeLines[changeLines.size - 1], suffix);
@@ -115,7 +117,7 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 	int currentOffset = 0;
 	for (int i = 0; i < lines.size; i++)
 	{
-		file.parser.lexer.lineOffsets.add(currentOffset);
+		file->lineOffsets.add(currentOffset);
 		currentOffset += (int)strlen(lines[i]) + 1;
 	}
 
@@ -150,9 +152,9 @@ struct ASTVisitorData
 	List<LSPToken>* lspTokens;
 };
 
-static void getStringRange(StringView str, Parser* parser, int* start, int* end)
+static void getStringRange(StringView str, File* file, int* start, int* end)
 {
-	*start = (int)(str.ptr - parser->lexer.src);
+	*start = (int)(str.ptr - file->src);
 	*end = *start + str.length;
 }
 
@@ -181,7 +183,7 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		Identifier* identifier = &node->identifier;
 
 		int start, end;
-		getStringRange(identifier->name, &data->file->parser, &start, &end);
+		getStringRange(identifier->name, data->file, &start, &end);
 		int len = end - start;
 
 		Symbol* symbol = getIdentifierSymbol(identifier);
@@ -232,7 +234,7 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		MemberAccess* member = &node->memberAccess;
 
 		int start, end;
-		getStringRange(member->name, &data->file->parser, &start, &end);
+		getStringRange(member->name, data->file, &start, &end);
 
 		Type* operandType = member->operand->inferredType;
 		if (operandType && operandType->typeKind == TYPE_TYPE)
@@ -254,27 +256,27 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		For* for_ = &node->for_;
 		int start, end;
-		getStringRange(for_->iteratorName, &data->file->parser, &start, &end);
+		getStringRange(for_->iteratorName, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, 0 });
 	}
 	else if (node->type == NODE_STRUCT)
 	{
 		Struct* struct_ = &node->struct_;
 		int start, end;
-		getStringRange(struct_->name, &data->file->parser, &start, &end);
+		getStringRange(struct_->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_STRUCT, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_ENUM)
 	{
 		Enum* enum_ = &node->enum_;
 		int start, end;
-		getStringRange(enum_->name, &data->file->parser, &start, &end);
+		getStringRange(enum_->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM, LSP_TOKEN_MODIFIER_DECLARATION });
 
 		for (int i = 0; i < enum_->numValues; i++)
 		{
 			int start, end;
-			getStringRange(enum_->values[i]->name, &data->file->parser, &start, &end);
+			getStringRange(enum_->values[i]->name, data->file, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 		}
 	}
@@ -282,14 +284,14 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		Typedef* typedef_ = &node->typedef_;
 		int start, end;
-		getStringRange(typedef_->name, &data->file->parser, &start, &end);
+		getStringRange(typedef_->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_TYPE, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_FUNCTION)
 	{
 		Function* function = &node->function;
 		int start, end;
-		getStringRange(function->name, &data->file->parser, &start, &end);
+		getStringRange(function->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_FUNCTION, LSP_TOKEN_MODIFIER_DECLARATION });
 	}
 	else if (node->type == NODE_IMPORT)
@@ -302,7 +304,7 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		for (int i = 0; i < field->numDeclarators; i++)
 		{
 			int start, end;
-			getStringRange(field->declarators[i].name, &data->file->parser, &start, &end);
+			getStringRange(field->declarators[i].name, data->file, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
 		}
 	}
@@ -310,14 +312,14 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 	{
 		Parameter* parameter = &node->parameter;
 		int start, end;
-		getStringRange(parameter->name, &data->file->parser, &start, &end);
+		getStringRange(parameter->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_PARAMETER, 0 });
 	}
 	else if (node->type == NODE_ENUM_VALUE)
 	{
 		EnumValue* enumValue = &node->enumValue;
 		int start, end;
-		getStringRange(enumValue->name, &data->file->parser, &start, &end);
+		getStringRange(enumValue->name, data->file, &start, &end);
 		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
 	}
 	else if (node->type == NODE_GLOBAL_VARIABLE)
@@ -326,7 +328,7 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 		for (int i = 0; i < globalVariable->numDeclarators; i++)
 		{
 			int start, end;
-			getStringRange(globalVariable->declarators[i].name, &data->file->parser, &start, &end);
+			getStringRange(globalVariable->declarators[i].name, data->file, &start, &end);
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_VARIABLE, LSP_TOKEN_MODIFIER_DECLARATION });
 		}
 	}
@@ -341,14 +343,10 @@ void Document::getTokens(std::vector<int>& data)
 
 	List<LSPToken> lspTokens;
 
-	astMutex.lock();
-
 	ASTVisitorData visitorData = {};
-	visitorData.file = &file;
+	visitorData.file = file;
 	visitorData.lspTokens = &lspTokens;
-	traverseAST(&file.ast, (ASTVisitor_t)getNodeTokens, &visitorData);
-
-	astMutex.unlock();
+	traverseAST(&file->ast, (ASTVisitor_t)getNodeTokens, &visitorData);
 
 	qsort(lspTokens.buffer, lspTokens.size, sizeof(LSPToken), (_CoreCrtNonSecureSearchSortCompareFunction)LSPTokenComparator);
 
@@ -356,7 +354,7 @@ void Document::getTokens(std::vector<int>& data)
 	for (int i = 0; i < lspTokens.size; i++)
 	{
 		LSPToken token = lspTokens[i];
-		SourceLocation location = getSourceLocation(&file.parser.lexer, token.offset);
+		SourceLocation location = getSourceLocation(file, token.offset);
 		int len = token.length;
 
 		// deltaLine, deltaStart, length, tokenType, tokenModifiers
@@ -376,7 +374,7 @@ void Document::getTokens(std::vector<int>& data)
 
 struct NodeSearchParams
 {
-	Lexer* lexer;
+	File* file;
 	int line, col;
 	Node* node;
 	Scope* scope;
@@ -387,8 +385,8 @@ static bool searchForNode(Node* node, Scope* scope, void* userPtr)
 	NodeSearchParams* params = (NodeSearchParams*)userPtr;
 
 	SnekAssert(node->end >= node->start);
-	SourceLocation start = getSourceLocation(params->lexer, node->start);
-	SourceLocation end = getSourceLocation(params->lexer, node->end);
+	SourceLocation start = getSourceLocation(params->file, node->start);
+	SourceLocation end = getSourceLocation(params->file, node->end);
 
 	if (params->line >= start.line && params->line <= end.line)
 	{
@@ -415,23 +413,21 @@ static bool searchForNode(Node* node, Scope* scope, void* userPtr)
 
 void Document::getNodeAtPosition(int line, int col, Node** node, Scope** scope)
 {
-	AST* ast = &file.ast;
-
 	NodeSearchParams params = {};
-	params.lexer = &file.parser.lexer;
+	params.file = file;
 	params.line = line;
 	params.col = col;
 
-	traverseAST(ast, searchForNode, &params);
+	traverseAST(&file->ast, searchForNode, &params);
 
 	*node = params.node;
 	*scope = params.scope;
 }
 
-static bool isInRangeOfString(Parser* parser, int line, int col, StringView str)
+static bool isInRangeOfString(File* file, int line, int col, StringView str)
 {
-	SourceLocation start = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src));
-	SourceLocation end = getSourceLocation(&parser->lexer, (int)(str.ptr - parser->lexer.src) + str.length);
+	SourceLocation start = getSourceLocation(file, (int)(str.ptr - file->src));
+	SourceLocation end = getSourceLocation(file, (int)(str.ptr - file->src) + str.length);
 
 	if (line >= start.line && line <= end.line)
 	{
@@ -443,7 +439,7 @@ static bool isInRangeOfString(Parser* parser, int line, int col, StringView str)
 	return false;
 }
 
-static bool getDeclarationNameIdentifier(Parser* parser, Node* node, int line, int col, StringView* identifier)
+static bool getDeclarationNameIdentifier(File* file, Node* node, int line, int col, StringView* identifier)
 {
 	if (node->type == NODE_STRUCT)
 	{
@@ -481,7 +477,7 @@ static bool getDeclarationNameIdentifier(Parser* parser, Node* node, int line, i
 		for (int i = 0; i < variable->numDeclarators; i++)
 		{
 			VariableDeclarator* declarator = &variable->declarators[i];
-			if (isInRangeOfString(parser, line, col, declarator->name))
+			if (isInRangeOfString(file, line, col, declarator->name))
 			{
 				*identifier = declarator->name;
 				return true;
@@ -520,9 +516,9 @@ Symbol* Document::getSymbolAtPosition(int line, int col, int* overloadIdx)
 		else
 		{
 			StringView declarationName;
-			if (getDeclarationNameIdentifier(&file.parser, node, line, col, &declarationName))
+			if (getDeclarationNameIdentifier(file, node, line, col, &declarationName))
 			{
-				if (Symbol* symbol = lookupSymbol(&file.ast.globalScope->symbols, declarationName))
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, declarationName))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 					{
@@ -649,25 +645,26 @@ static void scanScopeForMemberFunction(Scope* scope, Type* operandType, nlohmann
 	}
 }
 
-void Document::autocomplete(Node* node, Scope* scope, char triggerCharacter, json& items)
+void Document::autocomplete(Scope* scope, json& items)
 {
-	if (triggerCharacter == 0)
+	while (scope)
 	{
-		while (scope)
-		{
-			scanScopeForItems(scope, items);
-			scope = scope->parent;
-		}
+		scanScopeForItems(scope, items);
+		scope = scope->parent;
+	}
 
-		for (int i = 0; i < file.dependencies.size; i++)
+	for (int i = 0; i < file->dependencies.size; i++)
+	{
+		if (File* dependency = getFileFromHandleLSP(file->dependencies[i]))
 		{
-			if (File* dependency = getFileFromHandle(file.dependencies[i]))
-			{
-				scanScopeForItems(dependency->ast.globalScope, items);
-			}
+			scanScopeForItems(dependency->ast.globalScope, items);
 		}
 	}
-	else if (triggerCharacter == '.')
+}
+
+void Document::autocomplete(Node* node, char triggerCharacter, json& items)
+{
+	if (triggerCharacter == '.')
 	{
 		if (node->type > NODE_EXPRESSION_START && node->type < NODE_EXPRESSION_END)
 		{
@@ -812,11 +809,11 @@ void Document::autocomplete(Node* node, Scope* scope, char triggerCharacter, jso
 					}
 				}
 
-				scanScopeForMemberFunction(file.ast.globalScope, operandType, items);
+				scanScopeForMemberFunction(file->ast.globalScope, operandType, items);
 
-				for (int i = 0; i < file.dependencies.size; i++)
+				for (int i = 0; i < file->dependencies.size; i++)
 				{
-					if (File* dependency = getFileFromHandle(file.dependencies[i]))
+					if (File* dependency = getFileFromHandleLSP(file->dependencies[i]))
 					{
 						scanScopeForMemberFunction(dependency->ast.globalScope, operandType, items);
 					}
@@ -828,14 +825,14 @@ void Document::autocomplete(Node* node, Scope* scope, char triggerCharacter, jso
 
 void Document::getSymbols(json& items)
 {
-	AST* ast = &file.ast;
+	AST* ast = &file->ast;
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
 		Node* declaration = ast->declarations[i];
 
 		SourceLocation start, end;
-		getSourceLocation(&file.parser, declaration, &start, &end);
+		getSourceLocation(file, declaration, &start, &end);
 
 		SourceLocation selectionStart, selectionEnd;
 
@@ -849,7 +846,7 @@ void Document::getSymbols(json& items)
 			name = std::string(struct_->name.ptr, struct_->name.length);
 			kind = SYMBOL_KIND_STRUCT;
 
-			getSourceLocation(&file.parser, struct_->name, &selectionStart, &selectionEnd);
+			getSourceLocation(file, struct_->name, &selectionStart, &selectionEnd);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
@@ -858,7 +855,7 @@ void Document::getSymbols(json& items)
 			name = std::string(union_->name.ptr, union_->name.length);
 			kind = SYMBOL_KIND_STRUCT;
 
-			getSourceLocation(&file.parser, union_->name, &selectionStart, &selectionEnd);
+			getSourceLocation(file, union_->name, &selectionStart, &selectionEnd);
 		}
 		else if (declaration->type == NODE_ENUM)
 		{
@@ -867,7 +864,7 @@ void Document::getSymbols(json& items)
 			name = std::string(enum_->name.ptr, enum_->name.length);
 			kind = SYMBOL_KIND_ENUM;
 
-			getSourceLocation(&file.parser, enum_->name, &selectionStart, &selectionEnd);
+			getSourceLocation(file, enum_->name, &selectionStart, &selectionEnd);
 		}
 		else if (declaration->type == NODE_TYPEDEF)
 		{
@@ -876,7 +873,7 @@ void Document::getSymbols(json& items)
 			name = std::string(typedef_->name.ptr, typedef_->name.length);
 			kind = SYMBOL_KIND_STRUCT;
 
-			getSourceLocation(&file.parser, typedef_->name, &selectionStart, &selectionEnd);
+			getSourceLocation(file, typedef_->name, &selectionStart, &selectionEnd);
 		}
 		else if (declaration->type == NODE_FUNCTION)
 		{
@@ -885,7 +882,7 @@ void Document::getSymbols(json& items)
 			name = std::string(function->name.ptr, function->name.length);
 			kind = SYMBOL_KIND_FUNCTION;
 
-			getSourceLocation(&file.parser, function->name, &selectionStart, &selectionEnd);
+			getSourceLocation(file, function->name, &selectionStart, &selectionEnd);
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
@@ -896,7 +893,7 @@ void Document::getSymbols(json& items)
 				name = std::string(variable->declarators[0].name.ptr, variable->declarators[0].name.length);
 				kind = variable->storage & STORAGE_CONSTANT ? SYMBOL_KIND_CONSTANT : SYMBOL_KIND_VARIABLE;
 
-				getSourceLocation(&file.parser, variable->declarators[0].name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, variable->declarators[0].name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_MACRO)
@@ -974,14 +971,14 @@ static bool matchQuery(StringView name, const std::string& query)
 
 void Document::getWorkspaceSymbols(const std::string& query, json& items)
 {
-	AST* ast = &file.ast;
+	AST* ast = &file->ast;
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
 		Node* declaration = ast->declarations[i];
 
 		SourceLocation start, end;
-		getSourceLocation(&file.parser, declaration, &start, &end);
+		getSourceLocation(file, declaration, &start, &end);
 
 		SourceLocation selectionStart, selectionEnd;
 
@@ -997,7 +994,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 				name = std::string(struct_->name.ptr, struct_->name.length);
 				kind = SYMBOL_KIND_STRUCT;
 
-				getSourceLocation(&file.parser, struct_->name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, struct_->name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_UNION)
@@ -1009,7 +1006,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 				name = std::string(union_->name.ptr, union_->name.length);
 				kind = SYMBOL_KIND_STRUCT;
 
-				getSourceLocation(&file.parser, union_->name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, union_->name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_ENUM)
@@ -1021,7 +1018,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 				name = std::string(enum_->name.ptr, enum_->name.length);
 				kind = SYMBOL_KIND_ENUM;
 
-				getSourceLocation(&file.parser, enum_->name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, enum_->name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_TYPEDEF)
@@ -1033,7 +1030,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 				name = std::string(typedef_->name.ptr, typedef_->name.length);
 				kind = SYMBOL_KIND_STRUCT;
 
-				getSourceLocation(&file.parser, typedef_->name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, typedef_->name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_FUNCTION)
@@ -1045,7 +1042,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 				name = std::string(function->name.ptr, function->name.length);
 				kind = SYMBOL_KIND_FUNCTION;
 
-				getSourceLocation(&file.parser, function->name, &selectionStart, &selectionEnd);
+				getSourceLocation(file, function->name, &selectionStart, &selectionEnd);
 			}
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
@@ -1059,7 +1056,7 @@ void Document::getWorkspaceSymbols(const std::string& query, json& items)
 					name = std::string(variable->declarators[0].name.ptr, variable->declarators[0].name.length);
 					kind = variable->storage & STORAGE_CONSTANT ? SYMBOL_KIND_CONSTANT : SYMBOL_KIND_VARIABLE;
 
-					getSourceLocation(&file.parser, variable->declarators[0].name, &selectionStart, &selectionEnd);
+					getSourceLocation(file, variable->declarators[0].name, &selectionStart, &selectionEnd);
 				}
 			}
 		}
@@ -1111,7 +1108,7 @@ static Symbol* resolveSymbol(File* file, Scope* currentScope, StringView identif
 	for (int i = 0; i < file->dependencies.size; i++)
 	{
 		FileHandle dependency = file->dependencies[i];
-		if (File* file = getFileFromHandle(dependency))
+		if (File* file = getFileFromHandleLSP(dependency))
 		{
 			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
 			{
@@ -1164,10 +1161,10 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 		functionNameLocation.line = line;
 		functionNameLocation.col = functionNameStart;
 
-		functionNameStart += file.parser.lexer.lineOffsets[line];
-		functionNameEnd += file.parser.lexer.lineOffsets[line];
+		functionNameStart += file->lineOffsets[line];
+		functionNameEnd += file->lineOffsets[line];
 
-		StringView functionName = getRangedString(functionNameStart, functionNameEnd, &file.parser);
+		StringView functionName = getRangedString(functionNameStart, functionNameEnd, file);
 
 		Node* node;
 		Scope* scope;
@@ -1182,7 +1179,7 @@ bool Document::getFunctionSignature(int line, int col, json& signatures, int& ac
 
 		if (!symbol)
 		{
-			symbol = resolveSymbol(&file, scope, functionName);
+			symbol = resolveSymbol(file, scope, functionName);
 			activeSignature = 0;
 		}
 
@@ -1240,7 +1237,7 @@ static Document* getDocument(FileHandle file)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->file.handle == file)
+		if (documents[i]->file->handle == file)
 			return documents[i];
 	}
 	return nullptr;
@@ -1256,13 +1253,13 @@ bool Document::getDefinitionLocation(int line, int col, json& location)
 
 		if (symbol->type == SYMBOL_VARIABLE || symbol->type == SYMBOL_TYPE)
 		{
-			getSourceLocation(&symbolDocument->file.parser, symbol->declaration, &start, &end);
+			getSourceLocation(symbolDocument->file, symbol->declaration, &start, &end);
 		}
 		else if (symbol->type == SYMBOL_FUNCTION_SET)
 		{
 			SnekAssert(overloadIdx != -1);
 			FunctionOverload* functionOverload = &symbol->functionSet.overloads[overloadIdx];
-			getSourceLocation(&symbolDocument->file.parser, (Node*)functionOverload->declaration, &start, &end);
+			getSourceLocation(symbolDocument->file, (Node*)functionOverload->declaration, &start, &end);
 		}
 
 		if (start.filename)
@@ -1290,7 +1287,6 @@ bool Document::getDefinitionLocation(int line, int col, json& location)
 
 struct ScanReferencesParams
 {
-	Parser* parser;
 	Document* document;
 	Symbol* symbol;
 	json* locations;
@@ -1301,7 +1297,7 @@ static bool scanReferences(Node* node, Scope* scope, void* userPtr)
 	ScanReferencesParams* params = (ScanReferencesParams*)userPtr;
 
 	SourceLocation start, end;
-	getSourceLocation(params->parser, node, &start, &end);
+	getSourceLocation(params->document->file, node, &start, &end);
 
 	if (node->type == NODE_IDENTIFIER)
 	{
@@ -1370,17 +1366,15 @@ static bool scanReferences(Node* node, Scope* scope, void* userPtr)
 void Document::findAllReferences(Symbol* symbol, json& locations)
 {
 	ScanReferencesParams params = {};
-	params.parser = &file.parser;
 	params.document = this;
 	params.symbol = symbol;
 	params.locations = &locations;
 
-	traverseAST(&file.ast, scanReferences, &params);
+	traverseAST(&file->ast, scanReferences, &params);
 }
 
 struct ScanReferencesRenameParams
 {
-	Parser* parser;
 	Document* document;
 	Symbol* symbol;
 	std::string newText;
@@ -1397,7 +1391,7 @@ static bool scanReferencesForRename(Node* node, Scope* scope, void* userPtr)
 		if (getIdentifierSymbol(identifier) == params->symbol)
 		{
 			SourceLocation start, end;
-			getSourceLocation(params->parser, node, &start, &end);
+			getSourceLocation(params->document->file, node, &start, &end);
 
 			params->locations->push_back({
 				{"newText", params->newText},
@@ -1420,7 +1414,7 @@ static bool scanReferencesForRename(Node* node, Scope* scope, void* userPtr)
 		if (getMemberAccessSymbol(member) == params->symbol)
 		{
 			SourceLocation start, end;
-			getSourceLocation(params->parser, member->name, &start, &end);
+			getSourceLocation(params->document->file, member->name, &start, &end);
 
 			params->locations->push_back({
 				{"newText", params->newText},
@@ -1443,7 +1437,7 @@ static bool scanReferencesForRename(Node* node, Scope* scope, void* userPtr)
 		if (getNamedTypeSymbol(namedType) == params->symbol)
 		{
 			SourceLocation start, end;
-			getSourceLocation(params->parser, node, &start, &end);
+			getSourceLocation(params->document->file, node, &start, &end);
 
 			params->locations->push_back({
 				{"newText", params->newText},
@@ -1467,13 +1461,12 @@ static bool scanReferencesForRename(Node* node, Scope* scope, void* userPtr)
 void Document::rename(Symbol* symbol, int overloadIdx, std::string newText, int line, int col, json& changes)
 {
 	ScanReferencesRenameParams params = {};
-	params.parser = &file.parser;
 	params.document = this;
 	params.newText = newText;
 	params.symbol = symbol;
 	params.locations = &changes;
 
-	traverseAST(&file.ast, scanReferencesForRename, &params);
+	traverseAST(&file->ast, scanReferencesForRename, &params);
 
 	Document* symbolDocument = getDocument(symbol->file);
 	Node* declaration = symbol->type == SYMBOL_FUNCTION_SET ? (Node*)symbol->functionSet.overloads[overloadIdx].declaration : symbol->declaration;
@@ -1481,10 +1474,10 @@ void Document::rename(Symbol* symbol, int overloadIdx, std::string newText, int 
 	if (symbolDocument == this)
 	{
 		StringView declarationName;
-		if (getDeclarationNameIdentifier(&file.parser, declaration, line, col, &declarationName))
+		if (getDeclarationNameIdentifier(file, declaration, line, col, &declarationName))
 		{
 			SourceLocation start, end;
-			getSourceLocation(&symbolDocument->file.parser, declarationName, &start, &end);
+			getSourceLocation(symbolDocument->file, declarationName, &start, &end);
 
 			changes.push_back({
 				{"newText", newText},

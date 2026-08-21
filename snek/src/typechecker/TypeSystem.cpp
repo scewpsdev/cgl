@@ -89,6 +89,11 @@ Type* getInt32Type(TypeSystem* types)
 	return &types->primitiveTypes[TYPE_INT32];
 }
 
+Type* getUInt64Type(TypeSystem* types)
+{
+	return &types->primitiveTypes[TYPE_UINT64];
+}
+
 Type* getStringType(TypeSystem* types)
 {
 	return &types->primitiveTypes[TYPE_STRING];

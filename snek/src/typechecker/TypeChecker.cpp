@@ -15,13 +15,12 @@
 #include <ctype.h>
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types)
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types)
 {
 	*tc = {};
 
 	tc->arena = arena;
 	tc->scratch = scratch;
-	tc->lexer = lexer;
 	tc->diagnostics = diagnostics;
 	tc->types = types;
 }
@@ -32,14 +31,14 @@ void destroyTypeChecker(TypeChecker* tc)
 
 static void getSourceLocation(TypeChecker* tc, Node* node, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(tc->lexer, node->start);
-	*end = getSourceLocation(tc->lexer, node->end);
+	*start = getSourceLocation(tc->file, node->start);
+	*end = getSourceLocation(tc->file, node->end);
 }
 
 static void getSourceLocation(TypeChecker* tc, StringView str, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(tc->lexer, (int)(str.ptr - tc->lexer->src));
-	*end = getSourceLocation(tc->lexer, (int)(str.ptr - tc->lexer->src) + str.length);
+	*start = getSourceLocation(tc->file, (int)(str.ptr - tc->file->src));
+	*end = getSourceLocation(tc->file, (int)(str.ptr - tc->file->src) + str.length);
 }
 
 static void error(TypeChecker* tc, Node* node, const char* fmt, ...)
@@ -106,7 +105,7 @@ static void popScope(TypeChecker* tc)
 
 void symbolCollection(TypeChecker* tc, File* file)
 {
-	tc->currentFile = file;
+	tc->file = file;
 
 	AST* ast = &file->ast;
 
@@ -459,7 +458,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 
 		if (symbol && symbol->type == SYMBOL_TYPE)
 		{
-			if (symbol->file == tc->currentFile->handle)
+			if (symbol->file == tc->file->handle)
 				namedType->symbol = symbol;
 			namedType->symbolHandle = getSymbolHandle(tc, symbol);
 
@@ -539,7 +538,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 
 		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
-		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes, fieldNames, tc->currentFile);
+		type->inferredType = getAnonymousStructType(tc->types, structType->numFields, fieldTypes, fieldNames, tc->file);
 
 		tc->scratch->release(mark);
 
@@ -603,7 +602,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 
 		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
 
-		type->inferredType = getAnonymousUnionType(tc->types, tc->scratch->count<StringView>(mark2), fieldTypes, fieldNames, tc->currentFile);
+		type->inferredType = getAnonymousUnionType(tc->types, tc->scratch->count<StringView>(mark2), fieldTypes, fieldNames, tc->file);
 
 		tc->scratch->release(mark);
 
@@ -624,7 +623,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			elementType = &tc->types->errorType;
 		}
 
-		return type->inferredType = getPointerType(tc->types, elementType, tc->currentFile);
+		return type->inferredType = getPointerType(tc->types, elementType, tc->file);
 	}
 	else if (type->type == NODE_OPTIONAL_TYPE)
 	{
@@ -641,7 +640,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			elementType = &tc->types->errorType;
 		}
 
-		return type->inferredType = getOptionalType(tc->types, elementType, tc->currentFile);
+		return type->inferredType = getOptionalType(tc->types, elementType, tc->file);
 	}
 	else if (type->type == NODE_FUNCTION_TYPE)
 	{
@@ -677,7 +676,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			returnType = functionType->returnType->inferredType;
 		}
 
-		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
+		type->inferredType = getFunctionType(tc->types, returnType, functionType->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->file);
 
 		tc->scratch->release(mark);
 
@@ -703,7 +702,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		}
 
 		Type** elementTypes = tc->scratch->getData<Type*>(mark);
-		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes, nullptr, tc->currentFile);
+		type->inferredType = getAnonymousStructType(tc->types, tupleType->numElementTypes, elementTypes, nullptr, tc->file);
 
 		tc->scratch->release(mark);
 
@@ -742,7 +741,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			}
 		}
 
-		return type->inferredType = getArrayType(tc->types, elementType, size, tc->currentFile);
+		return type->inferredType = getArrayType(tc->types, elementType, size, tc->file);
 	}
 
 	SnekAssert(false);
@@ -762,9 +761,9 @@ static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier)
 		scope = scope->parent;
 	}
 
-	for (int i = 0; i < tc->currentFile->dependencies.size; i++)
+	for (int i = 0; i < tc->file->dependencies.size; i++)
 	{
-		FileHandle dependency = tc->currentFile->dependencies[i];
+		FileHandle dependency = tc->file->dependencies[i];
 		if (File* file = getFileFromHandle(dependency))
 		{
 			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
@@ -1158,7 +1157,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 {
 	if (Symbol* symbol = resolveSymbol(tc, identifier->name))
 	{
-		if (symbol->file == tc->currentFile->handle)
+		if (symbol->file == tc->file->handle)
 			identifier->resolvedSymbol = symbol;
 		identifier->resolvedSymbolHandle = getSymbolHandle(tc, symbol);
 
@@ -1181,7 +1180,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 
 				Type* paramType = parameter->paramType->inferredType;
 				if (parameter->variadic)
-					paramType = getArrayType(tc->types, paramType, 0, tc->currentFile);
+					paramType = getArrayType(tc->types, paramType, 0, tc->file);
 
 				return identifier->inferredType = paramType;
 			}
@@ -1350,7 +1349,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 					return member->inferredType = &tc->types->errorType;
 				}
 
-				if (symbol->file == tc->currentFile->handle)
+				if (symbol->file == tc->file->handle)
 					member->resolvedSymbol = symbol;
 				member->resolvedSymbolHandle = getSymbolHandle(tc, symbol);
 				member->functionOverloadID = bestOverload;
@@ -1400,7 +1399,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 		if (compareString(member->name, "ptr"))
 		{
 			member->index = 0;
-			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->currentFile);
+			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->file);
 		}
 		else if (compareString(member->name, "length"))
 		{
@@ -1418,7 +1417,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 		if (compareString(member->name, "data"))
 		{
 			member->index = 0;
-			return member->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->currentFile);
+			return member->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->file);
 		}
 		else if (compareString(member->name, "length"))
 		{
@@ -1436,7 +1435,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 		if (compareString(member->name, "value"))
 		{
 			member->index = 0;
-			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->currentFile);
+			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->file);
 		}
 		else if (compareString(member->name, "type"))
 		{
@@ -1555,7 +1554,26 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		if (expectedType && expectedType->typeKind == TYPE_POINTER)
 			return expression->inferredType = expectedType;
 		else
-			return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_UINT8], tc->currentFile);
+			return expression->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_UINT8], tc->file);
+	}
+	else if (expression->type == NODE_SIZEOF)
+	{
+		Sizeof* sizeof_ = (Sizeof*)expression;
+
+		if (sizeof_->expression)
+		{
+			sizeof_->expressionType = resolveExpression(tc, sizeof_->expression);
+		}
+		else if (sizeof_->targetType)
+		{
+			sizeof_->expressionType = resolveType(tc, sizeof_->targetType);
+		}
+		else
+		{
+			SnekAssert(false);
+		}
+
+		return expression->inferredType = getUInt64Type(tc->types);
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
@@ -1592,7 +1610,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 					Type* fieldType = expressionList->values[i]->inferredType;
 
-					if (!isAssignable(tc, fieldType, targetType, &expressionList->values[i]))
+					if (fieldType != getErrorType(tc->types) && targetType != getErrorType(tc->types) && !isAssignable(tc, fieldType, targetType, &expressionList->values[i]))
 					{
 						if (expectedType->struct_.fieldNames)
 						{
@@ -1628,7 +1646,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 			Type** valueTypes = tc->scratch->getData<Type*>(mark);
 
-			expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr, tc->currentFile);
+			expression->inferredType = getAnonymousStructType(tc->types, expressionList->numValues, valueTypes, nullptr, tc->file);
 
 			tc->scratch->release(mark);
 
@@ -1658,7 +1676,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			}
 		}
 
-		return expression->inferredType = expectedType && expectedType->typeKind == TYPE_ARRAY ? expectedType : getArrayType(tc->types, elementType, arrayInitializer->numValues, tc->currentFile);
+		return expression->inferredType = expectedType && expectedType->typeKind == TYPE_ARRAY ? expectedType : getArrayType(tc->types, elementType, arrayInitializer->numValues, tc->file);
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -1777,7 +1795,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				return unaryOperator->inferredType = &tc->types->errorType;
 			}
 
-			return unaryOperator->inferredType = getPointerType(tc->types, operandType, tc->currentFile);
+			return unaryOperator->inferredType = getPointerType(tc->types, operandType, tc->file);
 		}
 		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX || unaryOperator->op == OPERATOR_DECREMENT_PREFIX
 			|| unaryOperator->op == OPERATOR_INCREMENT_POSTFIX || unaryOperator->op == OPERATOR_DECREMENT_POSTFIX)
@@ -1851,12 +1869,6 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			numArgs++;
 		}
 
-		for (int i = 0; i < functionCall->numArgs; i++)
-		{
-			resetExpression(&functionCall->args[i]);
-			resolveExpression(tc, functionCall->args[i], functionType->function.paramTypes[i]);
-		}
-
 		if (functionType->typeKind != TYPE_FUNCTION)
 		{
 			error(tc, (Node*)functionCall->expression, "Operand of function call must be of type function");
@@ -1870,6 +1882,14 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 					error(tc, (Node*)functionCall, "Incorrect number of member function arguments: %d, should be %d", functionCall->numArgs, functionType->function.numParams - 1);
 				else
 					error(tc, (Node*)functionCall, "Incorrect number of function arguments: %d, should be %d", numArgs, functionType->function.numParams);
+
+				return expression->inferredType = getErrorType(tc->types);
+			}
+
+			for (int i = 0; i < functionCall->numArgs; i++)
+			{
+				resetExpression(&functionCall->args[i]);
+				resolveExpression(tc, functionCall->args[i], functionType->function.paramTypes[i]);
 			}
 
 			for (int i = 0; i < numArgs; i++)
@@ -2143,7 +2163,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		if (for_->iteratorName.length)
 		{
-			insertSymbol(&for_->scope->symbols, for_->iteratorName, SYMBOL_VARIABLE, (Node*)statement, tc->currentFile->handle);
+			insertSymbol(&for_->scope->symbols, for_->iteratorName, SYMBOL_VARIABLE, (Node*)statement, tc->file->handle);
 		}
 
 		resolveStatement(tc, for_->body);
@@ -2228,7 +2248,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			}
 			else
 			{
-				insertSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name, SYMBOL_VARIABLE, (Node*)statement, tc->currentFile->handle);
+				insertSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name, SYMBOL_VARIABLE, (Node*)statement, tc->file->handle);
 			}
 
 			if (variableDeclaration->declarators[i].value)
@@ -2248,7 +2268,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		Type* expressionType = resolveExpression(tc, assignment->expression);
 		Type* valueType = resolveExpression(tc, assignment->value, expressionType);
 
-		if (!isLValue(assignment->expression))
+		if (expressionType != getErrorType(tc->types) && !isLValue(assignment->expression))
 		{
 			error(tc, (Node*)assignment->expression, "Cannot assign value to non-lvalue expression");
 		}
@@ -2258,7 +2278,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		if (assignment->op == OPERATOR_ASSIGN)
 		{
-			if (!isAssignable(tc, valueType, expressionType, &assignment->value))
+			if (expressionType != getErrorType(tc->types) && valueType != getErrorType(tc->types) && !isAssignable(tc, valueType, expressionType, &assignment->value))
 			{
 				error(tc, (Node*)assignment->value, "Cannot assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
 			}
@@ -2302,13 +2322,13 @@ static Type* resolveParameter(TypeChecker* tc, Parameter* parameter)
 {
 	Type* paramType = resolveType(tc, parameter->paramType);
 	if (parameter->variadic)
-		paramType = getArrayType(tc->types, paramType, 0, tc->currentFile);
+		paramType = getArrayType(tc->types, paramType, 0, tc->file);
 	return paramType;
 }
 
 void symbolResolution(TypeChecker* tc, File* file)
 {
-	tc->currentFile = file;
+	tc->file = file;
 
 	AST* ast = &file->ast;
 
@@ -2587,7 +2607,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 			returnType = function->returnType->inferredType;
 		}
 
-		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->currentFile);
+		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->file);
 
 		tc->scratch->release(mark);
 
@@ -2624,7 +2644,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 void typeCheckFunctions(TypeChecker* tc, File* file)
 {
-	tc->currentFile = file;
+	tc->file = file;
 
 	pushScope(tc, file->ast.globalScope);
 

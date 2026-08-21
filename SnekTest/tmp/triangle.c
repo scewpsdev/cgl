@@ -22,21 +22,376 @@ struct Vertex{
 	struct vec3 position;
 	struct vec4 color;
 };
-typedef struct{const struct Vertex* data;u64 length;}A0SVertex;
+typedef struct{struct Vertex data[3];}A3SVertex;
+struct SDL_GPUShader;
+enum SDL_GPUShaderStage:i32{
+	SDL_GPU_SHADERSTAGE_VERTEX,
+	SDL_GPU_SHADERSTAGE_FRAGMENT,
+};
+struct SDL_GPUDevice;
+typedef u8 Uint8;
 typedef u32 Uint32;
+typedef Uint32 SDL_GPUShaderFormat;
+typedef Uint32 SDL_PropertiesID;
+struct SDL_GPUShaderCreateInfo{
+	u64 code_size;
+	Uint8* code;
+	i8* entrypoint;
+	SDL_GPUShaderFormat format;
+	enum SDL_GPUShaderStage stage;
+	Uint32 num_samplers;
+	Uint32 num_storage_textures;
+	Uint32 num_storage_buffers;
+	Uint32 num_uniform_buffers;
+	SDL_PropertiesID props;
+};
+enum SDL_GPUBlendFactor:i32{
+	SDL_GPU_BLENDFACTOR_INVALID,
+	SDL_GPU_BLENDFACTOR_ZERO,
+	SDL_GPU_BLENDFACTOR_ONE,
+	SDL_GPU_BLENDFACTOR_SRC_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_COLOR,
+	SDL_GPU_BLENDFACTOR_DST_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_COLOR,
+	SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+	SDL_GPU_BLENDFACTOR_DST_ALPHA,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_ALPHA,
+	SDL_GPU_BLENDFACTOR_CONSTANT_COLOR,
+	SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR,
+	SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE,
+};
+enum SDL_GPUBlendOp:i32{
+	SDL_GPU_BLENDOP_INVALID,
+	SDL_GPU_BLENDOP_ADD,
+	SDL_GPU_BLENDOP_SUBTRACT,
+	SDL_GPU_BLENDOP_REVERSE_SUBTRACT,
+	SDL_GPU_BLENDOP_MIN,
+	SDL_GPU_BLENDOP_MAX,
+};
+typedef Uint8 SDL_GPUColorComponentFlags;
+struct SDL_GPUColorTargetBlendState{
+	enum SDL_GPUBlendFactor src_color_blendfactor;
+	enum SDL_GPUBlendFactor dst_color_blendfactor;
+	enum SDL_GPUBlendOp color_blend_op;
+	enum SDL_GPUBlendFactor src_alpha_blendfactor;
+	enum SDL_GPUBlendFactor dst_alpha_blendfactor;
+	enum SDL_GPUBlendOp alpha_blend_op;
+	SDL_GPUColorComponentFlags color_write_mask;
+	bool enable_blend;
+	bool enable_color_write_mask;
+	Uint8 padding1;
+	Uint8 padding2;
+};
 typedef Uint32 SDL_InitFlags;
 struct SDL_Window;
 typedef u64 Uint64;
 typedef Uint64 SDL_WindowFlags;
-struct SDL_GPUDevice;
-typedef Uint32 SDL_GPUShaderFormat;
 typedef Uint32 SDL_GPUBufferUsageFlags;
-typedef Uint32 SDL_PropertiesID;
 struct SDL_GPUBufferCreateInfo{
 	SDL_GPUBufferUsageFlags usage;
 	Uint32 size;
 	SDL_PropertiesID props;
 };
+struct SDL_GPUBuffer;
+enum SDL_GPUTransferBufferUsage:i32{
+	SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+	SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
+};
+struct SDL_GPUTransferBufferCreateInfo{
+	enum SDL_GPUTransferBufferUsage usage;
+	Uint32 size;
+	SDL_PropertiesID props;
+};
+struct SDL_GPUTransferBuffer;
+struct SDL_GPUCommandBuffer;
+struct SDL_GPUCopyPass;
+struct SDL_GPUTransferBufferLocation{
+	struct SDL_GPUTransferBuffer* transfer_buffer;
+	Uint32 offset;
+};
+struct SDL_GPUBufferRegion{
+	struct SDL_GPUBuffer* buffer;
+	Uint32 offset;
+	Uint32 size;
+};
+enum SDL_GPUVertexInputRate:i32{
+	SDL_GPU_VERTEXINPUTRATE_VERTEX,
+	SDL_GPU_VERTEXINPUTRATE_INSTANCE,
+};
+struct SDL_GPUVertexBufferDescription{
+	Uint32 slot;
+	Uint32 pitch;
+	enum SDL_GPUVertexInputRate input_rate;
+	Uint32 instance_step_rate;
+};
+typedef struct{struct SDL_GPUVertexBufferDescription data[1];}A1SSDL_GPUVertexBufferDescription;
+enum SDL_GPUVertexElementFormat:i32{
+	SDL_GPU_VERTEXELEMENTFORMAT_INVALID,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_INT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_UINT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+	SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE2,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE4,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_BYTE4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT2,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT4,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_SHORT4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT2_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_USHORT4_NORM,
+	SDL_GPU_VERTEXELEMENTFORMAT_HALF2,
+	SDL_GPU_VERTEXELEMENTFORMAT_HALF4,
+};
+struct SDL_GPUVertexAttribute{
+	Uint32 location;
+	Uint32 buffer_slot;
+	enum SDL_GPUVertexElementFormat format;
+	Uint32 offset;
+};
+typedef struct{struct SDL_GPUVertexAttribute data[2];}A2SSDL_GPUVertexAttribute;
+enum SDL_GPUTextureFormat:i32{
+	SDL_GPU_TEXTUREFORMAT_INVALID,
+	SDL_GPU_TEXTUREFORMAT_A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_R10G10B10A2_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B5G6R5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B5G5R5A1_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B4G4R4A4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM,
+	SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_BC6H_RGB_UFLOAT,
+	SDL_GPU_TEXTUREFORMAT_R8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_SNORM,
+	SDL_GPU_TEXTUREFORMAT_R16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_R11G11B10_UFLOAT,
+	SDL_GPU_TEXTUREFORMAT_R8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8G8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT,
+	SDL_GPU_TEXTUREFORMAT_R8_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_INT,
+	SDL_GPU_TEXTUREFORMAT_R16_INT,
+	SDL_GPU_TEXTUREFORMAT_R16G16_INT,
+	SDL_GPU_TEXTUREFORMAT_R16G16B16A16_INT,
+	SDL_GPU_TEXTUREFORMAT_R32_INT,
+	SDL_GPU_TEXTUREFORMAT_R32G32_INT,
+	SDL_GPU_TEXTUREFORMAT_R32G32B32A32_INT,
+	SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+	SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+	SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+	SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB,
+	SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT,
+	SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT,
+};
+struct SDL_GPUColorTargetDescription{
+	enum SDL_GPUTextureFormat format;
+	struct SDL_GPUColorTargetBlendState blend_state;
+};
+typedef struct{struct SDL_GPUColorTargetDescription data[1];}A1SSDL_GPUColorTargetDescription;
+struct SDL_GPUVertexInputState{
+	struct SDL_GPUVertexBufferDescription* vertex_buffer_descriptions;
+	Uint32 num_vertex_buffers;
+	struct SDL_GPUVertexAttribute* vertex_attributes;
+	Uint32 num_vertex_attributes;
+};
+enum SDL_GPUPrimitiveType:i32{
+	SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+	SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+	SDL_GPU_PRIMITIVETYPE_LINELIST,
+	SDL_GPU_PRIMITIVETYPE_LINESTRIP,
+	SDL_GPU_PRIMITIVETYPE_POINTLIST,
+};
+enum SDL_GPUFillMode:i32{
+	SDL_GPU_FILLMODE_FILL,
+	SDL_GPU_FILLMODE_LINE,
+};
+enum SDL_GPUCullMode:i32{
+	SDL_GPU_CULLMODE_NONE,
+	SDL_GPU_CULLMODE_FRONT,
+	SDL_GPU_CULLMODE_BACK,
+};
+enum SDL_GPUFrontFace:i32{
+	SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+	SDL_GPU_FRONTFACE_CLOCKWISE,
+};
+struct SDL_GPURasterizerState{
+	enum SDL_GPUFillMode fill_mode;
+	enum SDL_GPUCullMode cull_mode;
+	enum SDL_GPUFrontFace front_face;
+	float depth_bias_constant_factor;
+	float depth_bias_clamp;
+	float depth_bias_slope_factor;
+	bool enable_depth_bias;
+	bool enable_depth_clip;
+	Uint8 padding1;
+	Uint8 padding2;
+};
+enum SDL_GPUSampleCount:i32{
+	SDL_GPU_SAMPLECOUNT_1,
+	SDL_GPU_SAMPLECOUNT_2,
+	SDL_GPU_SAMPLECOUNT_4,
+	SDL_GPU_SAMPLECOUNT_8,
+};
+struct SDL_GPUMultisampleState{
+	enum SDL_GPUSampleCount sample_count;
+	Uint32 sample_mask;
+	bool enable_mask;
+	bool enable_alpha_to_coverage;
+	Uint8 padding2;
+	Uint8 padding3;
+};
+enum SDL_GPUCompareOp:i32{
+	SDL_GPU_COMPAREOP_INVALID,
+	SDL_GPU_COMPAREOP_NEVER,
+	SDL_GPU_COMPAREOP_LESS,
+	SDL_GPU_COMPAREOP_EQUAL,
+	SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+	SDL_GPU_COMPAREOP_GREATER,
+	SDL_GPU_COMPAREOP_NOT_EQUAL,
+	SDL_GPU_COMPAREOP_GREATER_OR_EQUAL,
+	SDL_GPU_COMPAREOP_ALWAYS,
+};
+enum SDL_GPUStencilOp:i32{
+	SDL_GPU_STENCILOP_INVALID,
+	SDL_GPU_STENCILOP_KEEP,
+	SDL_GPU_STENCILOP_ZERO,
+	SDL_GPU_STENCILOP_REPLACE,
+	SDL_GPU_STENCILOP_INCREMENT_AND_CLAMP,
+	SDL_GPU_STENCILOP_DECREMENT_AND_CLAMP,
+	SDL_GPU_STENCILOP_INVERT,
+	SDL_GPU_STENCILOP_INCREMENT_AND_WRAP,
+	SDL_GPU_STENCILOP_DECREMENT_AND_WRAP,
+};
+struct SDL_GPUStencilOpState{
+	enum SDL_GPUStencilOp fail_op;
+	enum SDL_GPUStencilOp pass_op;
+	enum SDL_GPUStencilOp depth_fail_op;
+	enum SDL_GPUCompareOp compare_op;
+};
+struct SDL_GPUDepthStencilState{
+	enum SDL_GPUCompareOp compare_op;
+	struct SDL_GPUStencilOpState back_stencil_state;
+	struct SDL_GPUStencilOpState front_stencil_state;
+	Uint8 compare_mask;
+	Uint8 write_mask;
+	bool enable_depth_test;
+	bool enable_depth_write;
+	bool enable_stencil_test;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+};
+struct SDL_GPUGraphicsPipelineTargetInfo{
+	struct SDL_GPUColorTargetDescription* color_target_descriptions;
+	Uint32 num_color_targets;
+	enum SDL_GPUTextureFormat depth_stencil_format;
+	bool has_depth_stencil_target;
+	Uint8 padding1;
+	Uint8 padding2;
+	Uint8 padding3;
+};
+struct SDL_GPUGraphicsPipelineCreateInfo{
+	struct SDL_GPUShader* vertex_shader;
+	struct SDL_GPUShader* fragment_shader;
+	struct SDL_GPUVertexInputState vertex_input_state;
+	enum SDL_GPUPrimitiveType primitive_type;
+	struct SDL_GPURasterizerState rasterizer_state;
+	struct SDL_GPUMultisampleState multisample_state;
+	struct SDL_GPUDepthStencilState depth_stencil_state;
+	struct SDL_GPUGraphicsPipelineTargetInfo target_info;
+	SDL_PropertiesID props;
+};
+struct SDL_GPUGraphicsPipeline;
 struct SDL_CommonEvent{
 	Uint32 type;
 	Uint32 reserved;
@@ -473,7 +828,6 @@ struct SDL_TextEditingEvent{
 	Sint32 start;
 	Sint32 length;
 };
-typedef u8 Uint8;
 struct SDL_TextEditingCandidatesEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
@@ -652,7 +1006,7 @@ struct SDL_GamepadTouchpadEvent{
 	float y;
 	float pressure;
 };
-typedef struct{const float data[3];}A3f;
+typedef struct{float data[3];}A3f;
 struct SDL_GamepadSensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
@@ -691,7 +1045,7 @@ struct SDL_CameraDeviceEvent{
 	SDL_CameraID which;
 };
 typedef Uint32 SDL_SensorID;
-typedef struct{const float data[6];}A6f;
+typedef struct{float data[6];}A6f;
 struct SDL_SensorEvent{
 	enum SDL_EventType type;
 	Uint32 reserved;
@@ -825,7 +1179,7 @@ struct SDL_ClipboardEvent{
 	Sint32 num_mime_types;
 	i8** mime_types;
 };
-typedef struct{const Uint8 data[128];}A128tUint8;
+typedef struct{Uint8 data[128];}A128tUint8;
 union SDL_Event{
 	Uint32 type;
 	struct SDL_CommonEvent common;
@@ -869,7 +1223,6 @@ union SDL_Event{
 	struct SDL_ClipboardEvent clipboard;
 	A128tUint8 padding;
 };
-struct SDL_GPUCommandBuffer;
 struct SDL_GPUTexture;
 struct SDL_FColor{
 	float r;
@@ -905,33 +1258,112 @@ struct SDL_GPUColorTargetInfo{
 };
 struct SDL_GPURenderPass;
 struct SDL_GPUDepthStencilTargetInfo;
+struct SDL_GPUBufferBinding{
+	struct SDL_GPUBuffer* buffer;
+	Uint32 offset;
+};
+typedef struct{struct SDL_GPUBufferBinding data[1];}A1SSDL_GPUBufferBinding;
 
 
+struct SDL_GPUShader* _loadShader_F3stESDL_GPUShaderStagepSSDL_GPUDevice_pSSDL_GPUShader(string path,enum SDL_GPUShaderStage stage,struct SDL_GPUDevice* device);
+DLLIMPORT extern void* SDL_LoadFile(i8* file,u64* datasize);
+DLLIMPORT extern struct SDL_GPUShader* SDL_CreateGPUShader(struct SDL_GPUDevice* device,struct SDL_GPUShaderCreateInfo* createinfo);
+DLLIMPORT extern void SDL_free(u8* mem);
+struct SDL_GPUColorTargetBlendState _createOpaqueBlendState_F0_SSDL_GPUColorTargetBlendState();
 void _main_F0();
 DLLIMPORT extern bool SDL_Init(SDL_InitFlags flags);
 DLLIMPORT extern struct SDL_Window* SDL_CreateWindow(i8* title,i32 w,i32 h,SDL_WindowFlags flags);
 DLLIMPORT extern struct SDL_GPUDevice* SDL_CreateGPUDevice(SDL_GPUShaderFormat format_flags,bool debug_mode,i8* name);
 DLLIMPORT extern bool SDL_ClaimWindowForGPUDevice(struct SDL_GPUDevice* device,struct SDL_Window* window);
-DLLIMPORT extern bool SDL_PollEvent(union SDL_Event* event);
+DLLIMPORT extern struct SDL_GPUBuffer* SDL_CreateGPUBuffer(struct SDL_GPUDevice* device,struct SDL_GPUBufferCreateInfo* createinfo);
+DLLIMPORT extern struct SDL_GPUTransferBuffer* SDL_CreateGPUTransferBuffer(struct SDL_GPUDevice* device,struct SDL_GPUTransferBufferCreateInfo* createinfo);
+DLLIMPORT extern void* SDL_MapGPUTransferBuffer(struct SDL_GPUDevice* device,struct SDL_GPUTransferBuffer* transfer_buffer,bool cycle);
+DLLIMPORT extern void SDL_UnmapGPUTransferBuffer(struct SDL_GPUDevice* device,struct SDL_GPUTransferBuffer* transfer_buffer);
 DLLIMPORT extern struct SDL_GPUCommandBuffer* SDL_AcquireGPUCommandBuffer(struct SDL_GPUDevice* device);
+DLLIMPORT extern struct SDL_GPUCopyPass* SDL_BeginGPUCopyPass(struct SDL_GPUCommandBuffer* command_buffer);
+DLLIMPORT extern void SDL_UploadToGPUBuffer(struct SDL_GPUCopyPass* copy_pass,struct SDL_GPUTransferBufferLocation* source,struct SDL_GPUBufferRegion* destination,bool cycle);
+DLLIMPORT extern void SDL_EndGPUCopyPass(struct SDL_GPUCopyPass* copy_pass);
+DLLIMPORT extern bool SDL_SubmitGPUCommandBuffer(struct SDL_GPUCommandBuffer* command_buffer);
+DLLIMPORT extern enum SDL_GPUTextureFormat SDL_GetGPUSwapchainTextureFormat(struct SDL_GPUDevice* device,struct SDL_Window* window);
+DLLIMPORT extern struct SDL_GPUGraphicsPipeline* SDL_CreateGPUGraphicsPipeline(struct SDL_GPUDevice* device,struct SDL_GPUGraphicsPipelineCreateInfo* createinfo);
+DLLIMPORT extern void SDL_ReleaseGPUShader(struct SDL_GPUDevice* device,struct SDL_GPUShader* shader);
+DLLIMPORT extern bool SDL_PollEvent(union SDL_Event* event);
 DLLIMPORT extern bool SDL_WaitAndAcquireGPUSwapchainTexture(struct SDL_GPUCommandBuffer* command_buffer,struct SDL_Window* window,struct SDL_GPUTexture** swapchain_texture,Uint32* swapchain_texture_width,Uint32* swapchain_texture_height);
 DLLIMPORT extern struct SDL_GPURenderPass* SDL_BeginGPURenderPass(struct SDL_GPUCommandBuffer* command_buffer,struct SDL_GPUColorTargetInfo* color_target_infos,Uint32 num_color_targets,struct SDL_GPUDepthStencilTargetInfo* depth_stencil_target_info);
+DLLIMPORT extern void SDL_BindGPUGraphicsPipeline(struct SDL_GPURenderPass* render_pass,struct SDL_GPUGraphicsPipeline* graphics_pipeline);
+DLLIMPORT extern void SDL_BindGPUVertexBuffers(struct SDL_GPURenderPass* render_pass,Uint32 first_slot,struct SDL_GPUBufferBinding* bindings,Uint32 num_bindings);
+DLLIMPORT extern void SDL_DrawGPUPrimitives(struct SDL_GPURenderPass* render_pass,Uint32 num_vertices,Uint32 num_instances,Uint32 first_vertex,Uint32 first_instance);
 DLLIMPORT extern void SDL_EndGPURenderPass(struct SDL_GPURenderPass* render_pass);
-DLLIMPORT extern bool SDL_SubmitGPUCommandBuffer(struct SDL_GPUCommandBuffer* command_buffer);
+DLLIMPORT extern void SDL_ReleaseGPUGraphicsPipeline(struct SDL_GPUDevice* device,struct SDL_GPUGraphicsPipeline* graphics_pipeline);
+DLLIMPORT extern void SDL_ReleaseGPUBuffer(struct SDL_GPUDevice* device,struct SDL_GPUBuffer* buffer);
+DLLIMPORT extern void SDL_ReleaseGPUTransferBuffer(struct SDL_GPUDevice* device,struct SDL_GPUTransferBuffer* transfer_buffer);
 DLLIMPORT extern void SDL_DestroyGPUDevice(struct SDL_GPUDevice* device);
 DLLIMPORT extern void SDL_DestroyWindow(struct SDL_Window* window);
 DLLIMPORT extern void SDL_Quit();
 
 
-const A0SVertex vertices={(const struct Vertex[]){(struct Vertex){(struct vec3){0.0,0.5,0},(struct vec4){0,0,1,1}},(struct Vertex){(struct vec3){-0.5,-0.5,0},(struct vec4){1,0,1,1}},(struct Vertex){(struct vec3){0.5,-0.5,0},(struct vec4){0,1,1,1}}}, 3};
-static i8* const _G1="Triangle";
+const A3SVertex vertices=(A3SVertex){(struct Vertex){(struct vec3){0.0,0.5,0},(struct vec4){0,0,1,1}},(struct Vertex){(struct vec3){-0.5,-0.5,0},(struct vec4){1,0,1,1}},(struct Vertex){(struct vec3){0.5,-0.5,0},(struct vec4){0,1,1,1}}};
+static i8* const _G1="main";
+static i8* const _G2="Triangle";
+static i8* const _G3="res/triangle.vert.bin";
+static i8* const _G4="res/triangle.frag.bin";
 
 
+struct SDL_GPUShader* _loadShader_F3stESDL_GPUShaderStagepSSDL_GPUDevice_pSSDL_GPUShader(string path,enum SDL_GPUShaderStage stage,struct SDL_GPUDevice* device){
+	u64 size={0};
+	i8* const _1=path.ptr;
+	u64* const _2=&size;
+	void* const _3=SDL_LoadFile(_1,_2);
+	u8* const _4=(u8*)_3;
+	u8* code=_4;
+	const bool _5=(bool)code;
+	const bool _6=!_5;
+	if(_6){
+		return 0;
+	}
+	struct SDL_GPUShaderCreateInfo shaderInfo={0};
+	Uint8** const _7=&shaderInfo.code;
+	Uint8* const _8=(Uint8*)code;
+	(*_7)=_8;
+	u64* const _9=&shaderInfo.code_size;
+	(*_9)=size;
+	i8** const _10=&shaderInfo.entrypoint;
+	(*_10)=_G1;
+	SDL_GPUShaderFormat* const _11=&shaderInfo.format;
+	const u32 _12=1u<<1;
+	const SDL_GPUShaderFormat _13=(SDL_GPUShaderFormat)_12;
+	(*_11)=_13;
+	enum SDL_GPUShaderStage* const _14=&shaderInfo.stage;
+	(*_14)=stage;
+	Uint32* const _15=&shaderInfo.num_samplers;
+	const Uint32 _16=(Uint32)0u;
+	(*_15)=_16;
+	Uint32* const _17=&shaderInfo.num_storage_textures;
+	const Uint32 _18=(Uint32)0u;
+	(*_17)=_18;
+	Uint32* const _19=&shaderInfo.num_storage_buffers;
+	const Uint32 _20=(Uint32)0u;
+	(*_19)=_20;
+	Uint32* const _21=&shaderInfo.num_uniform_buffers;
+	const Uint32 _22=(Uint32)0u;
+	(*_21)=_22;
+	struct SDL_GPUShaderCreateInfo* const _23=&shaderInfo;
+	struct SDL_GPUShader* const _24=SDL_CreateGPUShader(device,_23);
+	struct SDL_GPUShader* shader=_24;
+	SDL_free(code);
+	return shader;
+}
+struct SDL_GPUColorTargetBlendState _createOpaqueBlendState_F0_SSDL_GPUColorTargetBlendState(){
+	struct SDL_GPUColorTargetBlendState blendState={0};
+	bool* const _1=&blendState.enable_blend;
+	(*_1)=false;
+	return blendState;
+}
 void _main_F0(){
 	const SDL_InitFlags _1=(SDL_InitFlags)0x20u;
 	const bool _2=SDL_Init(_1);
 	const SDL_WindowFlags _3=(SDL_WindowFlags)0llu;
-	struct SDL_Window* const _4=SDL_CreateWindow(_G1,1280,720,_3);
+	struct SDL_Window* const _4=SDL_CreateWindow(_G2,1280,720,_3);
 	struct SDL_Window* window=_4;
 	const u32 _5=1u<<1;
 	const SDL_GPUShaderFormat _6=(SDL_GPUShaderFormat)_5;
@@ -939,49 +1371,248 @@ void _main_F0(){
 	struct SDL_GPUDevice* device=_7;
 	const bool _8=SDL_ClaimWindowForGPUDevice(device,window);
 	struct SDL_GPUBufferCreateInfo bufferInfo={0};
+	Uint32* const _9=&bufferInfo.size;
+	const u64 _10=(u64)sizeof(A3SVertex);
+	const u32 _11=(u32)_10;
+	const Uint32 _12=(Uint32)_11;
+	(*_9)=_12;
+	SDL_GPUBufferUsageFlags* const _13=&bufferInfo.usage;
+	const u32 _14=1u<<0;
+	const SDL_GPUBufferUsageFlags _15=(SDL_GPUBufferUsageFlags)_14;
+	(*_13)=_15;
+	struct SDL_GPUBufferCreateInfo* const _16=&bufferInfo;
+	struct SDL_GPUBuffer* const _17=SDL_CreateGPUBuffer(device,_16);
+	struct SDL_GPUBuffer* vertexBuffer=_17;
+	struct SDL_GPUTransferBufferCreateInfo transferBufferInfo={0};
+	Uint32* const _18=&transferBufferInfo.size;
+	const u64 _19=(u64)sizeof(A3SVertex);
+	const u32 _20=(u32)_19;
+	const Uint32 _21=(Uint32)_20;
+	(*_18)=_21;
+	enum SDL_GPUTransferBufferUsage* const _22=&transferBufferInfo.usage;
+	(*_22)=0;
+	struct SDL_GPUTransferBufferCreateInfo* const _23=&transferBufferInfo;
+	struct SDL_GPUTransferBuffer* const _24=SDL_CreateGPUTransferBuffer(device,_23);
+	struct SDL_GPUTransferBuffer* transferBuffer=_24;
+	void* const _25=SDL_MapGPUTransferBuffer(device,transferBuffer,false);
+	struct Vertex* const _26=(struct Vertex*)_25;
+	struct Vertex* vertexData=_26;
+	const struct vec3 _27={0.0,0.5,0};
+	const struct vec4 _28={0,0,1,1};
+	const struct Vertex _29={_27,_28};
+	const struct vec3 _30={-0.5,-0.5,0};
+	const struct vec4 _31={1,0,1,1};
+	const struct Vertex _32={_30,_31};
+	const struct vec3 _33={0.5,-0.5,0};
+	const struct vec4 _34={0,1,1,1};
+	const struct Vertex _35={_33,_34};
+	const A3SVertex _36={_29,_32,_35};
+	const i32 _37=3>=0?1:-1;
+	for(int i=0;i*_37<3*_37;i+=_37){
+		struct Vertex* const _38=&vertexData[i];
+		const struct vec3 _39={0.0,0.5,0};
+		const struct vec4 _40={0,0,1,1};
+		const struct Vertex _41={_39,_40};
+		const struct vec3 _42={-0.5,-0.5,0};
+		const struct vec4 _43={1,0,1,1};
+		const struct Vertex _44={_42,_43};
+		const struct vec3 _45={0.5,-0.5,0};
+		const struct vec4 _46={0,1,1,1};
+		const struct Vertex _47={_45,_46};
+		const A3SVertex _48={_41,_44,_47};
+		struct Vertex* const _49=&_48.data[i];
+		(*_38)=(*_49);
+	}
+	SDL_UnmapGPUTransferBuffer(device,transferBuffer);
+	struct SDL_GPUCommandBuffer* const _50=SDL_AcquireGPUCommandBuffer(device);
+	struct SDL_GPUCommandBuffer* cmdBuffer=_50;
+	struct SDL_GPUCopyPass* const _51=SDL_BeginGPUCopyPass(cmdBuffer);
+	struct SDL_GPUCopyPass* copyPass=_51;
+	struct SDL_GPUTransferBufferLocation src={0};
+	struct SDL_GPUTransferBuffer** const _52=&src.transfer_buffer;
+	(*_52)=transferBuffer;
+	struct SDL_GPUBufferRegion dst={0};
+	struct SDL_GPUBuffer** const _53=&dst.buffer;
+	(*_53)=vertexBuffer;
+	Uint32* const _54=&dst.size;
+	const u64 _55=(u64)sizeof(A3SVertex);
+	const u32 _56=(u32)_55;
+	const Uint32 _57=(Uint32)_56;
+	(*_54)=_57;
+	struct SDL_GPUTransferBufferLocation* const _58=&src;
+	struct SDL_GPUBufferRegion* const _59=&dst;
+	SDL_UploadToGPUBuffer(copyPass,_58,_59,true);
+	SDL_EndGPUCopyPass(copyPass);
+	const bool _60=SDL_SubmitGPUCommandBuffer(cmdBuffer);
+	const string _61={_G3,21};
+	struct SDL_GPUShader* const _62=_loadShader_F3stESDL_GPUShaderStagepSSDL_GPUDevice_pSSDL_GPUShader(_61,0,device);
+	struct SDL_GPUShader* vertexShader=_62;
+	const string _63={_G4,21};
+	struct SDL_GPUShader* const _64=_loadShader_F3stESDL_GPUShaderStagepSSDL_GPUDevice_pSSDL_GPUShader(_63,1,device);
+	struct SDL_GPUShader* fragmentShader=_64;
+	A1SSDL_GPUVertexBufferDescription vertexBufferDescriptions={0};
+	struct SDL_GPUVertexBufferDescription* const _65=&vertexBufferDescriptions.data[0];
+	Uint32* const _66=&(*_65).slot;
+	const Uint32 _67=(Uint32)0u;
+	(*_66)=_67;
+	struct SDL_GPUVertexBufferDescription* const _68=&vertexBufferDescriptions.data[0];
+	enum SDL_GPUVertexInputRate* const _69=&(*_68).input_rate;
+	(*_69)=0;
+	struct SDL_GPUVertexBufferDescription* const _70=&vertexBufferDescriptions.data[0];
+	Uint32* const _71=&(*_70).instance_step_rate;
+	const Uint32 _72=(Uint32)0u;
+	(*_71)=_72;
+	struct SDL_GPUVertexBufferDescription* const _73=&vertexBufferDescriptions.data[0];
+	Uint32* const _74=&(*_73).pitch;
+	const u64 _75=(u64)sizeof(type);
+	const u32 _76=(u32)_75;
+	const Uint32 _77=(Uint32)_76;
+	(*_74)=_77;
+	A2SSDL_GPUVertexAttribute attributes={0};
+	struct SDL_GPUVertexAttribute* const _78=&attributes.data[0];
+	Uint32* const _79=&(*_78).buffer_slot;
+	const Uint32 _80=(Uint32)0u;
+	(*_79)=_80;
+	struct SDL_GPUVertexAttribute* const _81=&attributes.data[0];
+	Uint32* const _82=&(*_81).location;
+	const Uint32 _83=(Uint32)0u;
+	(*_82)=_83;
+	struct SDL_GPUVertexAttribute* const _84=&attributes.data[0];
+	enum SDL_GPUVertexElementFormat* const _85=&(*_84).format;
+	(*_85)=11;
+	struct SDL_GPUVertexAttribute* const _86=&attributes.data[0];
+	Uint32* const _87=&(*_86).offset;
+	const Uint32 _88=(Uint32)0u;
+	(*_87)=_88;
+	struct SDL_GPUVertexAttribute* const _89=&attributes.data[1];
+	Uint32* const _90=&(*_89).buffer_slot;
+	const Uint32 _91=(Uint32)0u;
+	(*_90)=_91;
+	struct SDL_GPUVertexAttribute* const _92=&attributes.data[1];
+	Uint32* const _93=&(*_92).location;
+	const Uint32 _94=(Uint32)1u;
+	(*_93)=_94;
+	struct SDL_GPUVertexAttribute* const _95=&attributes.data[1];
+	enum SDL_GPUVertexElementFormat* const _96=&(*_95).format;
+	(*_96)=12;
+	struct SDL_GPUVertexAttribute* const _97=&attributes.data[1];
+	Uint32* const _98=&(*_97).offset;
+	const u64 _99=(u64)sizeof(type);
+	const u32 _100=(u32)_99;
+	const Uint32 _101=(Uint32)_100;
+	(*_98)=_101;
+	A1SSDL_GPUColorTargetDescription targets={0};
+	struct SDL_GPUColorTargetDescription* const _102=&targets.data[0];
+	enum SDL_GPUTextureFormat* const _103=&(*_102).format;
+	const enum SDL_GPUTextureFormat _104=SDL_GetGPUSwapchainTextureFormat(device,window);
+	(*_103)=_104;
+	struct SDL_GPUColorTargetDescription* const _105=&targets.data[0];
+	struct SDL_GPUColorTargetBlendState* const _106=&(*_105).blend_state;
+	const struct SDL_GPUColorTargetBlendState _107=_createOpaqueBlendState_F0_SSDL_GPUColorTargetBlendState();
+	(*_106)=_107;
+	struct SDL_GPUGraphicsPipelineCreateInfo pipelineInfo={0};
+	struct SDL_GPUShader** const _108=&pipelineInfo.vertex_shader;
+	(*_108)=vertexShader;
+	struct SDL_GPUShader** const _109=&pipelineInfo.fragment_shader;
+	(*_109)=fragmentShader;
+	enum SDL_GPUPrimitiveType* const _110=&pipelineInfo.primitive_type;
+	(*_110)=0;
+	struct SDL_GPUVertexInputState* const _111=&pipelineInfo.vertex_input_state;
+	Uint32* const _112=&(*_111).num_vertex_buffers;
+	const Uint32 _113=(Uint32)1u;
+	(*_112)=_113;
+	struct SDL_GPUVertexInputState* const _114=&pipelineInfo.vertex_input_state;
+	struct SDL_GPUVertexBufferDescription** const _115=&(*_114).vertex_buffer_descriptions;
+	struct SDL_GPUVertexBufferDescription* const _116=&vertexBufferDescriptions.data[0];
+	struct SDL_GPUVertexBufferDescription* const _117=&(*_116);
+	(*_115)=_117;
+	struct SDL_GPUVertexInputState* const _118=&pipelineInfo.vertex_input_state;
+	Uint32* const _119=&(*_118).num_vertex_attributes;
+	const Uint32 _120=(Uint32)2u;
+	(*_119)=_120;
+	struct SDL_GPUVertexInputState* const _121=&pipelineInfo.vertex_input_state;
+	struct SDL_GPUVertexAttribute** const _122=&(*_121).vertex_attributes;
+	struct SDL_GPUVertexAttribute* const _123=&attributes.data[0];
+	struct SDL_GPUVertexAttribute* const _124=&(*_123);
+	(*_122)=_124;
+	struct SDL_GPUGraphicsPipelineTargetInfo* const _125=&pipelineInfo.target_info;
+	Uint32* const _126=&(*_125).num_color_targets;
+	const Uint32 _127=(Uint32)1u;
+	(*_126)=_127;
+	struct SDL_GPUGraphicsPipelineTargetInfo* const _128=&pipelineInfo.target_info;
+	struct SDL_GPUColorTargetDescription** const _129=&(*_128).color_target_descriptions;
+	struct SDL_GPUColorTargetDescription* const _130=&targets.data[0];
+	struct SDL_GPUColorTargetDescription* const _131=&(*_130);
+	(*_129)=_131;
+	struct SDL_GPUGraphicsPipelineCreateInfo* const _132=&pipelineInfo;
+	struct SDL_GPUGraphicsPipeline* const _133=SDL_CreateGPUGraphicsPipeline(device,_132);
+	struct SDL_GPUGraphicsPipeline* pipeline=_133;
+	SDL_ReleaseGPUShader(device,vertexShader);
+	SDL_ReleaseGPUShader(device,fragmentShader);
 	bool running=true;
 	while(1){
 		if(!running)break;
 		union SDL_Event event={0};
 		while(1){
-			union SDL_Event* const _9=&event;
-			const bool _10=SDL_PollEvent(_9);
-			if(!_10)break;
-			Uint32* const _11=&event.type;
-			const enum SDL_EventType _12=(enum SDL_EventType)(*_11);
-			const bool _13=_12==256;
-			if(_13){
+			union SDL_Event* const _134=&event;
+			const bool _135=SDL_PollEvent(_134);
+			if(!_135)break;
+			Uint32* const _136=&event.type;
+			const enum SDL_EventType _137=(enum SDL_EventType)(*_136);
+			const bool _138=_137==256;
+			if(_138){
 				running=false;
 			}
 		}
-		struct SDL_GPUCommandBuffer* const _14=SDL_AcquireGPUCommandBuffer(device);
-		struct SDL_GPUCommandBuffer* cmdBuffer=_14;
+		struct SDL_GPUCommandBuffer* const _139=SDL_AcquireGPUCommandBuffer(device);
+		struct SDL_GPUCommandBuffer* cmdBuffer=_139;
 		struct SDL_GPUTexture* swapchain={0};
 		u32 width={0};
 		u32 height={0};
-		struct SDL_GPUTexture** const _15=&swapchain;
-		u32* const _16=&width;
-		Uint32* const _17=(Uint32*)_16;
-		u32* const _18=&height;
-		Uint32* const _19=(Uint32*)_18;
-		const bool _20=SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer,window,_15,_17,_19);
+		struct SDL_GPUTexture** const _140=&swapchain;
+		u32* const _141=&width;
+		Uint32* const _142=(Uint32*)_141;
+		u32* const _143=&height;
+		Uint32* const _144=(Uint32*)_143;
+		const bool _145=SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer,window,_140,_142,_144);
 		struct SDL_GPUColorTargetInfo colorTarget={0};
-		struct SDL_FColor* const _21=&colorTarget.clear_color;
-		const struct SDL_FColor _22={0.4,0.4,1.0,1.0};
-		(*_21)=_22;
-		enum SDL_GPULoadOp* const _23=&colorTarget.load_op;
-		(*_23)=1;
-		enum SDL_GPUStoreOp* const _24=&colorTarget.store_op;
-		(*_24)=0;
-		struct SDL_GPUTexture** const _25=&colorTarget.texture;
-		(*_25)=swapchain;
-		struct SDL_GPUColorTargetInfo* const _26=&colorTarget;
-		const Uint32 _27=(Uint32)1u;
-		struct SDL_GPURenderPass* const _28=SDL_BeginGPURenderPass(cmdBuffer,_26,_27,0);
-		struct SDL_GPURenderPass* renderPass=_28;
+		struct SDL_FColor* const _146=&colorTarget.clear_color;
+		const struct SDL_FColor _147={0.4,0.4,1.0,1.0};
+		(*_146)=_147;
+		enum SDL_GPULoadOp* const _148=&colorTarget.load_op;
+		(*_148)=1;
+		enum SDL_GPUStoreOp* const _149=&colorTarget.store_op;
+		(*_149)=0;
+		struct SDL_GPUTexture** const _150=&colorTarget.texture;
+		(*_150)=swapchain;
+		struct SDL_GPUColorTargetInfo* const _151=&colorTarget;
+		const Uint32 _152=(Uint32)1u;
+		struct SDL_GPURenderPass* const _153=SDL_BeginGPURenderPass(cmdBuffer,_151,_152,0);
+		struct SDL_GPURenderPass* renderPass=_153;
+		SDL_BindGPUGraphicsPipeline(renderPass,pipeline);
+		A1SSDL_GPUBufferBinding bufferBindings={0};
+		struct SDL_GPUBufferBinding* const _154=&bufferBindings.data[0];
+		struct SDL_GPUBuffer** const _155=&(*_154).buffer;
+		(*_155)=vertexBuffer;
+		struct SDL_GPUBufferBinding* const _156=&bufferBindings.data[0];
+		Uint32* const _157=&(*_156).offset;
+		const Uint32 _158=(Uint32)0u;
+		(*_157)=_158;
+		const Uint32 _159=(Uint32)0u;
+		struct SDL_GPUBufferBinding* const _160=bufferBindings.data;
+		const Uint32 _161=(Uint32)1u;
+		SDL_BindGPUVertexBuffers(renderPass,_159,_160,_161);
+		const Uint32 _162=(Uint32)3u;
+		const Uint32 _163=(Uint32)1u;
+		const Uint32 _164=(Uint32)0u;
+		const Uint32 _165=(Uint32)0u;
+		SDL_DrawGPUPrimitives(renderPass,_162,_163,_164,_165);
 		SDL_EndGPURenderPass(renderPass);
-		const bool _29=SDL_SubmitGPUCommandBuffer(cmdBuffer);
+		const bool _166=SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
+	SDL_ReleaseGPUGraphicsPipeline(device,pipeline);
+	SDL_ReleaseGPUBuffer(device,vertexBuffer);
+	SDL_ReleaseGPUTransferBuffer(device,transferBuffer);
 	SDL_DestroyGPUDevice(device);
 	SDL_DestroyWindow(window);
 	SDL_Quit();

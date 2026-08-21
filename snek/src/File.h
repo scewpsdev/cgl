@@ -27,21 +27,26 @@ struct InternedType
 struct File
 {
 	FileHandle handle;
-	AST ast;
+	char* localPath;
 
 	Arena arena;
 	ScratchBuffer scratch;
 	Diagnostics diagnostics;
 
-	Parser parser;
-	TypeChecker typeChecker;
+	char* src;
+	int length;
+	AST ast;
+	List<int> lineOffsets;
+
 	TypeTable typeTable;
 
 	List<FileHandle> dependencies;
 };
 
 
-void initFile(File* file, const char* localPath, GlobalBlockPool* blockPool);
+void initFile(File* file, const char* localPath, const char* src, int length, GlobalBlockPool* blockPool);
+void destroyFile(File* file);
 
 FileHandle getFileHandle(const char* localPath);
 File* getFileFromHandle(FileHandle fileHandle);
+bool isFileLoaded(FileHandle fileHandle);

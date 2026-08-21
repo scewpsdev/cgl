@@ -17,22 +17,19 @@ struct TypeChecker
 {
 	Arena* arena;
 	ScratchBuffer* scratch;
-	Lexer* lexer;
 	Diagnostics* diagnostics;
 	TypeSystem* types;
 
-	File* currentFile;
+	File* file;
 	Scope* currentScope;
 	Function* currentFunction;
 	int loopDepth;
 };
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Lexer* lexer, Diagnostics* diagnostics, TypeSystem* types);
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types);
 void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, File* file);
 void symbolResolution(TypeChecker* tc, File* file);
 void typeCheckFunctions(TypeChecker* tc, File* file);
-
-Symbol* getIdentifierSymbol(Identifier* identifier);

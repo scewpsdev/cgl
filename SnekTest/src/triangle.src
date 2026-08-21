@@ -13,7 +13,38 @@ const Vertex[3] vertices = [
     ((-0.5, -0.5, 0), (1, 0, 1, 1)),   // bottom left vertex
     (( 0.5, -0.5, 0), (0, 1, 1, 1))     // bottom right vertex
 ];
- 
+
+
+func loadShader(string path, SDL_GPUShaderStage stage, SDL_GPUDevice* device) SDL_GPUShader* {
+	ulong size;
+	byte* code = SDL_LoadFile(path.ptr, &size) as byte*;
+	if !code {
+		return null;
+	}
+
+	SDL_GPUShaderCreateInfo shaderInfo;
+	shaderInfo.code = code;
+	shaderInfo.code_size = size;
+	shaderInfo.entrypoint = "main";
+	shaderInfo.format = SDL_GPU_SHADERFORMAT_SPIRV;
+	shaderInfo.stage = stage;
+	shaderInfo.num_samplers = 0;
+	shaderInfo.num_storage_textures = 0;
+	shaderInfo.num_storage_buffers = 0;
+	shaderInfo.num_uniform_buffers = 0;
+
+	SDL_GPUShader* shader = SDL_CreateGPUShader(device, &shaderInfo);
+
+	SDL_free(code);
+
+	return shader;
+}
+
+func createOpaqueBlendState() SDL_GPUColorTargetBlendState {
+	SDL_GPUColorTargetBlendState blendState;
+	blendState.enable_blend = false;
+	return blendState;
+}
 
 func main() {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -23,12 +54,12 @@ func main() {
 	SDL_ClaimWindowForGPUDevice(device, window);
 
 	SDL_GPUBufferCreateInfo bufferInfo;
-	bufferInfo.size = sizeof(vertices);
+	bufferInfo.size = sizeof(vertices) as uint;
 	bufferInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
 	SDL_GPUBuffer* vertexBuffer = SDL_CreateGPUBuffer(device, &bufferInfo);
 
 	SDL_GPUTransferBufferCreateInfo transferBufferInfo;
-	transferBufferInfo.size = sizeof(vertices);
+	transferBufferInfo.size = sizeof(vertices) as uint;
 	transferBufferInfo.usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
 	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
 
@@ -46,14 +77,51 @@ func main() {
 
 	SDL_GPUBufferRegion dst;
 	dst.buffer = vertexBuffer;
-	dst.size = sizeof(vertices);
+	dst.size = sizeof(vertices) as uint;
 
 	SDL_UploadToGPUBuffer(copyPass, &src, &dst, true);
 
 	SDL_EndGPUCopyPass(copyPass);
 	SDL_SubmitGPUCommandBuffer(cmdBuffer);
 
-	// load shader
+	SDL_GPUShader* vertexShader = loadShader("res/triangle.vert.bin", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, device);
+	SDL_GPUShader* fragmentShader = loadShader("res/triangle.frag.bin", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, device);
+
+	SDL_GPUVertexBufferDescription[1] vertexBufferDescriptions;
+	vertexBufferDescriptions[0].slot = 0;
+	vertexBufferDescriptions[0].input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX;
+	vertexBufferDescriptions[0].instance_step_rate = 0;
+	vertexBufferDescriptions[0].pitch = sizeof(Vertex) as uint;
+
+	SDL_GPUVertexAttribute[2] attributes;
+	attributes[0].buffer_slot = 0;
+	attributes[0].location = 0;
+	attributes[0].format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+	attributes[0].offset = 0;
+	attributes[1].buffer_slot = 0;
+	attributes[1].location = 1;
+	attributes[1].format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+	attributes[1].offset = sizeof(vec3) as uint;
+
+	SDL_GPUColorTargetDescription[1] targets;
+	targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
+	targets[0].blend_state = createOpaqueBlendState();
+
+	SDL_GPUGraphicsPipelineCreateInfo pipelineInfo;
+	pipelineInfo.vertex_shader = vertexShader;
+	pipelineInfo.fragment_shader = fragmentShader;
+	pipelineInfo.primitive_type = SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+	pipelineInfo.vertex_input_state.num_vertex_buffers = 1;
+	pipelineInfo.vertex_input_state.vertex_buffer_descriptions = &vertexBufferDescriptions[0];
+	pipelineInfo.vertex_input_state.num_vertex_attributes = 2;
+	pipelineInfo.vertex_input_state.vertex_attributes = &attributes[0];
+	pipelineInfo.target_info.num_color_targets = 1;
+	pipelineInfo.target_info.color_target_descriptions = &targets[0];
+
+	SDL_GPUGraphicsPipeline* pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipelineInfo);
+
+	SDL_ReleaseGPUShader(device, vertexShader);
+	SDL_ReleaseGPUShader(device, fragmentShader);
 
 	bool running = true;
 	while running {
@@ -78,14 +146,25 @@ func main() {
 
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdBuffer, &colorTarget, 1, null);
 
-		// draw stuff
+		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
+
+		SDL_GPUBufferBinding[1] bufferBindings;
+		bufferBindings[0].buffer = vertexBuffer;
+		bufferBindings[0].offset = 0;
+
+		SDL_BindGPUVertexBuffers(renderPass, 0, bufferBindings.data, 1);
+
+		SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
 
 		SDL_EndGPURenderPass(renderPass);
 
 		SDL_SubmitGPUCommandBuffer(cmdBuffer);
 	}
 
+	SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
+
 	SDL_ReleaseGPUBuffer(device, vertexBuffer);
+	SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
 
 	SDL_DestroyGPUDevice(device);
 

@@ -122,7 +122,6 @@ enum DocumentState
 	DOCUMENT_STATE_NULL = 0,
 
 	DOCUMENT_STATE_UNPARSED,
-	DOCUMENT_STATE_PARSED,
 	DOCUMENT_STATE_TYPECHECKED,
 };
 
@@ -132,28 +131,34 @@ struct GlobalBlockPool;
 struct Document
 {
 	std::string uri;
-	std::string localPath;
+	char* localPath;
+	FileHandle fileHandle;
+
 	List<char*> lines;
 	std::mutex linesMutex;
 
 	bool open;
 	DocumentState state;
-	bool needsTypeCheck;
+	bool needsReparse;
 	uint64_t lastChange = 0;
 
-	std::string text;
 	std::mutex astMutex;
-	File file;
+	File* file;
+
+	File* tmpFile;
+	Parser parser;
+	TypeChecker typeChecker;
 
 
-	void init(const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool);
+	void init(std::string uri, const char* localPath, const std::string& text, TypeSystem* types, GlobalBlockPool* blockPool);
 	void onOpen(std::string& text);
 	void onChange(int startLine, int startCol, int endLine, int endCol, std::string& text);
 	void getTokens(std::vector<int>& data);
 
 	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
 	Symbol* getSymbolAtPosition(int line, int col, int* overloadIdx);
-	void autocomplete(Node* node, Scope* scope, char triggerCharacter, nlohmann::json& items);
+	void autocomplete(Scope* scope, nlohmann::json& items);
+	void autocomplete(Node* node, char triggerCharacter, nlohmann::json& items);
 
 	void getSymbols(nlohmann::json& items);
 	void getWorkspaceSymbols(const std::string& query, nlohmann::json& items);
@@ -166,4 +171,4 @@ struct Document
 };
 
 
-File* getFileFromHandle(FileHandle fileHandle);
+File* getFileFromHandleLSP(FileHandle fileHandle);

@@ -170,7 +170,7 @@ static void sendDiagnosticsNotification(Diagnostics* diagnostics, Document* docu
 		};
 		diagnosticsItems.push_back(diagnosticsItem);
 
-		fprintf(stderr, "error %s:%d:%d: %s\n", document->localPath.c_str(), diagnostics->items[i].startLine + 1, diagnostics->items[i].startCol + 1, diagnostics->items[i].message);
+		fprintf(stderr, "error %s:%d:%d: %s\n", document->localPath, diagnostics->items[i].startLine + 1, diagnostics->items[i].startCol + 1, diagnostics->items[i].message);
 	}
 
 	sendNotification("textDocument/publishDiagnostics", {
@@ -393,46 +393,20 @@ void Parse(List<Document*> documents)
 
 		document->linesMutex.unlock();
 
-		document->astMutex.lock();
+		std::string srcStr = stream.str();
+		document->tmpFile = (File*)calloc(1, sizeof(File));
+		initFile(document->tmpFile, document->localPath, srcStr.c_str(), (int)srcStr.size(), &blockPool);
 
-		document->text = stream.str();
-		stream.clear();
+		initParser(&document->parser, document->tmpFile);
 
-		resetArena(&document->file.arena);
-		resetScratchBuffer(&document->file.scratch);
-		resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_PARSER_STAGE);
+		parse(&document->parser, &document->tmpFile->ast);
 
-		document->file.diagnostics.stage = DIAGNOSTICS_PARSER_STAGE;
-
-		document->file.ast = {};
-
-		document->file.dependencies.clear();
-
-		if (document->file.parser.arena)
-			destroyParser(&document->file.parser);
-		initParser(&document->file.parser, document->uri.c_str(), document->text.c_str(), (int)document->text.size(), &document->file.arena, &document->file.scratch, &document->file.diagnostics);
-
-		parse(&document->file.parser, &document->file.ast);
-		document->state = DOCUMENT_STATE_PARSED;
-		document->needsTypeCheck = true;
-		document->lastChange = 0;
-
-		resolveDependencies(&document->file.parser, &document->file);
-
-		//sendDiagnosticsNotification(&document->diagnostics, document);
-
-		document->astMutex.unlock();
+		resolveDependencies(&document->parser, document->tmpFile);
 	}
 
 	uint64_t afterParse = GetTimeNS();
-	float ms = (afterParse - beforeParse) / 1e6f;
-	fprintf(stderr, "parsed %d documents in %.3fms\n", documents.size, ms);
-}
-
-void TypeCheck(List<Document*> documents)
-{
-	if (documents.size == 0)
-		return;
+	float parseMs = (afterParse - beforeParse) / 1e6f;
+	fprintf(stderr, "parsed %d documents in %.3fms\n", documents.size, parseMs);
 
 	uint64_t beforeTypeCheck = GetTimeNS();
 
@@ -440,72 +414,64 @@ void TypeCheck(List<Document*> documents)
 	{
 		Document* document = documents[i];
 
-		SnekAssert(document->state >= DOCUMENT_STATE_PARSED);
+		initTypeTable(&document->tmpFile->typeTable, &document->tmpFile->arena, 64);
+		initTypeChecker(&document->typeChecker, &document->tmpFile->arena, &document->tmpFile->scratch, &document->tmpFile->diagnostics, &types);
 
-		document->astMutex.lock();
-
-		if (document->state >= DOCUMENT_STATE_TYPECHECKED)
-		{
-			//clearInternedTypes(&document->file, &types);
-			resetAST(&document->file.ast);
-
-			resetDiagnostics(&document->file.diagnostics, DIAGNOSTICS_TYPECHECK_STAGE);
-		}
-
-		document->file.diagnostics.stage = DIAGNOSTICS_TYPECHECK_STAGE;
-
-		if (document->file.typeChecker.arena)
-			destroyTypeChecker(&document->file.typeChecker);
-
-		initTypeTable(&document->file.typeTable, &document->file.arena, 64);
-
-		initTypeChecker(&document->file.typeChecker, &document->file.arena, &document->file.scratch, &document->file.parser.lexer, &document->file.diagnostics, &types);
-
-		symbolCollection(&document->file.typeChecker, &document->file);
-
-		document->astMutex.unlock();
+		symbolCollection(&document->typeChecker, document->tmpFile);
 	}
 
 	for (int i = 0; i < documents.size; i++)
 	{
 		Document* document = documents[i];
 
-		document->astMutex.lock();
-
-		symbolResolution(&document->file.typeChecker, &document->file);
-
-		document->astMutex.unlock();
+		symbolResolution(&document->typeChecker, document->tmpFile);
 	}
 
 	for (int i = 0; i < documents.size; i++)
 	{
 		Document* document = documents[i];
 
-		document->astMutex.lock();
-
-		typeCheckFunctions(&document->file.typeChecker, &document->file);
+		typeCheckFunctions(&document->typeChecker, document->tmpFile);
 
 		document->state = DOCUMENT_STATE_TYPECHECKED;
-		document->needsTypeCheck = false;
+		document->needsReparse = false;
+	}
 
-		sendDiagnosticsNotification(&document->file.diagnostics, document);
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
 
-		document->astMutex.unlock();
+		sendDiagnosticsNotification(&document->tmpFile->diagnostics, document);
 
-		if (document->file.diagnostics.items.size == 0)
+		if (document->tmpFile->diagnostics.items.size == 0)
 		{
 			std::string outPath = document->localPath;
 			outPath = outPath.substr(0, outPath.find('.'));
 			outPath = rootPath + "/tmp/" + outPath + ".c";
-			emitFile(&codegen, &document->file, document->localPath.c_str(), outPath.c_str());
+			emitFile(&codegen, document->tmpFile, document->localPath, outPath.c_str());
 		}
+	}
+
+	// swap ast
+	for (int i = 0; i < documents.size; i++)
+	{
+		Document* document = documents[i];
+
+		document->astMutex.lock();
+
+		if (document->file)
+			destroyFile(document->file);
+		document->file = document->tmpFile;
+		document->tmpFile = nullptr;
+
+		document->astMutex.unlock();
 	}
 
 	sendRequest("workspace/semanticTokens/refresh", nullptr);
 
 	uint64_t afterTypeCheck = GetTimeNS();
-	float ms = (afterTypeCheck - beforeTypeCheck) / 1e6f;
-	fprintf(stderr, "typechecked %d documents in %.3fms\n", documents.size, ms);
+	float typeCheckMs = (afterTypeCheck - beforeTypeCheck) / 1e6f;
+	fprintf(stderr, "typechecked %d documents in %.3fms\n", documents.size, typeCheckMs);
 	fprintf(stderr, "memory blocks allocated: %d\n", blockPool.blockCount);
 	fprintf(stderr, "type table size: %d/%d\n", types.typeTable.count, types.typeTable.capacity);
 }
@@ -518,15 +484,13 @@ static Document* OpenDocument(std::string uri, std::string text)
 
 	fs::path mainFileDirectory = fs::path(mainFilePath).parent_path();
 	fs::path localPath = fs::relative(URIToPath(uri), mainFileDirectory);
+	std::string localPathStr = localPath.string();
 
-	Document* document = new Document();
-	document->uri = uri;
-	document->localPath = localPath.string();
+	Document* document = (Document*)calloc(1, sizeof(Document));
+	document->init(uri, localPathStr.c_str(), text, &types, &blockPool);
 
 	documents.add(document);
 	uriMap.emplace(document->uri, documents.size - 1);
-
-	document->init(text, &types, &blockPool);
 
 	return document;
 }
@@ -543,8 +507,29 @@ File* getFileFromHandle(FileHandle fileHandle)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->file.handle == fileHandle)
-			return &documents[i]->file;
+		File* file = documents[i]->tmpFile ? documents[i]->tmpFile : documents[i]->file;
+		if (file->handle == fileHandle)
+			return file;
+	}
+	return nullptr;
+}
+
+bool isFileLoaded(FileHandle fileHandle)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->fileHandle == fileHandle)
+			return true;
+	}
+	return false;
+}
+
+File* getFileFromHandleLSP(FileHandle fileHandle)
+{
+	for (int i = 0; i < documents.size; i++)
+	{
+		if (documents[i]->file && documents[i]->file->handle == fileHandle)
+			return documents[i]->file;
 	}
 	return nullptr;
 }
@@ -600,7 +585,7 @@ static Document* getDocument(FileHandle file)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->file.handle == file)
+		if (documents[i]->file && documents[i]->file->handle == file)
 			return documents[i];
 	}
 	return nullptr;
@@ -610,7 +595,7 @@ static bool containsFile(List<Document*>& documents, FileHandle file)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->file.handle == file)
+		if (documents[i]->file->handle == file)
 			return true;
 	}
 	return false;
@@ -623,7 +608,7 @@ static bool areDependenciesParsed(File* file)
 		FileHandle dependency = file->dependencies[i];
 		if (Document* document = getDocument(dependency))
 		{
-			if (document->state < DOCUMENT_STATE_PARSED)
+			if (document->state < DOCUMENT_STATE_TYPECHECKED)
 				return false;
 		}
 		else
@@ -642,19 +627,18 @@ void ParserThread()
 		uint64_t now = GetTimeNS();
 
 		static List<Document*> parseList;
-		static List<Document*> typeCheckList;
 
 		parseList.clear();
-		typeCheckList.clear();
 
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
 
-			const int parseDelay = 400;
+			const int parseDelay = 200;
 			if (document->state == DOCUMENT_STATE_UNPARSED || document->lastChange && (now - document->lastChange) / 1e6 >= parseDelay)
 			{
 				parseList.add(document);
+				document->lastChange = 0;
 			}
 		}
 
@@ -662,46 +646,36 @@ void ParserThread()
 		{
 			Document* document = documents[i];
 
-			for (int j = 0; j < document->file.dependencies.size; j++)
+			if (document->file)
 			{
-				FileHandle dependency = document->file.dependencies[j];
-				if (containsFile(parseList, dependency))
+				for (int j = 0; j < document->file->dependencies.size; j++)
 				{
-					document->needsTypeCheck = true;
-					break;
+					FileHandle dependency = document->file->dependencies[j];
+					if (containsFile(parseList, dependency))
+					{
+						document->needsReparse = true;
+						break;
+					}
 				}
 			}
 		}
 
-		Parse(parseList);
-
 		for (int i = 0; i < documents.size; i++)
 		{
 			Document* document = documents[i];
 
-			if (document->needsTypeCheck && areDependenciesParsed(&document->file))
+			if (document->needsReparse && document->file && areDependenciesParsed(document->file))
 			{
-				if (!typeCheckList.contains(document))
-					typeCheckList.add(document);
+				if (!parseList.contains(document))
+					parseList.add(document);
 			}
 		}
 
-		TypeCheck(typeCheckList);
-
-		SleepMS(10);
+		if (parseList.size > 0)
+			Parse(parseList);
+		else
+			SleepMS(10);
 	}
-}
-
-static bool waitForDocumentTypeCheck(Document* document, int timeoutMs)
-{
-	int numIterations = timeoutMs / 10;
-	for (int i = 0; i < numIterations; i++)
-	{
-		if (document->state == DOCUMENT_STATE_TYPECHECKED && document->lastChange == 0)
-			return true;
-		SleepMS(10);
-	}
-	return false;
 }
 
 static void getFunctionDetailString(Function* function, std::stringstream& stream)
@@ -780,320 +754,327 @@ static void writeFilePath(const std::string& localPath, std::stringstream& strea
 	}
 }
 
+static void waitForDocumentParse(Document* document)
+{
+	for (int i = 0; i < 500; i++)
+	{
+		document->astMutex.lock();
+		bool parsed = document->file != nullptr && document->tmpFile == nullptr;
+		document->astMutex.unlock();
+		if (parsed)
+			return;
+		else
+			SleepMS(10);
+	}
+
+	SnekAssert(false);
+}
+
 static bool resolveCompletionItem(std::string label, int kind, uint32_t symbolHandle, FileHandle fileHandle, json& result)
 {
-	if (File* file = getFileFromHandle(fileHandle))
+	if (File* file = getFileFromHandleLSP(fileHandle))
 	{
-		Document* document = getDocument(fileHandle);
-
-		if (waitForDocumentTypeCheck(document, 200))
+		if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle))
 		{
-			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle))
+			std::string detail;
+			std::string markdown;
+
+			std::stringstream stream;
+
+			writeFilePath(file->localPath, stream);
+			stream << '.' << label;
+			detail = stream.str();
+			stream.str("");
+			stream.clear();
+
+			if (symbol->type == SYMBOL_VARIABLE)
 			{
-				std::string detail;
-				std::string markdown;
-
-				std::stringstream stream;
-
-				writeFilePath(document->localPath, stream);
-				stream << '.' << label;
-				detail = stream.str();
-				stream.str("");
-				stream.clear();
-
-				if (symbol->type == SYMBOL_VARIABLE)
+				if (symbol->declaration->type == NODE_VARIABLE_DECLARATION)
 				{
-					if (symbol->declaration->type == NODE_VARIABLE_DECLARATION)
+					VariableDeclaration* variable = &symbol->declaration->variableDeclaration;
+					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
+
+					Type* type = variable->variableType->inferredType;
+
+					if (variable->storage & STORAGE_DLLEXPORT)
+						stream << "dllexport ";
+					else if (variable->storage & STORAGE_DLLIMPORT)
+						stream << "dllimport ";
+					else if (variable->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (variable->storage & STORAGE_EXTERN)
+						stream << "externc ";
+					if (variable->storage & STORAGE_CONSTANT)
+						stream << "const ";
+					if (variable->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
+
+					if (variable->storage & STORAGE_CONSTANT && declarator->value)
 					{
-						VariableDeclaration* variable = &symbol->declaration->variableDeclaration;
-						VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
-
-						Type* type = variable->variableType->inferredType;
-
-						if (variable->storage & STORAGE_DLLEXPORT)
-							stream << "dllexport ";
-						else if (variable->storage & STORAGE_DLLIMPORT)
-							stream << "dllimport ";
-						else if (variable->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (variable->storage & STORAGE_EXTERN)
-							stream << "externc ";
-						if (variable->storage & STORAGE_CONSTANT)
-							stream << "const ";
-						if (variable->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
-
-						if (stream.tellp())
-							stream << "\n";
-
-						stream.write(type->name.ptr, type->name.length);
-						stream << ' ';
-						stream.write(symbol->name.ptr, symbol->name.length);
-
-						if (variable->storage & STORAGE_CONSTANT && declarator->value)
-						{
-							StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
-							stream << " = ";
-							stream.write(valueStr.ptr, valueStr.length);
-						}
-
-						markdown = stream.str();
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
 					}
-					else if (symbol->declaration->type == NODE_GLOBAL_VARIABLE)
-					{
-						GlobalVariable* variable = &symbol->declaration->globalVariable;
-						VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
 
-						Type* type = variable->variableType->inferredType;
-
-						if (variable->storage & STORAGE_DLLEXPORT)
-							stream << "dllexport ";
-						else if (variable->storage & STORAGE_DLLIMPORT)
-							stream << "dllimport ";
-						else if (variable->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (variable->storage & STORAGE_EXTERN)
-							stream << "externc ";
-						if (variable->storage & STORAGE_CONSTANT)
-							stream << "const ";
-						if (variable->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
-
-						if (stream.tellp())
-							stream << "\n";
-
-						stream.write(type->name.ptr, type->name.length);
-						stream << ' ';
-						stream.write(symbol->name.ptr, symbol->name.length);
-
-						if (variable->storage & STORAGE_CONSTANT && declarator->value)
-						{
-							StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
-							stream << " = ";
-							stream.write(valueStr.ptr, valueStr.length);
-						}
-
-						markdown = stream.str();
-					}
-					else if (symbol->declaration->type == NODE_PARAMETER)
-					{
-						Parameter* parameter = &symbol->declaration->parameter;
-
-						Type* type = parameter->paramType->inferredType;
-
-						stream.write(type->name.ptr, type->name.length);
-						stream << ' ';
-						stream.write(symbol->name.ptr, symbol->name.length);
-
-						/*
-						if (parameter->value)
-						{
-							StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
-							stream << " = ";
-							stream.write(valueStr.ptr, valueStr.length);
-						}
-						*/
-
-						markdown = stream.str();
-					}
-					else if (symbol->declaration->type == NODE_FOR)
-					{
-						For* for_ = &symbol->declaration->for_;
-
-						detail = "for iterator " + detail;
-
-						stream << "int32 ";
-						stream.write(for_->iteratorName.ptr, for_->iteratorName.length);
-
-						markdown = stream.str();
-					}
+					markdown = stream.str();
 				}
-				else if (symbol->type == SYMBOL_TYPE)
+				else if (symbol->declaration->type == NODE_GLOBAL_VARIABLE)
 				{
-					if (symbol->declaration->type == NODE_STRUCT)
+					GlobalVariable* variable = &symbol->declaration->globalVariable;
+					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
+
+					Type* type = variable->variableType->inferredType;
+
+					if (variable->storage & STORAGE_DLLEXPORT)
+						stream << "dllexport ";
+					else if (variable->storage & STORAGE_DLLIMPORT)
+						stream << "dllimport ";
+					else if (variable->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (variable->storage & STORAGE_EXTERN)
+						stream << "externc ";
+					if (variable->storage & STORAGE_CONSTANT)
+						stream << "const ";
+					if (variable->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
+
+					if (variable->storage & STORAGE_CONSTANT && declarator->value)
 					{
-						Struct* struct_ = &symbol->declaration->struct_;
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
+					}
 
-						if (struct_->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (struct_->storage & STORAGE_PACKED)
-							stream << "packed ";
-						if (struct_->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
+					markdown = stream.str();
+				}
+				else if (symbol->declaration->type == NODE_PARAMETER)
+				{
+					Parameter* parameter = &symbol->declaration->parameter;
 
-						if (stream.tellp())
-							stream << "\n";
+					Type* type = parameter->paramType->inferredType;
 
-						stream << "struct ";
+					stream.write(type->name.ptr, type->name.length);
+					stream << ' ';
+					stream.write(symbol->name.ptr, symbol->name.length);
 
-						stream.write(struct_->name.ptr, struct_->name.length);
-						stream << " {\n";
+					/*
+					if (parameter->value)
+					{
+						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
+						stream << " = ";
+						stream.write(valueStr.ptr, valueStr.length);
+					}
+					*/
 
-						for (int i = 0; i < struct_->numFields; i++)
+					markdown = stream.str();
+				}
+				else if (symbol->declaration->type == NODE_FOR)
+				{
+					For* for_ = &symbol->declaration->for_;
+
+					detail = "for iterator " + detail;
+
+					stream << "int32 ";
+					stream.write(for_->iteratorName.ptr, for_->iteratorName.length);
+
+					markdown = stream.str();
+				}
+			}
+			else if (symbol->type == SYMBOL_TYPE)
+			{
+				if (symbol->declaration->type == NODE_STRUCT)
+				{
+					Struct* struct_ = &symbol->declaration->struct_;
+
+					if (struct_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (struct_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (struct_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "struct ";
+
+					stream.write(struct_->name.ptr, struct_->name.length);
+					stream << " {\n";
+
+					for (int i = 0; i < struct_->numFields; i++)
+					{
+						Field* field = struct_->fields[i];
+						Type* fieldType = field->variableType->inferredType;
+
+						stream << "\t";
+						stream.write(fieldType->name.ptr, fieldType->name.length);
+						stream << ' ';
+
+						for (int j = 0; j < field->numDeclarators; j++)
 						{
-							Field* field = struct_->fields[i];
-							Type* fieldType = field->variableType->inferredType;
+							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
 
-							stream << "\t";
-							stream.write(fieldType->name.ptr, fieldType->name.length);
-							stream << ' ';
-
-							for (int j = 0; j < field->numDeclarators; j++)
+							if (field->declarators[j].hasOffset)
 							{
-								stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
-
-								if (field->declarators[j].hasOffset)
-								{
-									stream << " @offset(" << field->declarators[j].offset << ')';
-								}
-
-								if (j < field->numDeclarators - 1)
-									stream << ", ";
+								stream << " @offset(" << field->declarators[j].offset << ')';
 							}
 
-							stream << ";\n";
+							if (j < field->numDeclarators - 1)
+								stream << ", ";
 						}
 
-						stream << '}';
+						stream << ";\n";
 					}
-					else if (symbol->declaration->type == NODE_UNION)
+
+					stream << '}';
+				}
+				else if (symbol->declaration->type == NODE_UNION)
+				{
+					Union* union_ = &symbol->declaration->union_;
+
+					if (union_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (union_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (union_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "union ";
+
+					stream.write(union_->name.ptr, union_->name.length);
+					stream << " {\n";
+
+					for (int i = 0; i < union_->numFields; i++)
 					{
-						Union* union_ = &symbol->declaration->union_;
+						Field* field = union_->fields[i];
+						Type* fieldType = field->variableType->inferredType;
 
-						if (union_->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (union_->storage & STORAGE_PACKED)
-							stream << "packed ";
-						if (union_->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
+						stream << "\t";
+						stream.write(fieldType->name.ptr, fieldType->name.length);
+						stream << ' ';
 
-						if (stream.tellp())
-							stream << "\n";
-
-						stream << "union ";
-
-						stream.write(union_->name.ptr, union_->name.length);
-						stream << " {\n";
-
-						for (int i = 0; i < union_->numFields; i++)
+						for (int j = 0; j < field->numDeclarators; j++)
 						{
-							Field* field = union_->fields[i];
-							Type* fieldType = field->variableType->inferredType;
-
-							stream << "\t";
-							stream.write(fieldType->name.ptr, fieldType->name.length);
-							stream << ' ';
-
-							for (int j = 0; j < field->numDeclarators; j++)
-							{
-								stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
-								if (j < field->numDeclarators - 1)
-									stream << ", ";
-							}
-
-							stream << ";\n";
+							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+							if (j < field->numDeclarators - 1)
+								stream << ", ";
 						}
 
-						stream << '}';
+						stream << ";\n";
 					}
-					else if (symbol->declaration->type == NODE_ENUM)
+
+					stream << '}';
+				}
+				else if (symbol->declaration->type == NODE_ENUM)
+				{
+					Enum* enum_ = &symbol->declaration->enum_;
+
+					if (enum_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (enum_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (enum_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "enum ";
+
+					stream.write(enum_->name.ptr, enum_->name.length);
+
+					if (enum_->valueType)
 					{
-						Enum* enum_ = &symbol->declaration->enum_;
-
-						if (enum_->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (enum_->storage & STORAGE_PACKED)
-							stream << "packed ";
-						if (enum_->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
-
-						if (stream.tellp())
-							stream << "\n";
-
-						stream << "enum ";
-
-						stream.write(enum_->name.ptr, enum_->name.length);
-
-						if (enum_->valueType)
-						{
-							Type* valueType = enum_->valueType->inferredType;
-							stream << " = ";
-							stream.write(valueType->name.ptr, valueType->name.length);
-						}
-
-						stream << ';';
-					}
-					else if (symbol->declaration->type == NODE_TYPEDEF)
-					{
-						Typedef* typedef_ = &symbol->declaration->typedef_;
-
-						if (typedef_->storage & STORAGE_PRIVATE)
-							stream << "private ";
-						if (typedef_->storage & STORAGE_PACKED)
-							stream << "packed ";
-						if (typedef_->storage & STORAGE_NOMANGLE)
-							stream << "nomangle ";
-
-						if (stream.tellp())
-							stream << "\n";
-
-						stream << "type ";
-
-						stream.write(typedef_->name.ptr, typedef_->name.length);
-
-						Type* valueType = typedef_->value->inferredType;
+						Type* valueType = enum_->valueType->inferredType;
 						stream << " = ";
 						stream.write(valueType->name.ptr, valueType->name.length);
-
-						stream << ';';
 					}
 
-					markdown = stream.str();
+					stream << ';';
 				}
-				else if (symbol->type == SYMBOL_FUNCTION_SET && symbol->functionSet.count)
+				else if (symbol->declaration->type == NODE_TYPEDEF)
 				{
-					if (symbol->functionSet.count > 1)
-					{
-						detail = detail + "(...) : " + std::to_string(symbol->functionSet.count) + " overloads";
-					}
+					Typedef* typedef_ = &symbol->declaration->typedef_;
 
-					for (int i = 0; i < symbol->functionSet.count; i++)
-					{
-						getFunctionDetailString(symbol->functionSet.overloads[i].declaration, stream);
-						if (i < symbol->functionSet.count - 1)
-							stream << "\n";
-					}
-					markdown = stream.str();
+					if (typedef_->storage & STORAGE_PRIVATE)
+						stream << "private ";
+					if (typedef_->storage & STORAGE_PACKED)
+						stream << "packed ";
+					if (typedef_->storage & STORAGE_NOMANGLE)
+						stream << "nomangle ";
+
+					if (stream.tellp())
+						stream << "\n";
+
+					stream << "type ";
+
+					stream.write(typedef_->name.ptr, typedef_->name.length);
+
+					Type* valueType = typedef_->value->inferredType;
+					stream << " = ";
+					stream.write(valueType->name.ptr, valueType->name.length);
+
+					stream << ';';
 				}
 
-				if (detail != "" || markdown != "")
-				{
-					if (markdown != "")
-					{
-						markdown = "```sneklang\n" + markdown + "\n```";
-					}
-
-					result = {
-						{"label", label},
-						{"kind", kind},
-						{"detail", detail},
-						{"documentation", {
-							{"kind", "markdown"},
-							{"value", markdown}
-						}},
-						{"data", {
-							{"symbol_id", std::to_string(symbolHandle)},
-							{"file_id", std::to_string((uint64_t)fileHandle)}
-						}}
-					};
-				}
-
-				return true;
+				markdown = stream.str();
 			}
-		}
-		else
-		{
-			return false;
+			else if (symbol->type == SYMBOL_FUNCTION_SET && symbol->functionSet.count)
+			{
+				if (symbol->functionSet.count > 1)
+				{
+					detail = detail + "(...) : " + std::to_string(symbol->functionSet.count) + " overloads";
+				}
+
+				for (int i = 0; i < symbol->functionSet.count; i++)
+				{
+					getFunctionDetailString(symbol->functionSet.overloads[i].declaration, stream);
+					if (i < symbol->functionSet.count - 1)
+						stream << "\n";
+				}
+				markdown = stream.str();
+			}
+
+			if (detail != "" || markdown != "")
+			{
+				if (markdown != "")
+				{
+					markdown = "```sneklang\n" + markdown + "\n```";
+				}
+
+				result = {
+					{"label", label},
+					{"kind", kind},
+					{"detail", detail},
+					{"documentation", {
+						{"kind", "markdown"},
+						{"value", markdown}
+					}},
+					{"data", {
+						{"symbol_id", std::to_string(symbolHandle)},
+						{"file_id", std::to_string((uint64_t)fileHandle)}
+					}}
+				};
+			}
+
+			return true;
 		}
 	}
 
@@ -1177,7 +1158,7 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 		stream << ' ' << label << " = ";
 
 		EnumValue* enumValue = declaration->values[fieldID];
-		StringView valueStr = getRangedString(enumValue->value->start, enumValue->value->end, &document->file.parser);
+		StringView valueStr = getRangedString(enumValue->value->start, enumValue->value->end, document->file);
 		stream.write(valueStr.ptr, valueStr.length);
 
 		stream << ';';
@@ -1428,23 +1409,22 @@ int main()
 
 				if (Document* document = GetDocument(uri))
 				{
-					if (document->lastChange == 0) // dont send tokens is document is outdated and needs to be reparsed
-					{
-						std::vector<int> data;
-						document->getTokens(data);
+					waitForDocumentParse(document);
+					document->astMutex.lock();
 
-						sendResponse(id, {
-							{"data", data}
-							});
-					}
-					else
-					{
-						sendErrorResponse(id, -32801);
-					}
+					std::vector<int> data;
+					document->getTokens(data);
+
+					document->astMutex.unlock();
+
+					sendResponse(id, {
+						{"data", data}
+						});
 				}
 				else
 				{
 					fprintf(stderr, "Document %s not found\n", uri.c_str());
+					sendErrorResponse(id, -32801);
 				}
 			}
 			/*
@@ -1478,71 +1458,38 @@ int main()
 					}
 				}
 
-				// normal identifier completion
-				if (triggerKind >= 0 && triggerKind <= 2) // invoke
+				json items = json::array();
+
+				Node* node = nullptr;
+				Scope* scope = nullptr;
+
+				waitForDocumentParse(document);
+				document->astMutex.lock();
+
+				uint64_t beforeComplete = GetTimeNS();
+
+				if (triggerCharacter)
 				{
-					if (waitForDocumentTypeCheck(document, 200))
-					{
-						json items = json::array();
-
-						Node* node = nullptr;
-						Scope* scope = nullptr;
-
-						document->astMutex.lock();
-
-						uint64_t beforeComplete = GetTimeNS();
-
-						document->getNodeAtPosition(line, character - (triggerCharacter ? 2 : 1), &node, &scope);
-
-						if (node)
-						{
-							document->autocomplete(node, scope, triggerCharacter, items);
-						}
-
-						uint64_t afterComplete = GetTimeNS();
-
-						document->astMutex.unlock();
-
-						float ms = (afterComplete - beforeComplete) / 1e6f;
-						fprintf(stderr, "autocomplete in %.3fms\n", ms);
-
-						/*
-						for (auto& pair : keywords)
-						{
-							std::string keyword = pair.first;
-							items.push_back({
-								{"label", keyword },
-								{"kind", COMPLETION_ITEM_KEYWORD}  // keyword
-								});
-						}
-						*/
-
-						// TODO autocomplete using all parsed asts
-						//std::filesystem::path path = std::filesystem::path(uri);
-						//std::string name = path.stem().string();
-						//AST::File* ast = compiler->getASTByName(name.c_str());
-						//autocomplete(ast, compiler->resolver, items, line, character);
-
-						sendResponse(request["id"], {
-							{"isIncomplete", false},
-							{"items", items}
-							});
-					}
-					else
-					{
-						sendResponse(request["id"], {
-							{"isIncomplete", false},
-							{"items", json::array()}
-							});
-					}
+					document->getNodeAtPosition(line, character - 1, &node, &scope);
+					document->autocomplete(node, triggerCharacter, items);
 				}
 				else
 				{
-					sendResponse(request["id"], {
-						{"isIncomplete", false},
-						{"items", json::array()}
-						});
+					document->getNodeAtPosition(line, character - 1, &node, &scope);
+					document->autocomplete(scope, items);
 				}
+
+				uint64_t afterComplete = GetTimeNS();
+
+				document->astMutex.unlock();
+
+				float ms = (afterComplete - beforeComplete) / 1e6f;
+				fprintf(stderr, "autocomplete in %.3fms\n", ms);
+
+				sendResponse(request["id"], {
+					{"isIncomplete", false},
+					{"items", items}
+					});
 			}
 			else if (method == "completionItem/resolve")
 			{
@@ -1561,6 +1508,11 @@ int main()
 					uint32_t symbolHandle = std::stoul(symbolHandleStr);
 					FileHandle fileHandle = std::stoull(fileHandleStr);
 
+					Document* document = getDocument(fileHandle);
+
+					waitForDocumentParse(document);
+					document->astMutex.lock();
+
 					json result;
 					if (resolveCompletionItem(label, kind, symbolHandle, fileHandle, result))
 					{
@@ -1570,6 +1522,8 @@ int main()
 					{
 						sendErrorResponse(request["id"], -32801);
 					}
+
+					document->astMutex.unlock();
 				}
 				else if (data.contains("type_id") && data.contains("field_id"))
 				{
@@ -1598,6 +1552,7 @@ int main()
 
 				json result = json::array();
 
+				waitForDocumentParse(document);
 				document->astMutex.lock();
 
 				document->getSymbols(result);
@@ -1617,6 +1572,9 @@ int main()
 				int line = position["line"];
 				int character = position["character"];
 
+				waitForDocumentParse(document);
+				document->astMutex.lock();
+
 				json result;
 				if (document->getDefinitionLocation(line, character, result))
 				{
@@ -1626,6 +1584,8 @@ int main()
 				{
 					sendErrorResponse(request["id"], -32801);
 				}
+
+				document->astMutex.unlock();
 			}
 			else if (method == "textDocument/references")
 			{
@@ -1639,6 +1599,9 @@ int main()
 				int character = position["character"];
 
 				bool includeDeclaration = params["context"]["includeDeclaration"];
+
+				waitForDocumentParse(document);
+				document->astMutex.lock();
 
 				int overloadIdx = -1;
 				if (Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx))
@@ -1660,7 +1623,7 @@ int main()
 						Document* symbolDocument = getDocument(symbol->file);
 
 						SourceLocation start, end;
-						getSourceLocation(&symbolDocument->file.parser, declaration, &start, &end);
+						getSourceLocation(symbolDocument->file, declaration, &start, &end);
 
 						locations.push_back({
 							{"uri", symbolDocument->uri},
@@ -1683,6 +1646,8 @@ int main()
 				{
 					sendErrorResponse(request["id"], -32801);
 				}
+
+				document->astMutex.unlock();
 			}
 			else if (method == "textDocument/rename")
 			{
@@ -1697,8 +1662,15 @@ int main()
 
 				std::string newName = params["newName"];
 
+				waitForDocumentParse(document);
+				document->astMutex.lock();
+
 				int overloadIdx = -1;
-				if (Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx))
+				Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx);
+
+				document->astMutex.unlock();
+
+				if (symbol)
 				{
 					json changes = json::object();
 
@@ -1706,6 +1678,7 @@ int main()
 					{
 						json fileChanges = json::array();
 
+						waitForDocumentParse(documents[i]);
 						documents[i]->astMutex.lock();
 
 						documents[i]->rename(symbol, overloadIdx, newName, line, character, fileChanges);
@@ -1732,39 +1705,33 @@ int main()
 
 				Document* document = GetDocument(uri);
 
-				if (waitForDocumentTypeCheck(document, 200))
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
+
+				json signatures = json::array();
+				int activeSignature = 0;
+				int activeParameter = 0;
+
+				waitForDocumentParse(document);
+				document->astMutex.lock();
+
+				if (document->getFunctionSignature(line, character, signatures, activeSignature, activeParameter))
 				{
-					json position = params["position"];
-					int line = position["line"];
-					int character = position["character"];
+					json result = {
+						{"signatures", signatures},
+						{"activeSignature", activeSignature},
+						{"activeParameter", activeParameter},
+					};
 
-					json signatures = json::array();
-					int activeSignature = 0;
-					int activeParameter = 0;
-
-					document->astMutex.lock();
-
-					if (document->getFunctionSignature(line, character, signatures, activeSignature, activeParameter))
-					{
-						json result = {
-							{"signatures", signatures},
-							{"activeSignature", activeSignature},
-							{"activeParameter", activeParameter},
-						};
-
-						sendResponse(request["id"], result);
-					}
-					else
-					{
-						sendResponse(request["id"], nullptr);
-					}
-
-					document->astMutex.unlock();
+					sendResponse(request["id"], result);
 				}
 				else
 				{
 					sendResponse(request["id"], nullptr);
 				}
+
+				document->astMutex.unlock();
 			}
 			else if (method == "workspace/symbol")
 			{
@@ -1779,6 +1746,7 @@ int main()
 				{
 					Document* document = documents[i];
 
+					waitForDocumentParse(document);
 					document->astMutex.lock();
 
 					document->getWorkspaceSymbols(query, result);
