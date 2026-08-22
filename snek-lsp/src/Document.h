@@ -156,7 +156,7 @@ struct Document
 	void getTokens(std::vector<int>& data);
 
 	void getNodeAtPosition(int line, int col, Node** node, Scope** scope);
-	Symbol* getSymbolAtPosition(int line, int col, int* overloadIdx);
+	Symbol* getNodeSymbol(Node* node, int line, int col, int* overloadIdx);
 	void autocomplete(Scope* scope, nlohmann::json& items);
 	void autocomplete(Node* node, char triggerCharacter, nlohmann::json& items);
 
@@ -166,9 +166,13 @@ struct Document
 	bool getFunctionSignature(int line, int col, nlohmann::json& signatures, int& activeSignature, int& activeParameter);
 
 	bool getDefinitionLocation(int line, int col, nlohmann::json& location);
+	bool getHoverInfo(int line, int col, nlohmann::json& result, SourceLocation& start, SourceLocation& end);
 	void findAllReferences(Symbol* symbol, nlohmann::json& locations);
 	void rename(Symbol* symbol, int overloadIdx, std::string newText, int line, int col, nlohmann::json& changes);
 };
 
 
 File* getFileFromHandleLSP(FileHandle fileHandle);
+
+bool getSymbolInfoMarkdown(Symbol* symbol, nlohmann::json& result, std::string& detail);
+bool getFieldInfoMarkdown(Type* type, int fieldID, nlohmann::json& result, std::string& detail);

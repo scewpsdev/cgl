@@ -1,2 +1,4 @@
 @echo off
-snekc build src/snake.src lib/libSDL3.dll.a
+D:\Dev\Rainfall\RainfallResourceCompiler\bin\x64\Release\RainfallResourceCompiler.exe res bin/res png vert frag comp
+D:\Dev\2023\CGL\bin\x64\Release\snekc build src/triangle.src lib/libSDL3.dll.a lib/SDL3.dll
+

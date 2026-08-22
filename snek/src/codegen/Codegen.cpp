@@ -1445,7 +1445,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			{
 				Value data = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
-				emitString(buffer, ".ptr;\n");
+				emitString(buffer, ".data;\n");
 
 				return data;
 			}

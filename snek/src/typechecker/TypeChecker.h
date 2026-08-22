@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils/StringView.h"
+
 
 struct File;
 struct Function;
@@ -12,6 +14,7 @@ struct Scope;
 struct Symbol;
 struct Expression;
 struct Identifier;
+struct Type;
 
 struct TypeChecker
 {
@@ -33,3 +36,5 @@ void destroyTypeChecker(TypeChecker* tc);
 void symbolCollection(TypeChecker* tc, File* file);
 void symbolResolution(TypeChecker* tc, File* file);
 void typeCheckFunctions(TypeChecker* tc, File* file);
+
+int getFieldIndex(Type* operandType, StringView name, Expression* operand);

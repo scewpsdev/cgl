@@ -1279,6 +1279,59 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 	}
 }
 
+int getFieldIndex(Type* operandType, StringView name, Expression* operand)
+{
+	if (operandType->typeKind == TYPE_STRUCT)
+	{
+		return getFieldIndex(name, operandType->struct_.numFields + operandType->struct_.numOffsetFields, operandType->struct_.fieldNames);
+	}
+	else if (operandType->typeKind == TYPE_UNION)
+	{
+		return getFieldIndex(name, operandType->union_.numFields, operandType->union_.fieldNames);
+	}
+	else if (operandType->typeKind == TYPE_STRING)
+	{
+		if (compareString(name, "data"))
+			return 0;
+		else if (compareString(name, "length"))
+			return 1;
+		return -1;
+	}
+	else if (operandType->typeKind == TYPE_ARRAY)
+	{
+		if (compareString(name, "data"))
+			return 0;
+		else if (compareString(name, "length"))
+			return 1;
+		return -1;
+	}
+	else if (operandType->typeKind == TYPE_ANY)
+	{
+		if (compareString(name, "value"))
+			return 0;
+		else if (compareString(name, "type"))
+			return 1;
+		return -1;
+	}
+	else if (operandType->typeKind == TYPE_TYPE)
+	{
+		SnekAssert(operand->type == NODE_IDENTIFIER);
+
+		Identifier* typeName = (Identifier*)operand;
+		if (Symbol* symbol = getIdentifierSymbol(typeName))
+		{
+			if (symbol->declaration->type == NODE_ENUM)
+			{
+				Enum* enum_ = &symbol->declaration->enum_;
+				return getEnumValue(name, enum_->numValues, enum_->values);
+			}
+		}
+		return -1;
+	}
+
+	return -1;
+}
+
 static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool hasArgs, int numArgs, Expression** args)
 {
 	Type* operandType = resolveExpression(tc, member->operand);
@@ -1370,42 +1423,33 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	if (operandType->typeKind == TYPE_POINTER)
 		operandType = operandType->pointer.elementType;
 
+	int fieldID = getFieldIndex(operandType, member->name, member->operand);
+	member->index = fieldID;
+
 	if (operandType->typeKind == TYPE_STRUCT)
 	{
-		if (member->index == -1)
-			member->index = getFieldIndex(member->name, operandType->struct_.numFields + operandType->struct_.numOffsetFields, operandType->struct_.fieldNames);
-		if (member->index == -1)
+		if (fieldID == -1)
 		{
 			error(tc, member->name, "Undefined struct field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
 			return member->inferredType = &tc->types->errorType;
 		}
-
-		return member->inferredType = operandType->struct_.fieldTypes[member->index];
+		return member->inferredType = operandType->struct_.fieldTypes[fieldID];
 	}
 	else if (operandType->typeKind == TYPE_UNION)
 	{
-		if (member->index == -1)
-			member->index = getFieldIndex(member->name, operandType->union_.numFields, operandType->union_.fieldNames);
-		if (member->index == -1)
+		if (fieldID == -1)
 		{
 			error(tc, member->name, "Undefined union field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
 			return member->inferredType = &tc->types->errorType;
 		}
-
-		return member->inferredType = operandType->union_.fieldTypes[member->index];
+		return member->inferredType = operandType->union_.fieldTypes[fieldID];
 	}
 	else if (operandType->typeKind == TYPE_STRING)
 	{
-		if (compareString(member->name, "ptr"))
-		{
-			member->index = 0;
+		if (fieldID == 0)
 			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_INT8], tc->file);
-		}
-		else if (compareString(member->name, "length"))
-		{
-			member->index = 1;
+		else if (fieldID == 1)
 			return member->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
-		}
 		else
 		{
 			error(tc, member->name, "Undefined string field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
@@ -1414,16 +1458,10 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	}
 	else if (operandType->typeKind == TYPE_ARRAY)
 	{
-		if (compareString(member->name, "data"))
-		{
-			member->index = 0;
+		if (fieldID == 0)
 			return member->inferredType = getPointerType(tc->types, operandType->array.elementType, tc->file);
-		}
-		else if (compareString(member->name, "length"))
-		{
-			member->index = 1;
+		else if (fieldID == 1)
 			return member->inferredType = &tc->types->primitiveTypes[TYPE_UINT64];
-		}
 		else
 		{
 			error(tc, member->name, "Undefined array field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
@@ -1432,16 +1470,10 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	}
 	else if (operandType->typeKind == TYPE_ANY)
 	{
-		if (compareString(member->name, "value"))
-		{
-			member->index = 0;
+		if (fieldID == 0)
 			return member->inferredType = getPointerType(tc->types, &tc->types->primitiveTypes[TYPE_VOID], tc->file);
-		}
-		else if (compareString(member->name, "type"))
-		{
-			member->index = 1;
+		else if (fieldID == 1)
 			return member->inferredType = &tc->types->primitiveTypes[TYPE_INT32];
-		}
 		else
 		{
 			error(tc, member->name, "Undefined any field '%.*s.%.*s'", operandType->name.length, operandType->name.ptr, member->name.length, member->name.ptr);
@@ -1463,10 +1495,8 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 		if (symbol->declaration->type == NODE_ENUM)
 		{
 			Enum* enum_ = &symbol->declaration->enum_;
-			int index = getEnumValue(member->name, enum_->numValues, enum_->values);
-			member->index = index;
 
-			if (index != -1)
+			if (fieldID != -1)
 			{
 				return member->inferredType = enum_->enumType;
 			}
@@ -1563,6 +1593,27 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		if (sizeof_->expression)
 		{
 			sizeof_->expressionType = resolveExpression(tc, sizeof_->expression);
+			if (sizeof_->expressionType->typeKind == TYPE_TYPE)
+			{
+				Symbol* symbol = sizeof_->expression->type == NODE_IDENTIFIER ? getIdentifierSymbol((Identifier*)sizeof_->expression) : nullptr;
+				if (symbol)
+				{
+					SnekAssert(symbol->type == SYMBOL_TYPE);
+					Node* declaration = symbol->declaration;
+					if (declaration->type == NODE_STRUCT)
+						sizeof_->expressionType = declaration->struct_.structType;
+					else if (declaration->type == NODE_UNION)
+						sizeof_->expressionType = declaration->union_.unionType;
+					else if (declaration->type == NODE_ENUM)
+						sizeof_->expressionType = declaration->enum_.enumType;
+					else if (declaration->type == NODE_TYPEDEF)
+						sizeof_->expressionType = declaration->typedef_.aliasType;
+					else
+					{
+						SnekAssert(false);
+					}
+				}
+			}
 		}
 		else if (sizeof_->targetType)
 		{

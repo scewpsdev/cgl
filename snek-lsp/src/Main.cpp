@@ -770,320 +770,320 @@ static void waitForDocumentParse(Document* document)
 	SnekAssert(false);
 }
 
-static bool resolveCompletionItem(std::string label, int kind, uint32_t symbolHandle, FileHandle fileHandle, json& result)
+bool getSymbolInfoMarkdown(Symbol* symbol, json& result, std::string& detail)
 {
-	if (File* file = getFileFromHandleLSP(fileHandle))
+	File* file = getFileFromHandleLSP(symbol->file);
+
+	std::string markdown;
+
+	std::stringstream stream;
+
+	writeFilePath(file->localPath, stream);
+	stream << '.';
+	stream.write(symbol->name.ptr, symbol->name.length);
+	detail = stream.str();
+	stream.str("");
+	stream.clear();
+
+	if (symbol->type == SYMBOL_VARIABLE)
 	{
-		if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle))
+		if (symbol->declaration->type == NODE_VARIABLE_DECLARATION)
 		{
-			std::string detail;
-			std::string markdown;
+			VariableDeclaration* variable = &symbol->declaration->variableDeclaration;
+			VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
 
-			std::stringstream stream;
+			Type* type = variable->variableType->inferredType;
 
-			writeFilePath(file->localPath, stream);
-			stream << '.' << label;
-			detail = stream.str();
-			stream.str("");
-			stream.clear();
+			if (variable->storage & STORAGE_DLLEXPORT)
+				stream << "dllexport ";
+			else if (variable->storage & STORAGE_DLLIMPORT)
+				stream << "dllimport ";
+			else if (variable->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (variable->storage & STORAGE_EXTERN)
+				stream << "externc ";
+			if (variable->storage & STORAGE_CONSTANT)
+				stream << "const ";
+			if (variable->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
 
-			if (symbol->type == SYMBOL_VARIABLE)
+			if (stream.tellp())
+				stream << "\n";
+
+			stream.write(type->name.ptr, type->name.length);
+			stream << ' ';
+			stream.write(symbol->name.ptr, symbol->name.length);
+
+			if (variable->storage & STORAGE_CONSTANT && declarator->value)
 			{
-				if (symbol->declaration->type == NODE_VARIABLE_DECLARATION)
-				{
-					VariableDeclaration* variable = &symbol->declaration->variableDeclaration;
-					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
-
-					Type* type = variable->variableType->inferredType;
-
-					if (variable->storage & STORAGE_DLLEXPORT)
-						stream << "dllexport ";
-					else if (variable->storage & STORAGE_DLLIMPORT)
-						stream << "dllimport ";
-					else if (variable->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (variable->storage & STORAGE_EXTERN)
-						stream << "externc ";
-					if (variable->storage & STORAGE_CONSTANT)
-						stream << "const ";
-					if (variable->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream.write(type->name.ptr, type->name.length);
-					stream << ' ';
-					stream.write(symbol->name.ptr, symbol->name.length);
-
-					if (variable->storage & STORAGE_CONSTANT && declarator->value)
-					{
-						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
-						stream << " = ";
-						stream.write(valueStr.ptr, valueStr.length);
-					}
-
-					markdown = stream.str();
-				}
-				else if (symbol->declaration->type == NODE_GLOBAL_VARIABLE)
-				{
-					GlobalVariable* variable = &symbol->declaration->globalVariable;
-					VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
-
-					Type* type = variable->variableType->inferredType;
-
-					if (variable->storage & STORAGE_DLLEXPORT)
-						stream << "dllexport ";
-					else if (variable->storage & STORAGE_DLLIMPORT)
-						stream << "dllimport ";
-					else if (variable->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (variable->storage & STORAGE_EXTERN)
-						stream << "externc ";
-					if (variable->storage & STORAGE_CONSTANT)
-						stream << "const ";
-					if (variable->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream.write(type->name.ptr, type->name.length);
-					stream << ' ';
-					stream.write(symbol->name.ptr, symbol->name.length);
-
-					if (variable->storage & STORAGE_CONSTANT && declarator->value)
-					{
-						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
-						stream << " = ";
-						stream.write(valueStr.ptr, valueStr.length);
-					}
-
-					markdown = stream.str();
-				}
-				else if (symbol->declaration->type == NODE_PARAMETER)
-				{
-					Parameter* parameter = &symbol->declaration->parameter;
-
-					Type* type = parameter->paramType->inferredType;
-
-					stream.write(type->name.ptr, type->name.length);
-					stream << ' ';
-					stream.write(symbol->name.ptr, symbol->name.length);
-
-					/*
-					if (parameter->value)
-					{
-						StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
-						stream << " = ";
-						stream.write(valueStr.ptr, valueStr.length);
-					}
-					*/
-
-					markdown = stream.str();
-				}
-				else if (symbol->declaration->type == NODE_FOR)
-				{
-					For* for_ = &symbol->declaration->for_;
-
-					detail = "for iterator " + detail;
-
-					stream << "int32 ";
-					stream.write(for_->iteratorName.ptr, for_->iteratorName.length);
-
-					markdown = stream.str();
-				}
-			}
-			else if (symbol->type == SYMBOL_TYPE)
-			{
-				if (symbol->declaration->type == NODE_STRUCT)
-				{
-					Struct* struct_ = &symbol->declaration->struct_;
-
-					if (struct_->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (struct_->storage & STORAGE_PACKED)
-						stream << "packed ";
-					if (struct_->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream << "struct ";
-
-					stream.write(struct_->name.ptr, struct_->name.length);
-					stream << " {\n";
-
-					for (int i = 0; i < struct_->numFields; i++)
-					{
-						Field* field = struct_->fields[i];
-						Type* fieldType = field->variableType->inferredType;
-
-						stream << "\t";
-						stream.write(fieldType->name.ptr, fieldType->name.length);
-						stream << ' ';
-
-						for (int j = 0; j < field->numDeclarators; j++)
-						{
-							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
-
-							if (field->declarators[j].hasOffset)
-							{
-								stream << " @offset(" << field->declarators[j].offset << ')';
-							}
-
-							if (j < field->numDeclarators - 1)
-								stream << ", ";
-						}
-
-						stream << ";\n";
-					}
-
-					stream << '}';
-				}
-				else if (symbol->declaration->type == NODE_UNION)
-				{
-					Union* union_ = &symbol->declaration->union_;
-
-					if (union_->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (union_->storage & STORAGE_PACKED)
-						stream << "packed ";
-					if (union_->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream << "union ";
-
-					stream.write(union_->name.ptr, union_->name.length);
-					stream << " {\n";
-
-					for (int i = 0; i < union_->numFields; i++)
-					{
-						Field* field = union_->fields[i];
-						Type* fieldType = field->variableType->inferredType;
-
-						stream << "\t";
-						stream.write(fieldType->name.ptr, fieldType->name.length);
-						stream << ' ';
-
-						for (int j = 0; j < field->numDeclarators; j++)
-						{
-							stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
-							if (j < field->numDeclarators - 1)
-								stream << ", ";
-						}
-
-						stream << ";\n";
-					}
-
-					stream << '}';
-				}
-				else if (symbol->declaration->type == NODE_ENUM)
-				{
-					Enum* enum_ = &symbol->declaration->enum_;
-
-					if (enum_->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (enum_->storage & STORAGE_PACKED)
-						stream << "packed ";
-					if (enum_->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream << "enum ";
-
-					stream.write(enum_->name.ptr, enum_->name.length);
-
-					if (enum_->valueType)
-					{
-						Type* valueType = enum_->valueType->inferredType;
-						stream << " = ";
-						stream.write(valueType->name.ptr, valueType->name.length);
-					}
-
-					stream << ';';
-				}
-				else if (symbol->declaration->type == NODE_TYPEDEF)
-				{
-					Typedef* typedef_ = &symbol->declaration->typedef_;
-
-					if (typedef_->storage & STORAGE_PRIVATE)
-						stream << "private ";
-					if (typedef_->storage & STORAGE_PACKED)
-						stream << "packed ";
-					if (typedef_->storage & STORAGE_NOMANGLE)
-						stream << "nomangle ";
-
-					if (stream.tellp())
-						stream << "\n";
-
-					stream << "type ";
-
-					stream.write(typedef_->name.ptr, typedef_->name.length);
-
-					Type* valueType = typedef_->value->inferredType;
-					stream << " = ";
-					stream.write(valueType->name.ptr, valueType->name.length);
-
-					stream << ';';
-				}
-
-				markdown = stream.str();
-			}
-			else if (symbol->type == SYMBOL_FUNCTION_SET && symbol->functionSet.count)
-			{
-				if (symbol->functionSet.count > 1)
-				{
-					detail = detail + "(...) : " + std::to_string(symbol->functionSet.count) + " overloads";
-				}
-
-				for (int i = 0; i < symbol->functionSet.count; i++)
-				{
-					getFunctionDetailString(symbol->functionSet.overloads[i].declaration, stream);
-					if (i < symbol->functionSet.count - 1)
-						stream << "\n";
-				}
-				markdown = stream.str();
+				StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
+				stream << " = ";
+				stream.write(valueStr.ptr, valueStr.length);
 			}
 
-			if (detail != "" || markdown != "")
-			{
-				if (markdown != "")
-				{
-					markdown = "```sneklang\n" + markdown + "\n```";
-				}
+			markdown = stream.str();
+		}
+		else if (symbol->declaration->type == NODE_GLOBAL_VARIABLE)
+		{
+			GlobalVariable* variable = &symbol->declaration->globalVariable;
+			VariableDeclarator* declarator = getDeclarator(variable, symbol->name);
 
-				result = {
-					{"label", label},
-					{"kind", kind},
-					{"detail", detail},
-					{"documentation", {
-						{"kind", "markdown"},
-						{"value", markdown}
-					}},
-					{"data", {
-						{"symbol_id", std::to_string(symbolHandle)},
-						{"file_id", std::to_string((uint64_t)fileHandle)}
-					}}
-				};
+			Type* type = variable->variableType->inferredType;
+
+			if (variable->storage & STORAGE_DLLEXPORT)
+				stream << "dllexport ";
+			else if (variable->storage & STORAGE_DLLIMPORT)
+				stream << "dllimport ";
+			else if (variable->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (variable->storage & STORAGE_EXTERN)
+				stream << "externc ";
+			if (variable->storage & STORAGE_CONSTANT)
+				stream << "const ";
+			if (variable->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
+
+			if (stream.tellp())
+				stream << "\n";
+
+			stream.write(type->name.ptr, type->name.length);
+			stream << ' ';
+			stream.write(symbol->name.ptr, symbol->name.length);
+
+			if (variable->storage & STORAGE_CONSTANT && declarator->value)
+			{
+				StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, file);
+				stream << " = ";
+				stream.write(valueStr.ptr, valueStr.length);
 			}
 
-			return true;
+			markdown = stream.str();
+		}
+		else if (symbol->declaration->type == NODE_PARAMETER)
+		{
+			Parameter* parameter = &symbol->declaration->parameter;
+
+			Type* type = parameter->paramType->inferredType;
+
+			stream.write(type->name.ptr, type->name.length);
+			stream << ' ';
+			stream.write(symbol->name.ptr, symbol->name.length);
+
+			/*
+			if (parameter->value)
+			{
+				StringView valueStr = getRangedString(declarator->value->start, declarator->value->end, &file->parser);
+				stream << " = ";
+				stream.write(valueStr.ptr, valueStr.length);
+			}
+			*/
+
+			markdown = stream.str();
+		}
+		else if (symbol->declaration->type == NODE_FOR)
+		{
+			For* for_ = &symbol->declaration->for_;
+
+			detail = "for iterator " + detail;
+
+			stream << "int32 ";
+			stream.write(for_->iteratorName.ptr, for_->iteratorName.length);
+
+			markdown = stream.str();
 		}
 	}
+	else if (symbol->type == SYMBOL_TYPE)
+	{
+		if (symbol->declaration->type == NODE_STRUCT)
+		{
+			Struct* struct_ = &symbol->declaration->struct_;
 
-	return false;
+			if (struct_->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (struct_->storage & STORAGE_PACKED)
+				stream << "packed ";
+			if (struct_->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
+
+			if (stream.tellp())
+				stream << "\n";
+
+			stream << "struct ";
+
+			stream.write(struct_->name.ptr, struct_->name.length);
+
+			if (struct_->hasBody)
+			{
+				stream << " {\n";
+
+				for (int i = 0; i < struct_->numFields; i++)
+				{
+					Field* field = struct_->fields[i];
+					Type* fieldType = field->variableType->inferredType;
+
+					stream << "\t";
+					stream.write(fieldType->name.ptr, fieldType->name.length);
+					stream << ' ';
+
+					for (int j = 0; j < field->numDeclarators; j++)
+					{
+						stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+
+						if (field->declarators[j].hasOffset)
+						{
+							stream << " @offset(" << field->declarators[j].offset << ')';
+						}
+
+						if (j < field->numDeclarators - 1)
+							stream << ", ";
+					}
+
+					stream << ";\n";
+				}
+
+				stream << '}';
+			}
+			else
+			{
+				stream << ';';
+			}
+		}
+		else if (symbol->declaration->type == NODE_UNION)
+		{
+			Union* union_ = &symbol->declaration->union_;
+
+			if (union_->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (union_->storage & STORAGE_PACKED)
+				stream << "packed ";
+			if (union_->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
+
+			if (stream.tellp())
+				stream << "\n";
+
+			stream << "union ";
+
+			stream.write(union_->name.ptr, union_->name.length);
+
+			if (union_->hasBody)
+			{
+				stream << " {\n";
+
+				for (int i = 0; i < union_->numFields; i++)
+				{
+					Field* field = union_->fields[i];
+					Type* fieldType = field->variableType->inferredType;
+
+					stream << "\t";
+					stream.write(fieldType->name.ptr, fieldType->name.length);
+					stream << ' ';
+
+					for (int j = 0; j < field->numDeclarators; j++)
+					{
+						stream.write(field->declarators[j].name.ptr, field->declarators[j].name.length);
+						if (j < field->numDeclarators - 1)
+							stream << ", ";
+					}
+
+					stream << ";\n";
+				}
+
+				stream << '}';
+			}
+			else
+			{
+				stream << ';';
+			}
+		}
+		else if (symbol->declaration->type == NODE_ENUM)
+		{
+			Enum* enum_ = &symbol->declaration->enum_;
+
+			if (enum_->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (enum_->storage & STORAGE_PACKED)
+				stream << "packed ";
+			if (enum_->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
+
+			if (stream.tellp())
+				stream << "\n";
+
+			stream << "enum ";
+
+			stream.write(enum_->name.ptr, enum_->name.length);
+
+			if (enum_->valueType)
+			{
+				Type* valueType = enum_->valueType->inferredType;
+				stream << " = ";
+				stream.write(valueType->name.ptr, valueType->name.length);
+			}
+
+			stream << ';';
+		}
+		else if (symbol->declaration->type == NODE_TYPEDEF)
+		{
+			Typedef* typedef_ = &symbol->declaration->typedef_;
+
+			if (typedef_->storage & STORAGE_PRIVATE)
+				stream << "private ";
+			if (typedef_->storage & STORAGE_PACKED)
+				stream << "packed ";
+			if (typedef_->storage & STORAGE_NOMANGLE)
+				stream << "nomangle ";
+
+			if (stream.tellp())
+				stream << "\n";
+
+			stream << "type ";
+
+			stream.write(typedef_->name.ptr, typedef_->name.length);
+
+			Type* valueType = typedef_->value->inferredType;
+			stream << " = ";
+			stream.write(valueType->name.ptr, valueType->name.length);
+
+			stream << ';';
+		}
+
+		markdown = stream.str();
+	}
+	else if (symbol->type == SYMBOL_FUNCTION_SET && symbol->functionSet.count)
+	{
+		if (symbol->functionSet.count > 1)
+		{
+			detail = detail + "(...) : " + std::to_string(symbol->functionSet.count) + " overloads";
+		}
+
+		for (int i = 0; i < symbol->functionSet.count; i++)
+		{
+			getFunctionDetailString(symbol->functionSet.overloads[i].declaration, stream);
+			if (i < symbol->functionSet.count - 1)
+				stream << "\n";
+		}
+		markdown = stream.str();
+	}
+
+	if (detail != "" || markdown != "")
+	{
+		if (markdown != "")
+		{
+			markdown = "```sneklang\n" + markdown + "\n```";
+		}
+
+		result = {
+			{"kind", "markdown"},
+			{"value", markdown}
+		};
+	}
+
+	return true;
 }
 
-static bool resolveCompletionItem(std::string label, int kind, Type* type, int fieldID, json& result)
+bool getFieldInfoMarkdown(Type* type, int fieldID, json& result, std::string& detail)
 {
-	std::string detail;
 	std::string markdown;
 
 	std::stringstream stream;
@@ -1094,22 +1094,29 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 		Symbol* symbol = declaration->symbol;
 		Document* document = getDocument(symbol->file);
 
+		StringView fieldName = type->struct_.fieldNames[fieldID];
+
 		writeFilePath(document->localPath, stream);
 		stream << '.';
 		stream.write(type->name.ptr, type->name.length);
-		stream << '.' << label;
+		stream << '.';
+		stream.write(fieldName.ptr, fieldName.length);
 		detail = stream.str();
 		stream.str("");
 		stream.clear();
 
 		Type* fieldType = type->struct_.fieldTypes[fieldID];
-		StringView fieldName = type->struct_.fieldNames[fieldID];
 
 		stream.write(fieldType->name.ptr, fieldType->name.length);
 		stream << ' ';
 		stream.write(type->name.ptr, type->name.length);
 		stream << '.';
 		stream.write(fieldName.ptr, fieldName.length);
+
+		int fieldOffset = type->struct_.fieldOffsets[fieldID];
+		if (fieldOffset != -1)
+			stream << " @offset(" << fieldOffset << ')';
+
 		stream << ';';
 
 		markdown = stream.str();
@@ -1120,16 +1127,18 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 		Symbol* symbol = declaration->symbol;
 		Document* document = getDocument(symbol->file);
 
+		StringView fieldName = type->union_.fieldNames[fieldID];
+
 		writeFilePath(document->localPath, stream);
 		stream << '.';
 		stream.write(type->name.ptr, type->name.length);
-		stream << '.' << label;
+		stream << '.';
+		stream.write(fieldName.ptr, fieldName.length);
 		detail = stream.str();
 		stream.str("");
 		stream.clear();
 
 		Type* fieldType = type->union_.fieldTypes[fieldID];
-		StringView fieldName = type->union_.fieldNames[fieldID];
 
 		stream.write(fieldType->name.ptr, fieldType->name.length);
 		stream << ' ';
@@ -1146,16 +1155,21 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 		Symbol* symbol = declaration->symbol;
 		Document* document = getDocument(symbol->file);
 
+		StringView name = declaration->values[fieldID]->name;
+
 		writeFilePath(document->localPath, stream);
 		stream << '.';
 		stream.write(type->name.ptr, type->name.length);
-		stream << '.' << label;
+		stream << '.';
+		stream.write(name.ptr, name.length);
 		detail = stream.str();
 		stream.str("");
 		stream.clear();
 
 		stream.write(type->name.ptr, type->name.length);
-		stream << ' ' << label << " = ";
+		stream << ' ';
+		stream.write(name.ptr, name.length);
+		stream << " = ";
 
 		EnumValue* enumValue = declaration->values[fieldID];
 		StringView valueStr = getRangedString(enumValue->value->start, enumValue->value->end, document->file);
@@ -1221,13 +1235,8 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 		}
 
 		result = {
-			{"label", label},
-			{"kind", kind},
-			{"detail", detail},
-			{"documentation", {
-				{"kind", "markdown"},
-				{"value", markdown}
-			}}
+			{"kind", "markdown"},
+			{"value", markdown}
 		};
 
 		return true;
@@ -1238,7 +1247,7 @@ static bool resolveCompletionItem(std::string label, int kind, Type* type, int f
 
 int main()
 {
-	SleepMS(5000);
+	//SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
 	initGlobalBlockPool(&blockPool, 16);
@@ -1256,8 +1265,6 @@ int main()
 
 		if (method != "")
 		{
-			//fprintf(stderr, "Received message of type %s\n", method.c_str());
-
 			if (method == "initialize")
 			{
 				json params = request["params"];
@@ -1310,7 +1317,7 @@ int main()
 						{"definitionProvider", true},
 						{"referencesProvider", true},
 						{"renameProvider", true},
-						//{"hoverProvider", true},
+						{"hoverProvider", true},
 						{"signatureHelpProvider", {
 							{"triggerCharacters", {"(", ","}},
 							{"retriggerCharacters", {",", ")"}}
@@ -1427,13 +1434,6 @@ int main()
 					sendErrorResponse(id, -32801);
 				}
 			}
-			/*
-			else if (method == "textDocument/hover")
-			{
-				json result = CreateHoverResult("abc");
-				sendResponse(request["id"], result);
-			}
-			*/
 			else if (method == "textDocument/completion")
 			{
 				json params = request["params"];
@@ -1513,10 +1513,22 @@ int main()
 					waitForDocumentParse(document);
 					document->astMutex.lock();
 
-					json result;
-					if (resolveCompletionItem(label, kind, symbolHandle, fileHandle, result))
+					File* file = getFileFromHandleLSP(fileHandle);
+
+					Symbol* symbol = nullptr;
+					if (file)
+						symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle);
+
+					std::string detail;
+					json markdown;
+					if (symbol && getSymbolInfoMarkdown(symbol, markdown, detail))
 					{
-						sendResponse(request["id"], result);
+						sendResponse(request["id"], {
+							{"label", label},
+							{"kind", kind},
+							{"detail", detail},
+							{"documentation", markdown}
+							});
 					}
 					else
 					{
@@ -1532,15 +1544,55 @@ int main()
 
 					Type* type = (Type*)std::stoull(typeIDStr);
 
-					json result;
-					if (resolveCompletionItem(label, kind, type, fieldID, result))
+					std::string detail;
+					json markdown;
+					if (getFieldInfoMarkdown(type, fieldID, markdown, detail))
 					{
-						sendResponse(request["id"], result);
+						sendResponse(request["id"], {
+							{"label", label},
+							{"kind", kind},
+							{"detail", detail},
+							{"documentation", markdown}
+							});
 					}
 					else
 					{
 						sendErrorResponse(request["id"], -32801);
 					}
+				}
+			}
+			else if (method == "textDocument/hover")
+			{
+				json params = request["params"];
+				std::string uri = params["textDocument"]["uri"];
+
+				Document* document = GetDocument(uri);
+
+				json position = params["position"];
+				int line = position["line"];
+				int character = position["character"];
+
+				SourceLocation start, end;
+				json result;
+				if (document->getHoverInfo(line, character, result, start, end))
+				{
+					sendResponse(request["id"], {
+						{"contents", result },
+						{"range", {
+							{"start", {
+								{"line", start.line},
+								{"character", start.col},
+							}},
+							{"end", {
+								{"line", end.line},
+								{"character", end.col},
+							}},
+						}}
+						});
+				}
+				else
+				{
+					sendErrorResponse(request["id"], -32801);
 				}
 			}
 			else if (method == "textDocument/documentSymbol")
@@ -1603,8 +1655,16 @@ int main()
 				waitForDocumentParse(document);
 				document->astMutex.lock();
 
+				Node* node = nullptr;
+				Scope* scope = nullptr;
+				document->getNodeAtPosition(line, character, &node, &scope);
+
+				Symbol* symbol = nullptr;
 				int overloadIdx = -1;
-				if (Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx))
+				if (node)
+					symbol = document->getNodeSymbol(node, line, character, &overloadIdx);
+
+				if (symbol)
 				{
 					json locations = json::array();
 
@@ -1665,8 +1725,14 @@ int main()
 				waitForDocumentParse(document);
 				document->astMutex.lock();
 
+				Node* node = nullptr;
+				Scope* scope = nullptr;
+				document->getNodeAtPosition(line, character, &node, &scope);
+
+				Symbol* symbol = nullptr;
 				int overloadIdx = -1;
-				Symbol* symbol = document->getSymbolAtPosition(line, character, &overloadIdx);
+				if (node)
+					symbol = document->getNodeSymbol(node, line, character, &overloadIdx);
 
 				document->astMutex.unlock();
 

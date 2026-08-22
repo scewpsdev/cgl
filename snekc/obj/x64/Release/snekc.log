@@ -1,0 +1,7 @@
+﻿  Main.cpp
+  tcc.c
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 1709 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  snekc.vcxproj -> D:\Dev\2023\CGL\bin\x64\Release\snekc.exe

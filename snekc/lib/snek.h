@@ -17,7 +17,7 @@ typedef _Bool bool;
 #endif
 
 
-typedef struct { char* ptr; u64 length; } string;
+typedef struct { char* data; u64 length; } string;
 typedef struct {
     union {
         i64 int_;

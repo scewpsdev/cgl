@@ -61,26 +61,26 @@ i64 __stoi64(string s)
 	i32 base = 10;
 	i32 offset = 0;
 	bool negative = 0;
-	if (s.length > 2 && s.ptr[0] == '0' && (s.ptr[1] == 'b' || s.ptr[1] == 'o' || s.ptr[1] == 'x'))
+	if (s.length > 2 && s.data[0] == '0' && (s.data[1] == 'b' || s.data[1] == 'o' || s.data[1] == 'x'))
 	{
 		offset = 2;
-		if (s.ptr[1] == 'b')
+		if (s.data[1] == 'b')
 			base = 2;
-		else if (s.ptr[1] == 'o')
+		else if (s.data[1] == 'o')
 			base = 8;
-		else if (s.ptr[1] == 'x')
+		else if (s.data[1] == 'x')
 			base = 16;
 	}
 	for (int i = offset; i < s.length; i++)
 	{
-		if (i == offset && s.ptr[i] == '-')
+		if (i == offset && s.data[i] == '-')
 			negative = 1;
-		else if (s.ptr[i] == '_')
+		else if (s.data[i] == '_')
 			;
-		else if (s.ptr[i] >= '0' && s.ptr[i] <= '9')
-			value = value * base + (s.ptr[i] - '0');
-		else if ((s.ptr[i] >= 'A' && s.ptr[i] <= 'F' || s.ptr[i] >= 'a' && s.ptr[i] <= 'f') && base == 16)
-			value = value * base + (s.ptr[i] - 'a' + 10);
+		else if (s.data[i] >= '0' && s.data[i] <= '9')
+			value = value * base + (s.data[i] - '0');
+		else if ((s.data[i] >= 'A' && s.data[i] <= 'F' || s.data[i] >= 'a' && s.data[i] <= 'f') && base == 16)
+			value = value * base + (s.data[i] - 'a' + 10);
 	}
 
 	if (negative)
@@ -98,25 +98,25 @@ u64 __stou64(string s)
 	i64 value = 0;
 	i32 base = 10;
 	i32 offset = 0;
-	if (s.length > 2 && s.ptr[0] == '0' && (s.ptr[1] == 'b' || s.ptr[1] == 'o' || s.ptr[1] == 'x'))
+	if (s.length > 2 && s.data[0] == '0' && (s.data[1] == 'b' || s.data[1] == 'o' || s.data[1] == 'x'))
 	{
 		offset = 2;
-		if (s.ptr[1] == 'b')
+		if (s.data[1] == 'b')
 			base = 2;
-		else if (s.ptr[1] == 'o')
+		else if (s.data[1] == 'o')
 			base = 8;
-		else if (s.ptr[1] == 'x')
+		else if (s.data[1] == 'x')
 			base = 16;
 	}
 
 	for (int i = s.length - 1; i >= offset; i--)
 	{
-		if (s.ptr[i] == '_')
+		if (s.data[i] == '_')
 			;
-		else if (s.ptr[i] >= '0' && s.ptr[i] <= '9')
-			value = value * base + (s.ptr[i] - '0');
-		else if ((s.ptr[i] >= 'A' && s.ptr[i] <= 'F' || s.ptr[i] >= 'a' && s.ptr[i] <= 'f') && base == 16)
-			value = value * base + (s.ptr[i] - 'a' + 10);
+		else if (s.data[i] >= '0' && s.data[i] <= '9')
+			value = value * base + (s.data[i] - '0');
+		else if ((s.data[i] >= 'A' && s.data[i] <= 'F' || s.data[i] >= 'a' && s.data[i] <= 'f') && base == 16)
+			value = value * base + (s.data[i] - 'a' + 10);
 	}
 
 	return value;

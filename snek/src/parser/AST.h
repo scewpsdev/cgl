@@ -467,6 +467,7 @@ struct Struct : NodeBase
 	StringView name;
 	uint32_t storage;
 
+	bool hasBody;
 	Field** fields;
 	int numFields;
 
@@ -479,6 +480,7 @@ struct Union : NodeBase
 	StringView name;
 	uint32_t storage;
 
+	bool hasBody;
 	Field** fields;
 	int numFields;
 

@@ -9,7 +9,7 @@ bool _endsWith_F2stst_b(string str,string value);
 
 
 string _substring_F3stii_st(string str,i32 offset,i32 count){
-i8* const _1=str.ptr;
+i8* const _1=str.data;
 const i64 _2=(i64)offset;
 i8* const _3=_1+_2;
 const string _4={_3,count};
@@ -19,8 +19,8 @@ bool _startsWith_F2stst_b(string str,string value){
 const u64 _1=str.length;
 const u64 _2=value.length;
 const bool _3=_1>=_2;
-i8* const _4=str.ptr;
-i8* const _5=value.ptr;
+i8* const _4=str.data;
+i8* const _5=value.data;
 const u64 _6=value.length;
 const i32 _7=strncmp(_4,_5,_6);
 const bool _8=_7==0;
@@ -31,14 +31,14 @@ bool _endsWith_F2stst_b(string str,string value){
 const u64 _1=str.length;
 const u64 _2=value.length;
 const bool _3=_1>=_2;
-i8* const _4=str.ptr;
+i8* const _4=str.data;
 const u64 _5=str.length;
 const i64 _6=(i64)_5;
 i8* const _7=_4+_6;
 const u64 _8=value.length;
 const i64 _9=(i64)_8;
 i8* const _10=_7-_9;
-i8* const _11=value.ptr;
+i8* const _11=value.data;
 const u64 _12=value.length;
 const i32 _13=strncmp(_10,_11,_12);
 const bool _14=_13==0;

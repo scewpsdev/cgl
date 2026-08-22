@@ -9,15 +9,15 @@ struct Vertex {
 }
 
 const Vertex[3] vertices = [
-	(( 0.0,  0.5, 0), (0, 0, 1, 1)),     // top vertex
-    ((-0.5, -0.5, 0), (1, 0, 1, 1)),   // bottom left vertex
-    (( 0.5, -0.5, 0), (0, 1, 1, 1))     // bottom right vertex
+	(( 0.0,  0.5, 0), (1, 0, 0, 1)),     // top vertex
+    ((-0.5, -0.5, 0), (1, 1, 0, 1)),   // bottom left vertex
+    (( 0.5, -0.5, 0), (1, 0, 1, 1))     // bottom right vertex
 ];
 
 
 func loadShader(string path, SDL_GPUShaderStage stage, SDL_GPUDevice* device) SDL_GPUShader* {
 	ulong size;
-	byte* code = SDL_LoadFile(path.ptr, &size) as byte*;
+	byte* code = SDL_LoadFile(path.data, &size) as byte*;
 	if !code {
 		return null;
 	}
@@ -139,7 +139,7 @@ func main() {
 		SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer, window, &swapchain, &width, &height);
 
 		SDL_GPUColorTargetInfo colorTarget;
-		colorTarget.clear_color = (0.4, 0.4, 1.0, 1.0);
+		colorTarget.clear_color = (0.8, 0.8, 0.8, 1.0);
 		colorTarget.load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR;
 		colorTarget.store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE;
 		colorTarget.texture = swapchain;

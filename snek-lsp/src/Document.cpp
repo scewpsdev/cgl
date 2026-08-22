@@ -493,12 +493,8 @@ static bool getDeclarationNameIdentifier(File* file, Node* node, int line, int c
 	return false;
 }
 
-Symbol* Document::getSymbolAtPosition(int line, int col, int* overloadIdx)
+Symbol* Document::getNodeSymbol(Node* node, int line, int col, int* overloadIdx)
 {
-	Node* node = nullptr;
-	Scope* scope = nullptr;
-	getNodeAtPosition(line, col, &node, &scope);
-
 	if (node)
 	{
 		if (node->type == NODE_IDENTIFIER)
@@ -512,6 +508,11 @@ Symbol* Document::getSymbolAtPosition(int line, int col, int* overloadIdx)
 			MemberAccess* member = &node->memberAccess;
 			*overloadIdx = member->functionOverloadID;
 			return getMemberAccessSymbol(member);
+		}
+		else if (node->type == NODE_NAMED_TYPE)
+		{
+			NamedType* namedType = &node->namedType;
+			return getNamedTypeSymbol(namedType);
 		}
 		else
 		{
@@ -725,7 +726,7 @@ void Document::autocomplete(Node* node, char triggerCharacter, json& items)
 				else if (operandType->typeKind == TYPE_STRING)
 				{
 					items.push_back({
-						{"label", "ptr"},
+						{"label", "data"},
 						{"kind", COMPLETION_ITEM_FIELD},
 						{"data", {
 							{"type_id", std::to_string((uint64_t)operandType)},
@@ -1245,8 +1246,16 @@ static Document* getDocument(FileHandle file)
 
 bool Document::getDefinitionLocation(int line, int col, json& location)
 {
+	Node* node = nullptr;
+	Scope* scope = nullptr;
+	getNodeAtPosition(line, col, &node, &scope);
+
+	Symbol* symbol = nullptr;
 	int overloadIdx = -1;
-	if (Symbol* symbol = getSymbolAtPosition(line, col, &overloadIdx))
+	if (node)
+		symbol = getNodeSymbol(node, line, col, &overloadIdx);
+
+	if (symbol)
 	{
 		Document* symbolDocument = getDocument(symbol->file);
 		SourceLocation start = {}, end = {};
@@ -1279,6 +1288,45 @@ bool Document::getDefinitionLocation(int line, int col, json& location)
 			};
 
 			return true;
+		}
+	}
+
+	return false;
+}
+
+bool Document::getHoverInfo(int line, int col, json& result, SourceLocation& start, SourceLocation& end)
+{
+	Node* node = nullptr;
+	Scope* scope = nullptr;
+	getNodeAtPosition(line, col, &node, &scope);
+
+	Symbol* symbol = nullptr;
+	int overloadIdx = -1;
+	if (node)
+		symbol = getNodeSymbol(node, line, col, &overloadIdx);
+
+	if (symbol)
+	{
+		std::string detail;
+		if (getSymbolInfoMarkdown(symbol, result, detail))
+		{
+			getSourceLocation(file, node, &start, &end);
+			return true;
+		}
+	}
+	else if (node && node->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = &node->memberAccess;
+		if (isInRangeOfString(file, line, col, member->name))
+		{
+			Type* operandType = member->operand->inferredType;
+			int fieldID = getFieldIndex(operandType, member->name, member->operand);
+			std::string detail;
+			if (getFieldInfoMarkdown(operandType, fieldID, result, detail))
+			{
+				getSourceLocation(file, member->name, &start, &end);
+				return true;
+			}
 		}
 	}
 

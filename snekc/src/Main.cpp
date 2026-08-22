@@ -615,8 +615,9 @@ int main(int argc, const char* argv[])
 	}
 
 	uint64_t t4 = GetTimeNS();
+	uint64_t t5 = t4;
 
-	int result = 1;
+	int result = hasError ? 1 : 0;
 	if (!hasError)
 	{
 		for (int i = 0; i < compiler.sourceFiles.size; i++)
@@ -627,34 +628,39 @@ int main(int argc, const char* argv[])
 			file->state = FILE_STATE_OUTPUT;
 		}
 
-		t4 = GetTimeNS();
+		t5 = GetTimeNS();
 
-		result = outputBinary(compiler.outPath, compiler.run);
+		if (!compiler.run)
+			result = outputBinary(compiler.outPath, false);
 	}
 
-	destroyCompiler(&compiler);
-
-	uint64_t t5 = GetTimeNS();
-	float ms = (t5 - t0) / 1e6f;
+	uint64_t t6 = GetTimeNS();
 
 	if (result == 0)
 	{
-		fprintf(stderr, "Compilation completed in %.2f ms.\n", ms);
+		float totalMs = (t6 - t0) / 1e6f;
+
+		fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
 
 		float parseMs = (t2 - t1) / 1e6f;
 		float typeCheckMs = (t3 - t2) / 1e6f;
-		float codegenMs = (t4 - t3) / 1e6f;
-		float outputMs = (t5 - t4) / 1e6f;
+		float codegenMs = (t5 - t4) / 1e6f;
+		float outputMs = (t6 - t5) / 1e6f;
 
 		fprintf(stderr, "Parser: %.2f ms\n", parseMs);
 		fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
 		fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
 		fprintf(stderr, "Output: %.2f ms\n", outputMs);
+
+		if (compiler.run)
+			outputBinary(compiler.outPath, true);
 	}
 	else
 	{
 		fprintf(stderr, "Compilation failed.\n");
 	}
+
+	destroyCompiler(&compiler);
 
 	return result;
 }

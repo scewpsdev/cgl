@@ -1983,6 +1983,8 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	}
 	else if (expectToken(parser, '{'))
 	{
+		struct_->hasBody = true;
+
 		int mark = parser->scratch->mark();
 
 		while (hasNext(parser) && !nextIs(parser, '}'))
@@ -2028,6 +2030,8 @@ Union* parseUnion(Parser* parser, uint32_t storage, int start)
 	}
 	else if (expectToken(parser, '{'))
 	{
+		union_->hasBody = true;
+
 		int mark = parser->scratch->mark();
 
 		while (hasNext(parser) && !nextIs(parser, '}'))

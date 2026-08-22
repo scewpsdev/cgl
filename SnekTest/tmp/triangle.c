@@ -1302,7 +1302,7 @@ DLLIMPORT extern void SDL_DestroyWindow(struct SDL_Window* window);
 DLLIMPORT extern void SDL_Quit();
 
 
-const A3SVertex vertices=(A3SVertex){(struct Vertex){(struct vec3){0.0,0.5,0},(struct vec4){0,0,1,1}},(struct Vertex){(struct vec3){-0.5,-0.5,0},(struct vec4){1,0,1,1}},(struct Vertex){(struct vec3){0.5,-0.5,0},(struct vec4){0,1,1,1}}};
+const A3SVertex vertices=(A3SVertex){(struct Vertex){(struct vec3){0.0,0.5,0},(struct vec4){1,0,0,1}},(struct Vertex){(struct vec3){-0.5,-0.5,0},(struct vec4){1,1,0,1}},(struct Vertex){(struct vec3){0.5,-0.5,0},(struct vec4){1,0,1,1}}};
 static i8* const _G1="main";
 static i8* const _G2="Triangle";
 static i8* const _G3="res/triangle.vert.bin";
@@ -1311,7 +1311,7 @@ static i8* const _G4="res/triangle.frag.bin";
 
 struct SDL_GPUShader* _loadShader_F3stESDL_GPUShaderStagepSSDL_GPUDevice_pSSDL_GPUShader(string path,enum SDL_GPUShaderStage stage,struct SDL_GPUDevice* device){
 	u64 size={0};
-	i8* const _1=path.ptr;
+	i8* const _1=path.data;
 	u64* const _2=&size;
 	void* const _3=SDL_LoadFile(_1,_2);
 	u8* const _4=(u8*)_3;
@@ -1398,26 +1398,26 @@ void _main_F0(){
 	struct Vertex* const _26=(struct Vertex*)_25;
 	struct Vertex* vertexData=_26;
 	const struct vec3 _27={0.0,0.5,0};
-	const struct vec4 _28={0,0,1,1};
+	const struct vec4 _28={1,0,0,1};
 	const struct Vertex _29={_27,_28};
 	const struct vec3 _30={-0.5,-0.5,0};
-	const struct vec4 _31={1,0,1,1};
+	const struct vec4 _31={1,1,0,1};
 	const struct Vertex _32={_30,_31};
 	const struct vec3 _33={0.5,-0.5,0};
-	const struct vec4 _34={0,1,1,1};
+	const struct vec4 _34={1,0,1,1};
 	const struct Vertex _35={_33,_34};
 	const A3SVertex _36={_29,_32,_35};
 	const i32 _37=3>=0?1:-1;
 	for(int i=0;i*_37<3*_37;i+=_37){
 		struct Vertex* const _38=&vertexData[i];
 		const struct vec3 _39={0.0,0.5,0};
-		const struct vec4 _40={0,0,1,1};
+		const struct vec4 _40={1,0,0,1};
 		const struct Vertex _41={_39,_40};
 		const struct vec3 _42={-0.5,-0.5,0};
-		const struct vec4 _43={1,0,1,1};
+		const struct vec4 _43={1,1,0,1};
 		const struct Vertex _44={_42,_43};
 		const struct vec3 _45={0.5,-0.5,0};
-		const struct vec4 _46={0,1,1,1};
+		const struct vec4 _46={1,0,1,1};
 		const struct Vertex _47={_45,_46};
 		const A3SVertex _48={_41,_44,_47};
 		struct Vertex* const _49=&_48.data[i];
@@ -1464,7 +1464,7 @@ void _main_F0(){
 	(*_71)=_72;
 	struct SDL_GPUVertexBufferDescription* const _73=&vertexBufferDescriptions.data[0];
 	Uint32* const _74=&(*_73).pitch;
-	const u64 _75=(u64)sizeof(type);
+	const u64 _75=(u64)sizeof(struct Vertex);
 	const u32 _76=(u32)_75;
 	const Uint32 _77=(Uint32)_76;
 	(*_74)=_77;
@@ -1497,7 +1497,7 @@ void _main_F0(){
 	(*_96)=12;
 	struct SDL_GPUVertexAttribute* const _97=&attributes.data[1];
 	Uint32* const _98=&(*_97).offset;
-	const u64 _99=(u64)sizeof(type);
+	const u64 _99=(u64)sizeof(struct vec3);
 	const u32 _100=(u32)_99;
 	const Uint32 _101=(Uint32)_100;
 	(*_98)=_101;
@@ -1577,7 +1577,7 @@ void _main_F0(){
 		const bool _145=SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer,window,_140,_142,_144);
 		struct SDL_GPUColorTargetInfo colorTarget={0};
 		struct SDL_FColor* const _146=&colorTarget.clear_color;
-		const struct SDL_FColor _147={0.4,0.4,1.0,1.0};
+		const struct SDL_FColor _147={0.8,0.8,0.8,1.0};
 		(*_146)=_147;
 		enum SDL_GPULoadOp* const _148=&colorTarget.load_op;
 		(*_148)=1;
