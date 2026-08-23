@@ -93,8 +93,8 @@ void Document::onChange(int startLine, int startCol, int endLine, int endCol, st
 
 	textToLines(text, changeLines);
 
-	char* prefix = substring(lines[startLine], 0, locationToLineOffset(file, startLine, startCol));
-	char* suffix = substring(lines[endLine], locationToLineOffset(file, endLine, endCol));
+	char* prefix = substring(lines[startLine], 0, locationToLineOffset(lines[startLine], startCol));
+	char* suffix = substring(lines[endLine], locationToLineOffset(lines[endLine], endCol));
 
 	changeLines[0] = concatDelete(prefix, changeLines[0]);
 	changeLines[changeLines.size - 1] = concatDelete(changeLines[changeLines.size - 1], suffix);

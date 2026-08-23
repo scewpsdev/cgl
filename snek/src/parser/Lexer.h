@@ -115,8 +115,7 @@ struct Lexer
 void initLexer(Lexer* lexer, File* file);
 
 SourceLocation getSourceLocation(File* file, int offset);
-int locationToOffset(File* file, int line, int col);
-int locationToLineOffset(File* file, int line, int col);
+int locationToLineOffset(const char* lineStr, int col);
 
 StringView getTokenString(Token token, const char* src);
 

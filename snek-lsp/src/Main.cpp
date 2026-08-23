@@ -1471,12 +1471,14 @@ int main()
 				if (triggerCharacter)
 				{
 					document->getNodeAtPosition(line, character - 1, &node, &scope);
-					document->autocomplete(node, triggerCharacter, items);
+					if (node)
+						document->autocomplete(node, triggerCharacter, items);
 				}
 				else
 				{
 					document->getNodeAtPosition(line, character - 1, &node, &scope);
-					document->autocomplete(scope, items);
+					if (scope)
+						document->autocomplete(scope, items);
 				}
 
 				uint64_t afterComplete = GetTimeNS();

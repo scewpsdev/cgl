@@ -1288,7 +1288,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			Value charPtr = declareLocalValue(codegen, charPtrType, buffer);
 			emitChar(buffer, '&');
 			emitValue(buffer, operand);
-			emitString(buffer, ".ptr[");
+			emitString(buffer, ".data[");
 			emitValue(buffer, index);
 			emitString(buffer, "];\n");
 

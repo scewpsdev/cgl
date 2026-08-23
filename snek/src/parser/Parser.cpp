@@ -2090,6 +2090,8 @@ Enum* parseEnum(Parser* parser, uint32_t storage, int start)
 			enumValue->value = parseExpression(parser);
 		}
 
+		enumValue->end = parser->lastTokenEnd;
+
 		parser->scratch->add(enumValue);
 
 		if (nextIs(parser, ','))
@@ -2357,8 +2359,7 @@ Import* parseImport(Parser* parser, uint32_t storage, int start)
 
 	parser->scratch->release(mark);
 
-	if (!expectToken(parser, ';'))
-		skipPastToken(parser, ';');
+	expectToken(parser, ';');
 
 	import_->end = parser->lastTokenEnd;
 

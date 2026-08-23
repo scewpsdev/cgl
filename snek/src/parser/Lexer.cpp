@@ -62,24 +62,14 @@ SourceLocation getSourceLocation(File* file, int offset)
 	return { file->localPath, line, col };
 }
 
-int locationToOffset(File* file, int line, int col)
+int locationToLineOffset(const char* lineStr, int col)
 {
-	int lineOffset = file->lineOffsets[line];
+	int lineOffset = 0;
 	for (int i = 0; i < col; i++)
 	{
-		lineOffset += getUTF8Length(&file->src[lineOffset]);
+		lineOffset += getUTF8Length(&lineStr[lineOffset]);
 	}
 	return lineOffset;
-}
-
-int locationToLineOffset(File* file, int line, int col)
-{
-	int lineOffset = file->lineOffsets[line];
-	for (int i = 0; i < col; i++)
-	{
-		lineOffset += getUTF8Length(&file->src[lineOffset]);
-	}
-	return lineOffset - file->lineOffsets[line];
 }
 
 StringView getTokenString(Token token, const char* src)
