@@ -1,4 +1,4 @@
-// vendor\SDL3.src
+// vendor/SDL3.src
 #include <snek.h>
 
 

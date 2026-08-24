@@ -820,7 +820,7 @@ static void insertImplicitCast(TypeChecker* tc, Expression** node, Type* type)
 	*node = cast;
 }
 
-static Type* typeCheckArithmeticOperator(TypeChecker* tc, uint8_t op, Type* left, Type* right, Expression* expression, Expression** leftNode, Expression** rightNode)
+static Type* typeCheckArithmeticOperator(TypeChecker* tc, uint8_t op, Type* left, Type* right, Expression* expression, Type* expectedType, Expression** leftNode, Expression** rightNode)
 {
 	if (op == OPERATOR_ADD || op == OPERATOR_SUBTRACT)
 	{
@@ -845,6 +845,11 @@ static Type* typeCheckArithmeticOperator(TypeChecker* tc, uint8_t op, Type* left
 	{
 		error(tc, (Node*)expression, "Invalid operands to binary arithmetic operator");
 		return &tc->types->errorType;
+	}
+
+	if (isFloatingPointType(commonType) && expectedType && isFloatingPointType(expectedType))
+	{
+		commonType = expectedType;
 	}
 
 	if (left != commonType)
@@ -1741,21 +1746,36 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			return binaryOperator->inferredType = expression->inferredType = &tc->types->errorType;
 		}
 
-		if (left->typeKind == TYPE_ENUM && left->enum_.valueType == right)
+		if (left->typeKind == TYPE_ENUM && compareTypes(left->enum_.valueType, right))
 		{
 			left = left->enum_.valueType;
 			insertImplicitCast(tc, &binaryOperator->left, right);
 		}
-		else if (right->typeKind == TYPE_ENUM && right->enum_.valueType == left)
+		else if (right->typeKind == TYPE_ENUM && compareTypes(right->enum_.valueType, left))
 		{
 			right = right->enum_.valueType;
 			insertImplicitCast(tc, &binaryOperator->right, left);
+		}
+		else if (left->typeKind == TYPE_ALIAS && compareTypes(left->alias.valueType, right))
+		{
+			left = left->alias.valueType;
+			insertImplicitCast(tc, &binaryOperator->left, right);
+		}
+		else if (right->typeKind == TYPE_ALIAS && compareTypes(right->alias.valueType, left))
+		{
+			right = right->alias.valueType;
+			insertImplicitCast(tc, &binaryOperator->right, left);
+		}
+
+		if (isErrorType(left) || isErrorType(right))
+		{
+			return binaryOperator->inferredType = getErrorType(tc->types);
 		}
 
 		// todo check operator overload
 
 		if (binaryOperator->op == OPERATOR_ADD || binaryOperator->op == OPERATOR_SUBTRACT || binaryOperator->op == OPERATOR_MULTIPLY || binaryOperator->op == OPERATOR_DIVIDE || binaryOperator->op == OPERATOR_MODULO)
-			return binaryOperator->inferredType = typeCheckArithmeticOperator(tc, binaryOperator->op, left, right, binaryOperator, &binaryOperator->left, &binaryOperator->right);
+			return binaryOperator->inferredType = typeCheckArithmeticOperator(tc, binaryOperator->op, left, right, binaryOperator, expectedType, &binaryOperator->left, &binaryOperator->right);
 		else if (binaryOperator->op == OPERATOR_EQUALS || binaryOperator->op == OPERATOR_NOT_EQUALS || binaryOperator->op == OPERATOR_LESS || binaryOperator->op == OPERATOR_LESS_EQUALS || binaryOperator->op == OPERATOR_GREATER || binaryOperator->op == OPERATOR_GREATER_EQUALS)
 			return binaryOperator->inferredType = typeCheckComparisonOperator(tc, binaryOperator, left, right);
 		else if (binaryOperator->op == OPERATOR_BITWISE_AND || binaryOperator->op == OPERATOR_BITWISE_XOR || binaryOperator->op == OPERATOR_BITWISE_OR || binaryOperator->op == OPERATOR_BITSHIFT_LEFT || binaryOperator->op == OPERATOR_BITSHIFT_RIGHT)
@@ -2029,6 +2049,11 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		Type* conditionType = resolveExpression(tc, ternary->condition);
 		Type* thenType = resolveExpression(tc, ternary->then);
 		Type* elseType = resolveExpression(tc, ternary->else_);
+
+		if (isErrorType(conditionType) || isErrorType(thenType) || isErrorType(elseType))
+		{
+			return expression->inferredType = getErrorType(tc->types);
+		}
 
 		if (!isTruthyType(conditionType))
 		{
@@ -2337,7 +2362,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		else
 		{
 			OperatorType op = assignmentOperatorToBinary(assignment->op);
-			Type* resultType = typeCheckArithmeticOperator(tc, op, expressionType, valueType, assignment->value, nullptr, &assignment->value);
+			Type* resultType = typeCheckArithmeticOperator(tc, op, expressionType, valueType, assignment->value, expressionType, nullptr, &assignment->value);
 
 			if (resultType != &tc->types->errorType && !isAssignable(tc, resultType, expressionType, nullptr))
 			{

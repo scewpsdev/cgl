@@ -1247,7 +1247,7 @@ bool getFieldInfoMarkdown(Type* type, int fieldID, json& result, std::string& de
 
 int main()
 {
-	//SleepMS(5000);
+	SleepMS(5000);
 	fprintf(stderr, "Starting LSP Server\n");
 
 	initGlobalBlockPool(&blockPool, 16);
@@ -1470,7 +1470,7 @@ int main()
 
 				if (triggerCharacter)
 				{
-					document->getNodeAtPosition(line, character - 1, &node, &scope);
+					document->getNodeAtPosition(line, character - 2, &node, &scope);
 					if (node)
 						document->autocomplete(node, triggerCharacter, items);
 				}

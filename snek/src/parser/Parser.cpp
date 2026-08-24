@@ -1488,10 +1488,20 @@ Expression* parseExpression(Parser* parser)
 			nextToken(parser);
 
 			Expression* then = parseExpression(parser);
+			if (!then)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+				then = getErrorExpression(parser, parser->cursor);
+			}
 
 			expectToken(parser, ':');
 
 			Expression* else_ = parseExpression(parser);
+			if (!else_)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+				else_ = getErrorExpression(parser, parser->cursor);
+			}
 
 			TernaryCondition* ternary = parser->arena->alloc<TernaryCondition>();
 			initNode((Node*)ternary, NODE_TERNARY_CONDITION, expression->start);

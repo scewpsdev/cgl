@@ -1,17 +1,3 @@
-﻿  CodeBuffer.cpp
-  Codegen.cpp
-  File.cpp
-  AST.cpp
-  Diagnostics.cpp
-  Lexer.cpp
-  Parser.cpp
-  Platform.cpp
+﻿  Parser.cpp
   TypeChecker.cpp
-  TypeSystem.cpp
-  Arena.cpp
-  Hash.cpp
-  ScratchBuffer.cpp
-  StringBuffer.cpp
-  StringView.cpp
-  TypeSet.cpp
   snek.vcxproj -> D:\Dev\2023\CGL\bin\x64\Release\snek.lib

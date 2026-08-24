@@ -229,8 +229,13 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 	{
 		const char* arg = argv[i];
 		int len = (int)strlen(arg);
-		if (false)
-			;
+		if (strcmp(arg, "-o") == 0)
+		{
+			if (i < argc - 1)
+			{
+				compiler->outPath = argv[++i];
+			}
+		}
 		else
 		{
 			// file path
