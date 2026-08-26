@@ -41,7 +41,7 @@ void _write_F1st(string str){
 	const u64 _1=str.length;
 	const i32 _2=_1>=0?1:-1;
 	for(int i=0;i*_2<_1*_2;i+=_2){
-		i8* const _3=&str.ptr[i];
+		i8* const _3=&str.data[i];
 		const i32 _4=(i32)(*_3);
 		const i32 _5=putchar(_4);
 	}
@@ -50,7 +50,7 @@ void _writeln_F1st(string str){
 	const u64 _1=str.length;
 	const i32 _2=_1>=0?1:-1;
 	for(int i=0;i*_2<_1*_2;i+=_2){
-		i8* const _3=&str.ptr[i];
+		i8* const _3=&str.data[i];
 		const i32 _4=(i32)(*_3);
 		const i32 _5=putchar(_4);
 	}
@@ -284,7 +284,7 @@ void _print_F2stA0a(string format,A0a args){
 	const u64 _1=format.length;
 	const i32 _2=_1>=0?1:-1;
 	for(int i=0;i*_2<_1*_2;i+=_2){
-		i8* const _3=&format.ptr[i];
+		i8* const _3=&format.data[i];
 		i8 c=(*_3);
 		const bool _4=c=='%';
 		const u64 _5=(u64)varArgIdx;
