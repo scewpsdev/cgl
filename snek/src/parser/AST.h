@@ -47,6 +47,7 @@ enum NodeType : uint8_t
 	NODE_FUNCTION_CALL,
 	NODE_ARRAY_SUBSCRIPT,
 	NODE_MEMBER_ACCESS,
+	NODE_IMPLICIT_ENUM_MEMBER,
 	NODE_TERNARY_CONDITION,
 	NODE_CAST,
 	NODE_SIZEOF,
@@ -369,6 +370,12 @@ struct MemberAccess : Expression
 	Value memberFunctionInstance;
 };
 
+struct ImplicitEnumMember : Expression
+{
+	StringView name;
+	int64_t index;
+};
+
 struct TernaryCondition : Expression
 {
 	Expression* condition;
@@ -596,6 +603,7 @@ struct Node
 		FunctionCall functionCall;
 		ArraySubscript arraySubscript;
 		MemberAccess memberAccess;
+		ImplicitEnumMember implicitEnumMember;
 		TernaryCondition ternaryCondition;
 		Cast cast;
 		Sizeof sizeof_;

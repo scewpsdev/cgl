@@ -445,10 +445,8 @@ static void localFilePath(char* result, const char* path)
 	strcat(result, path);
 }
 
-static int outputBinary(const char* out, bool run)
+static int outputBinary(TCCState* tcc, const char* out, bool run)
 {
-	TCCState* tcc = tcc_new();
-
 	char buffer[512] = "";
 
 	localFilePath(buffer, "lib/libtcc");
@@ -510,15 +508,6 @@ static int outputBinary(const char* out, bool run)
 	{
 		int result = tcc_relocate(tcc);
 
-		if (result == 0)
-		{
-			int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "main");
-			const char* arg = "TCC Runtime";
-			int result = entrypoint(1, &arg);
-		}
-
-		tcc_delete(tcc);
-
 		return result;
 	}
 	else
@@ -526,10 +515,16 @@ static int outputBinary(const char* out, bool run)
 		createDirectories(out);
 		int result = tcc_output_file(tcc, out);
 
-		tcc_delete(tcc);
-
 		return result;
 	}
+}
+
+static int runBinary(TCCState* tcc)
+{
+	int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "main");
+	const char* arg = "TCC Runtime";
+	int result = entrypoint(1, &arg);
+	return result;
 }
 
 int main(int argc, const char* argv[])
@@ -635,32 +630,36 @@ int main(int argc, const char* argv[])
 
 		t5 = GetTimeNS();
 
-		if (!compiler.run)
-			result = outputBinary(compiler.outPath, false);
+		TCCState* tcc = tcc_new();
+
+		result = outputBinary(tcc, compiler.outPath, compiler.run);
+
+		uint64_t t6 = GetTimeNS();
+
+		if (result == 0)
+		{
+			float totalMs = (t6 - t0) / 1e6f;
+
+			fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
+
+			float parseMs = (t2 - t1) / 1e6f;
+			float typeCheckMs = (t3 - t2) / 1e6f;
+			float codegenMs = (t5 - t4) / 1e6f;
+			float outputMs = (t6 - t5) / 1e6f;
+
+			fprintf(stderr, "Parser: %.2f ms\n", parseMs);
+			fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
+			fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
+			fprintf(stderr, "Output: %.2f ms\n", outputMs);
+
+			if (compiler.run)
+				runBinary(tcc);
+		}
+
+		tcc_delete(tcc);
 	}
 
-	uint64_t t6 = GetTimeNS();
-
-	if (result == 0)
-	{
-		float totalMs = (t6 - t0) / 1e6f;
-
-		fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
-
-		float parseMs = (t2 - t1) / 1e6f;
-		float typeCheckMs = (t3 - t2) / 1e6f;
-		float codegenMs = (t5 - t4) / 1e6f;
-		float outputMs = (t6 - t5) / 1e6f;
-
-		fprintf(stderr, "Parser: %.2f ms\n", parseMs);
-		fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
-		fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
-		fprintf(stderr, "Output: %.2f ms\n", outputMs);
-
-		if (compiler.run)
-			outputBinary(compiler.outPath, true);
-	}
-	else
+	if (result != 0)
 	{
 		fprintf(stderr, "Compilation failed.\n");
 	}

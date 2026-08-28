@@ -1,6 +1,7 @@
 /*
 
 [X] better for syntax
+[X] type inferred enum literals
 [ ] switch
 [ ] match
 [ ] default function arguments

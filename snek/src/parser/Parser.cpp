@@ -290,6 +290,12 @@ static bool nextIsKeyword(Parser* parser, Token* outToken = nullptr)
 	return token.type >= TOKEN_KEYWORD_BEGIN && token.type <= TOKEN_KEYWORD_END;
 }
 
+static bool nextIsKeyword(Parser* parser, int offset)
+{
+	Token token = peekToken(parser, offset);
+	return token.type >= TOKEN_KEYWORD_BEGIN && token.type <= TOKEN_KEYWORD_END;
+}
+
 static void skipPastToken(Parser* parser, int type)
 {
 	Token token;
@@ -864,6 +870,19 @@ Expression* parseAtom(Parser* parser)
 			error(parser, getSourceLocation(parser), "Expression expected");
 			return getErrorExpression(parser, start);
 		}
+	}
+	else if (nextIs(parser, '.') && (nextIs(parser, 1, TOKEN_IDENTIFIER) || nextIsKeyword(parser, 1)))
+	{
+		nextToken(parser);
+
+		Token name = nextToken(parser);
+
+		ImplicitEnumMember* member = parser->arena->alloc<ImplicitEnumMember>();
+		initNode((Node*)member, NODE_IMPLICIT_ENUM_MEMBER, start);
+		member->name = getTokenString(name, parser->file);
+		member->end = parser->lastTokenEnd;
+
+		return member;
 	}
 
 	return nullptr;

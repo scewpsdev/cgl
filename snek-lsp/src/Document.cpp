@@ -252,6 +252,15 @@ static bool getNodeTokens(Node* node, Scope* scope, ASTVisitorData* data)
 			data->lspTokens->add({ start, end - start, LSP_TOKEN_PROPERTY, 0 });
 		}
 	}
+	else if (node->type == NODE_IMPLICIT_ENUM_MEMBER)
+	{
+		ImplicitEnumMember* member = &node->implicitEnumMember;
+
+		int start, end;
+		getStringRange(member->name, data->file, &start, &end);
+
+		data->lspTokens->add({ start, end - start, LSP_TOKEN_ENUM_VALUE, 0 });
+	}
 	else if (node->type == NODE_FOR)
 	{
 		For* for_ = &node->for_;

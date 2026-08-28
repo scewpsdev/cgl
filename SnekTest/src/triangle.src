@@ -60,7 +60,7 @@ func main() {
 
 	SDL_GPUTransferBufferCreateInfo transferBufferInfo;
 	transferBufferInfo.size = sizeof(vertices) as uint;
-	transferBufferInfo.usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+	transferBufferInfo.usage = .SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
 	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
 
 	Vertex* vertexData = SDL_MapGPUTransferBuffer(device, transferBuffer, false) as Vertex*;
@@ -84,23 +84,23 @@ func main() {
 	SDL_EndGPUCopyPass(copyPass);
 	SDL_SubmitGPUCommandBuffer(cmdBuffer);
 
-	SDL_GPUShader* vertexShader = loadShader("res/triangle.vert.bin", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, device);
-	SDL_GPUShader* fragmentShader = loadShader("res/triangle.frag.bin", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, device);
+	SDL_GPUShader* vertexShader = loadShader("res/triangle.vert.bin", .SDL_GPU_SHADERSTAGE_VERTEX, device);
+	SDL_GPUShader* fragmentShader = loadShader("res/triangle.frag.bin", .SDL_GPU_SHADERSTAGE_FRAGMENT, device);
 
 	SDL_GPUVertexBufferDescription[1] vertexBufferDescriptions;
 	vertexBufferDescriptions[0].slot = 0;
-	vertexBufferDescriptions[0].input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX;
+	vertexBufferDescriptions[0].input_rate = .SDL_GPU_VERTEXINPUTRATE_VERTEX;
 	vertexBufferDescriptions[0].instance_step_rate = 0;
 	vertexBufferDescriptions[0].pitch = sizeof(Vertex) as uint;
 
 	SDL_GPUVertexAttribute[2] attributes;
 	attributes[0].buffer_slot = 0;
 	attributes[0].location = 0;
-	attributes[0].format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+	attributes[0].format = .SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
 	attributes[0].offset = 0;
 	attributes[1].buffer_slot = 0;
 	attributes[1].location = 1;
-	attributes[1].format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+	attributes[1].format = .SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
 	attributes[1].offset = sizeof(vec3) as uint;
 
 	SDL_GPUColorTargetDescription[1] targets;
@@ -110,7 +110,7 @@ func main() {
 	SDL_GPUGraphicsPipelineCreateInfo pipelineInfo;
 	pipelineInfo.vertex_shader = vertexShader;
 	pipelineInfo.fragment_shader = fragmentShader;
-	pipelineInfo.primitive_type = SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+	pipelineInfo.primitive_type = .SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
 	pipelineInfo.vertex_input_state.num_vertex_buffers = 1;
 	pipelineInfo.vertex_input_state.vertex_buffer_descriptions = &vertexBufferDescriptions[0];
 	pipelineInfo.vertex_input_state.num_vertex_attributes = 2;
@@ -140,8 +140,8 @@ func main() {
 
 		SDL_GPUColorTargetInfo colorTarget;
 		colorTarget.clear_color = (0.8, 0.8, 0.8, 1.0);
-		colorTarget.load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR;
-		colorTarget.store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE;
+		colorTarget.load_op = .SDL_GPU_LOADOP_CLEAR;
+		colorTarget.store_op = .SDL_GPU_STOREOP_STORE;
 		colorTarget.texture = swapchain;
 
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdBuffer, &colorTarget, 1, null);

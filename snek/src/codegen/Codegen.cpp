@@ -1554,6 +1554,20 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			return {};
 		}
 	}
+	else if (expression->type == NODE_IMPLICIT_ENUM_MEMBER)
+	{
+		ImplicitEnumMember* member = (ImplicitEnumMember*)expression;
+
+		SnekAssert(member->inferredType->typeKind == TYPE_ENUM && member->index != -1);
+		Enum* enum_ = member->inferredType->enum_.declaration;
+		EnumValue* enumValue = enum_->values[member->index];
+
+		Value value = {};
+		value.type = member->inferredType;
+		snprintf(value.name, sizeof(value.name), "%lld", enumValue->intValue);
+
+		return value;
+	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
 		TernaryCondition* ternary = (TernaryCondition*)expression;

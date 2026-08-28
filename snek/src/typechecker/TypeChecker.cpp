@@ -1524,6 +1524,51 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	}
 }
 
+static bool tryResolveFunctionCallOperand(TypeChecker* tc, FunctionCall* functionCall)
+{
+	if (functionCall->expression->type == NODE_IDENTIFIER)
+	{
+		Identifier* identifier = (Identifier*)functionCall->expression;
+
+		if (Symbol* symbol = resolveSymbol(tc, identifier->name))
+		{
+			if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				if (symbol->functionSet.count == 1)
+				{
+					resolveIdentifier(tc, identifier, false, 0, nullptr);
+					return true;
+				}
+				else
+				{
+					// maybe try exclude some overloads by looking at expression nodes?
+				}
+			}
+		}
+	}
+	else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+	{
+		MemberAccess* member = (MemberAccess*)functionCall->expression;
+
+		if (Symbol* symbol = resolveSymbol(tc, member->name))
+		{
+			if (symbol->type == SYMBOL_FUNCTION_SET)
+			{
+				if (symbol->functionSet.count == 1)
+				{
+					resolveMemberAccess(tc, member, false, 0, nullptr);
+					return true;
+				}
+				else
+				{
+					// maybe try exclude some overloads by looking at expression nodes?
+				}
+			}
+		}
+	}
+	return false;
+}
+
 static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* expectedType)
 {
 	if (expression->type == NODE_ERROR_EXPRESSION)
@@ -1738,8 +1783,23 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	{
 		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
 
-		Type* left = resolveExpression(tc, binaryOperator->left);
-		Type* right = resolveExpression(tc, binaryOperator->right);
+		Type* left = nullptr, * right = nullptr;
+
+		if (binaryOperator->left->type == NODE_IMPLICIT_ENUM_MEMBER)
+		{
+			right = resolveExpression(tc, binaryOperator->right);
+			left = resolveExpression(tc, binaryOperator->left, right);
+		}
+		else if (binaryOperator->right->type == NODE_IMPLICIT_ENUM_MEMBER)
+		{
+			left = resolveExpression(tc, binaryOperator->left);
+			right = resolveExpression(tc, binaryOperator->right, left);
+		}
+		else
+		{
+			left = resolveExpression(tc, binaryOperator->left);
+			right = resolveExpression(tc, binaryOperator->right);
+		}
 
 		if (left == &tc->types->errorType || right == &tc->types->errorType)
 		{
@@ -1895,30 +1955,48 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	{
 		FunctionCall* functionCall = (FunctionCall*)expression;
 
-		for (int i = 0; i < functionCall->numArgs; i++)
-		{
-			resolveExpression(tc, functionCall->args[i]);
-		}
-
 		Function* function = nullptr;
 
-		if (functionCall->expression->type == NODE_IDENTIFIER)
+		if (tryResolveFunctionCallOperand(tc, functionCall))
 		{
-			Identifier* identifier = (Identifier*)functionCall->expression;
-			resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
-			if (Symbol* symbol = getIdentifierSymbol(identifier))
-				function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
-		}
-		else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
-		{
-			MemberAccess* member = (MemberAccess*)functionCall->expression;
-			resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
-			if (Symbol* symbol = getMemberAccessSymbol(member))
-				function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+			if (functionCall->expression->type == NODE_IDENTIFIER)
+			{
+				Identifier* identifier = (Identifier*)functionCall->expression;
+				if (Symbol* symbol = getIdentifierSymbol(identifier))
+					function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+			}
+			else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+			{
+				MemberAccess* member = (MemberAccess*)functionCall->expression;
+				if (Symbol* symbol = getMemberAccessSymbol(member))
+					function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+			}
 		}
 		else
 		{
-			resolveExpression(tc, functionCall->expression);
+			for (int i = 0; i < functionCall->numArgs; i++)
+			{
+				resolveExpression(tc, functionCall->args[i]);
+			}
+
+			if (functionCall->expression->type == NODE_IDENTIFIER)
+			{
+				Identifier* identifier = (Identifier*)functionCall->expression;
+				resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
+				if (Symbol* symbol = getIdentifierSymbol(identifier))
+					function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+			}
+			else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+			{
+				MemberAccess* member = (MemberAccess*)functionCall->expression;
+				resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
+				if (Symbol* symbol = getMemberAccessSymbol(member))
+					function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+			}
+			else
+			{
+				resolveExpression(tc, functionCall->expression);
+			}
 		}
 
 		Type* functionType = functionCall->expression->inferredType;
@@ -2041,6 +2119,26 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 	{
 		MemberAccess* member = (MemberAccess*)expression;
 		return resolveMemberAccess(tc, member, false, 0, nullptr);
+	}
+	else if (expression->type == NODE_IMPLICIT_ENUM_MEMBER)
+	{
+		ImplicitEnumMember* member = (ImplicitEnumMember*)expression;
+
+		if (!expectedType || expectedType->typeKind != TYPE_ENUM)
+		{
+			error(tc, (Node*)member, "Unable to infer type of implicit enum member");
+			return expression->inferredType = getErrorType(tc->types);
+		}
+
+		Enum* declaration = expectedType->enum_.declaration;
+		member->index = getEnumValue(member->name, declaration->numValues, declaration->values);
+
+		if (member->index == -1)
+		{
+			error(tc, (Node*)member, "Undefined enum member '%.*s.%.*s'", declaration->name.length, declaration->name.ptr, member->name.length, member->name.ptr);
+		}
+
+		return expression->inferredType = expectedType;
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
@@ -2261,7 +2359,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 			if (return_->value)
 			{
-				Type* valueType = resolveExpression(tc, return_->value);
+				Type* valueType = resolveExpression(tc, return_->value, returnType);
 				if (valueType == &tc->types->errorType)
 					return;
 
