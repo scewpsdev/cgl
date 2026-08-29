@@ -64,7 +64,7 @@ func main() {
 	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
 
 	Vertex* vertexData = SDL_MapGPUTransferBuffer(device, transferBuffer, false) as Vertex*;
-	for i : vertices.length {
+	for i : vertices.size {
 		vertexData[i] = vertices[i];
 	}
 	SDL_UnmapGPUTransferBuffer(device, transferBuffer);

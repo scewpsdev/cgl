@@ -388,6 +388,10 @@ bool isConstant(Expression* expression)
 				}
 			}
 		}
+		if (operandType->typeKind == TYPE_ARRAY && operandType->array.size != 0 && member->index == 1)
+		{
+			return true;
+		}
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
@@ -728,11 +732,13 @@ bool constantFold(Expression* expression, int64_t* value)
 									if (previousEnumValue->value)
 									{
 										int64_t previousValue = constantFold(previousEnumValue->value, value);
-										return previousValue + (index - i);
+										*value = previousValue + (index - i);
+										return true;
 									}
 									else if (i == 0)
 									{
-										return index;
+										*value = index;
+										return true;
 									}
 								}
 							}
@@ -740,6 +746,11 @@ bool constantFold(Expression* expression, int64_t* value)
 					}
 				}
 			}
+		}
+		if (operandType->typeKind == TYPE_ARRAY && operandType->array.size != 0 && member->index == 1)
+		{
+			*value = operandType->array.size;
+			return true;
 		}
 	}
 	else if (expression->type == NODE_TERNARY_CONDITION)

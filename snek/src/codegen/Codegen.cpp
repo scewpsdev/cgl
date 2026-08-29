@@ -412,7 +412,7 @@ static void declareArrayType(Codegen* codegen, Type* type)
 	{
 		//emitString(buffer, "const ");
 		emitType(codegen, type->array.elementType, buffer);
-		emitString(buffer, "* data;u64 length;}");
+		emitString(buffer, "* data;u64 size;}");
 	}
 	emitString(buffer, type->mangledName);
 	emitString(buffer, ";\n");
@@ -1133,6 +1133,22 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_DEREFERENCE)
 		{
+			// null check
+
+			SourceLocation start, end;
+			getSourceLocation(codegen->currentFile, (Node*)unaryOperator, &start, &end);
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "__nullcheck(");
+			emitValue(buffer, operand);
+			emitString(buffer, "),\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
 			if (!operand.isIdentifier)
 			{
 				Value result = {};
@@ -1284,6 +1300,26 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SnekAssert(subscript->numArgs == 1);
 			Value index = emitExpression(codegen, subscript->args[0], buffer);
 
+			// bounds check
+
+			SourceLocation start, end;
+			getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, index);
+			emitString(buffer, ">=0&&");
+			emitValue(buffer, index);
+			emitString(buffer, "<");
+			emitValue(buffer, operand);
+			emitString(buffer, ".length,\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
 			Type* charPtrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value charPtr = declareLocalValue(codegen, charPtrType, buffer);
 			emitChar(buffer, '&');
@@ -1303,6 +1339,34 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(subscript->numArgs == 1);
 			Value index = emitExpression(codegen, subscript->args[0], buffer);
+
+			SourceLocation start, end;
+			getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
+
+			// bounds check
+
+			emitIndentation(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, index);
+			emitString(buffer, ">=0&&");
+			emitValue(buffer, index);
+			emitString(buffer, "<");
+			if (operand.type->array.size == 0)
+			{
+				emitValue(buffer, operand);
+				emitString(buffer, ".size");
+			}
+			else
+			{
+				emitInteger(buffer, operand.type->array.size);
+			}
+			emitString(buffer, ",\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
 
 			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value ptr = declareLocalValue(codegen, ptrType, buffer);

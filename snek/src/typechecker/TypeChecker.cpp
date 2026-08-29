@@ -1306,7 +1306,7 @@ int getFieldIndex(Type* operandType, StringView name, Expression* operand)
 	{
 		if (compareString(name, "data"))
 			return 0;
-		else if (compareString(name, "length"))
+		else if (compareString(name, "size"))
 			return 1;
 		return -1;
 	}
@@ -2330,7 +2330,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		{
 			error(tc, (Node*)for_->startValue, "Initial value of for iterator must be a scalar");
 		}
-		if (startValueType != getErrorType(tc->types) && !isNumericType(compareValueType))
+		if (compareValueType != getErrorType(tc->types) && !isNumericType(compareValueType))
 		{
 			error(tc, (Node*)for_->compareValue, "Comparison value of for iterator must be a scalar");
 		}

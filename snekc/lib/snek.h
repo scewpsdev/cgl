@@ -48,7 +48,9 @@ typedef struct {
 void __debugbreak();
 
 void __assertmsg(int x, const char* msg);
-#define assert(x, file, line, col) __assertmsg(x, "Assertion failed at " file ":" #line ":" #col ": " #x)
+#define assert(x, file, line, col) __assertmsg(x, "Assertion failed at " #x "at" file ":" #line ":" #col)
+#define __bounds_check(x, file, line, col) __assertmsg(x, "Bounds check failed: " #x " at " file ":" #line ":" #col)
+#define __null_check(x, file, line, col) __assertmsg(x, "Null check failed: " #x " at " file ":" #line ":" #col)
 
 i8 __stoi8(string s);
 i16 __stoi16(string s);

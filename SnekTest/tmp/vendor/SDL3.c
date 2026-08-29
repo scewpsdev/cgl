@@ -1,4 +1,4 @@
-// vendor/SDL3.src
+// vendor\SDL3.src
 #include <snek.h>
 
 
@@ -2716,9 +2716,9 @@ enum SDL_MessageBoxColorType:i32{
 	SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED,
 	SDL_MESSAGEBOX_COLOR_COUNT,
 };
-typedef struct{struct SDL_MessageBoxColor* data;u64 length;}A0SSDL_MessageBoxColor;
+typedef struct{struct SDL_MessageBoxColor data[5];}A5SSDL_MessageBoxColor;
 struct SDL_MessageBoxColorScheme{
-	A0SSDL_MessageBoxColor colors;
+	A5SSDL_MessageBoxColor colors;
 };
 struct SDL_MessageBoxData{
 	SDL_MessageBoxFlags flags;
