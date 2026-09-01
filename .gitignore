@@ -2,6 +2,8 @@
 bin/
 cgl/obj/
 cgl-core/obj/
-snek-lsp/obj/
 cgl-bindgen/obj/
 VSSnek/obj/
+snek-lsp/obj/
+snek/obj/
+snekc/obj/
