@@ -642,11 +642,11 @@ TypeNode* parseType(Parser* parser)
 	return nullptr;
 }
 
-static Expression** parseExpressionList(Parser* parser, Expression* firstExpression, int* numExpressions)
+static Expression** parseExpressionList(Parser* parser, Expression* firstExpression, int terminator, int* numExpressions)
 {
 	int mark = parser->scratch->mark();
 
-	bool next = !nextIs(parser, ')');
+	bool next = !nextIs(parser, terminator);
 
 	if (firstExpression)
 	{
@@ -667,9 +667,15 @@ static Expression** parseExpressionList(Parser* parser, Expression* firstExpress
 			parser->scratch->add(getErrorExpression(parser, parser->cursor));
 		}
 
-		next = nextIs(parser, ',');
-		if (next)
+		if (nextIs(parser, ','))
+		{
 			nextToken(parser);
+			next = !nextIs(parser, terminator);
+		}
+		else
+		{
+			next = false;
+		}
 	}
 
 	Expression** expressions = copyFromScratchBuffer<Expression*>(parser, mark, numExpressions);
@@ -820,7 +826,7 @@ Expression* parseAtom(Parser* parser)
 				ExpressionList* expressionList = parser->arena->alloc<ExpressionList>();
 				initNode((Node*)expressionList, NODE_EXPRESSION_LIST, start);
 
-				expressionList->values = parseExpressionList(parser, expression, &expressionList->numValues);
+				expressionList->values = parseExpressionList(parser, expression, ')', &expressionList->numValues);
 
 				expectToken(parser, ')');
 
@@ -851,7 +857,7 @@ Expression* parseAtom(Parser* parser)
 		nextToken(parser);
 
 		int numValues = 0;
-		if (Expression** values = parseExpressionList(parser, nullptr, &numValues))
+		if (Expression** values = parseExpressionList(parser, nullptr, ']', &numValues))
 		{
 			ArrayInitializer* arrayInitializer = parser->arena->alloc<ArrayInitializer>();
 			initNode((Node*)arrayInitializer, NODE_ARRAY_INITIALIZER, start);
@@ -1282,7 +1288,7 @@ Expression* parsePostfixOperator(Parser* parser)
 					initNode((Node*)functionCall, NODE_FUNCTION_CALL, expression->start);
 					functionCall->expression = expression;
 
-					functionCall->args = parseExpressionList(parser, nullptr, &functionCall->numArgs);
+					functionCall->args = parseExpressionList(parser, nullptr, ')', &functionCall->numArgs);
 
 					expectToken(parser, ')');
 
@@ -1297,7 +1303,7 @@ Expression* parsePostfixOperator(Parser* parser)
 				initNode((Node*)subscript, NODE_ARRAY_SUBSCRIPT, expression->start);
 				subscript->operand = expression;
 
-				subscript->args = parseExpressionList(parser, nullptr, &subscript->numArgs);
+				subscript->args = parseExpressionList(parser, nullptr, ']', &subscript->numArgs);
 
 				expectToken(parser, ']');
 
