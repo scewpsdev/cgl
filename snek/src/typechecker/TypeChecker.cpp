@@ -103,115 +103,6 @@ static void popScope(TypeChecker* tc)
 	tc->currentScope = tc->currentScope->parent;
 }
 
-void symbolCollection(TypeChecker* tc, File* file)
-{
-	tc->file = file;
-
-	AST* ast = &file->ast;
-
-	ast->globalScope = pushScope(tc);
-
-	ast->structs = tc->arena->alloc<Struct*>(ast->numStructs);
-	ast->enums = tc->arena->alloc<Enum*>(ast->numEnums);
-	ast->unions = tc->arena->alloc<Union*>(ast->numUnions);
-	ast->typedefs = tc->arena->alloc<Typedef*>(ast->numTypedefs);
-	ast->functions = tc->arena->alloc<Function*>(ast->numFunctions);
-	ast->macros = tc->arena->alloc<Macro*>(ast->numMacros);
-	ast->globalVariables = tc->arena->alloc<GlobalVariable*>(ast->numGlobalVariables);
-	ast->imports = tc->arena->alloc<Import*>(ast->numImports);
-
-	int numStructs = 0;
-	int numEnums = 0;
-	int numUnions = 0;
-	int numTypedefs = 0;
-	int numFunctions = 0;
-	int numMacros = 0;
-	int numGlobalVariables = 0;
-	int numImports = 0;
-
-	for (int i = 0; i < ast->numDeclarations; i++)
-	{
-		Node* declaration = ast->declarations[i];
-
-		StringView identifier = {};
-		if (declaration->type == NODE_STRUCT)
-		{
-			Struct* struct_ = &declaration->struct_;
-
-			if (struct_->name.length)
-			{
-				struct_->structType = createNamedStructType(file, struct_->name, struct_);
-				struct_->symbol = insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, file->handle);
-			}
-
-			ast->structs[numStructs++] = struct_;
-		}
-		else if (declaration->type == NODE_UNION)
-		{
-			Union* union_ = &declaration->union_;
-
-			union_->unionType = createNamedUnionType(file, union_->name, union_);
-			union_->symbol = insertSymbol(&tc->currentScope->symbols, union_->name, SYMBOL_TYPE, declaration, file->handle);
-
-			ast->unions[numUnions++] = union_;
-		}
-		else if (declaration->type == NODE_ENUM)
-		{
-			Enum* enum_ = &declaration->enum_;
-
-			enum_->enumType = createEnumType(file, enum_->name, enum_);
-			enum_->symbol = insertSymbol(&tc->currentScope->symbols, enum_->name, SYMBOL_TYPE, declaration, file->handle);
-
-			ast->enums[numEnums++] = enum_;
-		}
-		else if (declaration->type == NODE_TYPEDEF)
-		{
-			Typedef* typedef_ = &declaration->typedef_;
-
-			typedef_->aliasType = createAliasType(file, typedef_->name, typedef_);
-			typedef_->symbol = insertSymbol(&tc->currentScope->symbols, typedef_->name, SYMBOL_TYPE, declaration, file->handle);
-
-			ast->typedefs[numTypedefs++] = typedef_;
-		}
-		else if (declaration->type == NODE_FUNCTION)
-		{
-			Function* function = &declaration->function;
-
-			function->symbol = insertSymbol(&tc->currentScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
-
-			ast->functions[numFunctions++] = &declaration->function;
-		}
-		else if (declaration->type == NODE_GLOBAL_VARIABLE)
-		{
-			for (int i = 0; i < declaration->globalVariable.numDeclarators; i++)
-			{
-				declaration->globalVariable.declarators[i].symbol = insertSymbol(&tc->currentScope->symbols, declaration->globalVariable.declarators[i].name, SYMBOL_VARIABLE, declaration, file->handle);
-			}
-			ast->globalVariables[numGlobalVariables++] = &declaration->globalVariable;
-		}
-		else if (declaration->type == NODE_MACRO)
-		{
-			insertSymbol(&tc->currentScope->symbols, declaration->macro.name, SYMBOL_MACRO, declaration, file->handle);
-			ast->macros[numMacros++] = &declaration->macro;
-		}
-		else if (declaration->type == NODE_IMPORT)
-		{
-			ast->imports[numImports++] = &declaration->import;
-		}
-	}
-
-	SnekAssert(numStructs == ast->numStructs);
-	SnekAssert(numEnums == ast->numEnums);
-	SnekAssert(numUnions == ast->numUnions);
-	SnekAssert(numTypedefs == ast->numTypedefs);
-	SnekAssert(numFunctions == ast->numFunctions);
-	SnekAssert(numMacros == ast->numMacros);
-	SnekAssert(numGlobalVariables == ast->numGlobalVariables);
-	SnekAssert(numImports == ast->numImports);
-
-	popScope(tc);
-}
-
 static int charToDigit(char c)
 {
 	if (c >= '0' && c <= '9') return c - '0';
@@ -425,6 +316,7 @@ static double stringToFloatConstant(TypeChecker* tc, Node* node, StringView str,
 	return value;
 }
 
+static Type* resolveType(TypeChecker* tc, TypeNode* type);
 static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* expectedType = nullptr);
 static Type* resolveField(TypeChecker* tc, Field* field);
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter);
@@ -436,6 +328,158 @@ static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
 	handle.file = symbol->file;
 	handle.symbol = symbol->key;
 	return handle;
+}
+
+void symbolCollection(TypeChecker* tc, File* file)
+{
+	tc->file = file;
+
+	AST* ast = &file->ast;
+
+	ast->globalScope = pushScope(tc);
+
+	ast->structs = tc->arena->alloc<Struct*>(ast->numStructs);
+	ast->enums = tc->arena->alloc<Enum*>(ast->numEnums);
+	ast->unions = tc->arena->alloc<Union*>(ast->numUnions);
+	ast->typedefs = tc->arena->alloc<Typedef*>(ast->numTypedefs);
+	ast->functions = tc->arena->alloc<Function*>(ast->numFunctions);
+	ast->macros = tc->arena->alloc<Macro*>(ast->numMacros);
+	ast->globalVariables = tc->arena->alloc<GlobalVariable*>(ast->numGlobalVariables);
+	ast->imports = tc->arena->alloc<Import*>(ast->numImports);
+
+	int numStructs = 0;
+	int numEnums = 0;
+	int numUnions = 0;
+	int numTypedefs = 0;
+	int numFunctions = 0;
+	int numMacros = 0;
+	int numGlobalVariables = 0;
+	int numImports = 0;
+
+	for (int i = 0; i < ast->numDeclarations; i++)
+	{
+		Node* declaration = ast->declarations[i];
+
+		StringView identifier = {};
+		if (declaration->type == NODE_STRUCT)
+		{
+			Struct* struct_ = &declaration->struct_;
+
+			if (struct_->name.length)
+			{
+				struct_->structType = createNamedStructType(file, struct_->name, struct_);
+				struct_->symbol = insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, file->handle);
+			}
+
+			ast->structs[numStructs++] = struct_;
+		}
+		else if (declaration->type == NODE_UNION)
+		{
+			Union* union_ = &declaration->union_;
+
+			union_->unionType = createNamedUnionType(file, union_->name, union_);
+			union_->symbol = insertSymbol(&tc->currentScope->symbols, union_->name, SYMBOL_TYPE, declaration, file->handle);
+
+			ast->unions[numUnions++] = union_;
+		}
+		else if (declaration->type == NODE_ENUM)
+		{
+			Enum* enum_ = &declaration->enum_;
+
+			Type* valueType = &tc->types->primitiveTypes[TYPE_INT32];
+			if (enum_->valueType)
+			{
+				valueType = resolveType(tc, enum_->valueType);
+
+				if (!isIntegerType(valueType))
+				{
+					error(tc, (Node*)enum_->valueType, "Enum type must be an integer");
+				}
+			}
+
+			int lastWithValue = -1;
+			for (int j = 0; j < enum_->numValues; j++)
+			{
+				EnumValue* enumValue = enum_->values[j];
+				if (enumValue->value)
+				{
+					resolveExpression(tc, enumValue->value, valueType);
+					if (!isConstant(enumValue->value))
+					{
+						error(tc, (Node*)enumValue->value, "Enum value must be constant");
+					}
+					else
+					{
+						constantFold(enumValue->value, &enumValue->intValue);
+					}
+
+					lastWithValue = j;
+				}
+				else
+				{
+					if (lastWithValue != -1)
+					{
+						int64_t previousValue = enum_->values[lastWithValue]->intValue;
+						enumValue->intValue = previousValue + (j - lastWithValue);
+					}
+					else
+					{
+						enumValue->intValue = j;
+					}
+				}
+			}
+
+			enum_->enumType = createEnumType(file, enum_->name, valueType, enum_);
+			enum_->symbol = insertSymbol(&tc->currentScope->symbols, enum_->name, SYMBOL_TYPE, declaration, file->handle);
+
+			ast->enums[numEnums++] = enum_;
+		}
+		else if (declaration->type == NODE_TYPEDEF)
+		{
+			Typedef* typedef_ = &declaration->typedef_;
+
+			typedef_->aliasType = createAliasType(file, typedef_->name, typedef_);
+			typedef_->symbol = insertSymbol(&tc->currentScope->symbols, typedef_->name, SYMBOL_TYPE, declaration, file->handle);
+
+			ast->typedefs[numTypedefs++] = typedef_;
+		}
+		else if (declaration->type == NODE_FUNCTION)
+		{
+			Function* function = &declaration->function;
+
+			function->symbol = insertSymbol(&tc->currentScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
+
+			ast->functions[numFunctions++] = &declaration->function;
+		}
+		else if (declaration->type == NODE_GLOBAL_VARIABLE)
+		{
+			for (int i = 0; i < declaration->globalVariable.numDeclarators; i++)
+			{
+				declaration->globalVariable.declarators[i].symbol = insertSymbol(&tc->currentScope->symbols, declaration->globalVariable.declarators[i].name, SYMBOL_VARIABLE, declaration, file->handle);
+			}
+			ast->globalVariables[numGlobalVariables++] = &declaration->globalVariable;
+		}
+		else if (declaration->type == NODE_MACRO)
+		{
+			insertSymbol(&tc->currentScope->symbols, declaration->macro.name, SYMBOL_MACRO, declaration, file->handle);
+			ast->macros[numMacros++] = &declaration->macro;
+		}
+		else if (declaration->type == NODE_IMPORT)
+		{
+			ast->imports[numImports++] = &declaration->import;
+		}
+	}
+
+	SnekAssert(numStructs == ast->numStructs);
+	SnekAssert(numEnums == ast->numEnums);
+	SnekAssert(numUnions == ast->numUnions);
+	SnekAssert(numTypedefs == ast->numTypedefs);
+	SnekAssert(numFunctions == ast->numFunctions);
+	SnekAssert(numMacros == ast->numMacros);
+	SnekAssert(numGlobalVariables == ast->numGlobalVariables);
+	SnekAssert(numImports == ast->numImports);
+
+	popScope(tc);
 }
 
 static Type* resolveType(TypeChecker* tc, TypeNode* type)
@@ -1005,7 +1049,7 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 	{
 		if (getNumericRank(expressionType) <= getNumericRank(targetType))
 		{
-			if (isUnsignedType(expressionType) == isUnsignedType(targetType))
+			if (isUnsignedType(expressionType) == isUnsignedType(targetType) || isIntegerType(expressionType) && isIntegerType(targetType))
 			{
 				if (ref)
 					insertImplicitCast(tc, ref, targetType);
@@ -2454,7 +2498,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		{
 			if (expressionType != getErrorType(tc->types) && valueType != getErrorType(tc->types) && !isAssignable(tc, valueType, expressionType, &assignment->value))
 			{
-				error(tc, (Node*)assignment->value, "Cannot assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
+				error(tc, (Node*)assignment->value, "Can't assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
 			}
 		}
 		else
@@ -2464,7 +2508,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 			if (resultType != &tc->types->errorType && !isAssignable(tc, resultType, expressionType, nullptr))
 			{
-				error(tc, (Node*)statement, "Cannot assign result of type '%.*s' to expression of type '%.*s'", resultType->name.length, resultType->name.ptr, expressionType->name.length, expressionType->name.ptr);
+				error(tc, (Node*)statement, "Can't assign result of type '%.*s' to expression of type '%.*s'", resultType->name.length, resultType->name.ptr, expressionType->name.length, expressionType->name.ptr);
 			}
 		}
 	}
@@ -2513,13 +2557,13 @@ void symbolResolution(TypeChecker* tc, File* file)
 	{
 		GlobalVariable* globalVariable = ast->globalVariables[i];
 		resolveType(tc, globalVariable->variableType);
-		for (int j = 0; j < globalVariable->numDeclarators; j++)
+		if (isPrimitiveType(globalVariable->variableType->typeKind))
 		{
-			Expression* value = globalVariable->declarators[j].value;
-			StringView name = globalVariable->declarators[j].name;
-			if (value)
+			for (int j = 0; j < globalVariable->numDeclarators; j++)
 			{
-				if (isPrimitiveType(globalVariable->variableType->inferredType))
+				Expression* value = globalVariable->declarators[j].value;
+				StringView name = globalVariable->declarators[j].name;
+				if (value)
 				{
 					resolveExpression(tc, value, globalVariable->variableType->inferredType);
 
@@ -2532,62 +2576,12 @@ void symbolResolution(TypeChecker* tc, File* file)
 						error(tc, (Node*)value, "Global variable initializer must be a constant value");
 					}
 				}
-			}
-			else if (globalVariable->storage & STORAGE_CONSTANT)
-			{
-				error(tc, (Node*)globalVariable, "Constant variable must have an initializer");
-			}
-		}
-	}
-
-	for (int i = 0; i < ast->numEnums; i++)
-	{
-		Enum* enum_ = ast->enums[i];
-
-		Type* valueType = &tc->types->primitiveTypes[TYPE_INT32];
-		if (enum_->valueType)
-		{
-			valueType = resolveType(tc, enum_->valueType);
-
-			if (!isIntegerType(valueType))
-			{
-				error(tc, (Node*)enum_->valueType, "Enum type must be an integer");
-			}
-		}
-
-		int lastWithValue = -1;
-		for (int j = 0; j < enum_->numValues; j++)
-		{
-			EnumValue* enumValue = enum_->values[j];
-			if (enumValue->value)
-			{
-				resolveExpression(tc, enumValue->value, valueType);
-				if (!isConstant(enumValue->value))
+				else if (globalVariable->storage & STORAGE_CONSTANT)
 				{
-					error(tc, (Node*)enumValue->value, "Enum value must be constant");
-				}
-				else
-				{
-					constantFold(enumValue->value, &enumValue->intValue);
-				}
-
-				lastWithValue = j;
-			}
-			else
-			{
-				if (lastWithValue != -1)
-				{
-					int64_t previousValue = enum_->values[lastWithValue]->intValue;
-					enumValue->intValue = previousValue + (j - lastWithValue);
-				}
-				else
-				{
-					enumValue->intValue = j;
+					error(tc, (Node*)globalVariable, "Constant variable must have an initializer");
 				}
 			}
 		}
-
-		resolveEnumType(enum_->enumType, valueType);
 	}
 
 	for (int i = 0; i < ast->numStructs; i++)
@@ -2832,7 +2826,7 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 		{
 			Expression* value = globalVariable->declarators[j].value;
 			StringView name = globalVariable->declarators[j].name;
-			if (value && !isPrimitiveType(globalVariable->variableType->inferredType))
+			if (value && !isPrimitiveType(globalVariable->variableType->inferredType->typeKind))
 			{
 				resolveExpression(tc, value, globalVariable->variableType->inferredType);
 

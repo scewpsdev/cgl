@@ -6,6 +6,7 @@
 #include "typechecker/TypeSystem.h"
 
 #include "utils/Arena.h"
+#include "utils/StringBuffer.h"
 
 #include "tcc/libtcc.h"
 
@@ -50,6 +51,9 @@ struct Compiler
 	char* mainFilePath;
 	const char* outPath;
 	bool run;
+	bool debugInfo;
+	bool optimize;
+	bool gcc;
 
 	List<SourceFile*> sourceFiles;
 	List<const char*> libraryFiles;
@@ -184,7 +188,7 @@ static bool addSourceFile(Compiler* compiler, const char* localPath)
 	{
 		file->src = src;
 
-		initFile(&file->file, localPath, file->src, file->length, &compiler->blockPool);
+		initFile(&file->file, file->localPath, file->path, file->src, file->length, &compiler->blockPool);
 
 		compiler->sourceFiles.add(file);
 
@@ -204,7 +208,8 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 {
 	if (argc == 0)
 	{
-		// error
+		// todo print help
+		fprintf(stderr, "Must specify command\n");
 		exit(1);
 	}
 
@@ -221,7 +226,7 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		compiler->run = true;
 	else
 	{
-		// error
+		fprintf(stderr, "Undefined command: %s\n", cmd);
 		exit(1);
 	}
 
@@ -235,6 +240,18 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 			{
 				compiler->outPath = argv[++i];
 			}
+		}
+		else if (strcmp(arg, "-debug") == 0)
+		{
+			compiler->debugInfo = true;
+		}
+		else if (strcmp(arg, "-optimize") == 0)
+		{
+			compiler->optimize = true;
+		}
+		else if (strcmp(arg, "-gcc") == 0)
+		{
+			compiler->gcc = true;
 		}
 		else
 		{
@@ -263,7 +280,7 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 			}
 			else
 			{
-				// error
+				fprintf(stderr, "Undefined %s argument: %s\n", cmd, arg);
 				exit(1);
 			}
 		}
@@ -445,7 +462,9 @@ static void localFilePath(char* result, const char* path)
 	strcat(result, path);
 }
 
-static int outputBinary(TCCState* tcc, const char* out, bool run)
+static TCCState* tcc;
+
+static int outputBinaryTCC()
 {
 	char buffer[512] = "";
 
@@ -468,7 +487,7 @@ static int outputBinary(TCCState* tcc, const char* out, bool run)
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
-	tcc_set_output_type(tcc, run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
+	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
 
 	localFilePath(buffer, "lib/snek.c");
 	tcc_add_file(tcc, buffer);
@@ -504,7 +523,7 @@ static int outputBinary(TCCState* tcc, const char* out, bool run)
 		tcc_add_file(tcc, compiler.dllFiles[i]);
 	}
 
-	if (run)
+	if (compiler.run)
 	{
 		int result = tcc_relocate(tcc);
 
@@ -512,19 +531,114 @@ static int outputBinary(TCCState* tcc, const char* out, bool run)
 	}
 	else
 	{
-		createDirectories(out);
-		int result = tcc_output_file(tcc, out);
+		createDirectories(compiler.outPath);
+		int result = tcc_output_file(tcc, compiler.outPath);
 
 		return result;
 	}
 }
 
-static int runBinary(TCCState* tcc)
+static int runBinaryTCC()
 {
 	int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "main");
 	const char* arg = "TCC Runtime";
 	int result = entrypoint(1, &arg);
 	return result;
+}
+
+static int outputBinaryGCC()
+{
+	char buffer[512] = "";
+	StringBuffer command = CreateStringBuffer(256);
+
+	StringBufferAppend(command, "gcc -I lib ");
+
+	localFilePath(buffer, "lib");
+	StringBufferAppend(command, "-I ");
+	StringBufferAppend(command, buffer);
+	StringBufferAppend(command, ' ');
+
+	StringBufferAppend(command, "-D DLLEXPORT=__attribute((dllexport)) ");
+	StringBufferAppend(command, "-D DLLIMPORT=__attribute((dllimport)) ");
+	StringBufferAppend(command, "-D true=1 ");
+	StringBufferAppend(command, "-D false=0 ");
+
+	localFilePath(buffer, "lib/snek.c");
+	StringBufferAppend(command, buffer);
+	StringBufferAppend(command, ' ');
+
+	//tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
+
+	for (int i = 0; i < compiler.sourceFiles.size; i++)
+	{
+		StringBufferAppend(command, compiler.sourceFiles[i]->outPath);
+		StringBufferAppend(command, ' ');
+	}
+
+	for (int i = 0; i < compiler.libraryFiles.size; i++)
+	{
+		const char* library = compiler.libraryFiles[i];
+		StringView directory = getDirectory(library);
+		StringView name = getFilename(library);
+
+		if (name.startsWith("lib"))
+			name = name.substring(3);
+		if (name.endsWith(".dll"))
+			name = name.substring(0, name.length - 4);
+
+		directory = copy(directory);
+		name = copy(name);
+
+		StringBufferAppend(command, "-L ");
+		StringBufferAppend(command, directory.ptr);
+		StringBufferAppend(command, ' ');
+
+		StringBufferAppend(command, "-l");
+		StringBufferAppend(command, name.ptr);
+		StringBufferAppend(command, ' ');
+
+		destroy(directory);
+		destroy(name);
+	}
+
+	for (int i = 0; i < compiler.dllFiles.size; i++)
+	{
+		//tcc_add_file(tcc, compiler.dllFiles[i]);
+	}
+
+	if (compiler.debugInfo)
+	{
+		StringBufferAppend(command, "-g ");
+	}
+	if (compiler.optimize)
+	{
+		StringBufferAppend(command, "-O3 ");
+	}
+
+	if (compiler.run)
+	{
+		//int result = tcc_relocate(tcc);
+
+		return -1;
+	}
+	else
+	{
+		createDirectories(compiler.outPath);
+
+		StringBufferAppend(command, "-o ");
+		StringBufferAppend(command, compiler.outPath);
+
+		int result = system(command.buffer);
+
+		return result;
+	}
+
+	DestroyStringBuffer(command);
+}
+
+static int runBinaryGCC()
+{
+	return -1;
 }
 
 int main(int argc, const char* argv[])
@@ -624,15 +738,21 @@ int main(int argc, const char* argv[])
 		{
 			SourceFile* file = compiler.sourceFiles[i];
 			createDirectories(file->outPath);
-			emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath);
+			emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath, compiler.debugInfo);
 			file->state = FILE_STATE_OUTPUT;
 		}
 
 		t5 = GetTimeNS();
 
-		TCCState* tcc = tcc_new();
-
-		result = outputBinary(tcc, compiler.outPath, compiler.run);
+		if (compiler.gcc)
+		{
+			result = outputBinaryGCC();
+		}
+		else
+		{
+			tcc = tcc_new();
+			result = outputBinaryTCC();
+		}
 
 		uint64_t t6 = GetTimeNS();
 
@@ -653,10 +773,27 @@ int main(int argc, const char* argv[])
 			fprintf(stderr, "Output: %.2f ms\n", outputMs);
 
 			if (compiler.run)
-				runBinary(tcc);
+			{
+				if (compiler.gcc)
+				{
+					int runResult = runBinaryGCC();
+					fprintf(stderr, "Exited with code %d\n", runResult);
+				}
+				else
+				{
+					int runResult = runBinaryTCC();
+					fprintf(stderr, "Exited with code %d\n", runResult);
+				}
+			}
 		}
 
-		tcc_delete(tcc);
+		if (compiler.gcc)
+		{
+		}
+		else
+		{
+			tcc_delete(tcc);
+		}
 	}
 
 	if (result != 0)

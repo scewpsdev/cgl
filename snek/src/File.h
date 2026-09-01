@@ -28,6 +28,7 @@ struct File
 {
 	FileHandle handle;
 	char* localPath;
+	char* path;
 
 	Arena arena;
 	ScratchBuffer scratch;
@@ -44,7 +45,7 @@ struct File
 };
 
 
-void initFile(File* file, const char* localPath, const char* src, int length, GlobalBlockPool* blockPool);
+void initFile(File* file, const char* localPath, const char* path, const char* src, int length, GlobalBlockPool* blockPool);
 void destroyFile(File* file);
 
 FileHandle getFileHandle(const char* localPath);

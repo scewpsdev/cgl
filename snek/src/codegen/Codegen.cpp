@@ -21,6 +21,7 @@ void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena)
 	initCodeBuffer(&codegen->functionsBuffer, codegen->arena, 1024);
 
 	codegen->indentation = 0;
+	codegen->lastLine = 0;
 	codegen->nextGlobalID = 1;
 	codegen->nextLocalID = 1;
 
@@ -67,6 +68,23 @@ static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 	}
 }
 
+static void newLine(Codegen* codegen, CodeBuffer* buffer)
+{
+	if (codegen->debugInfo)
+	{
+		int newLine = codegen->currentLine;
+		if (newLine != codegen->lastLine + 1)
+		{
+			emitString(buffer, "#line ");
+			emitInteger(buffer, newLine + 1);
+			emitString(buffer, " \"");
+			emitString(buffer, codegen->currentFile->path);
+			emitString(buffer, "\"\n");
+		}
+	}
+	emitIndentation(codegen, buffer);
+}
+
 static Value createLocalValue(Codegen* codegen, Type* type)
 {
 	Value value = {};
@@ -79,11 +97,16 @@ static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
 	Value value = createLocalValue(codegen, type);
 
-	emitIndentation(codegen, buffer);
+	newLine(codegen, buffer);
 	if (type->typeKind == TYPE_POINTER)
 	{
 		emitType(codegen, type, buffer);
 		emitString(buffer, " const ");
+	}
+	else if (type->typeKind == TYPE_STRUCT)
+	{
+		emitType(codegen, type, buffer);
+		emitChar(buffer, ' ');
 	}
 	else
 	{
@@ -1052,7 +1075,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitValue(buffer, operand);
 			emitString(buffer, ";\n");
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
 			emitValue(buffer, operand);
@@ -1068,7 +1091,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitValue(buffer, operand);
 			emitString(buffer, ";\n");
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
 			emitValue(buffer, operand);
@@ -1080,7 +1103,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
 			emitValue(buffer, operand);
@@ -1092,7 +1115,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
 			emitValue(buffer, operand);
@@ -1138,7 +1161,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SourceLocation start, end;
 			getSourceLocation(codegen->currentFile, (Node*)unaryOperator, &start, &end);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "__nullcheck(");
 			emitValue(buffer, operand);
 			emitString(buffer, "),\"");
@@ -1229,7 +1252,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 			Value argsData = createLocalValue(codegen, nullptr);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			//emitString(buffer, "const "); statically sized array is already constant by default
 			emitType(codegen, variadicType, buffer);
 			emitChar(buffer, ' ');
@@ -1260,7 +1283,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		if (!isVoidType(functionCall->inferredType))
 			result = declareLocalValue(codegen, functionCall->inferredType, buffer);
 		else
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 
 		emitValue(buffer, operand);
 		emitChar(buffer, '(');
@@ -1305,7 +1328,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SourceLocation start, end;
 			getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "__bounds_check(");
 			emitValue(buffer, index);
 			emitString(buffer, ">=0&&");
@@ -1345,7 +1368,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 			// bounds check
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "__bounds_check(");
 			emitValue(buffer, index);
 			emitString(buffer, ">=0&&");
@@ -1551,7 +1574,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				{
 					Value length = declareLocalValue(codegen, member->inferredType, buffer);
 					emitValue(buffer, operand);
-					emitString(buffer, ".length;\n");
+					emitString(buffer, ".size;\n");
 
 					return length;
 				}
@@ -2145,6 +2168,8 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 
 static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* buffer)
 {
+	codegen->currentLine = getSourceLocation(codegen->currentFile, statement->start).line;
+
 	if (statement->type == NODE_BLOCK_STATEMENT)
 	{
 		BlockStatement* block = (BlockStatement*)statement;
@@ -2158,7 +2183,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		If* if_ = (If*)statement;
 		Value condition = emitExpression(codegen, if_->condition, buffer);
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "if(");
 		emitValue(buffer, condition);
 		emitString(buffer, "){\n");
@@ -2167,7 +2192,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		emitStatement(codegen, if_->then, buffer);
 		codegen->indentation--;
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "}");
 
 		if (if_->else_)
@@ -2178,7 +2203,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			emitStatement(codegen, if_->else_, buffer);
 			codegen->indentation--;
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "}");
 		}
 
@@ -2188,13 +2213,13 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	{
 		While* while_ = (While*)statement;
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "while(1){\n");
 
 		codegen->indentation++;
 
 		Value condition = emitExpression(codegen, while_->condition, buffer);
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "if(!");
 		emitValue(buffer, condition);
 		emitString(buffer, ")break;\n");
@@ -2203,7 +2228,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 
 		codegen->indentation--;
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "}\n");
 	}
 	else if (statement->type == NODE_FOR)
@@ -2219,7 +2244,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 
 			StringView iteratorName = for_->iteratorName.length ? for_->iteratorName : CreateString("__it");
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "for(int ");
 			emitString(buffer, iteratorName);
 			emitChar(buffer, '=');
@@ -2256,7 +2281,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			emitValue(buffer, startValue);
 			emitString(buffer, "?1:-1;\n");
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
 			emitString(buffer, "for(int ");
 			emitString(buffer, iteratorName);
 			emitChar(buffer, '=');
@@ -2283,7 +2308,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		emitStatement(codegen, for_->body, buffer);
 		codegen->indentation--;
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "}\n");
 	}
 	else if (statement->type == NODE_RETURN)
@@ -2294,7 +2319,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		if (return_->value)
 			value = emitExpression(codegen, return_->value, buffer);
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "return");
 
 		if (return_->value)
@@ -2307,12 +2332,12 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	}
 	else if (statement->type == NODE_BREAK)
 	{
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "break;\n");
 	}
 	else if (statement->type == NODE_CONTINUE)
 	{
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "continue;\n");
 	}
 	else if (statement->type == NODE_DEFER)
@@ -2321,9 +2346,6 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	else if (statement->type == NODE_VARIABLE_DECLARATION)
 	{
 		VariableDeclaration* variable = (VariableDeclaration*)statement;
-
-		if (variable->storage & STORAGE_CONSTANT)
-			emitString(buffer, "const ");
 
 		declareType(codegen, variable->variableType->inferredType);
 
@@ -2335,7 +2357,9 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			if (declarator->value)
 				value = emitExpression(codegen, declarator->value, buffer);
 
-			emitIndentation(codegen, buffer);
+			newLine(codegen, buffer);
+			if (variable->storage & STORAGE_CONSTANT)
+				emitString(buffer, "const ");
 			emitType(codegen, variable->variableType->inferredType, buffer);
 			emitChar(buffer, ' ');
 			emitString(buffer, declarator->name);
@@ -2359,7 +2383,7 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		Value expression = emitExpression(codegen, assignment->expression, buffer);
 		Value value = emitExpression(codegen, assignment->value, buffer);
 
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitValue(buffer, expression);
 		emitOperator(buffer, assignment->op);
 		emitValue(buffer, value);
@@ -2455,7 +2479,7 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 		Value value = emitExpression(codegen, function->value, buffer);
 
 		codegen->indentation++;
-		emitIndentation(codegen, buffer);
+		newLine(codegen, buffer);
 		emitString(buffer, "return ");
 		emitValue(buffer, value);
 		emitString(buffer, ";\n");
@@ -2582,7 +2606,7 @@ static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* m
 	emitString(buffer, "}");
 }
 
-bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo)
 {
 	codegen->declaredTypes.clear();
 	codegen->declaredTypeStubs.clear();
@@ -2590,6 +2614,7 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out)
 	codegen->declaredFunctions.clear();
 
 	codegen->currentFile = f;
+	codegen->debugInfo = debugInfo;
 
 	codegen->nextGlobalID = 1;
 	codegen->nextLocalID = 1;

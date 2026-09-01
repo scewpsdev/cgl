@@ -4,8 +4,8 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>build src/triangle.src lib/libSDL3.dll.a lib/SDL3.dll -o bin/Snake.exe</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2023\CGL\SnekTest</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>build src/main.src lib/libSDL3.dll.a -gcc -debug -o bin/Tetris.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2026\Tetris</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

@@ -395,7 +395,7 @@ void Parse(List<Document*> documents)
 
 		std::string srcStr = stream.str();
 		document->tmpFile = (File*)calloc(1, sizeof(File));
-		initFile(document->tmpFile, document->localPath, srcStr.c_str(), (int)srcStr.size(), &blockPool);
+		initFile(document->tmpFile, document->localPath, document->uri.c_str(), srcStr.c_str(), (int)srcStr.size(), &blockPool);
 
 		initParser(&document->parser, document->tmpFile);
 
@@ -440,16 +440,7 @@ void Parse(List<Document*> documents)
 	for (int i = 0; i < documents.size; i++)
 	{
 		Document* document = documents[i];
-
 		sendDiagnosticsNotification(&document->tmpFile->diagnostics, document);
-
-		if (document->tmpFile->diagnostics.items.size == 0)
-		{
-			std::string outPath = document->localPath;
-			outPath = outPath.substr(0, outPath.find('.'));
-			outPath = rootPath + "/tmp/" + outPath + ".c";
-			emitFile(&codegen, document->tmpFile, document->localPath, outPath.c_str());
-		}
 	}
 
 	// swap ast

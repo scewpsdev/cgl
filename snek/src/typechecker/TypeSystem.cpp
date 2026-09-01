@@ -59,24 +59,24 @@ bool isCharPointerType(Type* type)
 	return type->typeKind == TYPE_POINTER && type->pointer.elementType->typeKind == TYPE_INT8;
 }
 
-bool isPrimitiveType(Type* type)
+bool isPrimitiveType(TypeKind typeKind)
 {
 	return
-		type->typeKind == TYPE_VOID ||
-		type->typeKind == TYPE_INT8 ||
-		type->typeKind == TYPE_INT16 ||
-		type->typeKind == TYPE_INT32 ||
-		type->typeKind == TYPE_INT64 ||
-		type->typeKind == TYPE_UINT8 ||
-		type->typeKind == TYPE_UINT16 ||
-		type->typeKind == TYPE_UINT32 ||
-		type->typeKind == TYPE_UINT64 ||
-		type->typeKind == TYPE_FLOAT ||
-		type->typeKind == TYPE_DOUBLE ||
-		type->typeKind == TYPE_BOOL ||
-		type->typeKind == TYPE_ANY ||
-		type->typeKind == TYPE_STRING ||
-		type->typeKind == TYPE_TYPE;
+		typeKind == TYPE_VOID ||
+		typeKind == TYPE_INT8 ||
+		typeKind == TYPE_INT16 ||
+		typeKind == TYPE_INT32 ||
+		typeKind == TYPE_INT64 ||
+		typeKind == TYPE_UINT8 ||
+		typeKind == TYPE_UINT16 ||
+		typeKind == TYPE_UINT32 ||
+		typeKind == TYPE_UINT64 ||
+		typeKind == TYPE_FLOAT ||
+		typeKind == TYPE_DOUBLE ||
+		typeKind == TYPE_BOOL ||
+		typeKind == TYPE_ANY ||
+		typeKind == TYPE_STRING ||
+		typeKind == TYPE_TYPE;
 }
 
 Type* getVoidType(TypeSystem* types)
@@ -831,7 +831,7 @@ void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringV
 	type->union_.fieldNames = copyNames(&file->arena, numFields, fieldNames);
 }
 
-Type* createEnumType(File* file, StringView name, Enum* declaration)
+Type* createEnumType(File* file, StringView name, Type* valueType, Enum* declaration)
 {
 	Type key = {};
 	key.typeKind = TYPE_ENUM;
@@ -846,6 +846,7 @@ Type* createEnumType(File* file, StringView name, Enum* declaration)
 	SnekAssert(newType);
 
 	type->enum_.name = copy(name);
+	type->enum_.valueType = valueType;
 	type->enum_.declaration = declaration;
 	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
 

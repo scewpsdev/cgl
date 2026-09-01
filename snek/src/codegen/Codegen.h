@@ -28,8 +28,11 @@ struct Codegen
 	CodeBuffer functionsBuffer;
 
 	File* currentFile;
+	bool debugInfo;
 
 	int indentation;
+	int currentLine;
+	int lastLine;
 	int nextGlobalID;
 	int nextLocalID;
 
@@ -43,4 +46,4 @@ struct Codegen
 void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena);
 void destroyCodegen(Codegen* codegen);
 
-bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out);
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo);

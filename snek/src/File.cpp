@@ -4,12 +4,13 @@
 #include "utils/Hash.h"
 
 
-void initFile(File* file, const char* localPath, const char* src, int length, GlobalBlockPool* blockPool)
+void initFile(File* file, const char* localPath, const char* path, const char* src, int length, GlobalBlockPool* blockPool)
 {
 	*file = {};
 
 	file->handle = getFileHandle(localPath);
 	file->localPath = _strdup(localPath);
+	file->path = _strdup(path);
 	//file->internedTypes = nullptr;
 
 	initArena(&file->arena, blockPool);

@@ -106,7 +106,7 @@ bool isTruthyType(Type* type);
 bool isNumericType(Type* type);
 bool isErrorType(Type* type);
 bool isCharPointerType(Type* type);
-bool isPrimitiveType(Type* type);
+bool isPrimitiveType(TypeKind typeKind);
 
 Type* getVoidType(TypeSystem* types);
 Type* getInt32Type(TypeSystem* types);
@@ -133,8 +133,7 @@ void resolveNamedStructType(Type* type, int numFields, int numOffsetFields, Type
 Type* createNamedUnionType(File* file, StringView name, Union* declaration);
 void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file);
 
-Type* createEnumType(File* file, StringView name, Enum* declaration);
-void resolveEnumType(Type* type, Type* valueType);
+Type* createEnumType(File* file, StringView name, Type* valueType, Enum* declaration);
 
 Type* createAliasType(File* file, StringView name, Typedef* declaration);
 void resolveAliasType(Type* type, Type* value);
