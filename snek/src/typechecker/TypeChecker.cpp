@@ -1085,6 +1085,17 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 		}
 	}
 
+	if (expressionType->typeKind == TYPE_ARRAY && targetType->typeKind == TYPE_ARRAY)
+	{
+		Type* elementType1 = expressionType->array.elementType;
+		Type* elementType2 = targetType->array.elementType;
+		if (expressionType->array.size != 0 && targetType->array.size == 0 && compareTypes(elementType1, elementType2))
+		{
+			if (ref) insertImplicitCast(tc, ref, targetType);
+			return true;
+		}
+	}
+
 	if (targetType->typeKind == TYPE_ANY)
 	{
 		if (ref)

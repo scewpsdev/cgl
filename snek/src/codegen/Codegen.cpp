@@ -1714,6 +1714,24 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				return str;
 			}
 		}
+		else if (targetType->typeKind == TYPE_ARRAY)
+		{
+			if (expressionType->typeKind == TYPE_ARRAY)
+			{
+				if (expressionType->array.size != 0 && targetType->array.size == 0)
+				{
+					Value result = declareLocalValue(codegen, targetType, buffer);
+
+					emitChar(buffer, '{');
+					emitValue(buffer, expression);
+					emitString(buffer, ".data,");
+					emitInteger(buffer, expressionType->array.size);
+					emitString(buffer, "};\n");
+
+					return result;
+				}
+			}
+		}
 		else if (targetType->typeKind == TYPE_ANY)
 		{
 			if (isIntegerType(expressionType))
@@ -2159,6 +2177,21 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 				}
 				emitChar(buffer, '}');
 				return;
+			}
+		}
+		else if (targetType->typeKind == TYPE_ARRAY)
+		{
+			if (expressionType->typeKind == TYPE_ARRAY)
+			{
+				if (expressionType->array.size != 0 && targetType->array.size == 0)
+				{
+					emitChar(buffer, '{');
+					emitExpressionConstant(codegen, cast->expression, buffer);
+					emitString(buffer, ".data,");
+					emitInteger(buffer, expressionType->array.size);
+					emitChar(buffer, '}');
+					return;
+				}
 			}
 		}
 	}
