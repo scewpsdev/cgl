@@ -103,7 +103,7 @@ static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 		emitType(codegen, type, buffer);
 		emitString(buffer, " const ");
 	}
-	else if (type->typeKind == TYPE_STRUCT)
+	else if (type->typeKind == TYPE_STRUCT || type->typeKind == TYPE_UNION || type->typeKind == TYPE_ARRAY || type->typeKind == TYPE_STRING || type->typeKind == TYPE_ANY || type->typeKind == TYPE_OPTIONAL)
 	{
 		emitType(codegen, type, buffer);
 		emitChar(buffer, ' ');
@@ -393,6 +393,8 @@ static void declareOptionalType(Codegen* codegen, Type* type)
 {
 	CodeBuffer* buffer = &codegen->typesBuffer;
 
+	declareType(codegen, type->optional.elementType);
+
 	emitString(buffer, "typedef struct{");
 	emitType(codegen, type->optional.elementType, buffer);
 	emitString(buffer, " value;u8 flag;}");
@@ -403,6 +405,13 @@ static void declareOptionalType(Codegen* codegen, Type* type)
 static void declareFunctionType(Codegen* codegen, Type* type)
 {
 	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	for (int i = 0; i < type->function.numParams; i++)
+	{
+		declareType(codegen, type->function.paramTypes[i]);
+	}
+	if (type->function.returnType)
+		declareType(codegen, type->function.returnType);
 
 	emitString(buffer, "typedef ");
 	emitType(codegen, type->function.returnType ? type->function.returnType : &codegen->types->primitiveTypes[TYPE_VOID], buffer);
@@ -421,6 +430,8 @@ static void declareFunctionType(Codegen* codegen, Type* type)
 static void declareArrayType(Codegen* codegen, Type* type)
 {
 	CodeBuffer* buffer = &codegen->typesBuffer;
+
+	declareType(codegen, type->array.elementType);
 
 	emitString(buffer, "typedef struct{");
 	if (type->array.size)
@@ -1162,9 +1173,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			getSourceLocation(codegen->currentFile, (Node*)unaryOperator, &start, &end);
 
 			newLine(codegen, buffer);
-			emitString(buffer, "__nullcheck(");
+			emitString(buffer, "__null_check(");
 			emitValue(buffer, operand);
-			emitString(buffer, "),\"");
+			emitString(buffer, ",\"");
 			emitString(buffer, codegen->currentFile->localPath);
 			emitString(buffer, "\",");
 			emitInteger(buffer, start.line + 1);
@@ -1241,6 +1252,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value* args = codegen->scratch.getData<Value>(mark);
 
 		Type* functionType = functionCall->expression->inferredType;
+		functionType = unwrapType(functionType);
+		SnekAssert(functionType->typeKind == TYPE_FUNCTION);
 
 		Value variadicArgs = {};
 		if (functionType->function.variadic)
@@ -1318,15 +1331,14 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value operand = emitExpression(codegen, subscript->operand, buffer);
 
+		Value index = emitExpression(codegen, subscript->arg, buffer);
+
+		SourceLocation start, end;
+		getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
+
 		if (operand.type->typeKind == TYPE_STRING)
 		{
-			SnekAssert(subscript->numArgs == 1);
-			Value index = emitExpression(codegen, subscript->args[0], buffer);
-
 			// bounds check
-
-			SourceLocation start, end;
-			getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
 
 			newLine(codegen, buffer);
 			emitString(buffer, "__bounds_check(");
@@ -1360,12 +1372,6 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (operand.type->typeKind == TYPE_ARRAY)
 		{
-			SnekAssert(subscript->numArgs == 1);
-			Value index = emitExpression(codegen, subscript->args[0], buffer);
-
-			SourceLocation start, end;
-			getSourceLocation(codegen->currentFile, (Node*)subscript, &start, &end);
-
 			// bounds check
 
 			newLine(codegen, buffer);
@@ -1408,9 +1414,6 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (operand.type->typeKind == TYPE_POINTER)
 		{
-			SnekAssert(subscript->numArgs == 1);
-			Value index = emitExpression(codegen, subscript->args[0], buffer);
-
 			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value ptr = declareLocalValue(codegen, ptrType, buffer);
 			emitChar(buffer, '&');
@@ -1423,6 +1426,191 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			result.type = subscript->inferredType;
 			result.lvalue = true;
 			snprintf(result.name, sizeof(result.name), "(*%s)", ptr.name);
+
+			return result;
+		}
+		else
+		{
+			SnekAssert(false);
+			return {};
+		}
+	}
+	else if (expression->type == NODE_ARRAY_SLICE)
+	{
+		ArraySlice* slice = (ArraySlice*)expression;
+
+		Value operand = emitExpression(codegen, slice->operand, buffer);
+
+		Value low = {}, high = {};
+
+		if (slice->low)
+			low = emitExpression(codegen, slice->low, buffer);
+		if (slice->high)
+			high = emitExpression(codegen, slice->high, buffer);
+
+		SourceLocation start, end;
+		getSourceLocation(codegen->currentFile, (Node*)slice, &start, &end);
+
+		if (operand.type->typeKind == TYPE_STRING)
+		{
+			if (!slice->low)
+			{
+				low.type = getUInt64Type(codegen->types);
+				sprintf(low.name, "0");
+			}
+			if (!slice->high)
+			{
+				high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".length;\n");
+			}
+
+			// bounds check
+
+			newLine(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, low);
+			emitString(buffer, ">=0&&");
+			emitValue(buffer, low);
+			emitString(buffer, "<");
+			emitValue(buffer, operand);
+			emitString(buffer, ".length,\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
+			newLine(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, high);
+			emitString(buffer, ">=");
+			emitValue(buffer, low);
+			emitString(buffer, "&&");
+			emitValue(buffer, high);
+			emitString(buffer, "<=");
+			emitValue(buffer, operand);
+			emitString(buffer, ".length,\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
+			Value result  = declareLocalValue(codegen, slice->inferredType, buffer);
+
+			emitString(buffer, "{&");
+			emitValue(buffer, operand);
+			emitString(buffer, ".data[");
+			emitValue(buffer, low);
+			emitString(buffer, "],");
+			emitValue(buffer, high);
+			emitChar(buffer, '-');
+			emitValue(buffer, low);
+			emitString(buffer, ";}\n");
+
+			return result;
+		}
+		else if (operand.type->typeKind == TYPE_ARRAY)
+		{
+			if (!slice->low)
+			{
+				low.type = getUInt64Type(codegen->types);
+				sprintf(low.name, "0");
+			}
+			if (!slice->high)
+			{
+				high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
+				emitValue(buffer, operand);
+				emitString(buffer, ".size;\n");
+			}
+
+			// bounds check
+
+			newLine(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, low);
+			emitString(buffer, ">=0&&");
+			emitValue(buffer, low);
+			emitString(buffer, "<");
+			if (operand.type->array.size == 0)
+			{
+				emitValue(buffer, operand);
+				emitString(buffer, ".size");
+			}
+			else
+			{
+				emitInteger(buffer, operand.type->array.size);
+			}
+			emitString(buffer, ",\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
+			newLine(codegen, buffer);
+			emitString(buffer, "__bounds_check(");
+			emitValue(buffer, high);
+			emitString(buffer, ">=");
+			emitValue(buffer, low);
+			emitString(buffer, "&&");
+			emitValue(buffer, high);
+			emitString(buffer, "<=");
+			if (operand.type->array.size == 0)
+			{
+				emitValue(buffer, operand);
+				emitString(buffer, ".size");
+			}
+			else
+			{
+				emitInteger(buffer, operand.type->array.size);
+			}
+			emitString(buffer, ",\"");
+			emitString(buffer, codegen->currentFile->localPath);
+			emitString(buffer, "\",");
+			emitInteger(buffer, start.line + 1);
+			emitString(buffer, ",");
+			emitInteger(buffer, start.col + 1);
+			emitString(buffer, ");\n");
+
+			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
+
+			emitString(buffer, "{&");
+			emitValue(buffer, operand);
+			emitString(buffer, ".data[");
+			emitValue(buffer, low);
+			emitString(buffer, "],");
+			emitValue(buffer, high);
+			emitChar(buffer, '-');
+			emitValue(buffer, low);
+			emitString(buffer, "};\n");
+
+			return result;
+		}
+		else if (operand.type->typeKind == TYPE_POINTER)
+		{
+			if (!slice->low)
+			{
+				low.type = getUInt64Type(codegen->types);
+				sprintf(low.name, "0");
+			}
+			SnekAssert(slice->high);
+
+			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
+
+			emitString(buffer, "{&");
+			emitValue(buffer, operand);
+			emitString(buffer, "[");
+			emitValue(buffer, low);
+			emitString(buffer, "],");
+			emitValue(buffer, high);
+			emitChar(buffer, '-');
+			emitValue(buffer, low);
+			emitString(buffer, "};\n");
 
 			return result;
 		}

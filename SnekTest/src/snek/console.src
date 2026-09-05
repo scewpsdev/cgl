@@ -154,7 +154,7 @@ func print(string format, any... args) {
 	int varArgIdx = 0;
 	for i : format.length {
 		char c = format[i];
-		if (c == '%' && varArgIdx < args.length)
+		if (c == '%' && varArgIdx < args.size)
 			writeAny(args[varArgIdx++]);
 		else
 			putchar(c);

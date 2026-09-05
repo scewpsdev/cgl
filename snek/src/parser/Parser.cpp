@@ -209,7 +209,8 @@ static Token nextToken(Parser* parser)
 
 	Token token = nextToken(&parser->lexer);
 	parser->cursor = parser->lexer.cursor;
-	parser->lastTokenEnd = token.offset + token.length;
+	if (token.offset)
+		parser->lastTokenEnd = token.offset + token.length;
 	return token;
 }
 
@@ -1172,11 +1173,6 @@ static OperatorType parsePostfixOperatorType(Parser* parser)
 		nextToken(parser);
 		return OPERATOR_ARRAY_SUBSCRIPT;
 	}
-	else if (token.type == '.')
-	{
-		nextToken(parser);
-		return OPERATOR_MEMBER_ACCESS;
-	}
 	else
 	{
 		Token token2 = peekToken(parser, 1);
@@ -1191,6 +1187,11 @@ static OperatorType parsePostfixOperatorType(Parser* parser)
 			nextToken(parser);
 			nextToken(parser);
 			return OPERATOR_DECREMENT_POSTFIX;
+		}
+		else if (token.type == '.' && token2.type != '.')
+		{
+			nextToken(parser);
+			return OPERATOR_MEMBER_ACCESS;
 		}
 
 		return OPERATOR_NULL;
@@ -1299,17 +1300,61 @@ Expression* parsePostfixOperator(Parser* parser)
 			}
 			else if (operatorType == OPERATOR_ARRAY_SUBSCRIPT)
 			{
-				ArraySubscript* subscript = parser->arena->alloc<ArraySubscript>();
-				initNode((Node*)subscript, NODE_ARRAY_SUBSCRIPT, expression->start);
-				subscript->operand = expression;
+				Expression* low = nullptr;
+				Expression* high = nullptr;
+				bool isSlice = false;
 
-				subscript->args = parseExpressionList(parser, nullptr, ']', &subscript->numArgs);
+				if (!(nextIs(parser, '.') && nextIs(parser, 1, '.')))
+				{
+					low = parseExpression(parser);
+					if (!low)
+					{
+						error(parser, getSourceLocation(parser), "Expression expected");
+						low = getErrorExpression(parser, parser->cursor);
+					}
+				}
+
+				if (nextIs(parser, '.') && nextIs(parser, 1, '.'))
+				{
+					nextToken(parser);
+					nextToken(parser);
+					isSlice = true;
+
+					if (!nextIs(parser, ']'))
+					{
+						high = parseExpression(parser);
+						if (!high)
+						{
+							error(parser, getSourceLocation(parser), "Expression expected");
+							high = getErrorExpression(parser, parser->cursor);
+						}
+					}
+				}
 
 				expectToken(parser, ']');
 
-				subscript->end = parser->lastTokenEnd;
+				if (isSlice)
+				{
+					ArraySlice* slice = parser->arena->alloc<ArraySlice>();
+					initNode((Node*)slice, NODE_ARRAY_SLICE, expression->start);
+					slice->operand = expression;
+					slice->low = low;
+					slice->high = high;
+					slice->end = parser->lastTokenEnd;
 
-				expression = subscript;
+					expression = slice;
+				}
+				else
+				{
+					ArraySubscript* subscript = parser->arena->alloc<ArraySubscript>();
+					initNode((Node*)subscript, NODE_ARRAY_SUBSCRIPT, expression->start);
+					subscript->operand = expression;
+					subscript->arg = low;
+					subscript->end = parser->lastTokenEnd;
+
+					expression = subscript;
+
+				}
 			}
 			else if (operatorType == OPERATOR_MEMBER_ACCESS)
 			{
@@ -2160,10 +2205,14 @@ Typedef* parseTypedef(Parser* parser, uint32_t storage, int start)
 	{
 		nextToken(parser);
 		typedef_->value = parseType(parser);
+		if (!typedef_->value)
+		{
+			error(parser, getSourceLocation(parser), "Type expected");
+			typedef_->value = getErrorType(parser, parser->cursor);
+		}
 	}
 
-	if (!expectToken(parser, ';'))
-		skipPastToken(parser, ';');
+	expectToken(parser, ';');
 
 	typedef_->end = parser->lastTokenEnd;
 

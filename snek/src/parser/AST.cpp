@@ -911,11 +911,8 @@ void resetExpression(Expression** ref)
 		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
 		if (arraySubscript->operand)
 			resetExpression(&arraySubscript->operand);
-		for (int i = 0; i < arraySubscript->numArgs; i++)
-		{
-			if (arraySubscript->args[i])
-				resetExpression(&arraySubscript->args[i]);
-		}
+		if (arraySubscript->arg)
+			resetExpression(&arraySubscript->arg);
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
@@ -1269,11 +1266,8 @@ static void traverseExpression(Expression* expression, Scope* scope, ASTVisitor_
 		ArraySubscript* arraySubscript = (ArraySubscript*)expression;
 		if (arraySubscript->operand)
 			traverseExpression(arraySubscript->operand, scope, visitor, userPtr);
-		for (int i = 0; i < arraySubscript->numArgs; i++)
-		{
-			if (arraySubscript->args[i])
-				traverseExpression(arraySubscript->args[i], scope, visitor, userPtr);
-		}
+		if (arraySubscript->arg)
+			traverseExpression(arraySubscript->arg, scope, visitor, userPtr);
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{

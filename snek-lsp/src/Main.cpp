@@ -586,7 +586,7 @@ static bool containsFile(List<Document*>& documents, FileHandle file)
 {
 	for (int i = 0; i < documents.size; i++)
 	{
-		if (documents[i]->file->handle == file)
+		if (documents[i]->file && documents[i]->file->handle == file)
 			return true;
 	}
 	return false;

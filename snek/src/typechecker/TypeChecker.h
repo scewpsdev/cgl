@@ -37,4 +37,5 @@ void symbolCollection(TypeChecker* tc, File* file);
 void symbolResolution(TypeChecker* tc, File* file);
 void typeCheckFunctions(TypeChecker* tc, File* file);
 
+Type* unwrapType(Type* type);
 int getFieldIndex(Type* operandType, StringView name, Expression* operand);
