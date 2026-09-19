@@ -723,7 +723,7 @@ int main(int argc, const char* argv[])
 		Diagnostics* diagnostics = &file->file.diagnostics;
 		for (int j = 0; j < diagnostics->items.size; j++)
 		{
-			fprintf(stderr, "error %s:%d:%d: %s\n", file->localPath, diagnostics->items[j].startLine + 1, diagnostics->items[j].startCol + 1, diagnostics->items[j].message);
+			fprintf(stderr, "%s:%d:%d: error: %s\n", file->localPath, diagnostics->items[j].startLine + 1, diagnostics->items[j].startCol + 1, diagnostics->items[j].message);
 			hasError = true;
 		}
 	}
