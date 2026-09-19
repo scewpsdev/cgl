@@ -36,6 +36,7 @@
 #define KEYWORD_ASSERT    "assert"
 
 #define KEYWORD_AS        "as"
+#define KEYWORD_CAST	  "cast"
 #define KEYWORD_SIZEOF	  "sizeof"
 #define KEYWORD_ALLOCA	  "alloca"
 #define KEYWORD_MALLOC	  "new"

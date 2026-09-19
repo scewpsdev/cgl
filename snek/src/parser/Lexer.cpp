@@ -407,6 +407,7 @@ TokenType getKeywordType(const char* str, int len)
 			if (str[1] == 'y' && str[2] == 't' && str[3] == 'e') return TOKEN_UINT8;
 			break;
 		case 'c':
+			if (str[1] == 'a' && str[2] == 's' && str[3] == 't') return TOKEN_CAST;
 			if (str[1] == 'h' && str[2] == 'a' && str[3] == 'r') return TOKEN_INT8;
 			break;
 		case 'e':

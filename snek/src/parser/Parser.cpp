@@ -785,7 +785,11 @@ Expression* parseAtom(Parser* parser)
 		Sizeof* sizeof_ = parser->arena->alloc<Sizeof>();
 		initNode((Node*)sizeof_, NODE_SIZEOF, start);
 
-		if (Expression* expression = parseExpression(parser))
+		if (TypeNode* type = parseBasicType(parser))
+		{
+			sizeof_->targetType = type;
+		}
+		else if (Expression* expression = parseExpression(parser))
 		{
 			sizeof_->expression = expression;
 		}
@@ -1406,7 +1410,12 @@ Expression* parsePostfixOperator(Parser* parser)
 static OperatorType parsePrefixOperatorType(Parser* parser)
 {
 	Token token = peekToken(parser);
-	if (token.type == '!')
+	if (token.type == TOKEN_CAST)
+	{
+		nextToken(parser);
+		return OPERATOR_CAST;
+	}
+	else if (token.type == '!')
 	{
 		nextToken(parser);
 		return OPERATOR_LOGICAL_NOT;
@@ -1469,20 +1478,50 @@ Expression* parsePrefixOperator(Parser* parser)
 
 	if (OperatorType operatorType = parsePrefixOperatorType(parser))
 	{
-		Expression* expression = parsePrefixOperator(parser);
-		if (!expression)
+		if (operatorType == OPERATOR_CAST)
 		{
-			error(parser, getSourceLocation(parser), "Expression expected");
-			expression = getErrorExpression(parser, parser->cursor);
+			expectToken(parser, '(');
+
+			Cast* cast = parser->arena->alloc<Cast>();
+			initNode((Node*)cast, NODE_CAST, start);
+
+			cast->targetType = parseType(parser);
+			if (!cast->targetType)
+			{
+				error(parser, getSourceLocation(parser), "Type expected");
+				cast->targetType = getErrorType(parser, parser->cursor);
+			}
+
+			expectToken(parser, ')');
+
+			cast->expression = parsePrefixOperator(parser);
+			if (!cast->expression)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+				cast->expression = getErrorExpression(parser, parser->cursor);
+			}
+
+			cast->end = parser->lastTokenEnd;
+
+			return cast;
 		}
+		else
+		{
+			Expression* expression = parsePrefixOperator(parser);
+			if (!expression)
+			{
+				error(parser, getSourceLocation(parser), "Expression expected");
+				expression = getErrorExpression(parser, parser->cursor);
+			}
 
-		UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
-		initNode((Node*)op, NODE_UNARY_OPERATOR, start);
-		op->op = operatorType;
-		op->operand = expression;
-		op->end = parser->lastTokenEnd;
+			UnaryOperator* op = parser->arena->alloc<UnaryOperator>();
+			initNode((Node*)op, NODE_UNARY_OPERATOR, start);
+			op->op = operatorType;
+			op->operand = expression;
+			op->end = parser->lastTokenEnd;
 
-		return op;
+			return op;
+		}
 	}
 
 	return parsePostfixOperator(parser);

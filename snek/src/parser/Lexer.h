@@ -52,6 +52,7 @@ enum TokenType : int
 	TOKEN_ASSERT,
 
 	TOKEN_AS,
+	TOKEN_CAST,
 	TOKEN_SIZEOF,
 	TOKEN_ALIGNOF,
 
