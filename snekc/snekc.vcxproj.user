@@ -4,8 +4,8 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>build src/main.src lib/libSDL3.dll.a -gcc -debug -o bin/Tetris.exe</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2026\Tetris</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>build src/launcher.src lib/libSDL3.dll.a -dll -o bin/Launcher.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2026\IvoryKeep</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

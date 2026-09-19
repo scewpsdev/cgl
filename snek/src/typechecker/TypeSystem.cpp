@@ -194,7 +194,9 @@ bool compareTypes(Type* a, Type* b)
 		return compareTypes(a->array.elementType, b->array.elementType) &&
 			a->array.size == b->array.size;
 	case TYPE_FUNCTION:
-		if (!compareTypes(a->function.returnType, b->function.returnType))
+		if ((a->function.returnType != nullptr) != (b->function.returnType != nullptr))
+			return false;
+		if (a->function.returnType && b->function.returnType && !compareTypes(a->function.returnType, b->function.returnType))
 			return false;
 		if (a->function.numParams != b->function.numParams)
 			return false;

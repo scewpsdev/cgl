@@ -51,6 +51,7 @@ struct Compiler
 	char* mainFilePath;
 	const char* outPath;
 	bool run;
+	bool dll;
 	bool debugInfo;
 	bool optimize;
 	bool gcc;
@@ -219,11 +220,14 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 
 	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena);
 
-	const char* cmd = argv[1]; // build
+	const char* cmd = argv[1];
 	if (strcmp(cmd, "build") == 0)
-		compiler->outPath = "bin/a.exe";
+	{
+	}
 	else if (strcmp(cmd, "run") == 0)
+	{
 		compiler->run = true;
+	}
 	else
 	{
 		fprintf(stderr, "Undefined command: %s\n", cmd);
@@ -248,6 +252,10 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		else if (strcmp(arg, "-optimize") == 0)
 		{
 			compiler->optimize = true;
+		}
+		else if (strcmp(arg, "-dll") == 0)
+		{
+			compiler->dll = true;
 		}
 		else if (strcmp(arg, "-gcc") == 0)
 		{
@@ -487,7 +495,7 @@ static int outputBinaryTCC()
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
-	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
+	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
 
 	localFilePath(buffer, "lib/snek.c");
 	tcc_add_file(tcc, buffer);
@@ -531,8 +539,10 @@ static int outputBinaryTCC()
 	}
 	else
 	{
-		createDirectories(compiler.outPath);
-		int result = tcc_output_file(tcc, compiler.outPath);
+		const char* outPath = compiler.outPath ? compiler.outPath : compiler.dll ? "a.dll" : "a.exe";
+
+		createDirectories(outPath);
+		int result = tcc_output_file(tcc, outPath);
 
 		return result;
 	}
@@ -614,6 +624,10 @@ static int outputBinaryGCC()
 	{
 		StringBufferAppend(command, "-O3 ");
 	}
+	if (compiler.dll)
+	{
+		StringBufferAppend(command, "-shared ");
+	}
 
 	if (compiler.run)
 	{
@@ -623,10 +637,12 @@ static int outputBinaryGCC()
 	}
 	else
 	{
-		createDirectories(compiler.outPath);
+		const char* outPath = compiler.outPath ? compiler.outPath : compiler.dll ? "a.dll" : "a.exe";
+
+		createDirectories(outPath);
 
 		StringBufferAppend(command, "-o ");
-		StringBufferAppend(command, compiler.outPath);
+		StringBufferAppend(command, outPath);
 
 		int result = system(command.buffer);
 

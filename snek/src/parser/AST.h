@@ -46,6 +46,7 @@ enum NodeType : uint8_t
 	NODE_UNARY_OPERATOR,
 	NODE_FUNCTION_CALL,
 	NODE_ARRAY_SUBSCRIPT,
+	NODE_ARRAY_SLICE,
 	NODE_MEMBER_ACCESS,
 	NODE_IMPLICIT_ENUM_MEMBER,
 	NODE_TERNARY_CONDITION,
@@ -354,8 +355,13 @@ struct FunctionCall : Expression
 struct ArraySubscript : Expression
 {
 	Expression* operand;
-	Expression** args;
-	int numArgs;
+	Expression* arg;
+};
+
+struct ArraySlice : Expression
+{
+	Expression* operand;
+	Expression* low, * high;
 };
 
 struct MemberAccess : Expression
@@ -602,6 +608,7 @@ struct Node
 		UnaryOperator unaryOperator;
 		FunctionCall functionCall;
 		ArraySubscript arraySubscript;
+		ArraySlice arraySlice;
 		MemberAccess memberAccess;
 		ImplicitEnumMember implicitEnumMember;
 		TernaryCondition ternaryCondition;

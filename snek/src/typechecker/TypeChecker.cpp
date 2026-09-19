@@ -711,6 +711,10 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 					}
 				}
 			}
+			else
+			{
+				tc->scratch->add(getErrorType(tc->types));
+			}
 		}
 
 		Type* returnType = nullptr;
@@ -902,7 +906,7 @@ static Type* typeCheckArithmeticOperator(TypeChecker* tc, uint8_t op, Type* left
 			insertImplicitCast(tc, leftNode, commonType);
 		else
 		{
-			error(tc, (Node*)expression, "Cannot assign value of type '%.*s' to variable of type '%.*s' without an explicit narrowing cast");
+			error(tc, (Node*)expression, "Cannot assign value of type '%.*s' to variable of type '%.*s' without an explicit narrowing cast", commonType->name.length, commonType->name.ptr, left->name.length, left->name.ptr);
 		}
 	}
 	if (right != commonType)
@@ -977,21 +981,19 @@ static Type* typeCheckLogicalOperator(TypeChecker* tc, BinaryOperator* expressio
 	return &tc->types->primitiveTypes[TYPE_BOOL];
 }
 
-static Type* unwrapType(Type* type)
+Type* unwrapType(Type* type)
 {
 	if (type->typeKind == TYPE_ENUM)
-		return type->enum_.valueType;
+		return unwrapType(type->enum_.valueType);
 	if (type->typeKind == TYPE_ALIAS)
-		return type->alias.valueType;
+		return unwrapType(type->alias.valueType);
 	return type;
 }
 
 static bool isCastLegal(Type* expressionType, Type* targetType)
 {
-	while (expressionType->typeKind == TYPE_ALIAS || expressionType->typeKind == TYPE_ENUM)
-		expressionType = unwrapType(expressionType);
-	while (targetType->typeKind == TYPE_ALIAS || targetType->typeKind == TYPE_ENUM)
-		targetType = unwrapType(targetType);
+	expressionType = unwrapType(expressionType);
+	targetType = unwrapType(targetType);
 
 	if (compareTypes(expressionType, targetType))
 		return true;
@@ -1000,6 +1002,9 @@ static bool isCastLegal(Type* expressionType, Type* targetType)
 		return true;
 
 	if (expressionType->typeKind == TYPE_POINTER && targetType->typeKind == TYPE_POINTER)
+		return true;
+
+	if (expressionType->typeKind == TYPE_FUNCTION && targetType->typeKind == TYPE_FUNCTION)
 		return true;
 
 	if (expressionType->typeKind == TYPE_POINTER && isIntegerType(targetType))
@@ -1105,9 +1110,7 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 
 	if (targetType->typeKind == TYPE_ALIAS)
 	{
-		Type* unwrappedType = targetType;
-		while (unwrappedType->typeKind == TYPE_ALIAS)
-			unwrappedType = unwrapType(unwrappedType);
+		Type* unwrappedType = unwrapType(targetType);
 
 		if (isAssignable(tc, expressionType, unwrappedType, ref))
 		{
@@ -1637,15 +1640,9 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		Type* intType = nullptr;
 		if (expectedType)
 		{
+			expectedType = unwrapType(expectedType);
 			if (isIntegerType(expectedType))
 				intType = expectedType;
-			else if (expectedType->typeKind == TYPE_ALIAS)
-			{
-				while (expectedType->typeKind == TYPE_ALIAS)
-					expectedType = unwrapType(expectedType);
-				if (isIntegerType(expectedType))
-					intType = expectedType;
-			}
 		}
 
 		intLiteral->intValue = stringToIntConstant(tc, (Node*)intLiteral, intLiteral->value, &intLiteral->negative, &intLiteral->base, &intType);
@@ -2018,13 +2015,19 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			{
 				Identifier* identifier = (Identifier*)functionCall->expression;
 				if (Symbol* symbol = getIdentifierSymbol(identifier))
-					function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+				{
+					if (symbol->type == SYMBOL_FUNCTION_SET)
+						function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+				}
 			}
 			else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
 			{
 				MemberAccess* member = (MemberAccess*)functionCall->expression;
 				if (Symbol* symbol = getMemberAccessSymbol(member))
-					function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+				{
+					if (symbol->type == SYMBOL_FUNCTION_SET)
+						function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+				}
 			}
 		}
 		else
@@ -2039,14 +2042,20 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				Identifier* identifier = (Identifier*)functionCall->expression;
 				resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
 				if (Symbol* symbol = getIdentifierSymbol(identifier))
-					function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+				{
+					if (symbol->type == SYMBOL_FUNCTION_SET)
+						function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
+				}
 			}
 			else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
 			{
 				MemberAccess* member = (MemberAccess*)functionCall->expression;
 				resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
 				if (Symbol* symbol = getMemberAccessSymbol(member))
-					function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+				{
+					if (symbol->type == SYMBOL_FUNCTION_SET)
+						function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+				}
 			}
 			else
 			{
@@ -2055,6 +2064,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 
 		Type* functionType = functionCall->expression->inferredType;
+
+		functionType = unwrapType(functionType);
 
 		if (functionType == &tc->types->errorType)
 		{
@@ -2147,10 +2158,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		ArraySubscript* subscript = (ArraySubscript*)expression;
 
 		Type* operandType = resolveExpression(tc, subscript->operand);
-		for (int i = 0; i < subscript->numArgs; i++)
-		{
-			resolveExpression(tc, subscript->args[i]);
-		}
+
+		resolveExpression(tc, subscript->arg, getUInt64Type(tc->types));
 
 		if (operandType->typeKind == TYPE_STRING)
 		{
@@ -2167,6 +2176,43 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		else
 		{
 			error(tc, (Node*)subscript->operand, "Operand of subscript operator must be one of array, string, pointer");
+			return expression->inferredType = &tc->types->errorType;
+		}
+	}
+	else if (expression->type == NODE_ARRAY_SLICE)
+	{
+		ArraySlice* slice = (ArraySlice*)expression;
+
+		Type* operandType = resolveExpression(tc, slice->operand);
+
+		if (slice->low)
+			resolveExpression(tc, slice->low, getUInt64Type(tc->types));
+		if (slice->high)
+			resolveExpression(tc, slice->high, getUInt64Type(tc->types));
+
+		if (operandType->typeKind == TYPE_STRING)
+		{
+			return expression->inferredType = operandType;
+		}
+		else if (operandType->typeKind == TYPE_ARRAY)
+		{
+			if (operandType->array.size == 0)
+				return expression->inferredType = operandType;
+			else
+				return expression->inferredType = getArrayType(tc->types, operandType->array.elementType, 0, tc->file);
+		}
+		else if (operandType->typeKind == TYPE_POINTER)
+		{
+			if (!slice->high)
+			{
+				error(tc, (Node*)expression, "Slice operator on pointer needs an upper bound");
+			}
+
+			return expression->inferredType = getArrayType(tc->types, operandType->pointer.elementType, 0, tc->file);
+		}
+		else
+		{
+			error(tc, (Node*)slice->operand, "Operand of slice operator must be one of array, string, pointer");
 			return expression->inferredType = &tc->types->errorType;
 		}
 	}
@@ -2729,7 +2775,9 @@ void symbolResolution(TypeChecker* tc, File* file)
 	{
 		Typedef* typedef_ = ast->typedefs[i];
 
-		Type* aliasType = resolveType(tc, typedef_->value);
+		Type* aliasType = nullptr;
+		if (typedef_->value) aliasType = resolveType(tc, typedef_->value);
+		else aliasType = getVoidType(tc->types);
 
 		resolveAliasType(typedef_->aliasType, aliasType);
 	}
