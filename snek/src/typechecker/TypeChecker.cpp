@@ -2091,7 +2091,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else
 		{
-			if (numArgs != functionType->function.numParams)
+			if (functionType->function.variadic ? numArgs < functionType->function.numParams - 1 : numArgs != functionType->function.numParams)
 			{
 				if (memberFunction)
 					error(tc, (Node*)functionCall, "Incorrect number of member function arguments: %d, should be %d", functionCall->numArgs, functionType->function.numParams - 1);

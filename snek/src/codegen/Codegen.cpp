@@ -1307,18 +1307,25 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitChar(buffer, ',');
 		}
 
+		int argOffset = memberFunction ? 1 : 0;
 		for (int i = 0; i < functionCall->numArgs; i++)
 		{
-			Value arg = args[i];
+			if (functionType->function.variadic && i + argOffset == functionType->function.numParams - 1)
+			{
+				break;
+			}
+			else
+			{
+				emitValue(buffer, args[i]);
+			}
 
-			if (functionType->function.variadic && i == functionCall->numArgs - 1)
-				arg = variadicArgs;
-
-			emitValue(buffer, arg);
-
-			if (i < functionCall->numArgs - 1)
+			if (i + argOffset < functionType->function.numParams - 1)
 				emitChar(buffer, ',');
 		}
+		if (functionType->function.variadic) {
+			emitValue(buffer, variadicArgs);
+		}
+
 		emitString(buffer, ");\n");
 
 		codegen->scratch.release(mark);
@@ -1499,7 +1506,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
-			Value result  = declareLocalValue(codegen, slice->inferredType, buffer);
+			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
 
 			emitString(buffer, "{&");
 			emitValue(buffer, operand);
