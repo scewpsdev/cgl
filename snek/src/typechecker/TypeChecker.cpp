@@ -841,7 +841,7 @@ static int getNumericRank(Type* type)
 
 static Type* getCommonNumericType(Type* a, Type* b)
 {
-	if (a == b)
+	if (compareTypes(a, b))
 		return a;
 
 	int rankA = getNumericRank(a);
@@ -2823,15 +2823,32 @@ void symbolResolution(TypeChecker* tc, File* file)
 			tc->currentFunction = function;
 
 			resolveExpression(tc, function->value);
+			Type* valueType = function->value->inferredType;
 
 			tc->currentFunction = lastFunction;
 
-			returnType = function->value->inferredType;
+			if (function->returnType)
+			{
+				resolveType(tc, function->returnType);
+				returnType = function->returnType->inferredType;
+
+				if (!isAssignable(tc, valueType, returnType, &function->value))
+				{
+					error(tc, (Node*)function->value, "Can't return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
+				}
+			}
+			else
+			{
+				returnType = valueType;
+			}
 		}
-		else if (function->returnType)
+		else
 		{
-			resolveType(tc, function->returnType);
-			returnType = function->returnType->inferredType;
+			if (function->returnType)
+			{
+				resolveType(tc, function->returnType);
+				returnType = function->returnType->inferredType;
+			}
 		}
 
 		function->functionType = getFunctionType(tc->types, returnType, function->numParams, tc->scratch->getData<Type*>(mark), variadic, tc->file);

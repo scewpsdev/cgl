@@ -663,7 +663,7 @@ static int runBinaryGCC()
 	return -1;
 }
 
-int main(int argc, const char* argv[])
+int _main(int argc, const char* argv[])
 {
 	uint64_t t0 = GetTimeNS();
 
@@ -826,4 +826,12 @@ int main(int argc, const char* argv[])
 	destroyCompiler(&compiler);
 
 	return result;
+}
+
+int main(int argc, const char* argv[])
+{
+	for (int i = 0; i < 1000; i++)
+	{
+		_main(argc, argv);
+	}
 }

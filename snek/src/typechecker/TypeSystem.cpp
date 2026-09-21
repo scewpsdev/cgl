@@ -592,6 +592,8 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
 
+	SnekAssert(type->typeKind == key.typeKind);
+
 	if (newType)
 	{
 		type->name = createTypeString(arena, "%.*s*", elementType->name.length, elementType->name.ptr);

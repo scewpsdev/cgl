@@ -6,6 +6,7 @@
 #include "typechecker/TypeSystem.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 
 
 void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena)
@@ -68,6 +69,15 @@ static void emitIndentation(Codegen* codegen, CodeBuffer* buffer)
 	}
 }
 
+static void emitLocation(Codegen* codegen, CodeBuffer* buffer, int line, File* file)
+{
+	emitString(buffer, "#line ");
+	emitInteger(buffer, line + 1);
+	emitString(buffer, " \"");
+	emitString(buffer, file->path);
+	emitString(buffer, "\"\n");
+}
+
 static void newLine(Codegen* codegen, CodeBuffer* buffer)
 {
 	if (codegen->debugInfo)
@@ -75,12 +85,9 @@ static void newLine(Codegen* codegen, CodeBuffer* buffer)
 		int newLine = codegen->currentLine;
 		if (newLine != codegen->lastLine + 1)
 		{
-			emitString(buffer, "#line ");
-			emitInteger(buffer, newLine + 1);
-			emitString(buffer, " \"");
-			emitString(buffer, codegen->currentFile->path);
-			emitString(buffer, "\"\n");
+			emitLocation(codegen, buffer, newLine, codegen->currentFile);
 		}
+		codegen->lastLine = newLine;
 	}
 	emitIndentation(codegen, buffer);
 }
@@ -119,6 +126,316 @@ static Value declareLocalValue(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	emitChar(buffer, '=');
 
 	return value;
+}
+
+static int emitValue(char* dst, Value value)
+{
+	if (value.isIdentifier)
+	{
+		if (dst) strncpy(dst, value.identifier.ptr, value.identifier.length);
+		return value.identifier.length;
+	}
+	else
+	{
+		if (dst) strcpy(dst, value.name);
+		return (int)strlen(value.name);
+	}
+}
+
+static int emitType(char* dst, Type* type)
+{
+	if (type->typeKind == TYPE_STRUCT)
+	{
+		if (type->struct_.name.length)
+		{
+			if (dst)
+			{
+				strcpy(dst, "struct ");
+				strncat(dst, type->struct_.name.ptr, type->struct_.name.length);
+			}
+			return 7 + type->struct_.name.length;
+		}
+		else
+		{
+			if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+			return type->mangledName.length;
+		}
+	}
+	else if (type->typeKind == TYPE_UNION)
+	{
+		if (type->union_.name.length)
+		{
+			if (dst)
+			{
+				strcpy(dst, "union ");
+				strncat(dst, type->union_.name.ptr, type->union_.name.length);
+			}
+			return 6 + type->union_.name.length;
+		}
+		else
+		{
+			if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+			return type->mangledName.length;
+		}
+	}
+	else if (type->typeKind == TYPE_ENUM)
+	{
+		if (dst)
+		{
+			strcpy(dst, "enum ");
+			strncat(dst, type->enum_.name.ptr, type->enum_.name.length);
+		}
+		return 5 + type->enum_.name.length;
+	}
+	else if (type->typeKind == TYPE_ALIAS)
+	{
+		if (dst) strncpy(dst, type->alias.name.ptr, type->alias.name.length);
+		return type->alias.name.length;
+	}
+	else if (type->typeKind == TYPE_POINTER)
+	{
+		int len = emitType(dst, type->pointer.elementType);
+		if (dst) strcat(dst, "*");
+		return 1 + len;
+	}
+	else if (type->typeKind == TYPE_OPTIONAL)
+	{
+		if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+		return type->mangledName.length;
+	}
+	else if (type->typeKind == TYPE_FUNCTION)
+	{
+		if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+		return type->mangledName.length;
+	}
+	else if (type->typeKind == TYPE_ARRAY)
+	{
+		if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+		return type->mangledName.length;
+	}
+	else
+	{
+		if (dst) strncpy(dst, type->mangledName.ptr, type->mangledName.length);
+		return type->mangledName.length;
+	}
+}
+
+static int emitChar(char* dst, char c)
+{
+	if (dst) *dst = c;
+	return 1;
+}
+
+static int emitString(char* dst, const char* str)
+{
+	if (dst) strcpy(dst, str);
+	return (int)strlen(str);
+}
+
+static int emitOperator(char* dst, OperatorType op)
+{
+	if (op == OPERATOR_MULTIPLY)
+		return emitChar(dst, '*');
+	else if (op == OPERATOR_DIVIDE)
+		return emitChar(dst, '/');
+	else if (op == OPERATOR_MODULO)
+		return emitChar(dst, '%');
+	else if (op == OPERATOR_ADD)
+		return emitChar(dst, '+');
+	else if (op == OPERATOR_SUBTRACT)
+		return emitChar(dst, '-');
+	else if (op == OPERATOR_BITSHIFT_LEFT)
+		return emitString(dst, "<<");
+	else if (op == OPERATOR_BITSHIFT_RIGHT)
+		return emitString(dst, ">>");
+	else if (op == OPERATOR_LESS)
+		return emitChar(dst, '<');
+	else if (op == OPERATOR_LESS_EQUALS)
+		return emitString(dst, "<=");
+	else if (op == OPERATOR_GREATER)
+		return emitChar(dst, '>');
+	else if (op == OPERATOR_GREATER_EQUALS)
+		return emitString(dst, ">=");
+	else if (op == OPERATOR_EQUALS)
+		return emitString(dst, "==");
+	else if (op == OPERATOR_NOT_EQUALS)
+		return emitString(dst, "!=");
+	else if (op == OPERATOR_BITWISE_AND)
+		return emitChar(dst, '&');
+	else if (op == OPERATOR_BITWISE_XOR)
+		return emitChar(dst, '^');
+	else if (op == OPERATOR_BITWISE_OR)
+		return emitChar(dst, '|');
+	else if (op == OPERATOR_LOGICAL_AND)
+		return emitString(dst, "&&");
+	else if (op == OPERATOR_LOGICAL_OR)
+		return emitString(dst, "||");
+	else if (op == OPERATOR_ASSIGN)
+		return emitChar(dst, '=');
+	else if (op == OPERATOR_ADD_ASSIGN)
+		return emitString(dst, "+=");
+	else if (op == OPERATOR_SUBTRACT_ASSIGN)
+		return emitString(dst, "-=");
+	else if (op == OPERATOR_MULTIPLY_ASSIGN)
+		return emitString(dst, "*=");
+	else if (op == OPERATOR_DIVIDE_ASSIGN)
+		return emitString(dst, "/=");
+	else if (op == OPERATOR_MODULO_ASSIGN)
+		return emitString(dst, "%=");
+	else if (op == OPERATOR_BITSHIFT_LEFT_ASSIGN)
+		return emitString(dst, "<<=");
+	else if (op == OPERATOR_BITSHIFT_RIGHT_ASSIGN)
+		return emitString(dst, ">>=");
+	else if (op == OPERATOR_BITWISE_AND_ASSIGN)
+		return emitString(dst, "&=");
+	else if (op == OPERATOR_BITWISE_XOR_ASSIGN)
+		return emitString(dst, "^=");
+	else if (op == OPERATOR_BITWISE_OR_ASSIGN)
+		return emitString(dst, "|=");
+	else if (op == OPERATOR_LOGICAL_AND_ASSIGN)
+		return emitString(dst, "&&=");
+	else if (op == OPERATOR_LOGICAL_OR_ASSIGN)
+		return emitString(dst, "||=");
+	else
+	{
+		SnekAssert(false);
+		return 0;
+	}
+}
+
+static int stringWriteExpression(char* dst, const char* format, va_list args)
+{
+	int formatLen = (int)strlen(format);
+
+	int len = 0;
+	for (int i = 0; i < formatLen; i++)
+	{
+		char c = format[i];
+		if (c == '#')
+		{
+			char insertType = format[++i];
+			if (insertType == 'v')
+			{
+				Value value = va_arg(args, Value);
+				len += emitValue(dst ? &dst[len] : nullptr, value);
+			}
+			else if (insertType == 't')
+			{
+				Type* type = va_arg(args, Type*);
+				len += emitType(dst ? &dst[len] : nullptr, type);
+			}
+			else if (insertType == 'o')
+			{
+				OperatorType op = va_arg(args, OperatorType);
+				len += emitOperator(dst ? &dst[len] : nullptr, op);
+			}
+			else if (insertType == 's')
+			{
+				char* str = va_arg(args, char*);
+				if (dst) strcpy(&dst[len], str);
+				len += (int)strlen(str);
+			}
+			else if (insertType == 'S')
+			{
+				StringView str = va_arg(args, StringView);
+				if (dst) strncpy(&dst[len], str.ptr, str.length);
+				len += str.length;
+			}
+			else if (insertType == 'i')
+			{
+				int value = va_arg(args, int);
+				if (dst) len += sprintf(&dst[len] , "%d", value);
+				else len += snprintf(nullptr, 0, "%d", value);
+			}
+			else
+			{
+				SnekAssert(false);
+			}
+		}
+		else
+		{
+			if (dst) dst[len] = c;
+			len++;
+		}
+	}
+
+	return len;
+}
+
+static Value getExpressionValueLValue(Codegen* codegen, CodeBuffer* buffer, Type* type, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	int len = stringWriteExpression(nullptr, format, args);
+
+	va_end(args);
+
+	if (len < 32)
+	{
+		Value value = {};
+		value.type = type;
+		value.lvalue = true;
+
+		va_start(args, format);
+		stringWriteExpression(value.name, format, args);
+		va_end(args);
+
+		return value;
+	}
+	else
+	{
+		Value ptr = declareLocalValue(codegen, getPointerType(codegen->types, type, codegen->currentFile), buffer);
+
+		emitChar(buffer, '&');
+
+		va_start(args, format);
+		buffer->count += stringWriteExpression(&buffer->data[buffer->count], format, args);
+		va_end(args);
+
+		emitString(buffer, ";\n");
+
+		Value value = {};
+		value.type = type;
+		value.lvalue = true;
+		sprintf(value.name, "(*%s)", ptr.name);
+
+		return value;
+	}
+}
+
+static Value getExpressionValue(Codegen* codegen, CodeBuffer* buffer, Type* type, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	int len = stringWriteExpression(nullptr, format, args);
+
+	va_end(args);
+
+	if (len < 32)
+	{
+		Value value = {};
+		value.type = type;
+
+		va_start(args, format);
+		stringWriteExpression(value.name, format, args);
+		va_end(args);
+
+		return value;
+	}
+	else
+	{
+		Value value = declareLocalValue(codegen, type, buffer);
+
+		va_start(args, format);
+		buffer->count += stringWriteExpression(&buffer->data[buffer->count], format, args);
+		va_end(args);
+
+		emitString(buffer, ";\n");
+
+		return value;
+	}
 }
 
 static void declareAnonymousStructType(Codegen* codegen, Type* type)
@@ -583,7 +900,7 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 	else if (type->typeKind == TYPE_ALIAS)
 	{
-		emitString(buffer, type->enum_.name);
+		emitString(buffer, type->alias.name);
 	}
 	else if (type->typeKind == TYPE_POINTER)
 	{
@@ -665,6 +982,8 @@ static void declareFunction(Codegen* codegen, Function* function, CodeBuffer* bu
 
 static void emitOperator(CodeBuffer* buffer, OperatorType op)
 {
+	int len = emitOperator((char*)nullptr, op);
+	
 	if (op == OPERATOR_MULTIPLY)
 		emitChar(buffer, '*');
 	else if (op == OPERATOR_DIVIDE)
@@ -807,6 +1126,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		if (expression->inferredType->typeKind == TYPE_STRING)
 		{
+			Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,#i}", ptr, stringLiteral->value.length);
+			return value;
+
 			Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
 
 			emitChar(buffer, '{');
@@ -865,12 +1187,17 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	{
 		Sizeof* sizeof_ = (Sizeof*)expression;
 
+		Value value = getExpressionValue(codegen, buffer, sizeof_->inferredType, "sizeof(#t)", sizeof_->expressionType);
+		return value;
+
+		/*
 		Value value = declareLocalValue(codegen, sizeof_->inferredType, buffer);
 		emitString(buffer, "(u64)sizeof(");
 		emitType(codegen, sizeof_->expressionType, buffer);
 		emitString(buffer, ");\n");
 
 		return value;
+		*/
 	}
 	else if (expression->type == NODE_IDENTIFIER)
 	{
@@ -1063,6 +1390,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value left = emitExpression(codegen, binaryOperator->left, buffer);
 		Value right = emitExpression(codegen, binaryOperator->right, buffer);
 
+		Value value = getExpressionValue(codegen, buffer, binaryOperator->inferredType, "(#v#o#v)", left, binaryOperator->op, right);
+		return value;
+
 		Value result = declareLocalValue(codegen, binaryOperator->inferredType, buffer);
 
 		emitValue(buffer, left);
@@ -1082,6 +1412,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v++", operand);
+			return value;
+
 			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitValue(buffer, operand);
 			emitString(buffer, ";\n");
@@ -1089,7 +1422,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
-			emitValue(buffer, operand);
+			emitValue(buffer, oldValue);
 			emitString(buffer, "+1;\n");
 
 			return oldValue;
@@ -1098,6 +1431,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v--", operand);
+			return value;
+
 			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitValue(buffer, operand);
 			emitString(buffer, ";\n");
@@ -1105,7 +1441,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
 			emitChar(buffer, '=');
-			emitValue(buffer, operand);
+			emitValue(buffer, oldValue);
 			emitString(buffer, "-1;\n");
 
 			return oldValue;
@@ -1113,6 +1449,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
 		{
 			SnekAssert(operand.lvalue);
+
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(++#v)", operand);
+			return value;
 
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
@@ -1125,6 +1464,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		else if (unaryOperator->op == OPERATOR_DECREMENT_PREFIX)
 		{
 			SnekAssert(operand.lvalue);
+
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(--#v)", operand);
+			return value;
 
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
@@ -1140,6 +1482,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_MINUS_PREFIX)
 		{
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(-#v)", operand);
+			return value;
+
 			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitChar(buffer, '-');
 			emitValue(buffer, operand);
@@ -1149,6 +1494,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_LOGICAL_NOT)
 		{
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(!#v)", operand);
+			return value;
+
 			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitChar(buffer, '!');
 			emitValue(buffer, operand);
@@ -1158,6 +1506,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_BITWISE_NOT)
 		{
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(~#v)", operand);
+			return value;
+
 			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitChar(buffer, '~');
 			emitValue(buffer, operand);
@@ -1182,6 +1533,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitString(buffer, ",");
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
+
+			Value value = getExpressionValueLValue(codegen, buffer, unaryOperator->inferredType, "(*#v)", operand);
+			return value;
 
 			if (!operand.isIdentifier)
 			{
@@ -1220,6 +1574,11 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (unaryOperator->op == OPERATOR_ADDRESS)
 		{
+			SnekAssert(operand.lvalue);
+
+			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(&#v)", operand);
+			return value;
+
 			Value result = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitChar(buffer, '&');
 			emitValue(buffer, operand);
@@ -1669,11 +2028,16 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			if (offset == -1)
 			{
 				Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+				StringView fieldName = operandType->struct_.fieldNames[member->index];
+
+				Value value = getExpressionValueLValue(codegen, buffer, member->inferredType, "#v.#S", operand, fieldName);
+				return value;
+
 				Value ptr = declareLocalValue(codegen, ptrType, buffer);
 				emitChar(buffer, '&');
 				emitValue(buffer, operand);
 				emitChar(buffer, '.');
-				emitString(buffer, operandType->struct_.fieldNames[member->index]);
+				emitString(buffer, fieldName);
 				emitString(buffer, ";\n");
 
 				Value result = {};
@@ -1707,11 +2071,16 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		else if (operandType->typeKind == TYPE_UNION)
 		{
 			Type* ptrType = getPointerType(codegen->types, member->inferredType, codegen->currentFile);
+			StringView fieldName = operandType->union_.fieldNames[member->index];
+
+			Value value = getExpressionValueLValue(codegen, buffer, member->inferredType, "#v.#S", operand, fieldName);
+			return value;
+
 			Value ptr = declareLocalValue(codegen, ptrType, buffer);
 			emitChar(buffer, '&');
 			emitValue(buffer, operand);
 			emitChar(buffer, '.');
-			emitString(buffer, operandType->union_.fieldNames[member->index]);
+			emitString(buffer, fieldName);
 			emitString(buffer, ";\n");
 
 			Value result = {};
@@ -1725,6 +2094,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (member->index == 0)
 			{
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.data", operand);
+				return value;
+
 				Value data = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".data;\n");
@@ -1733,6 +2105,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (member->index == 1)
 			{
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.length", operand);
+				return value;
+
 				Value length = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".length;\n");
@@ -1749,6 +2124,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (member->index == 0)
 			{
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.data", operand);
+				return value;
+
 				Value data = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".data;\n");
@@ -1767,6 +2145,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				}
 				else
 				{
+					Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.size", operand);
+					return value;
+
 					Value length = declareLocalValue(codegen, member->inferredType, buffer);
 					emitValue(buffer, operand);
 					emitString(buffer, ".size;\n");
@@ -1784,6 +2165,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (member->index == 0)
 			{
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.ptr", operand);
+				return value;
+
 				Value type = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".ptr;\n");
@@ -1792,6 +2176,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (member->index == 1)
 			{
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.type", operand);
+				return value;
+
 				Value type = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
 				emitString(buffer, ".type;\n");
@@ -2704,6 +3091,8 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 
 	if (function->value)
 	{
+		codegen->currentLine = getSourceLocation(codegen->currentFile, function->value->start).line;
+
 		Value value = emitExpression(codegen, function->value, buffer);
 
 		codegen->indentation++;

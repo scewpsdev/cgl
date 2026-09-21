@@ -1235,12 +1235,18 @@ static TypeKind getPrimitiveTypeKind(TokenType tokenType)
 	return TYPE_NULL;
 }
 
-Expression* parsePostfixOperator(Parser* parser)
+Expression* parsePostfixOperator(Parser* parser, int precedence)
 {
 	if (Expression* expression = parseAtom(parser))
 	{
+		int start = parser->cursor;
 		while (OperatorType operatorType = parsePostfixOperatorType(parser))
 		{
+			if (getOperatorPrecedence(operatorType) > precedence)
+			{
+				rewind(parser, start);
+				break;
+			}
 			if (operatorType == OPERATOR_FUNCTION_CALL)
 			{
 				TypeNode* castType = nullptr;
@@ -1472,7 +1478,7 @@ static OperatorType parsePrefixOperatorType(Parser* parser)
 	}
 }
 
-Expression* parsePrefixOperator(Parser* parser)
+Expression* parsePrefixOperator(Parser* parser, int precedence)
 {
 	int start = parser->cursor;
 
@@ -1494,7 +1500,7 @@ Expression* parsePrefixOperator(Parser* parser)
 
 			expectToken(parser, ')');
 
-			cast->expression = parsePrefixOperator(parser);
+			cast->expression = parsePrefixOperator(parser, getOperatorPrecedence(operatorType));
 			if (!cast->expression)
 			{
 				error(parser, getSourceLocation(parser), "Expression expected");
@@ -1507,7 +1513,7 @@ Expression* parsePrefixOperator(Parser* parser)
 		}
 		else
 		{
-			Expression* expression = parsePrefixOperator(parser);
+			Expression* expression = parsePrefixOperator(parser, getOperatorPrecedence(operatorType));
 			if (!expression)
 			{
 				error(parser, getSourceLocation(parser), "Expression expected");
@@ -1524,12 +1530,12 @@ Expression* parsePrefixOperator(Parser* parser)
 		}
 	}
 
-	return parsePostfixOperator(parser);
+	return parsePostfixOperator(parser, precedence);
 }
 
 Expression* parseBinaryOperator(Parser* parser, OperatorType lastOperatorType)
 {
-	if (Expression* left = parsePrefixOperator(parser))
+	if (Expression* left = parsePrefixOperator(parser, 1000))
 	{
 		int numOperatorTokens;
 		while (OperatorType operatorType = peekBinaryOperatorType(parser, &numOperatorTokens))
@@ -1866,6 +1872,8 @@ Statement* parseStatement(Parser* parser)
 		initNode((Node*)break_, NODE_BREAK, start);
 		break_->end = parser->lastTokenEnd;
 
+		expectToken(parser, ';');
+
 		return break_;
 	}
 	else if (nextIs(parser, TOKEN_CONTINUE))
@@ -1875,6 +1883,8 @@ Statement* parseStatement(Parser* parser)
 		Statement* continue_ = parser->arena->alloc<Statement>();
 		initNode((Node*)continue_, NODE_CONTINUE, start);
 		continue_->end = parser->lastTokenEnd;
+
+		expectToken(parser, ';');
 
 		return continue_;
 	}
@@ -2333,6 +2343,11 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 		function->params = nullptr;
 	}
 
+	if (!nextIs(parser, '{') && !nextIs(parser, ';') && !nextIs(parser, '='))
+	{
+		function->returnType = parseType(parser);
+	}
+
 	if (nextIs(parser, '=') && nextIs(parser, 1, '>'))
 	{
 		nextToken(parser);
@@ -2343,11 +2358,6 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 	}
 	else
 	{
-		if (!nextIs(parser, '{') && !nextIs(parser, ';'))
-		{
-			function->returnType = parseType(parser);
-		}
-
 		if (nextIs(parser, '{'))
 		{
 			expectToken(parser, '{');

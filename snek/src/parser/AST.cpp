@@ -764,6 +764,10 @@ bool constantFold(Expression* expression, int64_t* value)
 			return true;
 		}
 	}
+	else if (expression->type == NODE_CAST)
+	{
+		return constantFold(node->cast.expression, value);
+	}
 
 	return false;
 }
