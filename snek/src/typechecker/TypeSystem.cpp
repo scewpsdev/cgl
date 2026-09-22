@@ -7,6 +7,10 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <mutex>
+
+
+static std::mutex typeSystemMutex;
 
 
 void initTypeTable(TypeTable* table, Arena* arena, int initialCapacity)
@@ -261,6 +265,7 @@ static Type* internType(TypeTable* table, Type key, Arena* arena, bool* newType)
 	if (Type* type = getType(table, h, key))
 	{
 		*newType = false;
+		SnekAssert(type->typeKind < TYPE_COUNT);
 		return type;
 	}
 
@@ -269,6 +274,8 @@ static Type* internType(TypeTable* table, Type key, Arena* arena, bool* newType)
 
 	Type* type = arena->alloc<Type>();
 	*type = key;
+
+	SnekAssert(type->typeKind < TYPE_COUNT);
 
 	type->hash = h;
 
@@ -589,6 +596,8 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
 
+	if (primitive) typeSystemMutex.lock();
+
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
 
@@ -603,6 +612,8 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
+	if (primitive) typeSystemMutex.unlock();
+
 	return type;
 }
 
@@ -616,6 +627,8 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
 
+	if (primitive) typeSystemMutex.lock();
+
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
 
@@ -627,6 +640,8 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
+
+	if (primitive) typeSystemMutex.unlock();
 
 	return type;
 }
@@ -642,6 +657,8 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 	bool primitive = isPrimitiveDerivative(&key);
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
+
+	if (primitive) typeSystemMutex.lock();
 
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
@@ -659,6 +676,8 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
+	if (primitive) typeSystemMutex.unlock();
+
 	return type;
 }
 
@@ -673,6 +692,8 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 	bool primitive = isPrimitiveDerivative(&key);
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
+
+	if (primitive) typeSystemMutex.lock();
 
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
@@ -690,6 +711,8 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
+	if (primitive) typeSystemMutex.unlock();
+
 	return type;
 }
 
@@ -705,6 +728,8 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 	bool primitive = isPrimitiveDerivative(&key);
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
+
+	if (primitive) typeSystemMutex.lock();
 
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
@@ -737,6 +762,8 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
+	if (primitive) typeSystemMutex.unlock();
+
 	return type;
 }
 
@@ -750,6 +777,8 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 	bool primitive = isPrimitiveDerivative(&key);
 	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
 	Arena* arena = primitive ? types->arena : &file->arena;
+
+	if (primitive) typeSystemMutex.lock();
 
 	bool newType;
 	Type* type = internType(typeTable, key, arena, &newType);
@@ -765,6 +794,8 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
+
+	if (primitive) typeSystemMutex.unlock();
 
 	return type;
 }

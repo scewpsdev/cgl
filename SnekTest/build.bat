@@ -1,3 +1,3 @@
 @echo off
 D:\Dev\Rainfall\RainfallResourceCompiler\bin\x64\Release\RainfallResourceCompiler.exe res bin/res png vert frag comp
-snekc build src/triangle.src lib/libSDL3.dll.a lib/SDL3.dll
+snekc build src/triangle.src lib/libSDL3.dll.a lib/SDL3.dll -o bin/SnekTest.exe

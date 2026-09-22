@@ -347,6 +347,12 @@ static int stringWriteExpression(char* dst, const char* format, va_list args)
 				if (dst) len += sprintf(&dst[len] , "%d", value);
 				else len += snprintf(nullptr, 0, "%d", value);
 			}
+			else if (insertType == 'l')
+			{
+				int64_t value = va_arg(args, int64_t);
+				if (dst) len += sprintf(&dst[len], "%lld", value);
+				else len += snprintf(nullptr, 0, "%lld", value);
+			}
 			else
 			{
 				SnekAssert(false);
@@ -1340,6 +1346,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			emitString(&codegen->globalsBuffer, "};\n");
 
+			Value value = getExpressionValue(codegen, buffer, arrayInitializer->inferredType, "(#t){#v,#i}", arrayInitializer->inferredType, ptr, arrayInitializer->numValues);
+			return value;
+
 			Value arr = declareLocalValue(codegen, arrayInitializer->inferredType, buffer);
 
 			emitChar(buffer, '(');
@@ -1412,8 +1421,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v++", operand);
-			return value;
+			//Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v++", operand);
+			//return value;
 
 			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitValue(buffer, operand);
@@ -1431,8 +1440,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v--", operand);
-			return value;
+			//Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "#v--", operand);
+			//return value;
 
 			Value oldValue = declareLocalValue(codegen, unaryOperator->inferredType, buffer);
 			emitValue(buffer, operand);
@@ -1450,8 +1459,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(++#v)", operand);
-			return value;
+			//Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(++#v)", operand);
+			//return value;
 
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
@@ -1465,8 +1474,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			SnekAssert(operand.lvalue);
 
-			Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(--#v)", operand);
-			return value;
+			//Value value = getExpressionValue(codegen, buffer, unaryOperator->inferredType, "(--#v)", operand);
+			//return value;
 
 			newLine(codegen, buffer);
 			emitValue(buffer, operand);
@@ -1721,6 +1730,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
+			Value value = getExpressionValueLValue(codegen, buffer, subscript->inferredType, "#v.data[#v]", operand, index);
+			return value;
+
 			Type* charPtrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value charPtr = declareLocalValue(codegen, charPtrType, buffer);
 			emitChar(buffer, '&');
@@ -1763,6 +1775,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
+			Value value = getExpressionValueLValue(codegen, buffer, subscript->inferredType, "#v.data[#v]", operand, index);
+			return value;
+
 			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value ptr = declareLocalValue(codegen, ptrType, buffer);
 			emitChar(buffer, '&');
@@ -1780,6 +1795,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		}
 		else if (operand.type->typeKind == TYPE_POINTER)
 		{
+			Value value = getExpressionValueLValue(codegen, buffer, subscript->inferredType, "#v[#v]", operand, index);
+			return value;
+
 			Type* ptrType = getPointerType(codegen->types, subscript->inferredType, codegen->currentFile);
 			Value ptr = declareLocalValue(codegen, ptrType, buffer);
 			emitChar(buffer, '&');
@@ -1826,9 +1844,11 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			if (!slice->high)
 			{
-				high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
-				emitValue(buffer, operand);
-				emitString(buffer, ".length;\n");
+				high = getExpressionValueLValue(codegen, buffer, getUInt64Type(codegen->types), "#v.size", operand);
+
+				//high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
+				//emitValue(buffer, operand);
+				//emitString(buffer, ".length;\n");
 			}
 
 			// bounds check
@@ -1864,6 +1884,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitString(buffer, ",");
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
+
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v.data[#v],#v-#v}", operand, low, high, low);
+			return value;
 
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
 
@@ -1888,9 +1911,11 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			if (!slice->high)
 			{
-				high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
-				emitValue(buffer, operand);
-				emitString(buffer, ".size;\n");
+				high = getExpressionValueLValue(codegen, buffer, getUInt64Type(codegen->types), "#v.size", operand);
+
+				//high = declareLocalValue(codegen, getUInt64Type(codegen->types), buffer);
+				//emitValue(buffer, operand);
+				//emitString(buffer, ".size;\n");
 			}
 
 			// bounds check
@@ -1943,6 +1968,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v.data[#v],#v-#v}", operand, low, high, low);
+			return value;
+
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
 
 			emitString(buffer, "{&");
@@ -1965,6 +1993,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				sprintf(low.name, "0");
 			}
 			SnekAssert(slice->high);
+
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v[#v],#v-#v}", operand, low, high, low);
+			return value;
 
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
 
@@ -2245,6 +2276,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value then = emitExpression(codegen, ternary->then, buffer);
 		Value else_ = emitExpression(codegen, ternary->else_, buffer);
 
+		Value value = getExpressionValue(codegen, buffer, ternary->inferredType, "(#v?#v:#v)", condition, then, else_);
+		return value;
+
 		Value result = declareLocalValue(codegen, ternary->inferredType, buffer);
 		emitValue(buffer, condition);
 		emitChar(buffer, '?');
@@ -2273,6 +2307,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			{
 				Value expression2 = emitExpression(codegen, cast->expression2, buffer);
 
+				Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,#v}", expression, expression2);
+				return value;
+
 				Value str = declareLocalValue(codegen, getStringType(codegen->types), buffer);
 
 				emitChar(buffer, '{');
@@ -2285,6 +2322,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (isCharPointerType(expressionType))
 			{
+				Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,__cstrl(#v)}", expression, expression);
+				return value;
+
 				Value str = declareLocalValue(codegen, getStringType(codegen->types), buffer);
 
 				emitChar(buffer, '{');
@@ -2302,6 +2342,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			{
 				if (expressionType->array.size != 0 && targetType->array.size == 0)
 				{
+					Value value = getExpressionValue(codegen, buffer, targetType, "{#v.data,#l}", expression, expressionType->array.size);
+					return value;
+
 					Value result = declareLocalValue(codegen, targetType, buffer);
 
 					emitChar(buffer, '{');
@@ -2318,6 +2361,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (isIntegerType(expressionType))
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "{.int_=(i64)#v,.type=#l}", expression, (int64_t)TYPE_INT_START);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				emitString(buffer, "{.int_=");
@@ -2332,6 +2378,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (isFloatingPointType(expressionType))
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "{.float_=(double)#v,.type=#l}", expression, (int64_t)TYPE_FLOAT_START);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				emitString(buffer, "{.float_=");
@@ -2346,6 +2395,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (expressionType->typeKind == TYPE_BOOL)
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "{.bool_=#v,.type=#l}", expression, (int64_t)TYPE_BOOL);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				emitString(buffer, "{.bool_=");
@@ -2358,6 +2410,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "{.ptr=(void*)&#v,.type=#l}", expression, (int64_t)expressionType->typeKind);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				emitString(buffer, "{.ptr=&");
@@ -2374,6 +2429,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		{
 			if (isIntegerType(targetType))
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "(#t)#v.int_", targetType, expression);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				if (targetType->typeKind != TYPE_INT64)
@@ -2389,6 +2447,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (isFloatingPointType(targetType))
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "(#t)#v.float_", targetType, expression);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 
 				if (targetType->typeKind != TYPE_DOUBLE)
@@ -2404,6 +2465,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (targetType->typeKind == TYPE_BOOL)
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "#v.bool_", expression);
+				return value;
+
 				Value result = declareLocalValue(codegen, targetType, buffer);
 				emitValue(buffer, expression);
 				emitString(buffer, ".bool_;\n");
@@ -2420,6 +2484,9 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				|| targetType->typeKind == TYPE_FUNCTION
 				|| targetType->typeKind == TYPE_ARRAY)
 			{
+				Value value = getExpressionValue(codegen, buffer, targetType, "*(#t*)#v.ptr", targetType, expression);
+				return value;
+
 				Value ptr = declareLocalValue(codegen, getPointerType(codegen->types, targetType, codegen->currentFile), buffer);
 
 				emitChar(buffer, '(');
@@ -2436,17 +2503,12 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else
 			{
-				Value result = declareLocalValue(codegen, targetType, buffer);
-
-				emitChar(buffer, '(');
-				emitType(codegen, targetType, buffer);
-				emitChar(buffer, ')');
-				emitValue(buffer, expression);
-				emitString(buffer, ";\n");
-
-				return result;
+				SnekAssert(false);
 			}
 		}
+
+		Value value = getExpressionValue(codegen, buffer, targetType, "(#t)#v", targetType, expression);
+		return value;
 
 		Value result = declareLocalValue(codegen, targetType, buffer);
 
@@ -2889,8 +2951,9 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 
 			StringView iteratorName = for_->iteratorName.length ? for_->iteratorName : CreateString("__it");
 
-			Value sign = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_INT32], buffer);
+			//Value sign = getExpressionValue(codegen, buffer, getInt32Type(codegen->types), "(#v>=#v?1:-1)", compareValue, startValue);
 
+			Value sign = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_INT32], buffer);
 			emitValue(buffer, compareValue);
 			emitString(buffer, ">=");
 			emitValue(buffer, startValue);

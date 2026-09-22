@@ -7,3 +7,6 @@ VSSnek/obj/
 snek-lsp/obj/
 snek/obj/
 snekc/obj/
+SnekTest/.vscode/
+SnekTest/bin/
+SnekTest/tmp/

@@ -1242,6 +1242,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 				Parameter* parameter = &node->parameter;
 
 				Type* paramType = parameter->paramType->inferredType;
+				SnekAssert(paramType->typeKind < TYPE_COUNT);
 				if (parameter->variadic)
 					paramType = getArrayType(tc->types, paramType, 0, tc->file);
 
@@ -2596,6 +2597,7 @@ static Type* resolveField(TypeChecker* tc, Field* field)
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter)
 {
 	Type* paramType = resolveType(tc, parameter->paramType);
+	SnekAssert(paramType->typeKind < TYPE_COUNT);
 	if (parameter->variadic)
 		paramType = getArrayType(tc->types, paramType, 0, tc->file);
 	return paramType;

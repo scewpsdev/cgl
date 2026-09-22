@@ -340,9 +340,6 @@ static void parseFilesRange(List<SourceFile*>& files, int start, int end)
 
 static void parseFiles(List<SourceFile*>& files)
 {
-	parseFilesRange(files, 0, files.size);
-	return;
-
 	int numThreads = (int)std::thread::hardware_concurrency();
 	if (numThreads == 0) numThreads = 2;
 
@@ -384,9 +381,6 @@ static void symbolCollectFilesRange(List<SourceFile*>& files, int start, int end
 
 static void symbolCollectFiles(List<SourceFile*>& files)
 {
-	symbolCollectFilesRange(files, 0, files.size);
-	return;
-
 	int numThreads = (int)std::thread::hardware_concurrency();
 	if (numThreads == 0) numThreads = 2;
 
@@ -830,7 +824,7 @@ int _main(int argc, const char* argv[])
 
 int main(int argc, const char* argv[])
 {
-	for (int i = 0; i < 1000; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		_main(argc, argv);
 	}
