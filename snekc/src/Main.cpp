@@ -778,27 +778,30 @@ int _main(int argc, const char* argv[])
 
 			fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
 
-			float parseMs = (t2 - t1) / 1e6f;
-			float typeCheckMs = (t3 - t2) / 1e6f;
-			float codegenMs = (t5 - t4) / 1e6f;
-			float outputMs = (t6 - t5) / 1e6f;
+			if (!compiler.run)
+			{
+				float parseMs = (t2 - t1) / 1e6f;
+				float typeCheckMs = (t3 - t2) / 1e6f;
+				float codegenMs = (t5 - t4) / 1e6f;
+				float outputMs = (t6 - t5) / 1e6f;
 
-			fprintf(stderr, "Parser: %.2f ms\n", parseMs);
-			fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
-			fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
-			fprintf(stderr, "Output: %.2f ms\n", outputMs);
+				fprintf(stderr, "Parser: %.2f ms\n", parseMs);
+				fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
+				fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
+				fprintf(stderr, "Output: %.2f ms\n", outputMs);
+			}
 
 			if (compiler.run)
 			{
 				if (compiler.gcc)
 				{
 					int runResult = runBinaryGCC();
-					fprintf(stderr, "Exited with code %d\n", runResult);
+					//fprintf(stderr, "Exited with code %d\n", runResult);
 				}
 				else
 				{
 					int runResult = runBinaryTCC();
-					fprintf(stderr, "Exited with code %d\n", runResult);
+					//fprintf(stderr, "Exited with code %d\n", runResult);
 				}
 			}
 		}
