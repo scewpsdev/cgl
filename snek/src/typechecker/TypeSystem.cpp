@@ -206,7 +206,7 @@ bool compareTypes(Type* a, Type* b)
 			return false;
 		for (int i = 0; i < a->function.numParams; i++)
 		{
-			if (compareTypes(a->function.paramTypes[i], b->function.paramTypes[i]))
+			if (!compareTypes(a->function.paramTypes[i], b->function.paramTypes[i]))
 				return false;
 		}
 		if (a->function.variadic != b->function.variadic)

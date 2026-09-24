@@ -38,26 +38,26 @@ SourceLocation getSourceLocation(File* file, Token token)
 
 void getSourceLocation(File* file, Token token, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(file, token.offset);
-	*end = getSourceLocation(file, token.offset + token.length);
+	if (start) *start = getSourceLocation(file, token.offset);
+	if (end) *end = getSourceLocation(file, token.offset + token.length);
 }
 
 void getSourceLocation(File* file, Node* node, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(file, node->start);
-	*end = getSourceLocation(file, node->end);
+	if (start) *start = getSourceLocation(file, node->start);
+	if (end) *end = getSourceLocation(file, node->end);
 }
 
 void getSourceLocation(File* file, StringView str, SourceLocation* start, SourceLocation* end)
 {
-	*start = getSourceLocation(file, (int)(str.ptr - file->src));
-	*end = getSourceLocation(file, (int)(str.ptr - file->src) + str.length);
+	if (start) *start = getSourceLocation(file, (int)(str.ptr - file->src));
+	if (end) *end = getSourceLocation(file, (int)(str.ptr - file->src) + str.length);
 }
 
 static void getTokenRange(Token token, int* start, int* end)
 {
-	*start = token.offset;
-	*end = token.offset + token.length;
+	if (start) *start = token.offset;
+	if (end) *end = token.offset + token.length;
 }
 
 StringView getTokenString(Token token, File* file)
@@ -2043,20 +2043,20 @@ Field* parseField(Parser* parser)
 		declarator.name = getTokenString(identifier, parser->file);
 		declarator.value = nullptr;
 
-		if (nextIs(parser, '@') && nextIs(parser, 1, TOKEN_IDENTIFIER))
+		if (nextIs(parser, '@') /*&& nextIs(parser, 1, TOKEN_IDENTIFIER)*/)
 		{
 			nextToken(parser);
-			StringView tag = getTokenString(nextToken(parser), parser->file);
-			if (compareString(tag, "offset"))
+			//StringView tag = getTokenString(nextToken(parser), parser->file);
+			//if (compareString(tag, "offset"))
 			{
 				declarator.hasOffset = true;
-				expectToken(parser, '(');
+				//expectToken(parser, '(');
 				Token offset;
 				if (expectToken(parser, TOKEN_INT_LITERAL, &offset))
 				{
 					declarator.offset = (int)getConstantInt(getTokenString(offset, parser->file));
 				}
-				expectToken(parser, ')');
+				//expectToken(parser, ')');
 			}
 		}
 

@@ -106,10 +106,21 @@ struct NodeBase
 
 typedef uint64_t FileHandle;
 
+enum SymbolType : uint8_t
+{
+	SYMBOL_NULL = 0,
+
+	SYMBOL_VARIABLE,
+	SYMBOL_TYPE,
+	SYMBOL_FUNCTION_SET,
+	SYMBOL_MACRO,
+};
+
 struct SymbolHandle
 {
 	FileHandle file;
 	uint32_t symbol;
+	SymbolType type;
 };
 
 struct Node;
@@ -643,16 +654,6 @@ struct Node
 	};
 };
 
-enum SymbolType : uint8_t
-{
-	SYMBOL_NULL = 0,
-
-	SYMBOL_VARIABLE,
-	SYMBOL_TYPE,
-	SYMBOL_FUNCTION_SET,
-	SYMBOL_MACRO,
-};
-
 struct FunctionOverload
 {
 	Function* declaration;
@@ -672,11 +673,8 @@ struct Symbol
 	SymbolType type;
 	FileHandle file;
 
-	union
-	{
-		Node* declaration;
-		FunctionSet functionSet;
-	};
+	Node* declaration;
+	FunctionSet functionSet;
 };
 
 struct SymbolTable
@@ -727,8 +725,8 @@ void initType(TypeNode* type, NodeType nodeType, TypeKind typeKind, int start);
 
 void initSymbolTable(SymbolTable* symbols, int capacity, Arena* arena);
 Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file);
-Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier);
-Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h);
+Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier, SymbolType type);
+Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h, SymbolType type);
 
 Symbol* getIdentifierSymbol(Identifier* identifier);
 Symbol* getMemberAccessSymbol(MemberAccess* member);

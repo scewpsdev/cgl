@@ -493,6 +493,28 @@ static bool getDeclarationNameIdentifier(File* file, Node* node, int line, int c
 			}
 		}
 	}
+	else if (node->type == NODE_VARIABLE_DECLARATION)
+	{
+		VariableDeclaration* variable = &node->variableDeclaration;
+		for (int i = 0; i < variable->numDeclarators; i++)
+		{
+			VariableDeclarator* declarator = &variable->declarators[i];
+			if (isInRangeOfString(file, line, col, declarator->name))
+			{
+				*identifier = declarator->name;
+				return true;
+			}
+		}
+	}
+	else if (node->type == NODE_PARAMETER)
+	{
+		Parameter* parameter = &node->parameter;
+		if (isInRangeOfString(file, line, col, parameter->name))
+		{
+			*identifier = parameter->name;
+			return true;
+		}
+	}
 	else if (node->type == NODE_MACRO)
 	{
 		Macro* macro = &node->macro;
@@ -528,7 +550,11 @@ Symbol* Document::getNodeSymbol(Node* node, int line, int col, int* overloadIdx)
 			StringView declarationName;
 			if (getDeclarationNameIdentifier(file, node, line, col, &declarationName))
 			{
-				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, declarationName))
+				SymbolType symbolType = node->type == NODE_STRUCT || node->type == NODE_UNION || node->type == NODE_ENUM || node->type == NODE_TYPEDEF ? SYMBOL_TYPE :
+					node->type == NODE_FUNCTION ? SYMBOL_FUNCTION_SET :
+					node->type == NODE_GLOBAL_VARIABLE || node->type == NODE_VARIABLE_DECLARATION || node->type == NODE_PARAMETER ? SYMBOL_VARIABLE :
+					node->type == NODE_MACRO ? SYMBOL_MACRO : SYMBOL_NULL;
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, declarationName, symbolType))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 					{
@@ -608,6 +634,7 @@ static void scanScopeForItems(Scope* scope, nlohmann::json& items)
 				{"kind", completionItem},
 				{"data", {
 					{"symbol_id", std::to_string(symbol->key)},
+					{"symbol_type", std::to_string((uint32_t)symbol->type)},
 					{"file_id", std::to_string((uint64_t)symbol->file)}
 				}}
 				});
@@ -644,6 +671,7 @@ static void scanScopeForMemberFunction(Scope* scope, Type* operandType, nlohmann
 								{"kind", completionItem},
 								{"data", {
 									{"symbol_id", std::to_string(symbol->key)},
+									{"symbol_type", std::to_string((uint32_t)symbol->type)},
 									{"file_id", std::to_string((uint64_t)symbol->file)}
 								}}
 								});
@@ -1108,10 +1136,12 @@ static Symbol* resolveSymbol(File* file, Scope* currentScope, StringView identif
 	Scope* scope = currentScope;
 	while (scope)
 	{
-		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier))
-		{
+		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_FUNCTION_SET))
 			return symbol;
-		}
+		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_VARIABLE))
+			return symbol;
+		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_TYPE))
+			return symbol;
 		scope = scope->parent;
 	}
 
@@ -1120,10 +1150,12 @@ static Symbol* resolveSymbol(File* file, Scope* currentScope, StringView identif
 		FileHandle dependency = file->dependencies[i];
 		if (File* file = getFileFromHandleLSP(dependency))
 		{
-			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
-			{
+			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_FUNCTION_SET))
 				return symbol;
-			}
+			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_VARIABLE))
+				return symbol;
+			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_TYPE))
+				return symbol;
 		}
 	}
 

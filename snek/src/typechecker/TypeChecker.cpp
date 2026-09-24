@@ -111,6 +111,16 @@ static int charToDigit(char c)
 	return -1;
 }
 
+static uint64_t ipow(uint64_t n, int e)
+{
+	uint64_t result = 1;
+	for (int i = 0; i < e; i++)
+	{
+		result *= n;
+	}
+	return result;
+}
+
 static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str, bool* negative, int* outBase, Type** type)
 {
 	*negative = false;
@@ -151,6 +161,35 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 		char c = tolower(str[i]);
 
 		if (c == '_') continue;
+		else if (base == 10 && c == 'e')
+		{
+			i++;
+
+			int exponent = 0;
+			int exponentDigitCount = 0;
+			for (; i < str.length; i++)
+			{
+				c = tolower(str[i]);
+				int digit = charToDigit(c);
+				if (digit != -1)
+				{
+					exponent = exponent * 10 + digit;
+					exponentDigitCount++;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			if (exponentDigitCount == 0)
+			{
+				error(tc, node, "Integer exponent suffix must be followed by atleast one digit");
+			}
+
+			value = value * ipow(10, exponent);
+			break;
+		}
 
 		int digit = charToDigit(c);
 		if (digit == -1 || digit >= base) break;
@@ -167,7 +206,7 @@ static uint64_t stringToIntConstant(TypeChecker* tc, Node* node, StringView str,
 
 	if (digitCount == 0)
 	{
-		error(tc, node, "Integer base prefix must be followed by atleast one digit");
+		error(tc, node, "Integer must have atleast one digit");
 	}
 
 	if (str.length - i == 2 && strncmp(&str[i], "i8", 2) == 0) *type = &tc->types->primitiveTypes[TYPE_INT8];
@@ -320,13 +359,14 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type);
 static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* expectedType = nullptr);
 static Type* resolveField(TypeChecker* tc, Field* field);
 static Type* resolveParameter(TypeChecker* tc, Parameter* parameter);
-static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier);
+static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier, SymbolType symbolType = SYMBOL_NULL);
 
 static SymbolHandle getSymbolHandle(TypeChecker* tc, Symbol* symbol)
 {
 	SymbolHandle handle = {};
 	handle.file = symbol->file;
 	handle.symbol = symbol->key;
+	handle.type = symbol->type;
 	return handle;
 }
 
@@ -498,7 +538,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	{
 		NamedType* namedType = (NamedType*)type;
 
-		Symbol* symbol = resolveSymbol(tc, namedType->name);
+		Symbol* symbol = resolveSymbol(tc, namedType->name, SYMBOL_TYPE);
 
 		if (symbol && symbol->type == SYMBOL_TYPE)
 		{
@@ -796,15 +836,25 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 	return type->inferredType = &tc->types->errorType;
 }
 
-static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier)
+static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier, SymbolType symbolType)
 {
 	Scope* scope = tc->currentScope;
 	SnekAssert(scope->parent != scope);
 	while (scope)
 	{
-		if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier))
+		if (symbolType)
 		{
-			return symbol;
+			if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, symbolType))
+				return symbol;
+		}
+		else
+		{
+			if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_FUNCTION_SET))
+				return symbol;
+			if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_VARIABLE))
+				return symbol;
+			if (Symbol* symbol = lookupSymbol(&scope->symbols, identifier, SYMBOL_TYPE))
+				return symbol;
 		}
 		scope = scope->parent;
 	}
@@ -814,9 +864,19 @@ static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier)
 		FileHandle dependency = tc->file->dependencies[i];
 		if (File* file = getFileFromHandle(dependency))
 		{
-			if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier))
+			if (symbolType)
 			{
-				return symbol;
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, symbolType))
+					return symbol;
+			}
+			else
+			{
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_FUNCTION_SET))
+					return symbol;
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_VARIABLE))
+					return symbol;
+				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_TYPE))
+					return symbol;
 			}
 		}
 	}
@@ -2517,7 +2577,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		for (int i = 0; i < variableDeclaration->numDeclarators; i++)
 		{
-			Symbol* symbol = lookupSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name);
+			Symbol* symbol = lookupSymbol(&tc->currentScope->symbols, variableDeclaration->declarators[i].name, SYMBOL_VARIABLE);
 			if (symbol)
 			{
 				error(tc, variableDeclaration->declarators[i].name, "Redeclaration of variable '%.*s'", variableDeclaration->declarators[i].name.length, variableDeclaration->declarators[i].name.ptr);
@@ -2824,16 +2884,17 @@ void symbolResolution(TypeChecker* tc, File* file)
 			Function* lastFunction = tc->currentFunction;
 			tc->currentFunction = function;
 
-			resolveExpression(tc, function->value);
-			Type* valueType = function->value->inferredType;
-
-			tc->currentFunction = lastFunction;
-
 			if (function->returnType)
 			{
 				resolveType(tc, function->returnType);
 				returnType = function->returnType->inferredType;
+			}
 
+			resolveExpression(tc, function->value, returnType);
+			Type* valueType = function->value->inferredType;
+
+			if (returnType)
+			{
 				if (!isAssignable(tc, valueType, returnType, &function->value))
 				{
 					error(tc, (Node*)function->value, "Can't return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
@@ -2843,6 +2904,8 @@ void symbolResolution(TypeChecker* tc, File* file)
 			{
 				returnType = valueType;
 			}
+
+			tc->currentFunction = lastFunction;
 		}
 		else
 		{
@@ -2923,6 +2986,24 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 	for (int i = 0; i < ast->numFunctions; i++)
 	{
 		Function* function = ast->functions[i];
+
+		if (Symbol* existingSymbol = resolveSymbol(tc, function->name, SYMBOL_FUNCTION_SET))
+		{
+			for (int j = 0; j < existingSymbol->functionSet.count; j++)
+			{
+				Function* overload = existingSymbol->functionSet.overloads[j].declaration;
+				if (overload == function)
+					break;
+				else if (compareTypes(function->functionType, overload->functionType))
+				{
+					SourceLocation overloadLocation;
+					getSourceLocation(getFileFromHandle(overload->symbol->file), (Node*)overload, &overloadLocation, nullptr);
+					error(tc, function->name, "Function '%.*s' already defined at '%s:%d'", function->name.length, function->name.ptr, overloadLocation.filename, overloadLocation.line + 1);
+					break;
+				}
+			}
+		}
+
 		if (!function->value)
 		{
 			Function* lastFunction = tc->currentFunction;

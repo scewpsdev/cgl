@@ -110,7 +110,7 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 			return slot;
 		}
 
-		if (slot->key == h)
+		if (slot->key == h && slot->type == type)
 		{
 			if (slot->type == SYMBOL_FUNCTION_SET)
 			{
@@ -145,7 +145,7 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 	return nullptr;
 }
 
-Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier)
+Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier, SymbolType type)
 {
 	if (!symbols->count) return nullptr;
 
@@ -160,7 +160,7 @@ Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier)
 		if (!slot->key)
 			return nullptr;
 
-		if (slot->key == h)
+		if (slot->key == h && slot->type == type)
 			return slot;
 
 		index = (index + 1) & mask;
@@ -169,7 +169,7 @@ Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier)
 	return nullptr;
 }
 
-Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h)
+Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h, SymbolType type)
 {
 	if (!symbols->count) return nullptr;
 
@@ -198,7 +198,7 @@ Symbol* getIdentifierSymbol(Identifier* identifier)
 		return identifier->resolvedSymbol;
 	if (File* file = getFileFromHandle(identifier->resolvedSymbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, identifier->resolvedSymbolHandle.symbol);
+		return lookupSymbol(&file->ast.globalScope->symbols, identifier->resolvedSymbolHandle.symbol, identifier->resolvedSymbolHandle.type);
 	}
 	return nullptr;
 }
@@ -209,7 +209,7 @@ Symbol* getMemberAccessSymbol(MemberAccess* member)
 		return member->resolvedSymbol;
 	if (File* file = getFileFromHandle(member->resolvedSymbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, member->resolvedSymbolHandle.symbol);
+		return lookupSymbol(&file->ast.globalScope->symbols, member->resolvedSymbolHandle.symbol, member->resolvedSymbolHandle.type);
 	}
 	return nullptr;
 }
@@ -220,7 +220,7 @@ Symbol* getNamedTypeSymbol(NamedType* namedType)
 		return namedType->symbol;
 	if (File* file = getFileFromHandle(namedType->symbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, namedType->symbolHandle.symbol);
+		return lookupSymbol(&file->ast.globalScope->symbols, namedType->symbolHandle.symbol, namedType->symbolHandle.type);
 	}
 	return nullptr;
 }

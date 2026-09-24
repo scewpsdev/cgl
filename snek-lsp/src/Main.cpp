@@ -1493,12 +1493,14 @@ int main()
 
 				json data = params["data"];
 
-				if (data.contains("symbol_id") && data.contains("file_id"))
+				if (data.contains("symbol_id") && data.contains("file_id") && data.contains("symbol_type"))
 				{
 					std::string symbolHandleStr = data["symbol_id"];
+					std::string symbolTypeStr = data["symbol_type"];
 					std::string fileHandleStr = data["file_id"];
 
 					uint32_t symbolHandle = std::stoul(symbolHandleStr);
+					uint32_t symbolType = std::stoul(symbolTypeStr);
 					FileHandle fileHandle = std::stoull(fileHandleStr);
 
 					Document* document = getDocument(fileHandle);
@@ -1510,7 +1512,7 @@ int main()
 
 					Symbol* symbol = nullptr;
 					if (file)
-						symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle);
+						symbol = lookupSymbol(&file->ast.globalScope->symbols, symbolHandle, (SymbolType)symbolType);
 
 					std::string detail;
 					json markdown;
