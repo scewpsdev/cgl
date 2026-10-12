@@ -55,6 +55,8 @@ struct Compiler
 	bool debugInfo;
 	bool optimize;
 	bool gcc;
+	bool emcc;
+	const char* backendArgs;
 
 	List<SourceFile*> sourceFiles;
 	List<const char*> libraryFiles;
@@ -244,6 +246,10 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 			{
 				compiler->outPath = argv[++i];
 			}
+			else
+			{
+				fprintf(stderr, "-o must be followed by a path\n");
+			}
 		}
 		else if (strcmp(arg, "-debug") == 0)
 		{
@@ -260,6 +266,21 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		else if (strcmp(arg, "-gcc") == 0)
 		{
 			compiler->gcc = true;
+		}
+		else if (strcmp(arg, "-emcc") == 0)
+		{
+			compiler->emcc = true;
+		}
+		else if (strcmp(arg, "-cmdargs") == 0)
+		{
+			if (i < argc - 1)
+			{
+				compiler->backendArgs = argv[++i];
+			}
+			else
+			{
+				fprintf(stderr, "-cmdargs must be followed by a string\n");
+			}
 		}
 		else
 		{
@@ -652,6 +673,108 @@ static int outputBinaryGCC()
 	DestroyStringBuffer(command);
 }
 
+static int outputBinaryEmscripten()
+{
+	char buffer[512] = "";
+	StringBuffer command = CreateStringBuffer(256);
+
+	StringBufferAppend(command, "emcc -I lib -w ");
+
+	localFilePath(buffer, "lib");
+	StringBufferAppend(command, "-I ");
+	StringBufferAppend(command, buffer);
+	StringBufferAppend(command, ' ');
+
+	StringBufferAppend(command, "-D DLLEXPORT= ");
+	StringBufferAppend(command, "-D DLLIMPORT= ");
+	StringBufferAppend(command, "-D true=1 ");
+	StringBufferAppend(command, "-D false=0 ");
+
+	localFilePath(buffer, "lib/snek.c");
+	StringBufferAppend(command, buffer);
+	StringBufferAppend(command, ' ');
+
+	//tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
+
+	for (int i = 0; i < compiler.sourceFiles.size; i++)
+	{
+		StringBufferAppend(command, compiler.sourceFiles[i]->outPath);
+		StringBufferAppend(command, ' ');
+	}
+
+	for (int i = 0; i < compiler.libraryFiles.size; i++)
+	{
+		const char* library = compiler.libraryFiles[i];
+		StringView directory = getDirectory(library);
+		StringView name = getFilename(library);
+
+		if (name.startsWith("lib"))
+			name = name.substring(3);
+		if (name.endsWith(".dll"))
+			name = name.substring(0, name.length - 4);
+
+		directory = copy(directory);
+		name = copy(name);
+
+		StringBufferAppend(command, "-L ");
+		StringBufferAppend(command, directory.ptr);
+		StringBufferAppend(command, ' ');
+
+		StringBufferAppend(command, "-l");
+		StringBufferAppend(command, name.ptr);
+		StringBufferAppend(command, ' ');
+
+		destroy(directory);
+		destroy(name);
+	}
+
+	for (int i = 0; i < compiler.dllFiles.size; i++)
+	{
+		//tcc_add_file(tcc, compiler.dllFiles[i]);
+	}
+
+	if (compiler.debugInfo)
+	{
+		StringBufferAppend(command, "-g ");
+	}
+	if (compiler.optimize)
+	{
+		StringBufferAppend(command, "-O3 ");
+	}
+	if (compiler.dll)
+	{
+		fprintf(stderr, "Cannot output shared library with emscripten backend");
+		return -1;
+	}
+
+	if (compiler.run)
+	{
+		fprintf(stderr, "Cannot run emscripten output from command line");
+		return -1;
+	}
+	else
+	{
+		const char* outPath = compiler.outPath ? compiler.outPath : "index.html";
+
+		createDirectories(outPath);
+
+		StringBufferAppend(command, "-o ");
+		StringBufferAppend(command, outPath);
+
+		if (compiler.backendArgs)
+		{
+			StringBufferAppend(command, ' ');
+			StringBufferAppend(command, compiler.backendArgs);
+		}
+
+		int result = system(command.buffer);
+
+		return result;
+	}
+
+	DestroyStringBuffer(command);
+}
+
 static int runBinaryGCC()
 {
 	return -1;
@@ -764,6 +887,10 @@ int _main(int argc, const char* argv[])
 		{
 			result = outputBinaryGCC();
 		}
+		else if (compiler.emcc)
+		{
+			result = outputBinaryEmscripten();
+		}
 		else
 		{
 			tcc = tcc_new();
@@ -798,6 +925,9 @@ int _main(int argc, const char* argv[])
 					int runResult = runBinaryGCC();
 					//fprintf(stderr, "Exited with code %d\n", runResult);
 				}
+				else if (compiler.emcc)
+				{
+				}
 				else
 				{
 					int runResult = runBinaryTCC();
@@ -807,6 +937,9 @@ int _main(int argc, const char* argv[])
 		}
 
 		if (compiler.gcc)
+		{
+		}
+		else if (compiler.emcc)
 		{
 		}
 		else
