@@ -1,7 +1,6 @@
 #include "Lexer.h"
 
 #include "File.h"
-#include "Keywords.h"
 #include "Diagnostics.h"
 #include "utils/Arena.h"
 #include "utils/Log.h"
@@ -395,6 +394,9 @@ TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'i':
 			if (str[1] == 'n' && str[2] == 't') return TOKEN_INT32;
+			break;
+		case 'r':
+			if (str[1] == 'e' && str[2] == 'f') return TOKEN_REF;
 			break;
 		}
 		break;

@@ -562,6 +562,10 @@ static void mangleType(char* buffer, Type* type)
 		strcat(buffer, "o");
 		mangleType(buffer, type->optional.elementType);
 		break;
+	case TYPE_REFERENCE:
+		strcat(buffer, "R");
+		mangleType(buffer, type->reference.elementType);
+		break;
 	case TYPE_FUNCTION:
 		strcat(buffer, "F");
 		sprintf(buffer + strlen(buffer), "%d", type->function.numParams);
@@ -582,6 +586,7 @@ static void mangleType(char* buffer, Type* type)
 		strcat(buffer, "T");
 		break;
 	default:
+		SnekAssert(false);
 		break;
 	}
 }
@@ -635,6 +640,35 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 	if (newType)
 	{
 		type->name = createTypeString(arena, "%.*s?", elementType->name.length, elementType->name.ptr);
+
+		char buffer[256] = "";
+		mangleType(buffer, type);
+		type->mangledName = copy(CreateString(buffer), arena);
+	}
+
+	if (primitive) typeSystemMutex.unlock();
+
+	return type;
+}
+
+Type* getReferenceType(TypeSystem* types, Type* elementType, File* file)
+{
+	Type key = {};
+	key.typeKind = TYPE_REFERENCE;
+	key.reference.elementType = elementType;
+
+	bool primitive = isPrimitiveDerivative(&key);
+	TypeTable* typeTable = primitive ? &types->typeTable : &file->typeTable;
+	Arena* arena = primitive ? types->arena : &file->arena;
+
+	if (primitive) typeSystemMutex.lock();
+
+	bool newType;
+	Type* type = internType(typeTable, key, arena, &newType);
+
+	if (newType)
+	{
+		type->name = createTypeString(arena, "ref %.*s", elementType->name.length, elementType->name.ptr);
 
 		char buffer[256] = "";
 		mangleType(buffer, type);

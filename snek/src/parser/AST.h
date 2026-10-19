@@ -24,6 +24,7 @@ enum NodeType : uint8_t
 	NODE_STRUCT_TYPE,
 	NODE_UNION_TYPE,
 	NODE_POINTER_TYPE,
+	NODE_REFERENCE_TYPE,
 	NODE_OPTIONAL_TYPE,
 	NODE_FUNCTION_TYPE,
 	NODE_TUPLE_TYPE,
@@ -190,6 +191,11 @@ struct OptionalType : TypeNode
 	TypeNode* elementType;
 };
 
+struct ReferenceType : TypeNode
+{
+	TypeNode* elementType;
+};
+
 struct Parameter : NodeBase
 {
 	TypeNode* paramType;
@@ -328,6 +334,7 @@ enum OperatorType : uint8_t
 	OPERATOR_TERNARY_CONDITION,
 
 	OPERATOR_ASSIGN,
+	OPERATOR_REF_ASSIGN,
 	OPERATOR_ADD_ASSIGN,
 	OPERATOR_SUBTRACT_ASSIGN,
 	OPERATOR_MULTIPLY_ASSIGN,
@@ -603,6 +610,7 @@ struct Node
 		UnionType unionType;
 		PointerType pointerType;
 		OptionalType optionalType;
+		ReferenceType referenceType;
 		FunctionType functionType;
 		TupleType tupleType;
 		ArrayType arrayType;

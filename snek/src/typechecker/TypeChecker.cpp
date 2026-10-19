@@ -726,6 +726,23 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 
 		return type->inferredType = getOptionalType(tc->types, elementType, tc->file);
 	}
+	else if (type->type == NODE_REFERENCE_TYPE)
+	{
+		ReferenceType* referenceType = (ReferenceType*)type;
+
+		Type* elementType = nullptr;
+		if (referenceType->elementType)
+		{
+			resolveType(tc, referenceType->elementType);
+			elementType = referenceType->elementType->inferredType;
+		}
+		else
+		{
+			elementType = &tc->types->errorType;
+		}
+
+		return type->inferredType = getReferenceType(tc->types, elementType, tc->file);
+	}
 	else if (type->type == NODE_FUNCTION_TYPE)
 	{
 		FunctionType* functionType = (FunctionType*)type;
@@ -1102,7 +1119,7 @@ static bool canCoerceType(Expression* arg, Type* targetType)
 	return false;
 }
 
-static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType, Expression** ref)
+static bool isAssignable(TypeChecker* tc, Type* expressionType, bool expressionLValue, Type* targetType, Expression** ref)
 {
 	if (compareTypes(expressionType, targetType))
 		return true;
@@ -1150,6 +1167,11 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 		}
 	}
 
+	if (targetType->typeKind == TYPE_REFERENCE)
+	{
+		return isAssignable(tc, expressionType, false, targetType->reference.elementType, ref);
+	}
+
 	if (expressionType->typeKind == TYPE_ARRAY && targetType->typeKind == TYPE_ARRAY)
 	{
 		Type* elementType1 = expressionType->array.elementType;
@@ -1172,7 +1194,7 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, Type* targetType
 	{
 		Type* unwrappedType = unwrapType(targetType);
 
-		if (isAssignable(tc, expressionType, unwrappedType, ref))
+		if (isAssignable(tc, expressionType, expressionLValue, unwrappedType, ref))
 		{
 			if (ref)
 				insertImplicitCast(tc, ref, targetType);
@@ -1219,7 +1241,7 @@ static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression*
 			return 1;
 		return 2;
 	}
-	else if (isAssignable(tc, argType, paramType, nullptr))
+	else if (isAssignable(tc, argType, isLValue(arg), paramType, nullptr))
 	{
 		if (isIntegerType(argType) && isIntegerType(paramType) && isUnsignedType(argType) == isUnsignedType(paramType))
 			return 3;
@@ -1824,7 +1846,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 					Type* fieldType = expressionList->values[i]->inferredType;
 
-					if (fieldType != getErrorType(tc->types) && targetType != getErrorType(tc->types) && !isAssignable(tc, fieldType, targetType, &expressionList->values[i]))
+					if (fieldType != getErrorType(tc->types) && targetType != getErrorType(tc->types) && !isAssignable(tc, fieldType, isLValue(expressionList->values[i]), targetType, &expressionList->values[i]))
 					{
 						if (expectedType->struct_.fieldNames)
 						{
@@ -1883,7 +1905,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				if (!elementType)
 					elementType = valueType;
 
-				if (!isErrorType(elementType) && !isAssignable(tc, valueType, elementType, &arrayInitializer->values[i]))
+				if (!isErrorType(elementType) && !isAssignable(tc, valueType, isLValue(arrayInitializer->values[i]), elementType, &arrayInitializer->values[i]))
 				{
 					error(tc, (Node*)arrayInitializer->values[i], "Can't assign value of type '%.*s' to array element #%d of type '%.*s'", valueType->name.length, valueType->name.ptr, i, elementType->name.length, elementType->name.ptr);
 				}
@@ -2197,16 +2219,33 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 						SnekAssert(false);
 					}
 				}
-				else if (paramType && !isAssignable(tc, argType, paramType, argRef))
+				else if (paramType)
 				{
-					if (function)
+					if (paramType->typeKind == TYPE_REFERENCE)
 					{
-						StringView paramName = function->params[i]->name;
-						error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter '%.*s' of type '%.*s'", argType->name.length, argType->name.ptr, paramName.length, paramName.ptr, paramType->name.length, paramType->name.ptr);
+						if (compareTypes(paramType->reference.elementType, argType))
+						{
+							insertImplicitCast(tc, argRef, paramType);
+						}
+						else
+						{
+							error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+						}
 					}
 					else
 					{
-						error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+						if (!isAssignable(tc, argType, isLValue(arg), paramType, argRef))
+						{
+							if (function)
+							{
+								StringView paramName = function->params[i]->name;
+								error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter '%.*s' of type '%.*s'", argType->name.length, argType->name.ptr, paramName.length, paramName.ptr, paramType->name.length, paramType->name.ptr);
+							}
+							else
+							{
+								error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
+							}
+						}
 					}
 				}
 			}
@@ -2529,7 +2568,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 				{
 					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function without return value", valueType->name.length, valueType->name.ptr);
 				}
-				else if (!isAssignable(tc, valueType, returnType, &return_->value))
+				else if (!isAssignable(tc, valueType, isLValue(return_->value), returnType, &return_->value))
 				{
 					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
 				}
@@ -2590,9 +2629,27 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 			if (variableDeclaration->declarators[i].value)
 			{
 				Type* initializerType = resolveExpression(tc, variableDeclaration->declarators[i].value, variableType);
-				if (!isErrorType(initializerType) && !isAssignable(tc, initializerType, variableType, &variableDeclaration->declarators[i].value))
+				if (!isErrorType(initializerType))
 				{
-					error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize variable of type '%.*s' with value of type '%.*s'", variableType->name.length, variableType->name.ptr, initializerType->name.length, initializerType->name.ptr);
+					if (variableType->typeKind == TYPE_REFERENCE)
+					{
+						if (compareTypes(initializerType, variableType->reference.elementType) && isLValue(variableDeclaration->declarators[i].value))
+							insertImplicitCast(tc, &variableDeclaration->declarators[i].value, variableType);
+						else
+							error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize reference of type '%.*s' with value of type '%.*s'", variableType->reference.elementType->name.length, variableType->reference.elementType->name.ptr, initializerType->name.length, initializerType->name.ptr);
+					}
+					else
+					{
+						if (!isAssignable(tc, initializerType, isLValue(variableDeclaration->declarators[i].value), variableType, &variableDeclaration->declarators[i].value))
+							error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize variable of type '%.*s' with value of type '%.*s'", variableType->name.length, variableType->name.ptr, initializerType->name.length, initializerType->name.ptr);
+					}
+				}
+			}
+			else
+			{
+				if (variableType->typeKind == TYPE_REFERENCE)
+				{
+					error(tc, (Node*)variableDeclaration->declarators[i].value, "Reference needs to be initialized");
 				}
 			}
 		}
@@ -2614,17 +2671,22 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		if (assignment->op == OPERATOR_ASSIGN)
 		{
-			if (expressionType != getErrorType(tc->types) && valueType != getErrorType(tc->types) && !isAssignable(tc, valueType, expressionType, &assignment->value))
-			{
+			if (!isAssignable(tc, valueType, isLValue(assignment->value), expressionType, &assignment->value))
 				error(tc, (Node*)assignment->value, "Can't assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
-			}
+		}
+		else if (assignment->op == OPERATOR_REF_ASSIGN)
+		{
+			if (compareTypes(valueType, expressionType->reference.elementType) && isLValue(assignment->value))
+				insertImplicitCast(tc, &assignment->value, expressionType);
+			else
+				error(tc, (Node*)assignment->value, "Cannot change reference of type '%.*s' to value of type '%.*s'", expressionType->reference.elementType->name.length, expressionType->reference.elementType->name.ptr, valueType->name.length, valueType->name.ptr);
 		}
 		else
 		{
 			OperatorType op = assignmentOperatorToBinary(assignment->op);
 			Type* resultType = typeCheckArithmeticOperator(tc, op, expressionType, valueType, assignment->value, expressionType, nullptr, &assignment->value);
 
-			if (resultType != &tc->types->errorType && !isAssignable(tc, resultType, expressionType, nullptr))
+			if (resultType != &tc->types->errorType && !isAssignable(tc, resultType, false, expressionType, nullptr))
 			{
 				error(tc, (Node*)statement, "Can't assign result of type '%.*s' to expression of type '%.*s'", resultType->name.length, resultType->name.ptr, expressionType->name.length, expressionType->name.ptr);
 			}
@@ -2686,7 +2748,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 				{
 					resolveExpression(tc, value, globalVariable->variableType->inferredType);
 
-					if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+					if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
 					{
 						error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
 					}
@@ -2895,7 +2957,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 			if (returnType)
 			{
-				if (!isAssignable(tc, valueType, returnType, &function->value))
+				if (!isAssignable(tc, valueType, isLValue(function->value), returnType, &function->value))
 				{
 					error(tc, (Node*)function->value, "Can't return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
 				}
@@ -2971,7 +3033,7 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 			{
 				resolveExpression(tc, value, globalVariable->variableType->inferredType);
 
-				if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+				if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
 				{
 					error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
 				}

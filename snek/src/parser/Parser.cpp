@@ -483,12 +483,27 @@ static TypeNode* parseBasicType(Parser* parser)
 		type->name = getTokenString(token, parser->file);
 		return type;
 	}
-	else if (token.type == TOKEN_FUNCTION && peekToken(parser, 1).type == '(')
+	else if (token.type == TOKEN_REF)
+	{
+		nextToken(parser);
+
+		ReferenceType* type = parser->arena->alloc<ReferenceType>();
+		initType((TypeNode*)type, NODE_REFERENCE_TYPE, TYPE_REFERENCE, start);
+
+		type->elementType = parseType(parser);
+
+		type->end = parser->lastTokenEnd;
+
+		return type;
+	}
+	else if (token.type == TOKEN_FUNCTION)
 	{
 		nextToken(parser);
 
 		FunctionType* type = parser->arena->alloc<FunctionType>();
 		initType((TypeNode*)type, NODE_FUNCTION_TYPE, TYPE_FUNCTION, start);
+
+		type->returnType = parseType(parser);
 
 		int mark = parser->scratch->mark();
 
@@ -512,12 +527,14 @@ static TypeNode* parseBasicType(Parser* parser)
 
 		parser->scratch->release(mark);
 
+		/*
 		if (nextIs(parser, '-') && nextIs(parser, 1, '>'))
 		{
 			nextToken(parser);
 			nextToken(parser);
 			type->returnType = parseType(parser);
 		}
+		*/
 
 		type->end = parser->lastTokenEnd;
 
@@ -1905,6 +1922,32 @@ Statement* parseStatement(Parser* parser)
 
 		return defer;
 	}
+	else if (nextIs(parser, TOKEN_REF) && nextIs(parser, 1, TOKEN_IDENTIFIER) && nextIs(parser, 2, '='))
+	{
+		nextToken(parser);
+
+		Assignment* assignment = parser->arena->alloc<Assignment>();
+		initNode((Node*)assignment, NODE_ASSIGNMENT, start);
+		assignment->op = OPERATOR_REF_ASSIGN;
+
+		assignment->expression = parseExpression(parser);
+
+		expectToken(parser, '=');
+
+		assignment->value = parseExpression(parser);
+		if (!assignment->value)
+		{
+			error(parser, getSourceLocation(parser), "Expression expected");
+			assignment->value = getErrorExpression(parser, parser->cursor);
+		}
+
+		if (!expectToken(parser, ';'))
+			skipPastToken(parser, ';');
+
+		assignment->end = parser->lastTokenEnd;
+
+		return assignment;
+	}
 	else
 	{
 		int start = parser->cursor;
@@ -2302,13 +2345,14 @@ Parameter* parseParameter(Parser* parser)
 	return parameter;
 }
 
-Function* parseFunction(Parser* parser, uint32_t storage, int start)
+Function* parseFunction(Parser* parser, TypeNode* returnType, uint32_t storage, int start)
 {
-	nextToken(parser); // func
+	//nextToken(parser); // func
 
 	Function* function = parser->arena->alloc<Function>();
 	initNode((Node*)function, NODE_FUNCTION, start);
 	function->storage = storage;
+	function->returnType = returnType->typeKind != TYPE_VOID ? returnType : nullptr;
 
 	Token identifier;
 	expectToken(parser, TOKEN_IDENTIFIER, &identifier);
@@ -2343,10 +2387,12 @@ Function* parseFunction(Parser* parser, uint32_t storage, int start)
 		function->params = nullptr;
 	}
 
+	/*
 	if (!nextIs(parser, '{') && !nextIs(parser, ';') && !nextIs(parser, '='))
 	{
 		function->returnType = parseType(parser);
 	}
+	*/
 
 	if (nextIs(parser, '=') && nextIs(parser, 1, '>'))
 	{
@@ -2548,6 +2594,7 @@ void parseFile(Parser* parser, AST* ast)
 				ast->numTypedefs++;
 			}
 		}
+		/*
 		else if (token.type == TOKEN_FUNCTION && peekToken(parser, 1).type == TOKEN_IDENTIFIER)
 		{
 			if (Function* function = parseFunction(parser, storage, start))
@@ -2556,6 +2603,7 @@ void parseFile(Parser* parser, AST* ast)
 				ast->numFunctions++;
 			}
 		}
+		*/
 		else if (token.type == TOKEN_MACRO)
 		{
 			if (Macro* macro = parseMacro(parser, storage, start))
@@ -2582,10 +2630,24 @@ void parseFile(Parser* parser, AST* ast)
 		}
 		else if (TypeNode* type = parseType(parser))
 		{
-			if (GlobalVariable* globalVariable = parseGlobalVariable(parser, type, storage, start))
+			if (nextIs(parser, TOKEN_IDENTIFIER))
 			{
-				parser->scratch->add((Node*)globalVariable);
-				ast->numGlobalVariables++;
+				if (nextIs(parser, 1, '('))
+				{
+					if (Function* function = parseFunction(parser, type, storage, start))
+					{
+						parser->scratch->add((Node*)function);
+						ast->numFunctions++;
+					}
+				}
+				else
+				{
+					if (GlobalVariable* globalVariable = parseGlobalVariable(parser, type, storage, start))
+					{
+						parser->scratch->add((Node*)globalVariable);
+						ast->numGlobalVariables++;
+					}
+				}
 			}
 		}
 		else

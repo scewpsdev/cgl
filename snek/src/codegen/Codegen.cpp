@@ -272,6 +272,8 @@ static int emitOperator(char* dst, OperatorType op)
 		return emitString(dst, "||");
 	else if (op == OPERATOR_ASSIGN)
 		return emitChar(dst, '=');
+	else if (op == OPERATOR_REF_ASSIGN)
+		return emitChar(dst, '=');
 	else if (op == OPERATOR_ADD_ASSIGN)
 		return emitString(dst, "+=");
 	else if (op == OPERATOR_SUBTRACT_ASSIGN)
@@ -344,7 +346,7 @@ static int stringWriteExpression(char* dst, const char* format, va_list args)
 			else if (insertType == 'i')
 			{
 				int value = va_arg(args, int);
-				if (dst) len += sprintf(&dst[len] , "%d", value);
+				if (dst) len += sprintf(&dst[len], "%d", value);
 				else len += snprintf(nullptr, 0, "%d", value);
 			}
 			else if (insertType == 'l')
@@ -919,6 +921,11 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 
 		emitString(buffer, type->mangledName);
 	}
+	else if (type->typeKind == TYPE_REFERENCE)
+	{
+		emitType(codegen, type->reference.elementType, buffer);
+		emitChar(buffer, '*');
+	}
 	else if (type->typeKind == TYPE_FUNCTION)
 	{
 		SnekAssert(codegen->declaredTypes.contains(type));
@@ -989,7 +996,7 @@ static void declareFunction(Codegen* codegen, Function* function, CodeBuffer* bu
 static void emitOperator(CodeBuffer* buffer, OperatorType op)
 {
 	int len = emitOperator((char*)nullptr, op);
-	
+
 	if (op == OPERATOR_MULTIPLY)
 		emitChar(buffer, '*');
 	else if (op == OPERATOR_DIVIDE)
@@ -1027,6 +1034,8 @@ static void emitOperator(CodeBuffer* buffer, OperatorType op)
 	else if (op == OPERATOR_LOGICAL_OR)
 		emitString(buffer, "||");
 	else if (op == OPERATOR_ASSIGN)
+		emitChar(buffer, '=');
+	else if (op == OPERATOR_REF_ASSIGN)
 		emitChar(buffer, '=');
 	else if (op == OPERATOR_ADD_ASSIGN)
 		emitString(buffer, "+=");
@@ -2357,6 +2366,11 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 				}
 			}
 		}
+		else if (targetType->typeKind == TYPE_REFERENCE)
+		{
+			SnekAssert(compareTypes(targetType->reference.elementType, expressionType));
+			return getExpressionValue(codegen, buffer, targetType, "&#v", expression);
+		}
 		else if (targetType->typeKind == TYPE_ANY)
 		{
 			if (isIntegerType(expressionType))
@@ -2529,7 +2543,7 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 {
 	if (expression->type == NODE_INT_LITERAL ||
 		expression->type == NODE_FLOAT_LITERAL ||
-		expression->type == NODE_STRING_LITERAL ||
+		//expression->type == NODE_STRING_LITERAL ||
 		expression->type == NODE_CHAR_LITERAL ||
 		expression->type == NODE_TRUE ||
 		expression->type == NODE_FALSE ||
@@ -2538,6 +2552,26 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 		Value value = emitExpression(codegen, expression, buffer);
 		emitValue(buffer, value);
 		return;
+	}
+	else if (expression->type == NODE_STRING_LITERAL)
+	{
+		StringLiteral* stringLiteral = (StringLiteral*)expression;
+
+		if (expression->inferredType->typeKind == TYPE_STRING)
+		{
+			emitString(buffer, "{\"");
+			emitString(buffer, stringLiteral->value);
+			emitString(buffer, "\",");
+			emitInteger(buffer, stringLiteral->value.length);
+			emitString(buffer, "};\n");
+			return;
+		}
+		else
+		{
+			emitChar(buffer, '"');
+			emitString(buffer, stringLiteral->value);
+			emitChar(buffer, '"');
+		}
 	}
 	else if (expression->type == NODE_SIZEOF)
 	{
@@ -3062,6 +3096,12 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 		Value value = emitExpression(codegen, assignment->value, buffer);
 
 		newLine(codegen, buffer);
+		if (assignment->expression->inferredType->typeKind == TYPE_REFERENCE && assignment->op != OPERATOR_REF_ASSIGN)
+		{
+			SnekAssert(compareTypes(expression.type->reference.elementType, value.type));
+			SnekAssert(assignment->op == OPERATOR_ASSIGN);
+			emitChar(buffer, '*');
+		}
 		emitValue(buffer, expression);
 		emitOperator(buffer, assignment->op);
 		emitValue(buffer, value);

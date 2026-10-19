@@ -780,6 +780,13 @@ static int runBinaryGCC()
 	return -1;
 }
 
+static int compareDiagnosticsItem(void const* a, void const* b)
+{
+	DiagnosticsItem* item1 = *(DiagnosticsItem**)a;
+	DiagnosticsItem* item2 = *(DiagnosticsItem**)b;
+	return item1->startLine < item2->startLine ? -1 : item1->startLine > item2->startLine ? 1 : item1->startCol < item2->startCol ? -1 : item1->startCol > item2->startCol ? 1 : 0;
+}
+
 int _main(int argc, const char* argv[])
 {
 	uint64_t t0 = GetTimeNS();
@@ -860,6 +867,7 @@ int _main(int argc, const char* argv[])
 	{
 		SourceFile* file = compiler.sourceFiles[i];
 		Diagnostics* diagnostics = &file->file.diagnostics;
+		qsort(diagnostics->items.buffer, diagnostics->items.size, sizeof(DiagnosticsItem), compareDiagnosticsItem);
 		for (int j = 0; j < diagnostics->items.size; j++)
 		{
 			fprintf(stderr, "%s:%d:%d: error: %s\n", file->localPath, diagnostics->items[j].startLine + 1, diagnostics->items[j].startCol + 1, diagnostics->items[j].message);

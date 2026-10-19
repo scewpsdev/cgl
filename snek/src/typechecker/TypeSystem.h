@@ -59,6 +59,10 @@ struct Type
 		} optional;
 
 		struct {
+			Type* elementType;
+		} reference;
+
+		struct {
 			Type* returnType;
 			int numParams;
 			Type** paramTypes;
@@ -122,6 +126,7 @@ void destroyTypeSystem(TypeSystem* types);
 
 Type* getPointerType(TypeSystem* types, Type* elementType, File* file);
 Type* getOptionalType(TypeSystem* types, Type* elementType, File* file);
+Type* getReferenceType(TypeSystem* types, Type* elementType, File* file);
 Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file);
 Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldTypes, StringView* fieldNames, File* file);
 Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file);

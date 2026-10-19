@@ -77,9 +77,6 @@
     <ClInclude Include="src\parser\Diagnostics.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\parser\Keywords.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\parser\Lexer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
