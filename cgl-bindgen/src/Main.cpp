@@ -945,14 +945,7 @@ static void parseFunction(TSNode node, const char* src, FILE* file)
 
 		if (dllimport)
 			fprintf(file, "dllimport ");
-		fprintf(file, "externc ");
-
-		TSNode returnType = getTypeNode(node, src);
-		if (!ts_node_is_null(returnType))
-		{
-			outputTypeNode(returnType, pointers, src, file, 0);
-			fprintf(file, " ");
-		}
+		fprintf(file, "externc func ");
 
 		outputNodeValue(name, src, file);
 		fprintf(file, "(");
@@ -967,14 +960,12 @@ static void parseFunction(TSNode node, const char* src, FILE* file)
 
 		fprintf(file, ")");
 
-		/*
 		TSNode returnType = getTypeNode(node, src);
 		if (!ts_node_is_null(returnType) && (pointers || !compareString(getNodeString(returnType, src), "void")))
 		{
 			fprintf(file, " ");
 			outputTypeNode(returnType, pointers, src, file, 0);
 		}
-		*/
 
 		fprintf(file, ";\n");
 	}
@@ -1016,30 +1007,22 @@ static void parseField(TSNode field, const char* src, FILE* file, int indentatio
 
 		TSNode params = findNode(funcType, "parameter_list");
 
-		fprintf(file, "func ");
-
-		TSNode returnType = getTypeNode(field, src);
-		if (!ts_node_is_null(returnType))
-		{
-			outputTypeNode(returnType, pointers, src, file, indentation);
-		}
+		fprintf(file, "func");
 
 		fprintf(file, "(");
 		parseParameterList(params, src, file);
 		fprintf(file, ")");
 
-		/*
 		TSNode returnType = getTypeNode(field, src);
 		if (!ts_node_is_null(returnType))
 		{
 			StringView name = getNodeString(returnType, src);
 			if (!compareString(name, "void"))
 			{
-				fprintf(file, " -> ");
+				fprintf(file, " ");
 				outputTypeNode(returnType, pointers, src, file, indentation);
 			}
 		}
-		*/
 	}
 	else
 	{
@@ -1242,26 +1225,18 @@ static void parseType(TSNode node, const char* src, FILE* file)
 
 			fprintf(file, "type ");
 			outputNodeValue(name, src, file);
-			fprintf(file, " = func ");
-
-			TSNode returnType = getTypeNode(node, src);
-			if (!ts_node_is_null(returnType))
-			{
-				outputTypeNode(returnType, pointers, src, file, 0);
-			}
+			fprintf(file, " = func");
 
 			fprintf(file, "(");
 			parseParameterList(params, src, file);
 			fprintf(file, ")");
 
-			/*
 			TSNode returnType = getTypeNode(node, src);
 			if (!ts_node_is_null(returnType) && !compareString(getNodeString(returnType, src), "void"))
 			{
-				fprintf(file, " -> ");
+				fprintf(file, " ");
 				outputTypeNode(returnType, pointers, src, file, 0);
 			}
-			*/
 
 			fprintf(file, ";\n");
 		}

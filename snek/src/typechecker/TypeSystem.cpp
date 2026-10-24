@@ -585,6 +585,8 @@ static void mangleType(char* buffer, Type* type)
 	case TYPE_TYPE:
 		strcat(buffer, "T");
 		break;
+	case TYPE_NULL:
+		break;
 	default:
 		SnekAssert(false);
 		break;

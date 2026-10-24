@@ -134,6 +134,21 @@ static StringView getFilename(const char* path)
 	else
 		slash = path;
 
+	int length = (int)strlen(slash);
+
+	return CreateString(slash, length);
+}
+
+static StringView getFileStem(const char* path)
+{
+	const char* forwardSlash = strrchr(path, '/');
+	const char* backwardSlash = strrchr(path, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = path;
+
 	const char* dot = strrchr(slash, '.');
 	if (!dot)
 		dot = slash + strlen(slash);
@@ -530,7 +545,7 @@ static int outputBinaryTCC()
 	{
 		const char* library = compiler.libraryFiles[i];
 		StringView directory = getDirectory(library);
-		StringView name = getFilename(library);
+		StringView name = getFileStem(library);
 
 		if (name.startsWith("lib"))
 			name = name.substring(3);
@@ -610,7 +625,7 @@ static int outputBinaryGCC()
 	{
 		const char* library = compiler.libraryFiles[i];
 		StringView directory = getDirectory(library);
-		StringView name = getFilename(library);
+		StringView name = getFileStem(library);
 
 		if (name.startsWith("lib"))
 			name = name.substring(3);
@@ -706,7 +721,7 @@ static int outputBinaryEmscripten()
 	{
 		const char* library = compiler.libraryFiles[i];
 		StringView directory = getDirectory(library);
-		StringView name = getFilename(library);
+		StringView name = getFileStem(library);
 
 		if (name.startsWith("lib"))
 			name = name.substring(3);
@@ -784,7 +799,7 @@ static int compareDiagnosticsItem(void const* a, void const* b)
 {
 	DiagnosticsItem* item1 = *(DiagnosticsItem**)a;
 	DiagnosticsItem* item2 = *(DiagnosticsItem**)b;
-	return item1->startLine < item2->startLine ? -1 : item1->startLine > item2->startLine ? 1 : item1->startCol < item2->startCol ? -1 : item1->startCol > item2->startCol ? 1 : 0;
+	return item1->startLine < item2->startLine ? 1 : item1->startLine > item2->startLine ? -1 : item1->startCol < item2->startCol ? 1 : item1->startCol > item2->startCol ? -1 : 0;
 }
 
 int _main(int argc, const char* argv[])
@@ -870,7 +885,8 @@ int _main(int argc, const char* argv[])
 		qsort(diagnostics->items.buffer, diagnostics->items.size, sizeof(DiagnosticsItem), compareDiagnosticsItem);
 		for (int j = 0; j < diagnostics->items.size; j++)
 		{
-			fprintf(stderr, "%s:%d:%d: error: %s\n", file->localPath, diagnostics->items[j].startLine + 1, diagnostics->items[j].startCol + 1, diagnostics->items[j].message);
+			StringView fileName = getFilename(file->localPath);
+			fprintf(stderr, "%.*s:%d:%d: error: %s\n", fileName.length, fileName.ptr, diagnostics->items[j].startLine + 1, diagnostics->items[j].startCol + 1, diagnostics->items[j].message);
 			hasError = true;
 		}
 	}

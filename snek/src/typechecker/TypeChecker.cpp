@@ -2221,7 +2221,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				}
 				else if (paramType)
 				{
-					if (paramType->typeKind == TYPE_REFERENCE)
+					if (paramType->typeKind == TYPE_REFERENCE && argType->typeKind != TYPE_REFERENCE)
 					{
 						if (compareTypes(paramType->reference.elementType, argType))
 						{
@@ -2788,7 +2788,6 @@ void symbolResolution(TypeChecker* tc, File* file)
 		}
 		for (int j = 0; j < struct_->numFields; j++)
 		{
-			resolveField(tc, struct_->fields[j]);
 			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
 			{
 				if (struct_->fields[j]->declarators[k].hasOffset)
