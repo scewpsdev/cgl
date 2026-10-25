@@ -1,0 +1,6 @@
+import system;
+
+
+func main() {
+	sys_print("hello world", 11);
+}

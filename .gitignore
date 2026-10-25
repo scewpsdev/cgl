@@ -10,3 +10,5 @@ snekc/obj/
 SnekTest/.vscode/
 SnekTest/bin/
 SnekTest/tmp/
+sneklib/bin/
+sneklib/tmp/

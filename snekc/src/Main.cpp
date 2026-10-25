@@ -231,7 +231,7 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		exit(1);
 	}
 
-	initGlobalBlockPool(&compiler->blockPool, 16);
+	initGlobalBlockPool(&compiler->blockPool, 1);
 	initArena(&compiler->arena, &compiler->blockPool);
 	initTypeSystem(&compiler->types, &compiler->arena);
 
@@ -515,6 +515,7 @@ static int outputBinaryTCC()
 	localFilePath(buffer, "lib/libtcc");
 	tcc_set_lib_path(tcc, buffer);
 
+	/*
 	localFilePath(buffer, "lib/libtcc");
 	tcc_add_library_path(tcc, buffer);
 	localFilePath(buffer, "lib");
@@ -522,6 +523,10 @@ static int outputBinaryTCC()
 	localFilePath(buffer, "lib/libtcc/include");
 	tcc_add_include_path(tcc, buffer);
 	localFilePath(buffer, "lib/libtcc/include/winapi");
+	tcc_add_include_path(tcc, buffer);
+	*/
+
+	localFilePath(buffer, "lib");
 	tcc_add_include_path(tcc, buffer);
 
 	tcc_add_library_path(tcc, ".");
@@ -533,7 +538,9 @@ static int outputBinaryTCC()
 
 	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
 
-	localFilePath(buffer, "lib/snek.c");
+	tcc_set_options(tcc, "-nostdlib");
+
+	localFilePath(buffer, "lib/platform.c");
 	tcc_add_file(tcc, buffer);
 
 	for (int i = 0; i < compiler.sourceFiles.size; i++)
@@ -586,7 +593,7 @@ static int outputBinaryTCC()
 
 static int runBinaryTCC()
 {
-	int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "main");
+	int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "_start");
 	const char* arg = "TCC Runtime";
 	int result = entrypoint(1, &arg);
 	return result;
@@ -599,6 +606,8 @@ static int outputBinaryGCC()
 
 	StringBufferAppend(command, "gcc -I lib ");
 
+	StringBufferAppend(command, "-nostdlib ");
+
 	localFilePath(buffer, "lib");
 	StringBufferAppend(command, "-I ");
 	StringBufferAppend(command, buffer);
@@ -609,7 +618,7 @@ static int outputBinaryGCC()
 	StringBufferAppend(command, "-D true=1 ");
 	StringBufferAppend(command, "-D false=0 ");
 
-	localFilePath(buffer, "lib/snek.c");
+	localFilePath(buffer, "lib/platform.c");
 	StringBufferAppend(command, buffer);
 	StringBufferAppend(command, ' ');
 
@@ -797,9 +806,9 @@ static int runBinaryGCC()
 
 static int compareDiagnosticsItem(void const* a, void const* b)
 {
-	DiagnosticsItem* item1 = *(DiagnosticsItem**)a;
-	DiagnosticsItem* item2 = *(DiagnosticsItem**)b;
-	return item1->startLine < item2->startLine ? 1 : item1->startLine > item2->startLine ? -1 : item1->startCol < item2->startCol ? 1 : item1->startCol > item2->startCol ? -1 : 0;
+	DiagnosticsItem* item1 = (DiagnosticsItem*)a;
+	DiagnosticsItem* item2 = (DiagnosticsItem*)b;
+	return item1->startLine < item2->startLine ? -1 : item1->startLine > item2->startLine ? 1 : item1->startCol < item2->startCol ? -1 : item1->startCol > item2->startCol ? 1 : 0;
 }
 
 int _main(int argc, const char* argv[])

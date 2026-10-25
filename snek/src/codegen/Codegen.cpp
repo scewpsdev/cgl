@@ -3257,9 +3257,12 @@ static Function* getMainFunction(AST* ast)
 
 static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* mainFunction)
 {
-	emitString(buffer, "int main(int argc, char* argv[]){\n");
+	emitString(buffer, "void _start(){\n");
 
 	codegen->indentation++;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "sys_init();\n");
 
 	if (mainFunction->returnType)
 	{
@@ -3317,9 +3320,12 @@ static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* m
 			emitString(buffer, "();\n");
 		}
 
-		emitIndentation(codegen, buffer);
-		emitString(buffer, "return 0;\n");
+		//emitIndentation(codegen, buffer);
+		//emitString(buffer, "return 0;\n");
 	}
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "sys_exit(0);\n");
 
 	codegen->indentation--;
 
@@ -3355,7 +3361,7 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 
 	strcat(prologue, "// ");
 	strcat(prologue, localPath);
-	strcat(prologue, "\n#include <snek.h>\n");
+	strcat(prologue, "\n#include <platform.h>\n");
 
 	fwrite(prologue, 1, strlen(prologue), file);
 

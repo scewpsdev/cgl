@@ -1,0 +1,7 @@
+
+
+
+nomangle func sys_init();
+nomangle func sys_exit(uint code);
+nomangle func sys_print(const char* buffer, uint length);
+nomangle func sys_memory(byte* ptr, uint64 newSize) byte*;
