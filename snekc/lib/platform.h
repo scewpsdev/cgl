@@ -9,7 +9,7 @@ typedef unsigned long long SIZE_T;
 
 void sys_init();
 void sys_exit(UINT exit_code);
-void sys_print(const char* buffer, DWORD length);
+void sys_print(char* buffer, DWORD length);
 void* sys_memory(void* ptr, SIZE_T new_size);
 
 #define __bounds_check(x, file, line, col) // __assertmsg(x, "Bounds check failed: " #x " at " file ":" #line ":" #col)

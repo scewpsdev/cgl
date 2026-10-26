@@ -512,6 +512,7 @@ static int outputBinaryTCC()
 {
 	char buffer[512] = "";
 
+	// necessary for tccdefs.h
 	localFilePath(buffer, "lib/libtcc");
 	tcc_set_lib_path(tcc, buffer);
 
@@ -526,19 +527,21 @@ static int outputBinaryTCC()
 	tcc_add_include_path(tcc, buffer);
 	*/
 
+	// necessary for platform.h
 	localFilePath(buffer, "lib");
 	tcc_add_include_path(tcc, buffer);
 
-	tcc_add_library_path(tcc, ".");
+	//tcc_add_library_path(tcc, ".");
 
 	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
 	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
+	tcc_define_symbol(tcc, "STDCALL", "__attribute((stdcall))");
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
 	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
 
-	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-nostdlib -lkernel32 -m64");
 
 	localFilePath(buffer, "lib/platform.c");
 	tcc_add_file(tcc, buffer);
