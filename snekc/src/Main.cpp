@@ -541,7 +541,10 @@ static int outputBinaryTCC()
 
 	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
 
-	tcc_set_options(tcc, "-nostdlib -lkernel32 -m64");
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-subsystem=console");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+	tcc_add_library(tcc, "kernel32");
 
 	localFilePath(buffer, "lib/platform.c");
 	tcc_add_file(tcc, buffer);

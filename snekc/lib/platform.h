@@ -7,7 +7,6 @@ typedef int				   BOOL;
 typedef void*			   HANDLE;
 typedef unsigned long long SIZE_T;
 
-void sys_init();
 void sys_exit(UINT exit_code);
 void sys_print(char* buffer, DWORD length);
 void* sys_memory(void* ptr, SIZE_T new_size);

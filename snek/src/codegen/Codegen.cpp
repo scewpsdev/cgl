@@ -3257,75 +3257,56 @@ static Function* getMainFunction(AST* ast)
 
 static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* mainFunction)
 {
-	emitString(buffer, "void _start(){\n");
+	emitString(buffer, "static i32 cstrl(const char*str){i32 len=0;while(str[len])len++;return len;}\n");
+	emitString(buffer, "void _start(int argc, char* argv[]){\n");
 
 	codegen->indentation++;
 
-	emitIndentation(codegen, buffer);
-	emitString(buffer, "sys_init();\n");
+	if (mainFunction->numParams)
+	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "string argsData[argc];\n");
+
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "for(int i=0;i<argc;i++)argsData[i]=(string){argv[i],cstrl(argv[i])};\n");
+
+		Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
+		emitIndentation(codegen, buffer);
+		emitType(codegen, paramsType, buffer);
+		emitString(buffer, " args={argsData,argc};\n");
+	}
 
 	if (mainFunction->returnType)
 	{
-		if (mainFunction->numParams)
-		{
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "string* args=__alloca(sizeof(string)*argc);\n");
-		}
-
 		emitIndentation(codegen, buffer);
 		emitString(buffer, "int result=");
-		emitString(buffer, mainFunction->mangledName);
-
-		if (mainFunction->numParams)
-		{
-			Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
-
-			emitString(buffer, "((");
-			emitType(codegen, paramsType, buffer);
-			emitString(buffer, "){args,argc});\n");
-		}
-		else
-		{
-			emitString(buffer, "();\n");
-		}
-
-		emitIndentation(codegen, buffer);
-		emitString(buffer, "return result;\n");
 	}
 	else
 	{
-		if (mainFunction->numParams)
-		{
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "string argsData[argc];\n");
-
-			emitIndentation(codegen, buffer);
-			emitString(buffer, "for(int i=0;i<argc;i++)argsData[i]=(string){argv[i],__cstrl(argv[i])};\n");
-
-			Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
-			emitIndentation(codegen, buffer);
-			emitType(codegen, paramsType, buffer);
-			emitString(buffer, " args={argsData,argc};\n");
-		}
-
 		emitIndentation(codegen, buffer);
-		emitString(buffer, mainFunction->mangledName);
-
-		if (mainFunction->numParams)
-		{
-			emitString(buffer, "(args);\n");
-		}
-		else
-		{
-			emitString(buffer, "();\n");
-		}
-
-		//emitIndentation(codegen, buffer);
-		//emitString(buffer, "return 0;\n");
 	}
 
-	emitIndentation(codegen, buffer);
-	emitString(buffer, "sys_exit(0);\n");
+	emitString(buffer, mainFunction->mangledName);
+
+	if (mainFunction->numParams)
+	{
+		emitString(buffer, "(args);\n");
+	}
+	else
+	{
+		emitString(buffer, "();\n");
+	}
+
+	if (mainFunction->returnType)
+	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "sys_exit(result);\n");
+	}
+	else
+	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "sys_exit(0);\n");
+	}
 
 	codegen->indentation--;
 
