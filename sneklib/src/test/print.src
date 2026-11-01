@@ -1,0 +1,39 @@
+import system;
+import console;
+import string;
+
+
+func test_print() {
+	print(123);
+	println("string");
+	
+	string[] string_array = ["1", "2", "3"];
+	for i : string_array.size {
+		println(string_array[i]);
+	}
+	
+	void* file = sys_open_file("test_print.txt", SYS_FILE_WRITE);
+	
+	string digits = "0123456789";
+	uint64 written = sys_write_file(file, digits.data, digits.size);
+	
+	sys_close_file(file);
+	
+	char[50] buffer;
+	file = sys_open_file("test_print.txt", SYS_FILE_READ);
+	uint64 size = sys_get_file_size(file);
+	sys_read_file(file, buffer.data, size);
+	
+	sys_close_file(file);
+	
+	string fileDigits = string(buffer.data, size);
+	bool result = compare_string(digits, fileDigits);
+	
+	println("epicness%oder so%", 123, "lul");
+	
+	if result {
+		println("test_print success");
+	} else {
+		println("test_print failed");
+	}
+}

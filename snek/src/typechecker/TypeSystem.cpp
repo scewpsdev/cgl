@@ -381,6 +381,11 @@ static StringView createTypeString(Arena* arena, const char* fmt, ...)
 	va_start(args, fmt);
 
 	int length = vsnprintf(nullptr, 0, fmt, args);
+
+	// reset args for second use (mandatory on linux)
+	va_end(args);
+	va_start(args, fmt);
+
 	char* buffer = (char*)arena->alloc(length + 1);
 	vsnprintf(buffer, length + 1, fmt, args);
 	buffer[length] = 0;

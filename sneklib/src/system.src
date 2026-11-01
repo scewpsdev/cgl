@@ -1,6 +1,53 @@
 
 
+// has to match table in sys_print
+const uint SYS_INPUT = 1;
+const uint SYS_OUTPUT = 2;
+const uint SYS_ERROR = 3;
+
+// has to match table in sys_open_file
+const uint SYS_FILE_WRITE = 0x1;
+const uint SYS_FILE_READ = 0x2;
+
+
+nomangle func memcpy(void* dst, void* src, uint64 len) void*;
 
 nomangle func sys_exit(uint code);
-nomangle func sys_print(char* buffer, uint length);
 nomangle func sys_memory(void* ptr, uint64 newSize) void*;
+nomangle func sys_debug_trap();
+
+nomangle func sys_open_file(string path, uint access) void*;
+nomangle func sys_close_file(void* file);
+nomangle func sys_get_file_size(void* file) uint64;
+nomangle func sys_read_file(void* file, void* buffer, uint64 size) uint64;
+nomangle func sys_write_file(void* file, void* buffer, uint64 size) uint64;
+nomangle func sys_get_std_file(uint stream) void*;
+
+
+private func print_uint(void* stream, uint value) {
+	char[20] buffer;
+	int i = 19;
+	if value == 0 {
+		buffer[--i] = '0';
+	}
+	while value && i > 0 {
+		buffer[--i] = char('0' + value % 10);
+		value /= 10;
+	}
+	int len = 19 - i;
+	
+	void* err = sys_get_std_file(SYS_ERROR);
+	sys_write_file(err, buffer.data, len);
+}
+
+func assert_fail(string condition, string file, uint line) {
+	void* err = sys_get_std_file(SYS_ERROR);
+	sys_write_file(err, "--- Assertion failed ---\nCondition: ".data, 36);
+    sys_write_file(err, condition.data, condition.size);
+    sys_write_file(err, "\nFile: ".data, 7);
+    sys_write_file(err, file.data, file.size);
+    sys_write_file(err, "\nLine: ".data, 7);
+    print_uint(err, line);
+    sys_write_file(err, "\n".data, 1);
+    sys_debug_trap();
+}

@@ -1,9 +1,10 @@
 import system;
+import console;
+import test.print;
 
 
 func main(string[] args) {
-	string digits = "0123456789";
-	sys_print("hello world\n", 12);
-	sys_print(&digits[args.size], 1);
-	sys_print("\n", 1);
+	test_print();
+	
+	
 }

@@ -1,5 +1,6 @@
 .vs/
 bin/
+out/
 cgl/obj/
 cgl-core/obj/
 cgl-bindgen/obj/

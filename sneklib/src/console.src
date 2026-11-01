@@ -1,0 +1,53 @@
+import system;
+import string;
+
+
+func print(string str) {
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, str.data, str.size);
+}
+
+func println(string str) {
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, str.data, str.size);
+	sys_write_file(out, "\n".data, 1);
+}
+
+func print(int64 value) {
+	char[64] buffer;
+	int len = int_to_string(buffer, value, 10);
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, buffer.data, len);
+}
+
+func println(int64 value) {
+	char[64] buffer;
+	int len = int_to_string(buffer, value, 10);
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, buffer.data, len);
+	sys_write_file(out, "\n".data, 1);
+}
+
+func print(uint64 value) {
+	char[64] buffer;
+	int len = uint_to_string(buffer, value, 10);
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, buffer.data, len);
+}
+
+func println(uint64 value) {
+	char[64] buffer;
+	int len = uint_to_string(buffer, value, 10);
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, buffer.data, len);
+	sys_write_file(out, "\n".data, 1);
+}
+
+func println(string fmt, any... args) int {
+	char[512] buffer;
+	int len = format(buffer, fmt, args);
+	void* out = sys_get_std_file(SYS_OUTPUT);
+	sys_write_file(out, buffer.data, len);
+	sys_write_file(out, "\n".data, 1);
+	return len;
+}

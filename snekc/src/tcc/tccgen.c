@@ -31,7 +31,7 @@
 */
 ST_DATA int rsym, anon_sym, ind, loc;
 
-ST_DATA Sym *global_stack;
+Sym *global_stack;
 ST_DATA Sym *local_stack;
 ST_DATA Sym *define_stack;
 ST_DATA Sym *global_label_stack;

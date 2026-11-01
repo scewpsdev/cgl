@@ -1,0 +1,75 @@
+import system;
+import type;
+
+
+func compare_string(string a, string b) bool {
+	if a.size != b.size return false;
+	for i : a.size {
+		if a[i] != b[i] return false;
+	}
+	return true;
+}
+
+private func uint_get_digits(uint64 value, int base) int {
+	int digits = 0;
+	if value == 0 return 1;
+	
+	while value {
+		digits++;
+		value /= base;
+	}
+	
+	return digits;
+}
+
+func uint_to_string(char[] buffer, uint64 value, int base) int {
+	int digits = uint_get_digits(value, base);
+	int i = digits;
+	
+	if value == 0 {
+		buffer[--i] = '0';
+		return 1;
+	}
+	
+	while value {
+		buffer[--i] = char('0' + value % base);
+		value /= base;
+	}
+	
+	return digits;
+}
+
+func int_to_string(char[] buffer, int64 value, int base) int {
+	if value < 0 {
+		buffer[0] = '-';
+		buffer = buffer[1..];
+		value = -value;
+	}
+	return uint_to_string(buffer, uint64(value), base);
+}
+
+private func write_any(char[] buffer, any value) int {
+	if value.type == TypeKind.Int return int_to_string(buffer, int64(value), 10);
+	else if value.type == TypeKind.String {
+		string str = string(value);
+		memcpy(buffer.data, str.data, str.size);
+		return int(str.size);
+	} else {
+		buffer[0] = '?';
+		return 1;
+	}
+}
+
+func format(char[] buffer, string fmt, any... args) int {
+	int len = 0;
+	int arg_idx = 0;
+	for i : fmt.size {
+		char c = fmt[i];
+		if c == '%' && arg_idx < args.size {
+			len += write_any(buffer[len..], args[arg_idx++]);
+		} else {
+			buffer[len++] = c;
+		}
+	}
+	return len;
+}

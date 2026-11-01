@@ -1,0 +1,22 @@
+
+
+
+enum TypeKind = int {
+	Null = 0,
+	
+	Void,
+	Int,
+	Float = 12,
+	Bool = 16,
+	Any,
+	String,
+	Struct,
+	Union,
+	Enum,
+	Alias,
+	Pointer,
+	Optional,
+	Reference,
+	Function,
+	Array,
+}

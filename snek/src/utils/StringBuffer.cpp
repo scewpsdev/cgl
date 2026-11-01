@@ -66,14 +66,14 @@ void StringBufferAppend(StringBuffer& buffer, char c) {
 
 void StringBufferAppend(StringBuffer& buffer, int i) {
 	char str[16];
-	_itoa(i, str, 10);
+	snprintf(str, sizeof(str), "%d", i);
 	StringBufferAppend(buffer, str);
 }
 
 void StringBufferAppend(StringBuffer& buffer, unsigned long ul)
 {
 	char str[32];
-	_ultoa(ul, str, 10);
+	snprintf(str, sizeof(str), "%ul", ul);
 	StringBufferAppend(buffer, str);
 }
 

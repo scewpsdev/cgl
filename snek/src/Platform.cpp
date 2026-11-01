@@ -32,3 +32,10 @@ void SleepMS(uint64_t ms)
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
+
+#ifndef _WIN32
+void __debugbreak()
+{
+	__asm__ volatile("int3");
+}
+#endif

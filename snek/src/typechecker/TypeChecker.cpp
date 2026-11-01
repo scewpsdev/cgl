@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <ctype.h>
+#include <errno.h>
 
 
 void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types)
@@ -1250,6 +1251,18 @@ static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression*
 	return 999;
 }
 
+static Type* getFunctionParamType(Type* functionType, int idx)
+{
+	Type* paramType = idx < functionType->function.numParams ? functionType->function.paramTypes[idx] : nullptr;
+	if (functionType->function.variadic)
+	{
+		Type* variadicType = functionType->function.paramTypes[functionType->function.numParams - 1];
+		SnekAssert(variadicType->typeKind == TYPE_ARRAY);
+		paramType = variadicType->array.elementType;
+	}
+	return paramType;
+}
+
 static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, int numArgs, Expression** args, int& bestOverload, bool& ambiguous)
 {
 	int bestScore = 9999;
@@ -1257,11 +1270,19 @@ static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, in
 	for (int i = 0; i < functionSet->count; i++)
 	{
 		Function* function = functionSet->overloads[i].declaration;
-		if (function->numParams != numArgs)
-			continue;
+		Type* functionType = function->functionType;
 
 		// function has not been resolved yet, eg while evaluating inline function return expressions
-		if (!function->functionType)
+		if (!functionType)
+			continue;
+
+		bool variadic = functionType->function.variadic;
+		Type* variadicType = variadic ? functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType : nullptr;
+
+		bool argCountMismatch = variadic ?
+			numArgs < function->numParams - 1 :
+			function->numParams != numArgs;
+		if (argCountMismatch)
 			continue;
 
 		int currentScore = 0;
@@ -1270,7 +1291,7 @@ static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, in
 		for (int j = 0; j < numArgs; j++)
 		{
 			Type* argType = args[j]->inferredType;
-			Type* paramType = function->params[j]->paramType->inferredType;
+			Type* paramType = getFunctionParamType(functionType, j);
 
 			int score = argScore(tc, argType, paramType, args[j]);
 			if (score > 4)
@@ -1281,6 +1302,8 @@ static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, in
 
 			currentScore += score;
 		}
+		if (variadic)
+			currentScore += 1;
 
 		if (valid)
 		{
@@ -1439,7 +1462,7 @@ int getFieldIndex(Type* operandType, StringView name, Expression* operand)
 	{
 		if (compareString(name, "data"))
 			return 0;
-		else if (compareString(name, "length"))
+		else if (compareString(name, "size"))
 			return 1;
 		return -1;
 	}
@@ -2187,7 +2210,8 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			for (int i = 0; i < functionCall->numArgs; i++)
 			{
 				resetExpression(&functionCall->args[i]);
-				resolveExpression(tc, functionCall->args[i], functionType->function.paramTypes[i]);
+				Type* paramType = getFunctionParamType(functionType, i);
+				resolveExpression(tc, functionCall->args[i], paramType);
 			}
 
 			for (int i = 0; i < numArgs; i++)
@@ -2231,6 +2255,11 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 						{
 							error(tc, (Node*)arg, "Cannot pass value of type '%.*s' to function parameter of type '%.*s'", argType->name.length, argType->name.ptr, paramType->name.length, paramType->name.ptr);
 						}
+					}
+					else if (functionType->function.variadic && i == functionType->function.numParams - 1
+						&& numArgs == functionType->function.numParams
+						&& compareTypes(functionType->function.paramTypes[i], argType))
+					{
 					}
 					else
 					{

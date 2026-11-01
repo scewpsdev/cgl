@@ -71,6 +71,8 @@ static void getLocalPath(char* buffer, const char* path, const char* rootPath)
 {
 	namespace fs = std::filesystem;
 	fs::path mainFileDirectory = fs::path(rootPath).parent_path();
+	if (mainFileDirectory == "")
+		mainFileDirectory = ".";
 	fs::path localPath = fs::relative(path, mainFileDirectory);
 	std::string localPathStr = localPath.string();
 	strcpy(buffer, localPathStr.c_str());
@@ -79,8 +81,11 @@ static void getLocalPath(char* buffer, const char* path, const char* rootPath)
 static char* getPathFromLocalPath(const char* localPath, const char* rootPath)
 {
 	namespace fs = std::filesystem;
-	std::string mainFileDirectory = fs::path(rootPath).parent_path().string();
-	fs::path absolutePath = mainFileDirectory + "/" + localPath;
+	fs::path mainFileDirectory = fs::path(rootPath).parent_path();
+	if (mainFileDirectory == "")
+		mainFileDirectory = ".";
+	std::string mainFileDirectoryStr = mainFileDirectory.string();
+	fs::path absolutePath = mainFileDirectoryStr + "/" + localPath;
 	std::string absolutePathStr = absolutePath.string();
 	return _strdup(absolutePathStr.c_str());
 }
@@ -224,7 +229,7 @@ static bool addSourceFile(Compiler* compiler, const char* localPath)
 
 static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 {
-	if (argc == 0)
+	if (argc <= 1)
 	{
 		// todo print help
 		fprintf(stderr, "Must specify command\n");
@@ -539,15 +544,28 @@ static int outputBinaryTCC()
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
-	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
-
+#ifdef _WIN32
 	tcc_set_options(tcc, "-nostdlib");
 	tcc_set_options(tcc, "-Wl,-subsystem=console");
 	tcc_set_options(tcc, "-Wl,-entry=_start");
 	tcc_add_library(tcc, "kernel32");
+#else
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+#endif
 
-	localFilePath(buffer, "lib/platform.c");
+	if (compiler.debugInfo)
+		tcc_set_options(tcc, "-g");
+
+	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
+
+#ifdef _WIN32
+	localFilePath(buffer, "lib/platform_windows.c");
 	tcc_add_file(tcc, buffer);
+#else
+	localFilePath(buffer, "lib/platform_posix.c");
+	tcc_add_file(tcc, buffer);
+#endif
 
 	for (int i = 0; i < compiler.sourceFiles.size; i++)
 	{
@@ -588,7 +606,11 @@ static int outputBinaryTCC()
 	}
 	else
 	{
+#ifdef _WIN32
 		const char* outPath = compiler.outPath ? compiler.outPath : compiler.dll ? "a.dll" : "a.exe";
+#else
+		const char* outPath = compiler.outPath ? compiler.outPath : compiler.dll ? "a.so" : "a";
+#endif
 
 		createDirectories(outPath);
 		int result = tcc_output_file(tcc, outPath);
@@ -597,10 +619,13 @@ static int outputBinaryTCC()
 	}
 }
 
+typedef struct { char* data; uint64_t size; } snek_string;
+
 static int runBinaryTCC()
 {
-	int(*entrypoint)(int, const char**) = (int(*)(int, const char**))tcc_get_symbol(tcc, "_start");
-	const char* arg = "TCC Runtime";
+	int(*entrypoint)(int, snek_string*) = (int(*)(int, snek_string*))tcc_get_symbol(tcc, "_main");
+	const char* argStr = "TCC Runtime";
+	snek_string arg = { .data = (char*)argStr, .size = 11 };
 	int result = entrypoint(1, &arg);
 	return result;
 }
@@ -612,21 +637,50 @@ static int outputBinaryGCC()
 
 	StringBufferAppend(command, "gcc -I lib ");
 
+#ifdef _WIN32
 	StringBufferAppend(command, "-nostdlib ");
+	StringBufferAppend(command, "-Wl,-subsystem=console ");
+	StringBufferAppend(command, "-Wl,-entry=_start ");
+#else
+	StringBufferAppend(command, "-nostdlib ");
+	StringBufferAppend(command, "-Wl,-entry=_start ");
+#endif
+
+	if (compiler.debugInfo)
+		StringBufferAppend(command, "-g ");
+	if (compiler.optimize)
+		StringBufferAppend(command, "-O3 ");
+	if (compiler.dll)
+		StringBufferAppend(command, "-shared ");
+
+#ifdef _WIN32
+	StringBufferAppend(command, "-D DLLEXPORT=__attribute((dllexport)) ");
+	StringBufferAppend(command, "-D DLLIMPORT=__attribute((dllimport)) ");
+	StringBufferAppend(command, "-D STDCALL=__attribute((stdcall)) ");
+	StringBufferAppend(command, "-D true=1 ");
+	StringBufferAppend(command, "-D false=0 ");
+#else
+	StringBufferAppend(command, "-D DLLEXPORT=__attribute\\(\\(dllexport\\)\\) ");
+	StringBufferAppend(command, "-D DLLIMPORT=__attribute\\(\\(dllimport\\)\\) ");
+	StringBufferAppend(command, "-D STDCALL=__attribute\\(\\(stdcall\\)\\) ");
+	StringBufferAppend(command, "-D true=1 ");
+	StringBufferAppend(command, "-D false=0 ");
+#endif
 
 	localFilePath(buffer, "lib");
 	StringBufferAppend(command, "-I ");
 	StringBufferAppend(command, buffer);
 	StringBufferAppend(command, ' ');
 
-	StringBufferAppend(command, "-D DLLEXPORT=__attribute((dllexport)) ");
-	StringBufferAppend(command, "-D DLLIMPORT=__attribute((dllimport)) ");
-	StringBufferAppend(command, "-D true=1 ");
-	StringBufferAppend(command, "-D false=0 ");
-
-	localFilePath(buffer, "lib/platform.c");
+#ifdef _WIN32
+	localFilePath(buffer, "lib/platform_windows.c");
 	StringBufferAppend(command, buffer);
 	StringBufferAppend(command, ' ');
+#else
+	localFilePath(buffer, "lib/platform_posix.c");
+	StringBufferAppend(command, buffer);
+	StringBufferAppend(command, ' ');
+#endif
 
 	//tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
 
@@ -667,18 +721,10 @@ static int outputBinaryGCC()
 		//tcc_add_file(tcc, compiler.dllFiles[i]);
 	}
 
-	if (compiler.debugInfo)
-	{
-		StringBufferAppend(command, "-g ");
-	}
-	if (compiler.optimize)
-	{
-		StringBufferAppend(command, "-O3 ");
-	}
-	if (compiler.dll)
-	{
-		StringBufferAppend(command, "-shared ");
-	}
+#ifdef _WIN32
+	StringBufferAppend(command, "-lkernel32 ");
+#endif
+	StringBufferAppend(command, "-lgcc ");
 
 	if (compiler.run)
 	{
@@ -817,7 +863,7 @@ static int compareDiagnosticsItem(void const* a, void const* b)
 	return item1->startLine < item2->startLine ? -1 : item1->startLine > item2->startLine ? 1 : item1->startCol < item2->startCol ? -1 : item1->startCol > item2->startCol ? 1 : 0;
 }
 
-int _main(int argc, const char* argv[])
+int main(int argc, const char* argv[])
 {
 	uint64_t t0 = GetTimeNS();
 
@@ -995,12 +1041,4 @@ int _main(int argc, const char* argv[])
 	destroyCompiler(&compiler);
 
 	return result;
-}
-
-int main(int argc, const char* argv[])
-{
-	for (int i = 0; i < 1; i++)
-	{
-		_main(argc, argv);
-	}
 }

@@ -1,16 +1,6 @@
 #pragma once
 
 
-typedef unsigned int	   DWORD;
-typedef unsigned int	   UINT;
-typedef int				   BOOL;
-typedef void*			   HANDLE;
-typedef unsigned long long SIZE_T;
-
-void sys_exit(UINT exit_code);
-void sys_print(char* buffer, DWORD length);
-void* sys_memory(void* ptr, SIZE_T new_size);
-
 #define __bounds_check(x, file, line, col) // __assertmsg(x, "Bounds check failed: " #x " at " file ":" #line ":" #col)
 
 
@@ -29,7 +19,7 @@ typedef double f64;
 typedef _Bool bool;
 #endif
 
-typedef struct { char* data; u64 length; } string;
+typedef struct { char* data; u64 size; } string;
 typedef struct {
     union {
         i64 int_;

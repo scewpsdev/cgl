@@ -1962,11 +1962,11 @@ static inline void post_sem(TCCSem *p) {
 
 /********************************************************/
 #undef ST_DATA
-//#if ONE_SOURCE
-//#define ST_DATA static
-//#else
+#if ONE_SOURCE
+#define ST_DATA static
+#else
 #define ST_DATA
-//#endif
+#endif
 /********************************************************/
 
 #define text_section        TCC_STATE_VAR(text_section)

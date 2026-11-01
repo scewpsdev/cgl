@@ -328,7 +328,8 @@ static int stringWriteExpression(char* dst, const char* format, va_list args)
 			}
 			else if (insertType == 'o')
 			{
-				OperatorType op = va_arg(args, OperatorType);
+				// the cast from int is necessary on linux because uint8_t gets promoted to int when using var args
+				OperatorType op = (OperatorType)va_arg(args, int);
 				len += emitOperator(dst ? &dst[len] : nullptr, op);
 			}
 			else if (insertType == 's')
@@ -663,6 +664,13 @@ static void declareEnum(Codegen* codegen, Enum* enum_)
 
 	declareType(codegen, enum_->enumType->enum_.valueType);
 
+	emitString(buffer, "typedef ");
+	emitType(codegen, enum_->enumType->enum_.valueType, buffer);
+	emitChar(buffer, ' ');
+	emitString(buffer, enum_->name);
+	emitString(buffer, ";\n");
+
+	/*
 	emitString(buffer, "enum ");
 	emitString(buffer, enum_->name);
 	emitString(buffer, ":");
@@ -692,6 +700,7 @@ static void declareEnum(Codegen* codegen, Enum* enum_)
 	codegen->indentation--;
 
 	emitString(buffer, "};\n");
+	*/
 
 	codegen->indentation = lastIndentation;
 }
@@ -1141,8 +1150,16 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		if (expression->inferredType->typeKind == TYPE_STRING)
 		{
-			Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,#i}", ptr, stringLiteral->value.length);
+			Value value = declareLocalValue(codegen, getStringType(codegen->types), buffer);
+			emitString(buffer, "(string){");
+			emitValue(buffer, ptr);
+			emitString(buffer, ",");
+			emitInteger(buffer, stringLiteral->value.length);
+			emitString(buffer, "};\n");
 			return value;
+
+			//Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,#i}", ptr, stringLiteral->value.length);
+			//return value;
 
 			Value str = declareLocalValue(codegen, &codegen->types->primitiveTypes[TYPE_STRING], buffer);
 
@@ -1336,70 +1353,41 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		SnekAssert(arrayInitializer->inferredType->typeKind == TYPE_ARRAY);
 
-		if (arrayInitializer->inferredType->array.size == 0)
+		int mark = codegen->scratch.mark();
+		for (int i = 0; i < arrayInitializer->numValues; i++)
 		{
-			declareType(codegen, arrayInitializer->inferredType);
-
-			Value ptr = createGlobalValue(codegen, nullptr);
-
-			emitString(&codegen->globalsBuffer, "static ");
-			emitType(codegen, arrayInitializer->inferredType->array.elementType, &codegen->globalsBuffer);
-			emitString(&codegen->globalsBuffer, "* const ");
-			emitValue(&codegen->globalsBuffer, ptr);
-			emitString(&codegen->globalsBuffer, "={");
-			for (int i = 0; i < arrayInitializer->numValues; i++)
-			{
-				emitExpressionConstant(codegen, arrayInitializer->values[i], &codegen->globalsBuffer);
-				if (i < arrayInitializer->numValues - 1)
-					emitChar(buffer, ',');
-			}
-			emitString(&codegen->globalsBuffer, "};\n");
-
-			Value value = getExpressionValue(codegen, buffer, arrayInitializer->inferredType, "(#t){#v,#i}", arrayInitializer->inferredType, ptr, arrayInitializer->numValues);
-			return value;
-
-			Value arr = declareLocalValue(codegen, arrayInitializer->inferredType, buffer);
-
-			emitChar(buffer, '(');
-			emitType(codegen, arrayInitializer->inferredType, buffer);
-			emitString(buffer, "){");
-			emitValue(buffer, ptr);
-			emitChar(buffer, ',');
-			emitInteger(buffer, arrayInitializer->numValues);
-			emitString(buffer, "};\n");
-
-			return arr;
+			Value value = emitExpression(codegen, arrayInitializer->values[i], buffer);
+			codegen->scratch.add(value);
 		}
-		else
+
+		Value* values = codegen->scratch.getData<Value>(mark);
+		int numValues = codegen->scratch.count<Value>(mark);
+
+		declareType(codegen, arrayInitializer->inferredType);
+
+		Value data = createLocalValue(codegen, arrayInitializer->inferredType->array.elementType);
+
+		emitIndentation(codegen, buffer);
+		emitType(codegen, arrayInitializer->inferredType->array.elementType, buffer);
+		emitChar(buffer, ' ');
+		emitValue(buffer, data);
+		emitString(buffer, "[]=");
+		emitChar(buffer, '{');
+
+		for (int i = 0; i < arrayInitializer->numValues; i++)
 		{
-			int mark = codegen->scratch.mark();
-			for (int i = 0; i < arrayInitializer->numValues; i++)
-			{
-				Value value = emitExpression(codegen, arrayInitializer->values[i], buffer);
-				codegen->scratch.add(value);
-			}
-
-			Value* values = codegen->scratch.getData<Value>(mark);
-
-			declareType(codegen, arrayInitializer->inferredType);
-
-			Value array = declareLocalValue(codegen, arrayInitializer->inferredType, buffer);
-			emitChar(buffer, '{');
-
-			for (int i = 0; i < arrayInitializer->numValues; i++)
-			{
-				Value value = values[i];
-				emitValue(buffer, value);
-				if (i < arrayInitializer->numValues - 1)
-					emitChar(buffer, ',');
-			}
-
-			emitString(buffer, "};\n");
-
-			codegen->scratch.release(mark);
-
-			return array;
+			Value value = values[i];
+			emitValue(buffer, value);
+			if (i < arrayInitializer->numValues - 1)
+				emitChar(buffer, ',');
 		}
+
+		emitString(buffer, "};\n");
+
+		codegen->scratch.release(mark);
+
+		Value value = getExpressionValue(codegen, buffer, arrayInitializer->inferredType, "(#t){#v,#i}", arrayInitializer->inferredType, data, numValues);
+		return value;
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
@@ -1640,33 +1628,42 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SnekAssert(functionType->function.paramTypes[functionType->function.numParams - 1]->typeKind == TYPE_ARRAY);
 			Type* variadicType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
 
-			Value argsData = createLocalValue(codegen, nullptr);
-
-			newLine(codegen, buffer);
-			//emitString(buffer, "const "); statically sized array is already constant by default
-			emitType(codegen, variadicType, buffer);
-			emitChar(buffer, ' ');
-			emitValue(buffer, argsData);
-			emitChar(buffer, '[');
-			emitInteger(buffer, numVariadicArgs);
-			emitString(buffer, "]={");
-
-			for (int i = 0; i < numVariadicArgs; i++)
+			if (numVariadicArgs == 1
+				&& args[functionType->function.numParams - 1].type->typeKind == TYPE_ARRAY
+				&& compareTypes(args[functionType->function.numParams - 1].type->array.elementType, variadicType))
 			{
-				Value variadicArg = args[functionType->function.numParams - 1 + i];
-				emitValue(buffer, variadicArg);
-				if (i < numVariadicArgs - 1)
-					emitChar(buffer, ',');
+				variadicArgs = args[functionType->function.numParams - 1];
 			}
+			else
+			{
+				Value argsData = createLocalValue(codegen, nullptr);
 
-			emitString(buffer, "};\n");
+				newLine(codegen, buffer);
+				//emitString(buffer, "const "); statically sized array is already constant by default
+				emitType(codegen, variadicType, buffer);
+				emitChar(buffer, ' ');
+				emitValue(buffer, argsData);
+				emitChar(buffer, '[');
+				emitInteger(buffer, numVariadicArgs);
+				emitString(buffer, "]={");
 
-			variadicArgs = declareLocalValue(codegen, getArrayType(codegen->types, variadicType, 0, codegen->currentFile), buffer);
-			emitChar(buffer, '{');
-			emitString(buffer, argsData.name);
-			emitChar(buffer, ',');
-			emitInteger(buffer, numVariadicArgs);
-			emitString(buffer, "};\n");
+				for (int i = 0; i < numVariadicArgs; i++)
+				{
+					Value variadicArg = args[functionType->function.numParams - 1 + i];
+					emitValue(buffer, variadicArg);
+					if (i < numVariadicArgs - 1)
+						emitChar(buffer, ',');
+				}
+
+				emitString(buffer, "};\n");
+
+				variadicArgs = declareLocalValue(codegen, getArrayType(codegen->types, variadicType, 0, codegen->currentFile), buffer);
+				emitChar(buffer, '{');
+				emitString(buffer, argsData.name);
+				emitChar(buffer, ',');
+				emitInteger(buffer, numVariadicArgs);
+				emitString(buffer, "};\n");
+			}
 		}
 
 		Value result = {};
@@ -1894,7 +1891,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
-			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v.data[#v],#v-#v}", operand, low, high, low);
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "(#t){&#v.data[#v],#v-#v}", slice->inferredType, operand, low, high, low);
 			return value;
 
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
@@ -1977,7 +1974,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			emitInteger(buffer, start.col + 1);
 			emitString(buffer, ");\n");
 
-			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v.data[#v],#v-#v}", operand, low, high, low);
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "(#t){&#v.data[#v],#v-#v}", slice->inferredType, operand, low, high, low);
 			return value;
 
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
@@ -2003,7 +2000,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			SnekAssert(slice->high);
 
-			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "{&#v[#v],#v-#v}", operand, low, high, low);
+			Value value = getExpressionValue(codegen, buffer, slice->inferredType, "(#t){&#v[#v],#v-#v}", slice->inferredType, operand, low, high, low);
 			return value;
 
 			Value result = declareLocalValue(codegen, slice->inferredType, buffer);
@@ -2145,12 +2142,12 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (member->index == 1)
 			{
-				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.length", operand);
+				Value value = getExpressionValue(codegen, buffer, member->inferredType, "#v.size", operand);
 				return value;
 
 				Value length = declareLocalValue(codegen, member->inferredType, buffer);
 				emitValue(buffer, operand);
-				emitString(buffer, ".length;\n");
+				emitString(buffer, ".size;\n");
 
 				return length;
 			}
@@ -2351,7 +2348,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			{
 				if (expressionType->array.size != 0 && targetType->array.size == 0)
 				{
-					Value value = getExpressionValue(codegen, buffer, targetType, "{#v.data,#l}", expression, expressionType->array.size);
+					Value value = getExpressionValue(codegen, buffer, targetType, "(#t){#v.data,#l}", targetType, expression, expressionType->array.size);
 					return value;
 
 					Value result = declareLocalValue(codegen, targetType, buffer);
@@ -3257,23 +3254,16 @@ static Function* getMainFunction(AST* ast)
 
 static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* mainFunction)
 {
-	emitString(buffer, "static i32 cstrl(const char*str){i32 len=0;while(str[len])len++;return len;}\n");
-	emitString(buffer, "void _start(int argc, char* argv[]){\n");
+	emitString(buffer, "int _main(int argc,string*argv){\n");
 
 	codegen->indentation++;
 
 	if (mainFunction->numParams)
 	{
-		emitIndentation(codegen, buffer);
-		emitString(buffer, "string argsData[argc];\n");
-
-		emitIndentation(codegen, buffer);
-		emitString(buffer, "for(int i=0;i<argc;i++)argsData[i]=(string){argv[i],cstrl(argv[i])};\n");
-
 		Type* paramsType = getArrayType(codegen->types, getStringType(codegen->types), 0, codegen->currentFile);
 		emitIndentation(codegen, buffer);
 		emitType(codegen, paramsType, buffer);
-		emitString(buffer, " args={argsData,argc};\n");
+		emitString(buffer, " args={argv,argc};\n");
 	}
 
 	if (mainFunction->returnType)
@@ -3300,12 +3290,12 @@ static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* m
 	if (mainFunction->returnType)
 	{
 		emitIndentation(codegen, buffer);
-		emitString(buffer, "sys_exit(result);\n");
+		emitString(buffer, "return result;\n");
 	}
 	else
 	{
 		emitIndentation(codegen, buffer);
-		emitString(buffer, "sys_exit(0);\n");
+		emitString(buffer, "return 0;\n");
 	}
 
 	codegen->indentation--;
