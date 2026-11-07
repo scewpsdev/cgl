@@ -548,7 +548,6 @@ static int outputBinaryTCC()
 	tcc_set_options(tcc, "-nostdlib");
 	tcc_set_options(tcc, "-Wl,-subsystem=console");
 	tcc_set_options(tcc, "-Wl,-entry=_start");
-	tcc_add_library(tcc, "kernel32");
 #else
 	tcc_set_options(tcc, "-nostdlib");
 	tcc_set_options(tcc, "-Wl,-entry=_start");
@@ -597,6 +596,10 @@ static int outputBinaryTCC()
 	{
 		tcc_add_file(tcc, compiler.dllFiles[i]);
 	}
+
+#ifdef _WIN32
+	tcc_add_library(tcc, "kernel32");
+#endif
 
 	if (compiler.run)
 	{

@@ -4,6 +4,11 @@
 #define NULL ((void*)0)
 typedef unsigned long long SIZE_T;
 
+typedef struct timespec {
+    long long tv_sec;
+    long long tv_nsec;
+} timespec;
+
 // has to match table in sys_open_file
 #define SYS_FILE_WRITE (0x1)
 #define SYS_FILE_READ  (0x2)
@@ -21,6 +26,7 @@ typedef unsigned long long SIZE_T;
 #define SYS_munmap    11
 #define SYS_mremap    25
 #define SYS_exit      60
+#define SYS_clock_gettime 228
 
 #define O_RDONLY      00
 #define O_WRONLY      01
@@ -151,6 +157,10 @@ void sys_exit(unsigned int exit_code) {
     while (1);
 }
 
+void sys_debug_trap() {
+    __asm__ volatile("int3");
+}
+
 /* ============================================================================
  * 5. Memory Subsystem (Sized Heap Allocator over mmap)
  * ============================================================================ */
@@ -246,6 +256,9 @@ void* sys_get_std_file(unsigned int stream) {
     return (void*)-1;
 }
 
-void sys_debug_trap() {
-    __asm__ volatile("int3");
+double sys_time_seconds() {
+    timespec time = {0};
+    long long res = sys_call(SYS_clock_gettime, CLOCK_MONOTONIC, (long long)&time, 0, 0, 0, 0);
+    if (res < 0) return 0.0;
+    return (double)time.tv_sec + ((double)time.tv_nsec / 1e9);
 }

@@ -46,6 +46,9 @@ DLLIMPORT HANDLE CreateFileA(const char* lpFileName, DWORD dwDesiredAccess, DWOR
 DLLIMPORT BOOL   GetFileSizeEx(HANDLE hFile, LARGE_INTEGER* lpFileSize);
 DLLIMPORT BOOL   CloseHandle(HANDLE hObject);
 
+DLLIMPORT BOOL STDCALL QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount);
+DLLIMPORT BOOL STDCALL QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency);
+
 
 void* memset(void* dst, int val, SIZE_T len) {
     unsigned char* ptr = (unsigned char*)dst;
@@ -165,6 +168,10 @@ void sys_exit(unsigned int exit_code) {
     ExitProcess(exit_code);
 }
 
+void sys_debug_trap() {
+    __asm__ volatile("int3");
+}
+
 void* sys_memory(void* ptr, unsigned long long new_size) {
     HANDLE heap = GetProcessHeap();
 
@@ -261,6 +268,11 @@ void* sys_get_std_file(unsigned int stream) {
     return GetStdHandle(handles[stream]);
 }
 
-void sys_debug_trap() {
-    __asm__ volatile("int3");
+double sys_time_seconds() {
+    LARGE_INTEGER counter;
+    LARGE_INTEGER frequency;
+    if (QueryPerformanceCounter(&counter) && QueryPerformanceFrequency(&frequency)) {
+        return (double)counter / (double)frequency;
+    }
+    return 0.0;
 }
