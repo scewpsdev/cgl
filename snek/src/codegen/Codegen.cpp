@@ -912,8 +912,9 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 	}
 	else if (type->typeKind == TYPE_ENUM)
 	{
-		emitString(buffer, "enum ");
-		emitString(buffer, type->enum_.name);
+		emitType(codegen, type->enum_.valueType, buffer);
+		//emitString(buffer, "enum ");
+		//emitString(buffer, type->enum_.name);
 	}
 	else if (type->typeKind == TYPE_ALIAS)
 	{
