@@ -4,6 +4,9 @@
 #define __bounds_check(x, file, line, col) // __assertmsg(x, "Bounds check failed: " #x " at " file ":" #line ":" #col)
 
 
+unsigned long long cstrl(const char* str);
+
+
 typedef char i8;
 typedef short i16;
 typedef int i32;

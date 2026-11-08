@@ -120,6 +120,12 @@ void* alloca(SIZE_T size) {
     return result;
 }
 
+unsigned long long cstrl(const char* str) {
+    unsigned long long len = 0;
+    while (str[len])
+        len++;
+    return len;
+}
 
 static int parse_cmd_args(char* arg_str, SIZE_T len, string* args) {
     int num_args = 0;
@@ -151,9 +157,7 @@ static int parse_cmd_args(char* arg_str, SIZE_T len, string* args) {
 int _main(int argc, string* argv);
 void _start(void) {
     char* arg_str = GetCommandLineA();
-    SIZE_T arg_len = 0;
-    while (arg_str[arg_len])
-        arg_len++;
+    SIZE_T arg_len = cstrl(arg_str);
 
     int argc = parse_cmd_args(arg_str, arg_len, NULL);
     string args[argc];

@@ -2329,14 +2329,14 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			}
 			else if (isCharPointerType(expressionType))
 			{
-				Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,__cstrl(#v)}", expression, expression);
+				Value value = getExpressionValue(codegen, buffer, getStringType(codegen->types), "(string){#v,cstrl(#v)}", expression, expression);
 				return value;
 
 				Value str = declareLocalValue(codegen, getStringType(codegen->types), buffer);
 
 				emitChar(buffer, '{');
 				emitValue(buffer, expression);
-				emitString(buffer, ",__cstrl(");
+				emitString(buffer, ",cstrl(");
 				emitValue(buffer, expression);
 				emitString(buffer, ")};\n");
 
@@ -2847,7 +2847,7 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 					emitInteger(buffer, ((StringLiteral*)cast->expression)->value.length);
 				else
 				{
-					emitString(buffer, "__cstrl(");
+					emitString(buffer, "cstrl(");
 					emitExpressionConstant(codegen, cast->expression, buffer);
 					emitChar(buffer, ')');
 				}
