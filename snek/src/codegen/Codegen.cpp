@@ -9,10 +9,11 @@
 #include <stdarg.h>
 
 
-void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena)
+void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, char* outPath)
 {
 	codegen->types = types;
 	codegen->arena = globalArena;
+	codegen->outPath = outPath;
 
 	initScratchBuffer(&codegen->scratch, 16);
 
@@ -3306,36 +3307,39 @@ static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* m
 
 bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo)
 {
-	codegen->declaredTypes.clear();
-	codegen->declaredTypeStubs.clear();
-	codegen->declaredVariables.clear();
-	codegen->declaredFunctions.clear();
+	//codegen->declaredTypes.clear();
+	//codegen->declaredTypeStubs.clear();
+	//codegen->declaredVariables.clear();
+	//codegen->declaredFunctions.clear();
 
 	codegen->currentFile = f;
 	codegen->debugInfo = debugInfo;
 
-	codegen->nextGlobalID = 1;
-	codegen->nextLocalID = 1;
+	//codegen->nextGlobalID = 1;
+	//codegen->nextLocalID = 1;
 
 	AST* ast = &f->ast;
 
-	FILE* file = fopen(out, "wb");
-	if (!file)
-		return false;
+	//FILE* file = fopen(out, "wb");
+	//if (!file)
+	//{
+	//	fprintf(stderr, "Can't write output file '%s'\n", out);
+	//	return false;
+	//}
 
-	resetCodeBuffer(&codegen->typesBuffer);
-	resetCodeBuffer(&codegen->prototypesBuffer);
-	resetCodeBuffer(&codegen->globalsBuffer);
-	resetCodeBuffer(&codegen->functionsBuffer);
+	//resetCodeBuffer(&codegen->typesBuffer);
+	//resetCodeBuffer(&codegen->prototypesBuffer);
+	//resetCodeBuffer(&codegen->globalsBuffer);
+	//resetCodeBuffer(&codegen->functionsBuffer);
 
-	char prologue[256];
-	prologue[0] = 0;
-
-	strcat(prologue, "// ");
-	strcat(prologue, localPath);
-	strcat(prologue, "\n#include <platform.h>\n");
-
-	fwrite(prologue, 1, strlen(prologue), file);
+	//char prologue[256];
+	//prologue[0] = 0;
+	//
+	//strcat(prologue, "// ");
+	//strcat(prologue, localPath);
+	//strcat(prologue, "\n#include <platform.h>\n");
+	//
+	//fwrite(prologue, 1, strlen(prologue), file);
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
@@ -3349,6 +3353,10 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 			declareNamedUnionStub(codegen, &declaration->union_);
 		}
 	}
+
+	emitString(&codegen->functionsBuffer, "// ");
+	emitString(&codegen->functionsBuffer, localPath);
+	emitString(&codegen->functionsBuffer, "\n");
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
@@ -3386,28 +3394,50 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 
 	SnekAssert(codegen->indentation == 0);
 
+	return true;
+}
+
+bool prepare(Codegen* codegen)
+{
+	codegen->outFile = fopen(codegen->outPath, "wb");
+	if (!codegen->outFile)
+	{
+		fprintf(stderr, "Can't write output file '%s'\n", codegen->outPath);
+		return false;
+	}
+
+	char prologue[256];
+	prologue[0] = 0;
+
+	strcat(prologue, "#include <platform.h>\n");
+
+	fwrite(prologue, 1, strlen(prologue), codegen->outFile);
+
+	return true;
+}
+
+void output(Codegen* codegen)
+{
 	if (codegen->typesBuffer.count)
 	{
-		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->typesBuffer.data, 1, codegen->typesBuffer.count, file);
+		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite(codegen->typesBuffer.data, 1, codegen->typesBuffer.count, codegen->outFile);
 	}
 	if (codegen->prototypesBuffer.count)
 	{
-		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->prototypesBuffer.data, 1, codegen->prototypesBuffer.count, file);
+		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite(codegen->prototypesBuffer.data, 1, codegen->prototypesBuffer.count, codegen->outFile);
 	}
 	if (codegen->globalsBuffer.count)
 	{
-		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->globalsBuffer.data, 1, codegen->globalsBuffer.count, file);
+		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite(codegen->globalsBuffer.data, 1, codegen->globalsBuffer.count, codegen->outFile);
 	}
 	if (codegen->functionsBuffer.count)
 	{
-		fwrite("\n\n", 1, 2, file);
-		fwrite(codegen->functionsBuffer.data, 1, codegen->functionsBuffer.count, file);
+		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite(codegen->functionsBuffer.data, 1, codegen->functionsBuffer.count, codegen->outFile);
 	}
 
-	fclose(file);
-
-	return true;
+	fclose(codegen->outFile);
 }

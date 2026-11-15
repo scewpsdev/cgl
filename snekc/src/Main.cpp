@@ -54,6 +54,7 @@ struct Compiler
 	bool dll;
 	bool debugInfo;
 	bool optimize;
+	bool hotreload;
 	bool gcc;
 	bool emcc;
 	const char* backendArgs;
@@ -163,6 +164,17 @@ static StringView getFileStem(const char* path)
 	return CreateString(slash, length);
 }
 
+static StringView getFileStemFullPath(const char* path)
+{
+	const char* dot = strrchr(path, '.');
+	if (!dot)
+		dot = path + strlen(path);
+
+	int length = (int)(dot - path);
+
+	return CreateString(path, length);
+}
+
 static char* readText(const char* path, int* length)
 {
 	if (FILE* file = fopen(path, "rb"))
@@ -240,7 +252,7 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 	initArena(&compiler->arena, &compiler->blockPool);
 	initTypeSystem(&compiler->types, &compiler->arena);
 
-	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena);
+	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena, getOutPath("amalgamated"));
 
 	const char* cmd = argv[1];
 	if (strcmp(cmd, "build") == 0)
@@ -278,6 +290,10 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 		else if (strcmp(arg, "-optimize") == 0)
 		{
 			compiler->optimize = true;
+		}
+		else if (strcmp(arg, "-hotreload") == 0)
+		{
+			compiler->hotreload = true;
 		}
 		else if (strcmp(arg, "-dll") == 0)
 		{
@@ -513,6 +529,76 @@ static void localFilePath(char* result, const char* path)
 
 static TCCState* tcc;
 
+static void generateHotReloadLauncher()
+{
+	TCCState* tcc = tcc_new();
+
+	char buffer[512] = "";
+
+	// necessary for tccdefs.h
+	localFilePath(buffer, "lib/libtcc");
+	tcc_set_lib_path(tcc, buffer);
+
+	localFilePath(buffer, "lib");
+	tcc_add_include_path(tcc, buffer);
+
+	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
+	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
+	tcc_define_symbol(tcc, "STDCALL", "__attribute((stdcall))");
+	tcc_define_symbol(tcc, "true", "1");
+	tcc_define_symbol(tcc, "false", "0");
+
+#ifdef _WIN32
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-subsystem=console");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+#else
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+#endif
+
+	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
+
+#ifdef _WIN32
+	localFilePath(buffer, "lib/platform_windows.c");
+	tcc_add_file(tcc, buffer);
+#else
+	localFilePath(buffer, "lib/platform_posix.c");
+	tcc_add_file(tcc, buffer);
+#endif
+
+	const char* outFilePath = compiler.outPath ? getFilename(compiler.outPath).ptr : "a.exe";
+	StringView outFileName = getFileStemFullPath(outFilePath);
+	sprintf(buffer, "\"%.*s.dll\"", outFileName.length, outFileName.ptr);
+	tcc_define_symbol(tcc, "APP_DLL", buffer);
+
+	sprintf(buffer, "\"%.*s\"", outFileName.length, outFileName.ptr);
+	tcc_define_symbol(tcc, "APP_DLL_NAME", buffer);
+
+	localFilePath(buffer, "lib/launcher.c");
+	tcc_add_file(tcc, buffer);
+
+#ifdef _WIN32
+	tcc_add_library(tcc, "kernel32");
+#endif
+
+	if (compiler.run)
+	{
+		tcc_relocate(tcc);
+	}
+	else
+	{
+#ifdef _WIN32
+		const char* outPath = compiler.outPath ? compiler.outPath : "a.exe";
+#else
+		const char* outPath = compiler.outPath ? compiler.outPath : "a";
+#endif
+
+		createDirectories(outPath);
+		tcc_output_file(tcc, outPath);
+	}
+}
+
 static int outputBinaryTCC()
 {
 	char buffer[512] = "";
@@ -544,6 +630,11 @@ static int outputBinaryTCC()
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
 
+	if (compiler.dll || compiler.hotreload)
+	{
+		tcc_define_symbol(tcc, "BUILD_DLL", nullptr);
+	}
+
 #ifdef _WIN32
 	tcc_set_options(tcc, "-nostdlib");
 	tcc_set_options(tcc, "-Wl,-subsystem=console");
@@ -556,7 +647,7 @@ static int outputBinaryTCC()
 	if (compiler.debugInfo)
 		tcc_set_options(tcc, "-g");
 
-	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
+	tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : compiler.dll || compiler.hotreload ? TCC_OUTPUT_DLL : TCC_OUTPUT_EXE);
 
 #ifdef _WIN32
 	localFilePath(buffer, "lib/platform_windows.c");
@@ -566,10 +657,14 @@ static int outputBinaryTCC()
 	tcc_add_file(tcc, buffer);
 #endif
 
+	tcc_add_file(tcc, compiler.codegen.outPath);
+
+	/*
 	for (int i = 0; i < compiler.sourceFiles.size; i++)
 	{
 		tcc_add_file(tcc, compiler.sourceFiles[i]->outPath);
 	}
+	*/
 
 	for (int i = 0; i < compiler.libraryFiles.size; i++)
 	{
@@ -601,6 +696,11 @@ static int outputBinaryTCC()
 	tcc_add_library(tcc, "kernel32");
 #endif
 
+	if (compiler.hotreload)
+	{
+		generateHotReloadLauncher();
+	}
+
 	if (compiler.run)
 	{
 		int result = tcc_relocate(tcc);
@@ -615,14 +715,33 @@ static int outputBinaryTCC()
 		const char* outPath = compiler.outPath ? compiler.outPath : compiler.dll ? "a.so" : "a";
 #endif
 
-		createDirectories(outPath);
-		int result = tcc_output_file(tcc, outPath);
+		if (compiler.hotreload)
+		{
+			StringView outFileName = getFileStemFullPath(outPath);
 
-		return result;
+#ifdef _WIN32
+			sprintf(buffer, "%.*s.dll", outFileName.length, outFileName.ptr);
+#else
+			sprintf(buffer, "%.*s.so", outFileName.length, outFileName.ptr);
+#endif
+
+			createDirectories(buffer);
+			int result = tcc_output_file(tcc, buffer);
+
+			return result;
+		}
+		else
+		{
+			createDirectories(outPath);
+			int result = tcc_output_file(tcc, outPath);
+
+			return result;
+		}
 	}
 }
 
 typedef struct { char* data; uint64_t size; } snek_string;
+typedef struct { snek_string* data; uint64_t size; } snek_string_array;
 
 static int runBinaryTCC()
 {
@@ -687,11 +806,16 @@ static int outputBinaryGCC()
 
 	//tcc_set_output_type(tcc, compiler.run ? TCC_OUTPUT_MEMORY : TCC_OUTPUT_EXE);
 
+	StringBufferAppend(command, compiler.codegen.outPath);
+	StringBufferAppend(command, ' ');
+
+	/*
 	for (int i = 0; i < compiler.sourceFiles.size; i++)
 	{
 		StringBufferAppend(command, compiler.sourceFiles[i]->outPath);
 		StringBufferAppend(command, ' ');
 	}
+	*/
 
 	for (int i = 0; i < compiler.libraryFiles.size; i++)
 	{
@@ -961,78 +1085,87 @@ int main(int argc, const char* argv[])
 	int result = hasError ? 1 : 0;
 	if (!hasError)
 	{
-		for (int i = 0; i < compiler.sourceFiles.size; i++)
+		if (prepare(&compiler.codegen))
 		{
-			SourceFile* file = compiler.sourceFiles[i];
-			createDirectories(file->outPath);
-			emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath, compiler.debugInfo);
-			file->state = FILE_STATE_OUTPUT;
-		}
+			for (int i = 0; i < compiler.sourceFiles.size; i++)
+			{
+				SourceFile* file = compiler.sourceFiles[i];
+				createDirectories(file->outPath);
+				emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath, compiler.debugInfo);
+				file->state = FILE_STATE_OUTPUT;
+			}
 
-		t5 = GetTimeNS();
+			output(&compiler.codegen);
 
-		if (compiler.gcc)
-		{
-			result = outputBinaryGCC();
-		}
-		else if (compiler.emcc)
-		{
-			result = outputBinaryEmscripten();
+			t5 = GetTimeNS();
+
+			if (compiler.gcc)
+			{
+				result = outputBinaryGCC();
+			}
+			else if (compiler.emcc)
+			{
+				result = outputBinaryEmscripten();
+			}
+			else
+			{
+				tcc = tcc_new();
+				result = outputBinaryTCC();
+			}
+
+			uint64_t t6 = GetTimeNS();
+
+			if (result == 0)
+			{
+				float totalMs = (t6 - t0) / 1e6f;
+
+				fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
+
+				if (!compiler.run)
+				{
+					float parseMs = (t2 - t1) / 1e6f;
+					float typeCheckMs = (t3 - t2) / 1e6f;
+					float codegenMs = (t5 - t4) / 1e6f;
+					float outputMs = (t6 - t5) / 1e6f;
+
+					fprintf(stderr, "Parser: %.2f ms\n", parseMs);
+					fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
+					fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
+					fprintf(stderr, "Output: %.2f ms\n", outputMs);
+				}
+
+				if (compiler.run)
+				{
+					if (compiler.gcc)
+					{
+						int runResult = runBinaryGCC();
+						//fprintf(stderr, "Exited with code %d\n", runResult);
+					}
+					else if (compiler.emcc)
+					{
+					}
+					else
+					{
+						int runResult = runBinaryTCC();
+						//fprintf(stderr, "Exited with code %d\n", runResult);
+					}
+				}
+			}
+
+			if (compiler.gcc)
+			{
+			}
+			else if (compiler.emcc)
+			{
+			}
+			else
+			{
+				tcc_delete(tcc);
+			}
 		}
 		else
 		{
-			tcc = tcc_new();
-			result = outputBinaryTCC();
-		}
-
-		uint64_t t6 = GetTimeNS();
-
-		if (result == 0)
-		{
-			float totalMs = (t6 - t0) / 1e6f;
-
-			fprintf(stderr, "Compilation completed in %.2f ms.\n", totalMs);
-
-			if (!compiler.run)
-			{
-				float parseMs = (t2 - t1) / 1e6f;
-				float typeCheckMs = (t3 - t2) / 1e6f;
-				float codegenMs = (t5 - t4) / 1e6f;
-				float outputMs = (t6 - t5) / 1e6f;
-
-				fprintf(stderr, "Parser: %.2f ms\n", parseMs);
-				fprintf(stderr, "Typecheck: %.2f ms\n", typeCheckMs);
-				fprintf(stderr, "Codegen: %.2f ms\n", codegenMs);
-				fprintf(stderr, "Output: %.2f ms\n", outputMs);
-			}
-
-			if (compiler.run)
-			{
-				if (compiler.gcc)
-				{
-					int runResult = runBinaryGCC();
-					//fprintf(stderr, "Exited with code %d\n", runResult);
-				}
-				else if (compiler.emcc)
-				{
-				}
-				else
-				{
-					int runResult = runBinaryTCC();
-					//fprintf(stderr, "Exited with code %d\n", runResult);
-				}
-			}
-		}
-
-		if (compiler.gcc)
-		{
-		}
-		else if (compiler.emcc)
-		{
-		}
-		else
-		{
-			tcc_delete(tcc);
+			result = 1;
 		}
 	}
 

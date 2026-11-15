@@ -29,7 +29,6 @@ std::thread parserThread;
 GlobalBlockPool blockPool;
 Arena globalArena;
 TypeSystem types;
-Codegen codegen;
 
 List<Document*> documents;
 std::map<std::string, int> uriMap;
@@ -1244,7 +1243,6 @@ int main()
 	initGlobalBlockPool(&blockPool, 16);
 	initArena(&globalArena, &blockPool);
 	initTypeSystem(&types, &globalArena);
-	initCodegen(&codegen, &types, &globalArena);
 
 	while (true)
 	{

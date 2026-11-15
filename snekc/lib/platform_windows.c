@@ -19,6 +19,8 @@
 #define CREATE_ALWAYS         2
 #define OPEN_EXISTING         3
 #define FILE_SHARE_READ       0x00000001
+#define FILE_SHARE_WRITE      0x00000002
+#define FILE_SHARE_DELETE     0x00000004
 #define FILE_ATTRIBUTE_NORMAL 0x00000080
 #define INVALID_HANDLE_VALUE  ((HANDLE)(SIZE_T)-1)
 #define INVALID_FILE_SIZE     ((DWORD)0xFFFFFFFF)
@@ -30,6 +32,22 @@ typedef int				   BOOL;
 typedef void*              HANDLE;
 typedef unsigned long long SIZE_T;
 typedef long long          LARGE_INTEGER;
+typedef void*              HMODULE;
+
+
+typedef struct {
+    DWORD dwLowDateTime;
+    DWORD dwHighDateTime;
+} FILETIME;
+
+typedef struct {
+    DWORD    dwFileAttributes;
+    FILETIME ftCreationTime;
+    FILETIME ftLastAccessTime;
+    FILETIME ftLastWriteTime;
+    DWORD    nFileSizeHigh;
+    DWORD    nFileSizeLow;
+} WIN32_FILE_ATTRIBUTE_DATA;
 
 
 DLLIMPORT HANDLE STDCALL GetProcessHeap(void);
@@ -42,12 +60,21 @@ DLLIMPORT void   STDCALL ExitProcess(UINT uExitCode);
 DLLIMPORT HANDLE STDCALL GetStdHandle(DWORD nStdHandle);
 DLLIMPORT BOOL   STDCALL WriteFile(HANDLE hFile, const void* lpBuffer, DWORD nNumberOfBytesToWrite, DWORD* lpNumberOfBytesWritten, void* lpOverlapped);
 DLLIMPORT BOOL   STDCALL ReadFile(HANDLE hFile, void* lpBuffer, DWORD nNumberOfBytesToRead, DWORD* lpNumberOfBytesRead, void* lpOverlapped);
-DLLIMPORT HANDLE CreateFileA(const char* lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, void* lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
-DLLIMPORT BOOL   GetFileSizeEx(HANDLE hFile, LARGE_INTEGER* lpFileSize);
-DLLIMPORT BOOL   CloseHandle(HANDLE hObject);
+DLLIMPORT HANDLE STDCALL CreateFileA(const char* lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, void* lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+DLLIMPORT BOOL   STDCALL GetFileSizeEx(HANDLE hFile, LARGE_INTEGER* lpFileSize);
+DLLIMPORT BOOL   STDCALL GetFileAttributesExA(const char* lpFileName, int fInfoLevelId, void* lpFileInformation);
+DLLIMPORT BOOL   STDCALL CloseHandle(HANDLE hObject);
+DLLIMPORT BOOL   STDCALL CopyFileA(const char* lpExistingFileName, const char* lpNewFileName, BOOL bFailIfExists);
 
 DLLIMPORT BOOL STDCALL QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount);
 DLLIMPORT BOOL STDCALL QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency);
+DLLIMPORT void STDCALL Sleep(DWORD dwMilliseconds);
+
+DLLIMPORT HMODULE STDCALL LoadLibraryA(const char* lpLibFileName);
+DLLIMPORT void* STDCALL GetProcAddress(HMODULE hModule, const char* lpProcName);
+DLLIMPORT int STDCALL FreeLibrary(HMODULE hLibModule);
+
+DLLIMPORT DWORD STDCALL GetLastError();
 
 
 void* memset(void* dst, int val, SIZE_T len) {
@@ -154,6 +181,10 @@ static int parse_cmd_args(char* arg_str, SIZE_T len, string* args) {
     return num_args;
 }
 
+#ifdef BUILD_DLL
+void _start(void) {
+}
+#else
 int _main(int argc, string* argv);
 void _start(void) {
     char* arg_str = GetCommandLineA();
@@ -167,6 +198,7 @@ void _start(void) {
 
     ExitProcess(exit_code);
 }
+#endif
 
 void sys_exit(unsigned int exit_code) {
     ExitProcess(exit_code);
@@ -216,12 +248,35 @@ void sys_close_file(void* file) {
     CloseHandle((HANDLE)file);
 }
 
-unsigned long long sys_get_file_size(void* file) {
+unsigned long long sys_get_file_size(const char* path) {
+    HANDLE file = CreateFileA(path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return 0;
+
+    LARGE_INTEGER file_size;
+    BOOL success = GetFileSizeEx(file, &file_size);
+    CloseHandle(file);
+
+    if (!success)
+        return 0;
+    return file_size;
+}
+
+unsigned long long sys_get_file_handle_size(void* file) {
     LARGE_INTEGER file_size;
     BOOL success = GetFileSizeEx(file, &file_size);
     if (!success)
         return 0;
     return file_size;
+}
+
+unsigned long long sys_get_file_modified_time(const char* path) {
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (GetFileAttributesExA(path, 0, &data)) {
+        unsigned long long time = ((unsigned long long)data.ftLastWriteTime.dwHighDateTime << 32) |
+            (unsigned long long)data.ftLastWriteTime.dwLowDateTime;
+        return time;
+    }
+    return 0;
 }
 
 unsigned long long sys_write_file(void* file, const unsigned char* buffer, unsigned long long size) {
@@ -272,6 +327,10 @@ void* sys_get_std_file(unsigned int stream) {
     return GetStdHandle(handles[stream]);
 }
 
+int sys_copy_file(const char* src, const char* dst) {
+    return CopyFileA(src, dst, 0) != 0;
+}
+
 double sys_time_seconds() {
     LARGE_INTEGER counter;
     LARGE_INTEGER frequency;
@@ -279,4 +338,20 @@ double sys_time_seconds() {
         return (double)counter / (double)frequency;
     }
     return 0.0;
+}
+
+void sys_sleep(int millis) {
+    Sleep(millis);
+}
+
+void* sys_load_library(const char* path) {
+    return (void*)LoadLibraryA(path);
+}
+
+void sys_free_library(void* lib) {
+    FreeLibrary((HMODULE)lib);
+}
+
+void* sys_get_proc_address(void* lib, const char* name) {
+    return GetProcAddress((HMODULE)lib, name);
 }

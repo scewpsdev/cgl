@@ -33,6 +33,13 @@ void SleepMS(uint64_t ms)
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+bool AtomicRename(const char* src, const char* dst)
+{
+	std::error_code error;
+	std::filesystem::rename(src, dst, error);
+	return error ? false : true;
+}
+
 #ifndef _WIN32
 void __debugbreak()
 {

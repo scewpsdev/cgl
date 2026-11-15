@@ -25,6 +25,8 @@ typedef struct timespec {
 #define SYS_mmap      9
 #define SYS_munmap    11
 #define SYS_mremap    25
+#define SYS_nanosleep 35
+#define SYS_sendfile  40
 #define SYS_exit      60
 #define SYS_clock_gettime 228
 
@@ -233,6 +235,21 @@ unsigned long long sys_get_file_size(void* file) {
     return *(unsigned long long*) & stat_buf[48]; // Offset 48 tracks file size fields
 }
 
+unsigned long long sys_get_file_modified_time(const char* filepath) {
+    unsigned char stat_buf[144];
+    for (int i = 0; i < 144; i++) stat_buf[i] = 0;
+
+    long long res = sys_call(SYS_stat, (long long)filepath, (long long)stat_buf, 0, 0, 0, 0);
+    if (res < 0) return 0;
+
+    // On x86_64 Linux, struct stat stores mtime seconds at offset 88 
+    // and mtime nanoseconds at offset 96.
+    unsigned long long sec = *(unsigned long long*) & stat_buf[88];
+    unsigned long long nsec = *(unsigned long long*) & stat_buf[96];
+
+    return (sec * 1000000000ULL) + nsec;
+}
+
 unsigned long long sys_write_file(void* file, const unsigned char* buffer, unsigned long long size) {
     long long fd = (long long)file;
     if (fd < 0 || !buffer) return 0;
@@ -256,9 +273,271 @@ void* sys_get_std_file(unsigned int stream) {
     return (void*)-1;
 }
 
+int sys_copy_file(const char* src_path, const char* dst_path) {
+    // 1. Open the source file for reading
+    long long src_fd = sys_call(SYS_open, (long long)src_path, O_RDONLY, 0, 0, 0, 0);
+    if (src_fd < 0) return 0;
+
+    // 2. Get the source file's size using your existing helper
+    unsigned long long file_size = sys_get_file_size((void*)src_fd);
+
+    // 3. Open or create the destination file (0664 = rw-rw-r-- permissions)
+    long long dst_fd = sys_call(SYS_open, (long long)dst_path, (O_WRONLY | O_CREAT | O_TRUNC), 0664, 0, 0, 0);
+    if (dst_fd < 0) {
+        sys_call(SYS_close, src_fd, 0, 0, 0, 0, 0);
+        return 0;
+    }
+
+    // 4. Transfer the bytes directly inside the kernel
+    // Note: sendfile transfers up to ~2GB (0x7ffff000 bytes) per call, so we loop until done
+    unsigned long long total_copied = 0;
+    int success = 1;
+
+    while (total_copied < file_size) {
+        unsigned long long remaining = file_size - total_copied;
+        unsigned long long chunk = remaining > 0x7ffff000ULL ? 0x7ffff000ULL : remaining;
+
+        long long sent = sys_call(SYS_sendfile, dst_fd, src_fd, 0, chunk, 0, 0);
+        if (sent <= 0) {
+            success = 0;
+            break;
+        }
+        total_copied += (unsigned long long)sent;
+    }
+
+    // 5. Close both file descriptors
+    sys_call(SYS_close, dst_fd, 0, 0, 0, 0, 0);
+    sys_call(SYS_close, src_fd, 0, 0, 0, 0, 0);
+
+    return success;
+}
+
 double sys_time_seconds() {
     timespec time = {0};
     long long res = sys_call(SYS_clock_gettime, CLOCK_MONOTONIC, (long long)&time, 0, 0, 0, 0);
     if (res < 0) return 0.0;
     return (double)time.tv_sec + ((double)time.tv_nsec / 1e9);
+}
+
+void sys_sleep(unsigned int milliseconds) {
+    timespec req;
+    req.tv_sec = milliseconds / 1000;
+    req.tv_nsec = (milliseconds % 1000) * 1000000LL;
+
+    // nanosleep(const struct timespec *req, struct timespec *rem)
+    sys_call(SYS_nanosleep, (long long)&req, 0, 0, 0, 0, 0);
+}
+
+
+/* ============================================================================
+ * 1. Minimal 64-Bit ELF Structures & Constants
+ * ============================================================================ */
+#define PROT_EXEC  0x4
+#define MAP_FIXED  0x10
+
+#define PT_LOAD    1
+#define PT_DYNAMIC 2
+
+#define DT_NULL    0
+#define DT_STRTAB  5
+#define DT_SYMTAB  6
+#define DT_SYMENT  11
+
+typedef struct {
+    unsigned char e_ident[16];
+    unsigned short e_type;
+    unsigned short e_machine;
+    unsigned int   e_version;
+    unsigned long long e_entry;
+    unsigned long long e_phoff;
+    unsigned long long e_shoff;
+    unsigned int   e_flags;
+    unsigned short e_ehsize;
+    unsigned short e_phentsize;
+    unsigned short e_phnum;
+    unsigned short e_shentsize;
+    unsigned short e_shnum;
+    unsigned short e_shstrndx;
+} Elf64_Ehdr;
+
+typedef struct {
+    unsigned int   p_type;
+    unsigned int   p_flags;
+    unsigned long long p_offset;
+    unsigned long long p_vaddr;
+    unsigned long long p_paddr;
+    unsigned long long p_filesz;
+    unsigned long long p_memsz;
+    unsigned long long p_align;
+} Elf64_Phdr;
+
+typedef struct {
+    long long d_tag;
+    unsigned long long d_val;
+} Elf64_Dyn;
+
+typedef struct {
+    unsigned int   st_name;
+    unsigned char  st_info;
+    unsigned char  st_other;
+    unsigned short st_shndx;
+    unsigned long long st_value;
+    unsigned long long st_size;
+} Elf64_Sym;
+
+// Internal handle to track mapped base address and dynamic tables
+typedef struct {
+    unsigned char* base_addr;
+    unsigned long long map_size;
+    Elf64_Sym* symtab;
+    const char* strtab;
+    unsigned long long syment_size;
+} LinuxDynamicLib;
+
+static int local_strcmp(const char* s1, const char* s2) {
+    while (*s1 && (*s1 == *s2)) { s1++; s2++; }
+    return *(unsigned char*)s1 - *(unsigned char*)s2;
+}
+
+/* ============================================================================
+ * 2. Freestanding ELF Shared Object Loader
+ * ============================================================================ */
+void* sys_load_library(const char* path) {
+    // 1. Open and read the entire .so file into a temporary buffer
+    long long fd = sys_call(SYS_open, (long long)path, O_RDONLY, 0, 0, 0, 0);
+    if (fd < 0) return NULL;
+
+    unsigned long long file_size = sys_get_file_size((void*)fd);
+    if (file_size < sizeof(Elf64_Ehdr)) {
+        sys_call(SYS_close, fd, 0, 0, 0, 0, 0);
+        return NULL;
+    }
+
+    unsigned char* file_buf = (unsigned char*)sys_memory(NULL, file_size);
+    if (!file_buf) {
+        sys_call(SYS_close, fd, 0, 0, 0, 0, 0);
+        return NULL;
+    }
+
+    sys_call(SYS_read, fd, (long long)file_buf, file_size, 0, 0, 0);
+    sys_call(SYS_close, fd, 0, 0, 0, 0, 0);
+
+    Elf64_Ehdr* ehdr = (Elf64_Ehdr*)file_buf;
+    // Verify ELF Magic bytes: 0x7F 'E' 'L' 'F'
+    if (ehdr->e_ident[0] != 0x7F || ehdr->e_ident[1] != 'E' ||
+        ehdr->e_ident[2] != 'L' || ehdr->e_ident[3] != 'F') {
+        sys_memory(file_buf, 0);
+        return NULL;
+    }
+
+    Elf64_Phdr* phdrs = (Elf64_Phdr*)(file_buf + ehdr->e_phoff);
+
+    // 2. Calculate total virtual address span required by all PT_LOAD segments
+    unsigned long long min_vaddr = (unsigned long long) - 1;
+    unsigned long long max_vaddr = 0;
+
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdrs[i].p_type == PT_LOAD) {
+            if (phdrs[i].p_vaddr < min_vaddr) min_vaddr = phdrs[i].p_vaddr;
+            unsigned long long end = phdrs[i].p_vaddr + phdrs[i].p_memsz;
+            if (end > max_vaddr) max_vaddr = end;
+        }
+    }
+
+    unsigned long long total_span = max_vaddr - min_vaddr;
+    if (total_span == 0) {
+        sys_memory(file_buf, 0);
+        return NULL;
+    }
+
+    // 3. Reserve a contiguous, executable virtual memory region via mmap
+    long long base = sys_call(SYS_mmap, 0, total_span,
+        (PROT_READ | PROT_WRITE | PROT_EXEC),
+        (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
+    if (base < 0) {
+        sys_memory(file_buf, 0);
+        return NULL;
+    }
+
+    unsigned char* base_ptr = (unsigned char*)base;
+    Elf64_Dyn* dyn_section = NULL;
+
+    // 4. Copy segment data into the mapped virtual memory
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdrs[i].p_type == PT_LOAD) {
+            unsigned char* dest = base_ptr + (phdrs[i].p_vaddr - min_vaddr);
+            unsigned char* src = file_buf + phdrs[i].p_offset;
+            memcpy(dest, src, phdrs[i].p_filesz);
+
+            // Zero out any remaining .bss space (memsz > filesz)
+            if (phdrs[i].p_memsz > phdrs[i].p_filesz) {
+                memset(dest + phdrs[i].p_filesz, 0, phdrs[i].p_memsz - phdrs[i].p_filesz);
+            }
+        }
+        else if (phdrs[i].p_type == PT_DYNAMIC) {
+            dyn_section = (Elf64_Dyn*)(base_ptr + (phdrs[i].p_vaddr - min_vaddr));
+        }
+    }
+
+    sys_memory(file_buf, 0); // Free raw disk buffer
+
+    if (!dyn_section) {
+        sys_call(SYS_munmap, (long long)base_ptr, total_span, 0, 0, 0, 0);
+        return NULL;
+    }
+
+    // 5. Parse PT_DYNAMIC table to locate .dynsym and .dynstr
+    LinuxDynamicLib* lib = (LinuxDynamicLib*)sys_memory(NULL, sizeof(LinuxDynamicLib));
+    lib->base_addr = base_ptr - min_vaddr; // Adjust base offset if min_vaddr > 0
+    lib->map_size = total_span;
+    lib->symtab = NULL;
+    lib->strtab = NULL;
+    lib->syment_size = sizeof(Elf64_Sym);
+
+    for (int i = 0; dyn_section[i].d_tag != DT_NULL; i++) {
+        if (dyn_section[i].d_tag == DT_STRTAB) {
+            // Note: Depending on linker flags, d_val may be an absolute offset or relative RVA
+            unsigned long long offset = dyn_section[i].d_val;
+            lib->strtab = (offset < total_span) ? (const char*)(base_ptr + offset) : (const char*)offset;
+        }
+        else if (dyn_section[i].d_tag == DT_SYMTAB) {
+            unsigned long long offset = dyn_section[i].d_val;
+            lib->symtab = (offset < total_span) ? (Elf64_Sym*)(base_ptr + offset) : (Elf64_Sym*)offset;
+        }
+        else if (dyn_section[i].d_tag == DT_SYMENT) {
+            lib->syment_size = dyn_section[i].d_val;
+        }
+    }
+
+    return (void*)lib;
+}
+
+void* sys_get_proc_address(void* lib_handle, const char* proc_name) {
+    LinuxDynamicLib* lib = (LinuxDynamicLib*)lib_handle;
+    if (!lib || !lib->symtab || !lib->strtab || !proc_name) return NULL;
+
+    // Walk the symbol table until we hit the string table boundary
+    unsigned char* sym_ptr = (unsigned char*)lib->symtab;
+    while (sym_ptr < (unsigned char*)lib->strtab) {
+        Elf64_Sym* sym = (Elf64_Sym*)sym_ptr;
+        if (sym->st_name != 0 && sym->st_value != 0) {
+            const char* name = lib->strtab + sym->st_name;
+            if (local_strcmp(name, proc_name) == 0) {
+                return (void*)(lib->base_addr + sym->st_value);
+            }
+        }
+        sym_ptr += lib->syment_size;
+    }
+
+    return NULL;
+}
+
+void sys_free_library(void* lib_handle) {
+    LinuxDynamicLib* lib = (LinuxDynamicLib*)lib_handle;
+    if (lib) {
+        if (lib->base_addr) {
+            sys_call(SYS_munmap, (long long)lib->base_addr, lib->map_size, 0, 0, 0, 0);
+        }
+        sys_memory(lib, 0);
+    }
 }

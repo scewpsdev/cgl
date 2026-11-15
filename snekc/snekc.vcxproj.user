@@ -4,8 +4,8 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>build src/main.src -o bin/sneklib.exe</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\Dev\2023\CGL\sneklib</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>build src/main.src lib/libSDL3.dll.a lib/SDL3.dll -o bin/CaveGame.exe -hotreload</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\Dev\2026\CaveGame</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

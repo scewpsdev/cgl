@@ -6,6 +6,7 @@
 std::filesystem::path GetExecutablePath();
 uint64_t GetTimeNS();
 void SleepMS(uint64_t ms);
+bool AtomicRename(const char* src, const char* dst);
 
 #ifndef _WIN32
 void __debugbreak();
