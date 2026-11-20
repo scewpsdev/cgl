@@ -19,6 +19,7 @@ void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, char* 
 
 	initCodeBuffer(&codegen->typesBuffer, codegen->arena, 1024);
 	initCodeBuffer(&codegen->prototypesBuffer, codegen->arena, 1024);
+	initCodeBuffer(&codegen->constantBuffer, codegen->arena, 1024);
 	initCodeBuffer(&codegen->globalsBuffer, codegen->arena, 1024);
 	initCodeBuffer(&codegen->functionsBuffer, codegen->arena, 1024);
 
@@ -1144,11 +1145,11 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value ptr = createGlobalValue(codegen, nullptr);
 
-		emitString(&codegen->globalsBuffer, "static i8* const ");
-		emitValue(&codegen->globalsBuffer, ptr);
-		emitString(&codegen->globalsBuffer, "=\"");
-		emitString(&codegen->globalsBuffer, stringLiteral->value);
-		emitString(&codegen->globalsBuffer, "\";\n");
+		emitString(&codegen->constantBuffer, "static i8* const ");
+		emitValue(&codegen->constantBuffer, ptr);
+		emitString(&codegen->constantBuffer, "=\"");
+		emitString(&codegen->constantBuffer, stringLiteral->value);
+		emitString(&codegen->constantBuffer, "\";\n");
 
 		if (expression->inferredType->typeKind == TYPE_STRING)
 		{
@@ -1253,13 +1254,20 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 					return emitExpression(codegen, declarator->value, buffer);
 				}
-				else if (symbol->file != codegen->currentFile->handle)
+				else
 				{
-					if (!codegen->declaredVariables.contains(globalVariable))
+					if (symbol->file != codegen->currentFile->handle)
 					{
-						declareGlobalVariable(codegen, globalVariable, &codegen->globalsBuffer);
-						codegen->declaredVariables.add(globalVariable);
+						if (!codegen->declaredVariables.contains(globalVariable))
+						{
+							declareGlobalVariable(codegen, globalVariable, &codegen->globalsBuffer);
+							codegen->declaredVariables.add(globalVariable);
+						}
 					}
+
+					Value value = getExpressionValue(codegen, buffer, expression->inferredType, "__globals->#S", identifier->name);
+					value.lvalue = true;
+					return value;
 				}
 			}
 			else if (declaration->type == NODE_VARIABLE_DECLARATION)
@@ -3218,7 +3226,7 @@ static void emitFunction(Codegen* codegen, Function* function, CodeBuffer* buffe
 	emitString(buffer, "}\n");
 }
 
-static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable, CodeBuffer* buffer)
+static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable)
 {
 	declareType(codegen, globalVariable->variableType->inferredType);
 
@@ -3226,29 +3234,33 @@ static void emitGlobalVariable(Codegen* codegen, GlobalVariable* globalVariable,
 	{
 		VariableDeclarator* declarator = &globalVariable->declarators[i];
 
-		if (globalVariable->storage & STORAGE_CONSTANT)
-			emitString(buffer, "const ");
+		bool isConstant = globalVariable->storage & STORAGE_CONSTANT;
 
-		emitType(codegen, globalVariable->variableType->inferredType, buffer);
-		emitChar(buffer, ' ');
-		emitString(buffer, declarator->name);
-
-		if (declarator->value)
+		if (!isConstant)
 		{
-			emitChar(buffer, '=');
-			emitExpressionConstant(codegen, declarator->value, buffer);
-		}
+			CodeBuffer* buffer = &codegen->globalsBuffer;
 
-		emitString(buffer, ";\n");
+			emitType(codegen, globalVariable->variableType->inferredType, buffer);
+			emitChar(buffer, ' ');
+			emitString(buffer, declarator->name);
+
+			if (declarator->value)
+			{
+				emitChar(buffer, '=');
+				emitExpressionConstant(codegen, declarator->value, buffer);
+			}
+
+			emitString(buffer, ";\n");
+		}
 	}
 }
 
-static Function* getMainFunction(AST* ast)
+static Function* getFunction(AST* ast, const char* name)
 {
 	for (int i = 0; i < ast->numFunctions; i++)
 	{
 		Function* function = ast->functions[i];
-		if (compareString(function->name, "main"))
+		if (compareString(function->name, name))
 			return function;
 	}
 	return nullptr;
@@ -3305,7 +3317,45 @@ static void generateEntryPoint(Codegen* codegen, CodeBuffer* buffer, Function* m
 	emitString(buffer, "}");
 }
 
-bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo)
+static void generateDllLoadFunction(Codegen* codegen, CodeBuffer* buffer, Function* dllReloadFunction)
+{
+	emitString(buffer, "DLLEXPORT extern int _dll_load(struct Globals*globals){\n");
+
+	codegen->indentation++;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "__globals=globals;\n");
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "return ");
+	emitString(buffer, dllReloadFunction->mangledName);
+	emitString(buffer, "();\n");
+
+	codegen->indentation--;
+
+	emitString(buffer, "}");
+}
+
+static void generateDllReloadFunction(Codegen* codegen, CodeBuffer* buffer, Function* dllReloadFunction)
+{
+	emitString(buffer, "DLLEXPORT extern int _dll_reload(struct Globals*globals){\n");
+
+	codegen->indentation++;
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "__globals=globals;\n");
+
+	emitIndentation(codegen, buffer);
+	emitString(buffer, "return ");
+	emitString(buffer, dllReloadFunction->mangledName);
+	emitString(buffer, "();\n");
+
+	codegen->indentation--;
+
+	emitString(buffer, "}");
+}
+
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo, bool hotreload)
 {
 	//codegen->declaredTypes.clear();
 	//codegen->declaredTypeStubs.clear();
@@ -3314,6 +3364,7 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 
 	codegen->currentFile = f;
 	codegen->debugInfo = debugInfo;
+	codegen->hotreload = hotreload;
 
 	//codegen->nextGlobalID = 1;
 	//codegen->nextLocalID = 1;
@@ -3385,12 +3436,16 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 		}
 		else if (declaration->type == NODE_GLOBAL_VARIABLE)
 		{
-			emitGlobalVariable(codegen, &declaration->globalVariable, &codegen->globalsBuffer);
+			emitGlobalVariable(codegen, &declaration->globalVariable);
 		}
 	}
 
-	if (Function* mainFunction = getMainFunction(ast))
+	if (Function* mainFunction = getFunction(ast, "main"))
 		generateEntryPoint(codegen, &codegen->functionsBuffer, mainFunction);
+	if (Function* dllLoadFunction = getFunction(ast, "dll_load"))
+		generateDllLoadFunction(codegen, &codegen->functionsBuffer, dllLoadFunction);
+	if (Function* dllReloadFunction = getFunction(ast, "dll_reload"))
+		generateDllReloadFunction(codegen, &codegen->functionsBuffer, dllReloadFunction);
 
 	SnekAssert(codegen->indentation == 0);
 
@@ -3428,10 +3483,27 @@ void output(Codegen* codegen)
 		fwrite("\n\n", 1, 2, codegen->outFile);
 		fwrite(codegen->prototypesBuffer.data, 1, codegen->prototypesBuffer.count, codegen->outFile);
 	}
+	if (codegen->constantBuffer.count)
+	{
+		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite(codegen->constantBuffer.data, 1, codegen->constantBuffer.count, codegen->outFile);
+	}
 	if (codegen->globalsBuffer.count)
 	{
 		fwrite("\n\n", 1, 2, codegen->outFile);
+		fwrite("struct Globals{\n", 1, 16, codegen->outFile);
 		fwrite(codegen->globalsBuffer.data, 1, codegen->globalsBuffer.count, codegen->outFile);
+		fwrite("};\n", 1, 3, codegen->outFile);
+
+		if (codegen->hotreload)
+		{
+			fwrite("struct Globals* __globals;\n", 1, 27, codegen->outFile);
+		}
+		else
+		{
+			fwrite("struct Globals __globals_data;\n", 1, 26, codegen->outFile);
+			fwrite("struct Globals* __globals = &__globals_data;\n", 1, 45, codegen->outFile);
+		}
 	}
 	if (codegen->functionsBuffer.count)
 	{
@@ -3440,4 +3512,11 @@ void output(Codegen* codegen)
 	}
 
 	fclose(codegen->outFile);
+
+	//
+	// [X] wrappers for dll_load and dll_reload
+	// [X] allocate globals in launcher
+	// [X] set __globals pointer on reload
+	// [ ] initialize globals to default values
+	//
 }

@@ -529,10 +529,106 @@ static void localFilePath(char* result, const char* path)
 
 static TCCState* tcc;
 
-static void generateHotReloadLauncher()
+static int generateHotReloadDllTCC()
 {
 	TCCState* tcc = tcc_new();
 
+	char buffer[512] = "";
+
+	// necessary for tccdefs.h
+	localFilePath(buffer, "lib/libtcc");
+	tcc_set_lib_path(tcc, buffer);
+
+	// necessary for platform.h
+	localFilePath(buffer, "lib");
+	tcc_add_include_path(tcc, buffer);
+
+	tcc_define_symbol(tcc, "DLLEXPORT", "__attribute__((dllexport))");
+	tcc_define_symbol(tcc, "DLLIMPORT", "__attribute__((dllimport))");
+	tcc_define_symbol(tcc, "STDCALL", "__attribute((stdcall))");
+	tcc_define_symbol(tcc, "true", "1");
+	tcc_define_symbol(tcc, "false", "0");
+
+	tcc_define_symbol(tcc, "BUILD_DLL", nullptr);
+
+#ifdef _WIN32
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-subsystem=console");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+#else
+	tcc_set_options(tcc, "-nostdlib");
+	tcc_set_options(tcc, "-Wl,-entry=_start");
+#endif
+
+	if (compiler.debugInfo)
+		tcc_set_options(tcc, "-g");
+
+	tcc_set_output_type(tcc, TCC_OUTPUT_DLL);
+
+#ifdef _WIN32
+	localFilePath(buffer, "lib/platform_windows.c");
+	tcc_add_file(tcc, buffer);
+#else
+	localFilePath(buffer, "lib/platform_posix.c");
+	tcc_add_file(tcc, buffer);
+#endif
+
+	tcc_add_file(tcc, compiler.codegen.outPath);
+
+	for (int i = 0; i < compiler.libraryFiles.size; i++)
+	{
+		const char* library = compiler.libraryFiles[i];
+		StringView directory = getDirectory(library);
+		StringView name = getFileStem(library);
+
+		if (name.startsWith("lib"))
+			name = name.substring(3);
+		if (name.endsWith(".dll"))
+			name = name.substring(0, name.length - 4);
+
+		directory = copy(directory);
+		name = copy(name);
+
+		tcc_add_library_path(tcc, directory.ptr);
+		tcc_add_library(tcc, name.ptr);
+
+		destroy(directory);
+		destroy(name);
+	}
+
+	for (int i = 0; i < compiler.dllFiles.size; i++)
+	{
+		tcc_add_file(tcc, compiler.dllFiles[i]);
+	}
+
+#ifdef _WIN32
+	tcc_add_library(tcc, "kernel32");
+#endif
+
+#ifdef _WIN32
+	const char* outPath = compiler.outPath ? compiler.outPath : "a.exe";
+#else
+	const char* outPath = compiler.outPath ? compiler.outPath : "a";
+#endif
+
+	StringView outFileName = getFileStemFullPath(outPath);
+
+#ifdef _WIN32
+	sprintf(buffer, "%.*s.dll", outFileName.length, outFileName.ptr);
+#else
+	sprintf(buffer, "%.*s.so", outFileName.length, outFileName.ptr);
+#endif
+
+	createDirectories(buffer);
+	int result = tcc_output_file(tcc, buffer);
+
+	tcc_delete(tcc);
+
+	return result;
+}
+
+static int generateHotReloadLauncherTCC()
+{
 	char buffer[512] = "";
 
 	// necessary for tccdefs.h
@@ -547,6 +643,9 @@ static void generateHotReloadLauncher()
 	tcc_define_symbol(tcc, "STDCALL", "__attribute((stdcall))");
 	tcc_define_symbol(tcc, "true", "1");
 	tcc_define_symbol(tcc, "false", "0");
+
+	sprintf(buffer, "%d", 1024 * 1024);
+	tcc_define_symbol(tcc, "APP_MEMORY_SIZE", buffer);
 
 #ifdef _WIN32
 	tcc_set_options(tcc, "-nostdlib");
@@ -567,7 +666,7 @@ static void generateHotReloadLauncher()
 	tcc_add_file(tcc, buffer);
 #endif
 
-	const char* outFilePath = compiler.outPath ? getFilename(compiler.outPath).ptr : "a.exe";
+	const char* outFilePath = compiler.outPath ? compiler.outPath : "a.exe";
 	StringView outFileName = getFileStemFullPath(outFilePath);
 	sprintf(buffer, "\"%.*s.dll\"", outFileName.length, outFileName.ptr);
 	tcc_define_symbol(tcc, "APP_DLL", buffer);
@@ -582,9 +681,16 @@ static void generateHotReloadLauncher()
 	tcc_add_library(tcc, "kernel32");
 #endif
 
+	for (int i = 0; i < compiler.dllFiles.size; i++)
+	{
+		tcc_add_file(tcc, compiler.dllFiles[i]);
+	}
+
 	if (compiler.run)
 	{
-		tcc_relocate(tcc);
+		int result = tcc_relocate(tcc);
+
+		return result;
 	}
 	else
 	{
@@ -595,7 +701,9 @@ static void generateHotReloadLauncher()
 #endif
 
 		createDirectories(outPath);
-		tcc_output_file(tcc, outPath);
+		int result = tcc_output_file(tcc, outPath);
+
+		return result;
 	}
 }
 
@@ -695,11 +803,6 @@ static int outputBinaryTCC()
 #ifdef _WIN32
 	tcc_add_library(tcc, "kernel32");
 #endif
-
-	if (compiler.hotreload)
-	{
-		generateHotReloadLauncher();
-	}
 
 	if (compiler.run)
 	{
@@ -1091,7 +1194,7 @@ int main(int argc, const char* argv[])
 			{
 				SourceFile* file = compiler.sourceFiles[i];
 				createDirectories(file->outPath);
-				emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath, compiler.debugInfo);
+				emitFile(&compiler.codegen, &file->file, file->localPath, file->outPath, compiler.debugInfo, compiler.hotreload);
 				file->state = FILE_STATE_OUTPUT;
 			}
 
@@ -1110,7 +1213,16 @@ int main(int argc, const char* argv[])
 			else
 			{
 				tcc = tcc_new();
-				result = outputBinaryTCC();
+
+				if (compiler.hotreload)
+				{
+					result = generateHotReloadDllTCC();
+					result += generateHotReloadLauncherTCC();
+				}
+				else
+				{
+					result = outputBinaryTCC();
+				}
 			}
 
 			uint64_t t6 = GetTimeNS();

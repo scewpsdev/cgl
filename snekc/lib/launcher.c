@@ -3,6 +3,7 @@
 void* memset(void* dst, int val, unsigned long long len);
 void* memcpy(void* dst, const void* src, unsigned long long len);
 
+void* sys_memory(void* ptr, unsigned long long new_size);
 unsigned long long sys_get_file_size(const char* path);
 unsigned long long sys_get_file_modified_time(const char* path);
 int sys_copy_file(const char* src, const char* dst);
@@ -44,17 +45,19 @@ int _main(int argc, string* argv) {
 	sys_copy_file(APP_DLL, appDllCopy);
 
 	void* lib = sys_load_library(appDllCopy);
-	if (!lib) return 1;
+	if (!lib) return 3;
 
 	unsigned long long dllWriteTime = sys_get_file_modified_time(APP_DLL);
 
-	int(*load)(void) = (int(*)(void))sys_get_proc_address(lib, "dll_load");
+	int(*load)(void*) = (int(*)(void*))sys_get_proc_address(lib, "_dll_load");
 	int(*unload)(void) = (int(*)(void))sys_get_proc_address(lib, "dll_unload");
-	int(*reload)(void) = (int(*)(void))sys_get_proc_address(lib, "dll_reload");
+	int(*reload)(void*) = (int(*)(void*))sys_get_proc_address(lib, "_dll_reload");
 	int(*update)(void) = (int(*)(void))sys_get_proc_address(lib, "dll_update");
 	if (!load || !unload || !reload || !update) return 2;
 
-	int result = load();
+	void* mem = sys_memory(0, APP_MEMORY_SIZE);
+
+	int result = load(mem);
 	if (result != 0) return result;
 
 	int running = 1;
@@ -70,8 +73,10 @@ int _main(int argc, string* argv) {
 			sys_free_library(lib);
 			lib = 0;
 
+			sys_sleep(10);
+
 			dllVersion++;
-			appDllCopy[sizeof(APP_DLL_NAME)] = '0' + dllVersion;
+			appDllCopy[sizeof(APP_DLL_NAME)] = dllVersion <= 9 ? '0' + dllVersion : 'A' + dllVersion;
 			dllWriteTime = sys_get_file_modified_time(APP_DLL);
 
 			sys_copy_file(APP_DLL, appDllCopy);
@@ -93,13 +98,13 @@ int _main(int argc, string* argv) {
 			lib = sys_load_library(appDllCopy);
 			if (!lib) return 1;
 
-			load = (int(*)(void))sys_get_proc_address(lib, "dll_load");
+			load = (int(*)(void*))sys_get_proc_address(lib, "_dll_load");
 			unload = (int(*)(void))sys_get_proc_address(lib, "dll_unload");
-			reload = (int(*)(void))sys_get_proc_address(lib, "dll_reload");
+			reload = (int(*)(void*))sys_get_proc_address(lib, "_dll_reload");
 			update = (int(*)(void))sys_get_proc_address(lib, "dll_update");
 			if (!load || !unload || !reload || !update) return 2;
 
-			result = reload();
+			result = reload(mem);
 			if (result != 0) {
 				return result;
 			}

@@ -24,6 +24,7 @@ struct Codegen
 
 	CodeBuffer typesBuffer;
 	CodeBuffer prototypesBuffer;
+	CodeBuffer constantBuffer;
 	CodeBuffer globalsBuffer;
 	CodeBuffer functionsBuffer;
 
@@ -32,6 +33,7 @@ struct Codegen
 
 	File* currentFile;
 	bool debugInfo;
+	bool hotreload;
 
 	int indentation;
 	int currentLine;
@@ -50,5 +52,5 @@ void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, char* 
 void destroyCodegen(Codegen* codegen);
 
 bool prepare(Codegen* codegen);
-bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo);
+bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out, bool debugInfo, bool hotreload);
 void output(Codegen* codegen);
