@@ -1708,7 +1708,8 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		if (memberFunction)
 		{
 			emitValue(buffer, memberFunctionInstance);
-			emitChar(buffer, ',');
+			if (functionCall->numArgs > 0 || functionType->function.variadic)
+				emitChar(buffer, ',');
 		}
 
 		int argOffset = memberFunction ? 1 : 0;
@@ -2063,10 +2064,18 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		if (Symbol* symbol = getMemberAccessSymbol(codegen->globalScope, member))
 		{
 			SnekAssert(member->functionOverloadID != -1);
-
-			member->memberFunctionInstance = operand;
-
 			Function* function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
+
+			if (!member->functionNameSpace)
+			{
+				SnekAssert(function->numParams > 0 && function->params[0]->paramType->inferredType->typeKind == TYPE_POINTER);
+				if (operand.lvalue && compareTypes(operand.type, function->params[0]->paramType->inferredType->pointer.elementType))
+				{
+					operand = getExpressionValue(codegen, buffer, function->params[0]->paramType->inferredType, "&#v", operand);
+				}
+
+				member->memberFunctionInstance = operand;
+			}
 
 			if (symbol->file != codegen->currentFile->handle)
 			{
