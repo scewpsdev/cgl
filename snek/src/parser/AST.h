@@ -392,6 +392,7 @@ struct MemberAccess : Expression
 	SymbolHandle resolvedSymbolHandle;
 	int functionOverloadID;
 	Value memberFunctionInstance;
+	FileHandle functionNameSpace;
 };
 
 struct ImplicitEnumMember : Expression
@@ -665,6 +666,7 @@ struct Node
 struct FunctionOverload
 {
 	Function* declaration;
+	FileHandle file;
 };
 
 struct FunctionSet
@@ -722,7 +724,7 @@ struct AST
 	Import** imports;
 	int numImports;
 
-	Scope* globalScope;
+	Scope* fileScope;
 };
 
 typedef bool(*ASTVisitor_t)(Node* nodeRef, Scope* scope, void* userPtr);
@@ -736,18 +738,18 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 Symbol* lookupSymbol(SymbolTable* symbols, StringView identifier, SymbolType type);
 Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h, SymbolType type);
 
-Symbol* getIdentifierSymbol(Identifier* identifier);
-Symbol* getMemberAccessSymbol(MemberAccess* member);
-Symbol* getNamedTypeSymbol(NamedType* namedType);
+Symbol* getIdentifierSymbol(Scope* globalScope, Identifier* identifier);
+Symbol* getMemberAccessSymbol(Scope* globalScope, MemberAccess* member);
+Symbol* getNamedTypeSymbol(Scope* globalScope, NamedType* namedType);
 
 int getFieldIndex(StringView name, int numFields, StringView* fieldNames);
 int getEnumValue(StringView name, int numValues, EnumValue** values);
 VariableDeclarator* getDeclarator(VariableDeclaration* variable, StringView name);
 VariableDeclarator* getDeclarator(GlobalVariable* variable, StringView name);
 
-bool isConstant(Expression* expression);
-bool isLValue(Expression* expression);
-bool constantFold(Expression* expression, int64_t* value);
+bool isConstant(Scope* globalScope, Expression* expression);
+bool isLValue(Scope* globalScope, Expression* expression);
+bool constantFold(Scope* globalScope, Expression* expression, int64_t* value);
 
 void resetExpression(Expression** ref);
 void resetAST(AST* ast);

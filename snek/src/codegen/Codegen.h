@@ -28,6 +28,8 @@ struct Codegen
 	CodeBuffer globalsBuffer;
 	CodeBuffer functionsBuffer;
 
+	Scope* globalScope;
+
 	char* outPath;
 	FILE* outFile;
 
@@ -48,7 +50,7 @@ struct Codegen
 };
 
 
-void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, char* outPath);
+void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, Scope* globalScope, char* outPath);
 void destroyCodegen(Codegen* codegen);
 
 bool prepare(Codegen* codegen);

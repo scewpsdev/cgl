@@ -143,4 +143,4 @@ Type* createEnumType(File* file, StringView name, Type* valueType, Enum* declara
 Type* createAliasType(File* file, StringView name, Typedef* declaration);
 void resolveAliasType(Type* type, Type* value);
 
-StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena);
+StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, File* file, Arena* arena);

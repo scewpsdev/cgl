@@ -968,7 +968,16 @@ void resolveAliasType(Type* type, Type* value)
 	type->alias.valueType = value;
 }
 
-StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, Arena* arena)
+StringView mangleFunctionName(TypeSystem* types, StringView name, Type* functionType, File* file, Arena* arena)
 {
-	return createTypeString(arena, "_%.*s_%.*s", name.length, name.ptr, functionType->mangledName.length, functionType->mangledName.ptr);
+	char filePath[256];
+	int len = sprintf(filePath, "%s", file->localPath);
+	for (int i = 0; i < len; i++)
+	{
+		if (filePath[i] == '/')
+			filePath[i] = '_';
+		else if (filePath[i] == '.')
+			filePath[i] = '\0';
+	}
+	return createTypeString(arena, "%s_%.*s_%.*s", filePath, name.length, name.ptr, functionType->mangledName.length, functionType->mangledName.ptr);
 }

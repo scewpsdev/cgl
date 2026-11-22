@@ -51,3 +51,5 @@ void destroyFile(File* file);
 FileHandle getFileHandle(const char* localPath);
 File* getFileFromHandle(FileHandle fileHandle);
 bool isFileLoaded(FileHandle fileHandle);
+
+StringView getFileModuleName(File* file);

@@ -4,7 +4,7 @@
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>run src/main.src lib/libSDL3.dll.a lib/SDL3.dll -hotreload -o bin/CaveGame.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>build src/main.src lib/libSDL3.dll.a lib/SDL3.dll -hotreload -o bin/CaveGame.exe</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\Dev\2026\CaveGame</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>

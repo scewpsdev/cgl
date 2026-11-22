@@ -67,11 +67,37 @@ static void growSymbolTable(SymbolTable* symbols)
 	symbols->capacity = newCapacity;
 }
 
+static void validateSymbolTable(SymbolTable* symbols)
+{
+	for (int i = 0; i < symbols->capacity; i++)
+	{
+		Symbol* slot = &symbols->slots[i];
+		if (slot->key)
+		{
+			SnekAssert((slot->key & (symbols->capacity - 1)) == i || i != 0 || symbols->capacity != 1024 || (slot->key & (symbols->capacity - 1)) == 1023);
+			if (slot->type == SYMBOL_FUNCTION_SET)
+			{
+				if (slot->functionSet.count > 0)
+				{
+					for (int j = 0; j < slot->functionSet.count; j++)
+					{
+						SnekAssert(compareString(slot->functionSet.overloads[j].declaration->name, slot->name));
+					}
+				}
+			}
+		}
+	}
+}
+
 Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType type, Node* declaration, FileHandle file)
 {
+	//validateSymbolTable(symbols);
+
 	if (symbols->count * 4 >= symbols->capacity * 3)
 	{
 		growSymbolTable(symbols);
+
+		//validateSymbolTable(symbols);
 	}
 
 	uint32_t mask = symbols->capacity - 1;
@@ -95,16 +121,24 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 				SnekAssert(declaration->type == NODE_FUNCTION);
 
 				slot->declaration = nullptr;
-				slot->functionSet.overloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity = 8);
 				slot->functionSet.count = 0;
-				slot->functionSet.overloads[slot->functionSet.count++] = {
+				slot->functionSet.capacity = 8;
+				slot->functionSet.overloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity);
+				slot->functionSet.overloads[0] = {
 					.declaration = &declaration->function,
+					.file = file,
 				};
+				slot->functionSet.count++;
+				slot->file = 0;
+
+				SnekAssert(compareString(declaration->function.name, identifier));
 			}
 			else
 			{
 				slot->declaration = declaration;
 			}
+
+			//validateSymbolTable(symbols);
 
 			symbols->count++;
 			return slot;
@@ -119,6 +153,8 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 
 				SnekAssert(declaration->type == NODE_FUNCTION);
 
+				SnekAssert(slot->functionSet.count < 8);
+
 				if (slot->functionSet.count == slot->functionSet.capacity)
 				{
 					FunctionOverload* newOverloads = symbols->arena->alloc<FunctionOverload>(slot->functionSet.capacity *= 2);
@@ -128,7 +164,12 @@ Symbol* insertSymbol(SymbolTable* symbols, StringView identifier, SymbolType typ
 
 				slot->functionSet.overloads[slot->functionSet.count++] = {
 					.declaration = &declaration->function,
+					.file = file,
 				};
+
+				//validateSymbolTable(symbols);
+
+				SnekAssert(compareString(slot->name, identifier));
 
 				return slot;
 			}
@@ -192,37 +233,40 @@ Symbol* lookupSymbol(SymbolTable* symbols, uint32_t h, SymbolType type)
 	return nullptr;
 }
 
-Symbol* getIdentifierSymbol(Identifier* identifier)
+Symbol* getIdentifierSymbol(Scope* globalScope, Identifier* identifier)
 {
 	if (identifier->resolvedSymbol)
 		return identifier->resolvedSymbol;
 	if (File* file = getFileFromHandle(identifier->resolvedSymbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, identifier->resolvedSymbolHandle.symbol, identifier->resolvedSymbolHandle.type);
+		if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, identifier->resolvedSymbolHandle.symbol, identifier->resolvedSymbolHandle.type))
+			return symbol;
 	}
-	return nullptr;
+	return lookupSymbol(&globalScope->symbols, identifier->resolvedSymbolHandle.symbol, identifier->resolvedSymbolHandle.type);
 }
 
-Symbol* getMemberAccessSymbol(MemberAccess* member)
+Symbol* getMemberAccessSymbol(Scope* globalScope, MemberAccess* member)
 {
 	if (member->resolvedSymbol)
 		return member->resolvedSymbol;
 	if (File* file = getFileFromHandle(member->resolvedSymbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, member->resolvedSymbolHandle.symbol, member->resolvedSymbolHandle.type);
+		if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, member->resolvedSymbolHandle.symbol, member->resolvedSymbolHandle.type))
+			return symbol;
 	}
-	return nullptr;
+	return lookupSymbol(&globalScope->symbols, member->resolvedSymbolHandle.symbol, member->resolvedSymbolHandle.type);
 }
 
-Symbol* getNamedTypeSymbol(NamedType* namedType)
+Symbol* getNamedTypeSymbol(Scope* globalScope, NamedType* namedType)
 {
 	if (namedType->symbol)
 		return namedType->symbol;
 	if (File* file = getFileFromHandle(namedType->symbolHandle.file))
 	{
-		return lookupSymbol(&file->ast.globalScope->symbols, namedType->symbolHandle.symbol, namedType->symbolHandle.type);
+		if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, namedType->symbolHandle.symbol, namedType->symbolHandle.type))
+			return symbol;
 	}
-	return nullptr;
+	return lookupSymbol(&globalScope->symbols, namedType->symbolHandle.symbol, namedType->symbolHandle.type);
 }
 
 int getFieldIndex(StringView name, int numFields, StringView* fieldNames)
@@ -267,7 +311,7 @@ VariableDeclarator* getDeclarator(GlobalVariable* variable, StringView name)
 	return nullptr;
 }
 
-bool isConstant(Expression* expression)
+bool isConstant(Scope* globalScope, Expression* expression)
 {
 	Node* node = (Node*)expression;
 
@@ -305,7 +349,7 @@ bool isConstant(Expression* expression)
 	else if (expression->type == NODE_IDENTIFIER)
 	{
 		Identifier* identifier = &node->identifier;
-		if (Symbol* symbol = getIdentifierSymbol(identifier))
+		if (Symbol* symbol = getIdentifierSymbol(globalScope, identifier))
 		{
 			if (symbol->type == SYMBOL_VARIABLE)
 			{
@@ -325,14 +369,14 @@ bool isConstant(Expression* expression)
 	}
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
-		return isConstant(((CompoundExpression*)expression)->value);
+		return isConstant(globalScope, ((CompoundExpression*)expression)->value);
 	}
 	else if (expression->type == NODE_EXPRESSION_LIST)
 	{
 		ExpressionList* expressionList = (ExpressionList*)expression;
 		for (int i = 0; i < expressionList->numValues; i++)
 		{
-			if (!isConstant(expressionList->values[i]))
+			if (!isConstant(globalScope, expressionList->values[i]))
 				return false;
 		}
 		return true;
@@ -342,7 +386,7 @@ bool isConstant(Expression* expression)
 		ArrayInitializer* arrayInitializer = (ArrayInitializer*)expression;
 		for (int i = 0; i < arrayInitializer->numValues; i++)
 		{
-			if (!isConstant(arrayInitializer->values[i]))
+			if (!isConstant(globalScope, arrayInitializer->values[i]))
 				return false;
 		}
 		return true;
@@ -350,16 +394,16 @@ bool isConstant(Expression* expression)
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
 		BinaryOperator* binaryOperator = (BinaryOperator*)expression;
-		return isConstant(binaryOperator->left) && isConstant(binaryOperator->right);
+		return isConstant(globalScope, binaryOperator->left) && isConstant(globalScope, binaryOperator->right);
 	}
 	else if (expression->type == NODE_CAST)
 	{
-		return isConstant(((Cast*)expression)->expression);
+		return isConstant(globalScope, ((Cast*)expression)->expression);
 	}
 	else if (expression->type == NODE_UNARY_OPERATOR)
 	{
 		UnaryOperator* unaryOperator = (UnaryOperator*)expression;
-		return isConstant(unaryOperator->operand);
+		return isConstant(globalScope, unaryOperator->operand);
 	}
 	else if (expression->type == NODE_MEMBER_ACCESS)
 	{
@@ -379,7 +423,7 @@ bool isConstant(Expression* expression)
 			if (operandType->typeKind == TYPE_TYPE)
 			{
 				Identifier* typeName = (Identifier*)member->operand;
-				if (Symbol* symbol = getIdentifierSymbol(typeName))
+				if (Symbol* symbol = getIdentifierSymbol(globalScope, typeName))
 				{
 					if (symbol->declaration->type == NODE_ENUM)
 					{
@@ -396,18 +440,18 @@ bool isConstant(Expression* expression)
 	else if (expression->type == NODE_TERNARY_CONDITION)
 	{
 		TernaryCondition* ternary = (TernaryCondition*)expression;
-		return isConstant(ternary->condition) && isConstant(ternary->then) && isConstant(ternary->else_);
+		return isConstant(globalScope, ternary->condition) && isConstant(globalScope, ternary->then) && isConstant(globalScope, ternary->else_);
 	}
 
 	return false;
 }
 
-bool isLValue(Expression* expression)
+bool isLValue(Scope* globalScope, Expression* expression)
 {
 	if (expression->type == NODE_IDENTIFIER)
 	{
 		Identifier* identifier = (Identifier*)expression;
-		if (Symbol* symbol = getIdentifierSymbol(identifier))
+		if (Symbol* symbol = getIdentifierSymbol(globalScope, identifier))
 		{
 			if (symbol->type == SYMBOL_VARIABLE)
 			{
@@ -486,13 +530,13 @@ bool isLValue(Expression* expression)
 	else if (expression->type == NODE_COMPOUND_EXPRESSION)
 	{
 		CompoundExpression* compound = (CompoundExpression*)expression;
-		return isLValue(compound->value);
+		return isLValue(globalScope, compound->value);
 	}
 
 	return false;
 }
 
-bool constantFold(Expression* expression, int64_t* value)
+bool constantFold(Scope* globalScope, Expression* expression, int64_t* value)
 {
 	Node* node = (Node*)expression;
 	if (expression->type == NODE_INT_LITERAL)
@@ -503,7 +547,7 @@ bool constantFold(Expression* expression, int64_t* value)
 	else if (expression->type == NODE_IDENTIFIER)
 	{
 		Identifier* identifier = &node->identifier;
-		if (Symbol* symbol = getIdentifierSymbol(identifier))
+		if (Symbol* symbol = getIdentifierSymbol(globalScope, identifier))
 		{
 			if (symbol->type == SYMBOL_VARIABLE)
 			{
@@ -520,7 +564,7 @@ bool constantFold(Expression* expression, int64_t* value)
 								if (variableDeclaration->declarators[i].value)
 								{
 									SnekAssert(isIntegerType(variableDeclaration->declarators[i].value->inferredType));
-									return constantFold(variableDeclaration->declarators[i].value, value);
+									return constantFold(globalScope, variableDeclaration->declarators[i].value, value);
 								}
 								break;
 							}
@@ -539,7 +583,7 @@ bool constantFold(Expression* expression, int64_t* value)
 								if (globalVariable->declarators[i].value)
 								{
 									SnekAssert(isIntegerType(globalVariable->declarators[i].value->inferredType));
-									return constantFold(globalVariable->declarators[i].value, value);
+									return constantFold(globalScope, globalVariable->declarators[i].value, value);
 								}
 							}
 						}
@@ -552,14 +596,14 @@ bool constantFold(Expression* expression, int64_t* value)
 	{
 		CompoundExpression* compound = &node->compoundExpression;
 		SnekAssert(isIntegerType(compound->value->inferredType));
-		return constantFold(compound->value, value);
+		return constantFold(globalScope, compound->value, value);
 	}
 	else if (expression->type == NODE_BINARY_OPERATOR)
 	{
 		BinaryOperator* binaryOperator = &node->binaryOperator;
 
 		int64_t left, right;
-		if (constantFold(binaryOperator->left, &left) && constantFold(binaryOperator->right, &right))
+		if (constantFold(globalScope, binaryOperator->left, &left) && constantFold(globalScope, binaryOperator->right, &right))
 		{
 			if (binaryOperator->op == OPERATOR_MULTIPLY)
 			{
@@ -658,7 +702,7 @@ bool constantFold(Expression* expression, int64_t* value)
 		UnaryOperator* unaryOperator = &node->unaryOperator;
 
 		int64_t operandValue;
-		if (constantFold(unaryOperator->operand, &operandValue))
+		if (constantFold(globalScope, unaryOperator->operand, &operandValue))
 		{
 			if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX)
 			{
@@ -711,7 +755,7 @@ bool constantFold(Expression* expression, int64_t* value)
 			if (operandType->typeKind == TYPE_TYPE)
 			{
 				Identifier* typeName = (Identifier*)member->operand;
-				if (Symbol* symbol = getIdentifierSymbol(typeName))
+				if (Symbol* symbol = getIdentifierSymbol(globalScope, typeName))
 				{
 					if (symbol->declaration->type == NODE_ENUM)
 					{
@@ -722,7 +766,7 @@ bool constantFold(Expression* expression, int64_t* value)
 							EnumValue* enumValue = enum_->values[index];
 							if (enumValue->value)
 							{
-								return constantFold(enumValue->value, value);
+								return constantFold(globalScope, enumValue->value, value);
 							}
 							else
 							{
@@ -731,7 +775,7 @@ bool constantFold(Expression* expression, int64_t* value)
 									EnumValue* previousEnumValue = enum_->values[i];
 									if (previousEnumValue->value)
 									{
-										int64_t previousValue = constantFold(previousEnumValue->value, value);
+										int64_t previousValue = constantFold(globalScope, previousEnumValue->value, value);
 										*value = previousValue + (index - i);
 										return true;
 									}
@@ -758,7 +802,7 @@ bool constantFold(Expression* expression, int64_t* value)
 		TernaryCondition* ternary = &node->ternaryCondition;
 
 		int64_t condition, then, else_;
-		if (constantFold(ternary->condition, &condition) && constantFold(ternary->then, &then) && constantFold(ternary->else_, &else_))
+		if (constantFold(globalScope, ternary->condition, &condition) && constantFold(globalScope, ternary->then, &then) && constantFold(globalScope, ternary->else_, &else_))
 		{
 			*value = condition ? then : else_;
 			return true;
@@ -766,7 +810,7 @@ bool constantFold(Expression* expression, int64_t* value)
 	}
 	else if (expression->type == NODE_CAST)
 	{
-		return constantFold(node->cast.expression, value);
+		return constantFold(globalScope, node->cast.expression, value);
 	}
 
 	return false;
@@ -1116,7 +1160,7 @@ static void resetDeclaration(Node* declaration)
 
 void resetAST(AST* ast)
 {
-	ast->globalScope = nullptr;
+	ast->fileScope = nullptr;
 
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
@@ -1486,7 +1530,7 @@ void traverseAST(AST* ast, ASTVisitor_t visitor, void* userPtr)
 {
 	for (int i = 0; i < ast->numDeclarations; i++)
 	{
-		traverseDeclaration(ast->declarations[i], ast->globalScope, visitor, userPtr);
+		traverseDeclaration(ast->declarations[i], ast->fileScope, visitor, userPtr);
 	}
 }
 

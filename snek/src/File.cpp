@@ -44,3 +44,22 @@ FileHandle getFileHandle(const char* localPath)
 {
 	return (FileHandle)hashPath(localPath);
 }
+
+StringView getFileModuleName(File* file)
+{
+	const char* forwardSlash = strrchr(file->localPath, '/');
+	const char* backwardSlash = strrchr(file->localPath, '\\');
+	const char* slash = (forwardSlash && backwardSlash) ? (const char*)__max((uint64_t)forwardSlash, (uint64_t)backwardSlash) : forwardSlash ? forwardSlash : backwardSlash ? backwardSlash : NULL;
+	if (slash)
+		slash++;
+	else
+		slash = file->localPath;
+
+	const char* dot = strrchr(slash, '.');
+	if (!dot)
+		dot = slash + strlen(slash);
+
+	int length = (int)(dot - slash);
+
+	return CreateString(slash, length);
+}

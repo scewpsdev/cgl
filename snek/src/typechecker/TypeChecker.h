@@ -23,6 +23,8 @@ struct TypeChecker
 	Diagnostics* diagnostics;
 	TypeSystem* types;
 
+	Scope* globalScope;
+
 	File* file;
 	Scope* currentScope;
 	Function* currentFunction;
@@ -30,7 +32,7 @@ struct TypeChecker
 };
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types);
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types, Scope* globalScope);
 void destroyTypeChecker(TypeChecker* tc);
 
 void symbolCollection(TypeChecker* tc, File* file);
@@ -38,4 +40,4 @@ void symbolResolution(TypeChecker* tc, File* file);
 void typeCheckFunctions(TypeChecker* tc, File* file);
 
 Type* unwrapType(Type* type);
-int getFieldIndex(Type* operandType, StringView name, Expression* operand);
+int getFieldIndex(TypeChecker* tc, Type* operandType, StringView name, Expression* operand);

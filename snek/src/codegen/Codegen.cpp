@@ -9,10 +9,11 @@
 #include <stdarg.h>
 
 
-void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, char* outPath)
+void initCodegen(Codegen* codegen, TypeSystem* types, Arena* globalArena, Scope* globalScope, char* outPath)
 {
 	codegen->types = types;
 	codegen->arena = globalArena;
+	codegen->globalScope = globalScope;
 	codegen->outPath = outPath;
 
 	initScratchBuffer(&codegen->scratch, 16);
@@ -543,6 +544,11 @@ static void declareNamedStruct(Codegen* codegen, Struct* struct_)
 				emitString(buffer, ";\n");
 			}
 		}
+	}
+	if (struct_->hasBody && struct_->numFields == 0)
+	{
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "int placeholder;\n");
 	}
 	codegen->indentation--;
 
@@ -1238,8 +1244,12 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 	{
 		Identifier* identifier = (Identifier*)expression;
 
-		Symbol* symbol = getIdentifierSymbol(identifier);
-		if (symbol->type == SYMBOL_VARIABLE)
+		Symbol* symbol = getIdentifierSymbol(codegen->globalScope, identifier);
+		if (!symbol)
+		{
+			// identifier is a namespace not a symbol
+		}
+		else if (symbol->type == SYMBOL_VARIABLE)
 		{
 			Node* declaration = symbol->declaration;
 			if (declaration->type == NODE_GLOBAL_VARIABLE)
@@ -1614,8 +1624,18 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 
 		Value operand = emitExpression(codegen, functionCall->expression, buffer);
 
-		bool memberFunction = functionCall->expression->type == NODE_MEMBER_ACCESS;
-		Value memberFunctionInstance = ((MemberAccess*)functionCall->expression)->memberFunctionInstance;
+		bool memberFunction = false;
+		Value memberFunctionInstance = {};
+
+		if (functionCall->expression->type == NODE_MEMBER_ACCESS)
+		{
+			MemberAccess* memberAccess = (MemberAccess*)functionCall->expression;
+			if (!memberAccess->functionNameSpace)
+			{
+				memberFunction = true;
+				memberFunctionInstance = memberAccess->memberFunctionInstance;
+			}
+		}
 
 		int mark = codegen->scratch.mark();
 		for (int i = 0; i < functionCall->numArgs; i++)
@@ -2040,7 +2060,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		Value operand = emitExpression(codegen, member->operand, buffer);
 		Type* operandType = member->operand->inferredType;
 
-		if (Symbol* symbol = getMemberAccessSymbol(member))
+		if (Symbol* symbol = getMemberAccessSymbol(codegen->globalScope, member))
 		{
 			SnekAssert(member->functionOverloadID != -1);
 
@@ -2243,7 +2263,7 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
 			Identifier* typeName = (Identifier*)member->operand;
-			Symbol* symbol = getIdentifierSymbol(typeName);
+			Symbol* symbol = getIdentifierSymbol(codegen->globalScope, typeName);
 			SnekAssert(symbol);
 
 			if (symbol->declaration->type == NODE_ENUM)
@@ -2596,7 +2616,7 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 	{
 		Identifier* identifier = (Identifier*)expression;
 
-		Symbol* symbol = getIdentifierSymbol(identifier);
+		Symbol* symbol = getIdentifierSymbol(codegen->globalScope, identifier);
 		if (symbol->type == SYMBOL_VARIABLE)
 		{
 			Node* declaration = symbol->declaration;
@@ -2786,7 +2806,7 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 			SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
 			Identifier* typeName = (Identifier*)member->operand;
-			Symbol* symbol = getIdentifierSymbol(typeName);
+			Symbol* symbol = getIdentifierSymbol(codegen->globalScope, typeName);
 			SnekAssert(symbol);
 
 			if (symbol->declaration->type == NODE_ENUM)
@@ -2813,7 +2833,7 @@ static void emitExpressionConstant(Codegen* codegen, Expression* expression, Cod
 		TernaryCondition* ternary = (TernaryCondition*)expression;
 
 		int64_t conditionValue;
-		if (constantFold(ternary->condition, &conditionValue))
+		if (constantFold(codegen->globalScope, ternary->condition, &conditionValue))
 		{
 			if (conditionValue)
 				emitExpressionConstant(codegen, ternary->then, buffer);
@@ -2953,12 +2973,12 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 	{
 		For* for_ = (For*)statement;
 
-		if ((!for_->startValue || isConstant(for_->startValue)) && isConstant(for_->compareValue))
+		if ((!for_->startValue || isConstant(codegen->globalScope, for_->startValue)) && isConstant(codegen->globalScope, for_->compareValue))
 		{
 			int64_t startValue = 0, compareValue;
 			if (for_->startValue)
-				constantFold(for_->startValue, &startValue);
-			constantFold(for_->compareValue, &compareValue);
+				constantFold(codegen->globalScope, for_->startValue, &startValue);
+			constantFold(codegen->globalScope, for_->compareValue, &compareValue);
 
 			StringView iteratorName = for_->iteratorName.length ? for_->iteratorName : CreateString("__it");
 

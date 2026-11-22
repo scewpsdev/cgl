@@ -62,6 +62,8 @@ struct Compiler
 	List<SourceFile*> sourceFiles;
 	List<const char*> libraryFiles;
 	List<const char*> dllFiles;
+
+	Scope* globalScope;
 };
 
 
@@ -252,7 +254,12 @@ static void initCompiler(Compiler* compiler, int argc, const char* argv[])
 	initArena(&compiler->arena, &compiler->blockPool);
 	initTypeSystem(&compiler->types, &compiler->arena);
 
-	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena, getOutPath("amalgamated"));
+	{
+		compiler->globalScope = compiler->arena.alloc<Scope>();
+		initSymbolTable(&compiler->globalScope->symbols, 1024, &compiler->arena);
+	}
+
+	initCodegen(&compiler->codegen, &compiler->types, &compiler->arena, compiler->globalScope, getOutPath("amalgamated"));
 
 	const char* cmd = argv[1];
 	if (strcmp(cmd, "build") == 0)
@@ -431,13 +438,16 @@ static void symbolCollectFilesRange(List<SourceFile*>& files, int start, int end
 		SourceFile* file = files[i];
 
 		initTypeTable(&file->file.typeTable, &file->file.arena, 64);
-		initTypeChecker(&file->typeChecker, &file->file.arena, &file->file.scratch, &file->file.diagnostics, &compiler.types);
+		initTypeChecker(&file->typeChecker, &file->file.arena, &file->file.scratch, &file->file.diagnostics, &compiler.types, compiler.globalScope);
 		symbolCollection(&file->typeChecker, &file->file);
 	}
 }
 
 static void symbolCollectFiles(List<SourceFile*>& files)
 {
+	symbolCollectFilesRange(files, 0, files.size);
+	return;
+
 	int numThreads = (int)std::thread::hardware_concurrency();
 	if (numThreads == 0) numThreads = 2;
 

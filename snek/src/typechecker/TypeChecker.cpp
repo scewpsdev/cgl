@@ -16,7 +16,28 @@
 #include <errno.h>
 
 
-void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types)
+static Scope* pushScope(TypeChecker* tc, Scope* scope = nullptr)
+{
+	if (!scope)
+	{
+		scope = tc->arena->alloc<Scope>();
+		scope->parent = tc->currentScope;
+
+		initSymbolTable(&scope->symbols, 16, tc->arena);
+	}
+
+	SnekAssert(scope->parent != scope);
+	tc->currentScope = scope;
+
+	return scope;
+}
+
+static void popScope(TypeChecker* tc)
+{
+	tc->currentScope = tc->currentScope->parent;
+}
+
+void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diagnostics* diagnostics, TypeSystem* types, Scope* globalScope)
 {
 	*tc = {};
 
@@ -24,10 +45,14 @@ void initTypeChecker(TypeChecker* tc, Arena* arena, ScratchBuffer* scratch, Diag
 	tc->scratch = scratch;
 	tc->diagnostics = diagnostics;
 	tc->types = types;
+
+	tc->globalScope = globalScope;
+	pushScope(tc, globalScope);
 }
 
 void destroyTypeChecker(TypeChecker* tc)
 {
+	popScope(tc);
 }
 
 static void getSourceLocation(TypeChecker* tc, Node* node, SourceLocation* start, SourceLocation* end)
@@ -80,28 +105,6 @@ static void error(TypeChecker* tc, StringView str, const char* fmt, ...)
 	va_end(args);
 
 	logMessage(tc->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
-}
-
-static Scope* pushScope(TypeChecker* tc, Scope* scope = nullptr)
-{
-	if (!scope)
-	{
-		scope = tc->arena->alloc<Scope>();
-		scope->parent = tc->currentScope;
-
-		bool isGlobal = false;
-		initSymbolTable(&scope->symbols, isGlobal ? 1024 : 16, tc->arena);
-	}
-
-	SnekAssert(scope->parent != scope);
-	tc->currentScope = scope;
-
-	return scope;
-}
-
-static void popScope(TypeChecker* tc)
-{
-	tc->currentScope = tc->currentScope->parent;
 }
 
 static int charToDigit(char c)
@@ -377,7 +380,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 
 	AST* ast = &file->ast;
 
-	ast->globalScope = pushScope(tc);
+	ast->fileScope = pushScope(tc);
 
 	ast->structs = tc->arena->alloc<Struct*>(ast->numStructs);
 	ast->enums = tc->arena->alloc<Enum*>(ast->numEnums);
@@ -445,13 +448,13 @@ void symbolCollection(TypeChecker* tc, File* file)
 				if (enumValue->value)
 				{
 					resolveExpression(tc, enumValue->value, valueType);
-					if (!isConstant(enumValue->value))
+					if (!isConstant(tc->globalScope, enumValue->value))
 					{
 						error(tc, (Node*)enumValue->value, "Enum value must be constant");
 					}
 					else
 					{
-						constantFold(enumValue->value, &enumValue->intValue);
+						constantFold(tc->globalScope, enumValue->value, &enumValue->intValue);
 					}
 
 					lastWithValue = j;
@@ -488,7 +491,7 @@ void symbolCollection(TypeChecker* tc, File* file)
 		{
 			Function* function = &declaration->function;
 
-			function->symbol = insertSymbol(&tc->currentScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
+			function->symbol = insertSymbol(&tc->globalScope->symbols, declaration->function.name, SYMBOL_FUNCTION_SET, declaration, file->handle);
 
 			ast->functions[numFunctions++] = &declaration->function;
 		}
@@ -834,7 +837,7 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 		{
 			resolveExpression(tc, arrayType->size);
 
-			if (isConstant(arrayType->size) && (isIntegerType(arrayType->size->inferredType) || arrayType->size->inferredType->typeKind == TYPE_ENUM && isIntegerType(arrayType->size->inferredType->enum_.valueType)) && constantFold(arrayType->size, &size))
+			if (isConstant(tc->globalScope, arrayType->size) && (isIntegerType(arrayType->size->inferredType) || arrayType->size->inferredType->typeKind == TYPE_ENUM && isIntegerType(arrayType->size->inferredType->enum_.valueType)) && constantFold(tc->globalScope, arrayType->size, &size))
 			{
 				if (size < 0)
 				{
@@ -884,16 +887,16 @@ static Symbol* resolveSymbol(TypeChecker* tc, StringView identifier, SymbolType 
 		{
 			if (symbolType)
 			{
-				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, symbolType))
+				if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, identifier, symbolType))
 					return symbol;
 			}
 			else
 			{
-				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_FUNCTION_SET))
+				if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, identifier, SYMBOL_FUNCTION_SET))
 					return symbol;
-				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_VARIABLE))
+				if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, identifier, SYMBOL_VARIABLE))
 					return symbol;
-				if (Symbol* symbol = lookupSymbol(&file->ast.globalScope->symbols, identifier, SYMBOL_TYPE))
+				if (Symbol* symbol = lookupSymbol(&file->ast.fileScope->symbols, identifier, SYMBOL_TYPE))
 					return symbol;
 			}
 		}
@@ -1096,7 +1099,7 @@ static bool isCastLegal(Type* expressionType, Type* targetType)
 	return false;
 }
 
-static bool canCoerceType(Expression* arg, Type* targetType)
+static bool canCoerceType(TypeChecker* tc, Expression* arg, Type* targetType)
 {
 	if (arg->type == NODE_INT_LITERAL && isIntegerType(targetType))
 	{
@@ -1115,7 +1118,7 @@ static bool canCoerceType(Expression* arg, Type* targetType)
 		return true;
 	if (arg->type == NODE_EXPRESSION_LIST && targetType->typeKind == TYPE_STRUCT && ((ExpressionList*)arg)->numValues == targetType->struct_.numFields)
 		return true;
-	if (arg->type == NODE_ARRAY_INITIALIZER && targetType->typeKind == TYPE_ARRAY && isConstant(arg) && (targetType->array.size == 0 || targetType->array.size == ((ArrayInitializer*)arg)->numValues))
+	if (arg->type == NODE_ARRAY_INITIALIZER && targetType->typeKind == TYPE_ARRAY && isConstant(tc->globalScope, arg) && (targetType->array.size == 0 || targetType->array.size == ((ArrayInitializer*)arg)->numValues))
 		return true;
 	return false;
 }
@@ -1125,7 +1128,7 @@ static bool isAssignable(TypeChecker* tc, Type* expressionType, bool expressionL
 	if (compareTypes(expressionType, targetType))
 		return true;
 
-	if (ref && *ref && canCoerceType(*ref, targetType))
+	if (ref && *ref && canCoerceType(tc, *ref, targetType))
 		return true;
 
 	if (isNumericType(expressionType) && isNumericType(targetType))
@@ -1236,13 +1239,13 @@ static int argScore(TypeChecker* tc, Type* argType, Type* paramType, Expression*
 {
 	if (compareTypes(argType, paramType))
 		return 0;
-	else if (canCoerceType(arg, paramType))
+	else if (canCoerceType(tc, arg, paramType))
 	{
 		if (isIntegerType(argType) && isIntegerType(paramType) && isUnsignedType(argType) == isUnsignedType(paramType))
 			return 1;
 		return 2;
 	}
-	else if (isAssignable(tc, argType, isLValue(arg), paramType, nullptr))
+	else if (isAssignable(tc, argType, isLValue(tc->globalScope, arg), paramType, nullptr))
 	{
 		if (isIntegerType(argType) && isIntegerType(paramType) && isUnsignedType(argType) == isUnsignedType(paramType))
 			return 3;
@@ -1303,6 +1306,9 @@ static void selectFunctionOverload(TypeChecker* tc, FunctionSet* functionSet, in
 			currentScore += score;
 		}
 		if (variadic)
+			currentScore += 1;
+		currentScore *= 2;
+		if (functionSet->overloads[i].file != tc->file->handle)
 			currentScore += 1;
 
 		if (valid)
@@ -1448,7 +1454,7 @@ static Type* resolveIdentifier(TypeChecker* tc, Identifier* identifier, bool has
 	}
 }
 
-int getFieldIndex(Type* operandType, StringView name, Expression* operand)
+int getFieldIndex(TypeChecker* tc, Type* operandType, StringView name, Expression* operand)
 {
 	if (operandType->typeKind == TYPE_STRUCT)
 	{
@@ -1487,7 +1493,7 @@ int getFieldIndex(Type* operandType, StringView name, Expression* operand)
 		SnekAssert(operand->type == NODE_IDENTIFIER);
 
 		Identifier* typeName = (Identifier*)operand;
-		if (Symbol* symbol = getIdentifierSymbol(typeName))
+		if (Symbol* symbol = getIdentifierSymbol(tc->globalScope, typeName))
 		{
 			if (symbol->declaration->type == NODE_ENUM)
 			{
@@ -1592,7 +1598,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	if (operandType->typeKind == TYPE_POINTER)
 		operandType = operandType->pointer.elementType;
 
-	int fieldID = getFieldIndex(operandType, member->name, member->operand);
+	int fieldID = getFieldIndex(tc, operandType, member->name, member->operand);
 	member->index = fieldID;
 
 	if (operandType->typeKind == TYPE_STRUCT)
@@ -1654,7 +1660,7 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 		SnekAssert(member->operand->type == NODE_IDENTIFIER);
 
 		Identifier* typeName = (Identifier*)member->operand;
-		Symbol* symbol = getIdentifierSymbol(typeName);
+		Symbol* symbol = getIdentifierSymbol(tc->globalScope, typeName);
 		if (!symbol)
 		{
 			error(tc, typeName->name, "Unknown symbol '%.*s', workspace might be out of sync", typeName->name.length, typeName->name.ptr);
@@ -1688,6 +1694,33 @@ static Type* resolveMemberAccess(TypeChecker* tc, MemberAccess* member, bool has
 	}
 }
 
+static File* getDependencyByModuleName(File* file, StringView name)
+{
+	for (int i = 0; i < file->dependencies.size; i++)
+	{
+		FileHandle dependency = file->dependencies[i];
+		if (File* file = getFileFromHandle(dependency))
+		{
+			StringView moduleName = getFileModuleName(file);
+			if (compareString(moduleName, name))
+			{
+				return file;
+			}
+		}
+	}
+	return nullptr;
+}
+
+static bool fileHasFunction(File* file, Function* function)
+{
+	for (int i = 0; i < file->ast.numFunctions; i++)
+	{
+		if (file->ast.functions[i] == function)
+			return true;
+	}
+	return false;
+}
+
 static bool tryResolveFunctionCallOperand(TypeChecker* tc, FunctionCall* functionCall)
 {
 	if (functionCall->expression->type == NODE_IDENTIFIER)
@@ -1718,14 +1751,41 @@ static bool tryResolveFunctionCallOperand(TypeChecker* tc, FunctionCall* functio
 		{
 			if (symbol->type == SYMBOL_FUNCTION_SET)
 			{
-				if (symbol->functionSet.count == 1)
+				File* functionNameSpace = nullptr;
+				if (member->operand->type == NODE_IDENTIFIER)
 				{
-					resolveMemberAccess(tc, member, false, 0, nullptr);
-					return true;
+					Identifier* nameSpace = (Identifier*)member->operand;
+					functionNameSpace = getDependencyByModuleName(tc->file, nameSpace->name);
+				}
+
+				if (functionNameSpace)
+				{
+					for (int i = 0; i < symbol->functionSet.count; i++)
+					{
+						Function* overload = symbol->functionSet.overloads[i].declaration;
+
+						if (fileHasFunction(functionNameSpace, overload))
+						{
+							if (symbol->file == tc->file->handle)
+								member->resolvedSymbol = symbol;
+							member->resolvedSymbolHandle = getSymbolHandle(tc, symbol);
+							member->functionOverloadID = i;
+							member->functionNameSpace = functionNameSpace->handle;
+							return member->inferredType = overload->functionType;
+						}
+					}
 				}
 				else
 				{
-					// maybe try exclude some overloads by looking at expression nodes?
+					if (symbol->functionSet.count == 1)
+					{
+						resolveMemberAccess(tc, member, false, 0, nullptr);
+						return true;
+					}
+					else
+					{
+						// maybe try exclude some overloads by looking at expression nodes?
+					}
 				}
 			}
 		}
@@ -1803,7 +1863,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			sizeof_->expressionType = resolveExpression(tc, sizeof_->expression);
 			if (sizeof_->expressionType->typeKind == TYPE_TYPE)
 			{
-				Symbol* symbol = sizeof_->expression->type == NODE_IDENTIFIER ? getIdentifierSymbol((Identifier*)sizeof_->expression) : nullptr;
+				Symbol* symbol = sizeof_->expression->type == NODE_IDENTIFIER ? getIdentifierSymbol(tc->globalScope, (Identifier*)sizeof_->expression) : nullptr;
 				if (symbol)
 				{
 					SnekAssert(symbol->type == SYMBOL_TYPE);
@@ -1869,7 +1929,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 					Type* fieldType = expressionList->values[i]->inferredType;
 
-					if (fieldType != getErrorType(tc->types) && targetType != getErrorType(tc->types) && !isAssignable(tc, fieldType, isLValue(expressionList->values[i]), targetType, &expressionList->values[i]))
+					if (fieldType != getErrorType(tc->types) && targetType != getErrorType(tc->types) && !isAssignable(tc, fieldType, isLValue(tc->globalScope, expressionList->values[i]), targetType, &expressionList->values[i]))
 					{
 						if (expectedType->struct_.fieldNames)
 						{
@@ -1928,7 +1988,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 				if (!elementType)
 					elementType = valueType;
 
-				if (!isErrorType(elementType) && !isAssignable(tc, valueType, isLValue(arrayInitializer->values[i]), elementType, &arrayInitializer->values[i]))
+				if (!isErrorType(elementType) && !isAssignable(tc, valueType, isLValue(tc->globalScope, arrayInitializer->values[i]), elementType, &arrayInitializer->values[i]))
 				{
 					error(tc, (Node*)arrayInitializer->values[i], "Can't assign value of type '%.*s' to array element #%d of type '%.*s'", valueType->name.length, valueType->name.ptr, i, elementType->name.length, elementType->name.ptr);
 				}
@@ -2078,7 +2138,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		}
 		else if (unaryOperator->op == OPERATOR_ADDRESS)
 		{
-			if (!isLValue(unaryOperator->operand))
+			if (!isLValue(tc->globalScope, unaryOperator->operand))
 			{
 				error(tc, (Node*)unaryOperator->operand, "Cannot take address of rvalue expression");
 				return unaryOperator->inferredType = &tc->types->errorType;
@@ -2089,7 +2149,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		else if (unaryOperator->op == OPERATOR_INCREMENT_PREFIX || unaryOperator->op == OPERATOR_DECREMENT_PREFIX
 			|| unaryOperator->op == OPERATOR_INCREMENT_POSTFIX || unaryOperator->op == OPERATOR_DECREMENT_POSTFIX)
 		{
-			if (!isLValue(unaryOperator->operand))
+			if (!isLValue(tc->globalScope, unaryOperator->operand))
 			{
 				error(tc, (Node*)unaryOperator->operand, "Cannot increment/decrement rvalue expression");
 				return unaryOperator->inferredType = &tc->types->errorType;
@@ -2120,7 +2180,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			if (functionCall->expression->type == NODE_IDENTIFIER)
 			{
 				Identifier* identifier = (Identifier*)functionCall->expression;
-				if (Symbol* symbol = getIdentifierSymbol(identifier))
+				if (Symbol* symbol = getIdentifierSymbol(tc->globalScope, identifier))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 						function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
@@ -2129,7 +2189,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			else if (functionCall->expression->type == NODE_MEMBER_ACCESS)
 			{
 				MemberAccess* member = (MemberAccess*)functionCall->expression;
-				if (Symbol* symbol = getMemberAccessSymbol(member))
+				if (Symbol* symbol = getMemberAccessSymbol(tc->globalScope, member))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 						function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
@@ -2147,7 +2207,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			{
 				Identifier* identifier = (Identifier*)functionCall->expression;
 				resolveIdentifier(tc, identifier, true, functionCall->numArgs, functionCall->args);
-				if (Symbol* symbol = getIdentifierSymbol(identifier))
+				if (Symbol* symbol = getIdentifierSymbol(tc->globalScope, identifier))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 						function = symbol->functionSet.overloads[identifier->functionOverloadID].declaration;
@@ -2157,7 +2217,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 			{
 				MemberAccess* member = (MemberAccess*)functionCall->expression;
 				resolveMemberAccess(tc, member, true, functionCall->numArgs, functionCall->args);
-				if (Symbol* symbol = getMemberAccessSymbol(member))
+				if (Symbol* symbol = getMemberAccessSymbol(tc->globalScope, member))
 				{
 					if (symbol->type == SYMBOL_FUNCTION_SET)
 						function = symbol->functionSet.overloads[member->functionOverloadID].declaration;
@@ -2185,9 +2245,12 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 		if (functionCall->expression->type == NODE_MEMBER_ACCESS)
 		{
 			MemberAccess* member = (MemberAccess*)functionCall->expression;
-			memberFunction = true;
-			memberFunctionOperand = &member->operand;
-			numArgs++;
+			if (!member->functionNameSpace)
+			{
+				memberFunction = true;
+				memberFunctionOperand = &member->operand;
+				numArgs++;
+			}
 		}
 
 		if (functionType->typeKind != TYPE_FUNCTION)
@@ -2234,7 +2297,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 
 				if (paramType && memberFunction && i == 0)
 				{
-					if (compareTypes(argType, paramType) || paramType->typeKind == TYPE_POINTER && compareTypes(paramType->pointer.elementType, argType) && isLValue(arg))
+					if (compareTypes(argType, paramType) || paramType->typeKind == TYPE_POINTER && compareTypes(paramType->pointer.elementType, argType) && isLValue(tc->globalScope, arg))
 					{
 						//
 					}
@@ -2263,7 +2326,7 @@ static Type* resolveExpression(TypeChecker* tc, Expression* expression, Type* ex
 					}
 					else
 					{
-						if (!isAssignable(tc, argType, isLValue(arg), paramType, argRef))
+						if (!isAssignable(tc, argType, isLValue(tc->globalScope, arg), paramType, argRef))
 						{
 							if (function)
 							{
@@ -2597,7 +2660,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 				{
 					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function without return value", valueType->name.length, valueType->name.ptr);
 				}
-				else if (!isAssignable(tc, valueType, isLValue(return_->value), returnType, &return_->value))
+				else if (!isAssignable(tc, valueType, isLValue(tc->globalScope, return_->value), returnType, &return_->value))
 				{
 					error(tc, (Node*)return_->value, "Cannot return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
 				}
@@ -2662,14 +2725,14 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 				{
 					if (variableType->typeKind == TYPE_REFERENCE)
 					{
-						if (compareTypes(initializerType, variableType->reference.elementType) && isLValue(variableDeclaration->declarators[i].value))
+						if (compareTypes(initializerType, variableType->reference.elementType) && isLValue(tc->globalScope, variableDeclaration->declarators[i].value))
 							insertImplicitCast(tc, &variableDeclaration->declarators[i].value, variableType);
 						else
 							error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize reference of type '%.*s' with value of type '%.*s'", variableType->reference.elementType->name.length, variableType->reference.elementType->name.ptr, initializerType->name.length, initializerType->name.ptr);
 					}
 					else
 					{
-						if (!isAssignable(tc, initializerType, isLValue(variableDeclaration->declarators[i].value), variableType, &variableDeclaration->declarators[i].value))
+						if (!isAssignable(tc, initializerType, isLValue(tc->globalScope, variableDeclaration->declarators[i].value), variableType, &variableDeclaration->declarators[i].value))
 							error(tc, (Node*)variableDeclaration->declarators[i].value, "Cannot initialize variable of type '%.*s' with value of type '%.*s'", variableType->name.length, variableType->name.ptr, initializerType->name.length, initializerType->name.ptr);
 					}
 				}
@@ -2690,7 +2753,7 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 		Type* expressionType = resolveExpression(tc, assignment->expression);
 		Type* valueType = resolveExpression(tc, assignment->value, expressionType);
 
-		if (expressionType != getErrorType(tc->types) && !isLValue(assignment->expression))
+		if (expressionType != getErrorType(tc->types) && !isLValue(tc->globalScope, assignment->expression))
 		{
 			error(tc, (Node*)assignment->expression, "Cannot assign value to non-lvalue expression");
 		}
@@ -2700,12 +2763,12 @@ static void resolveStatement(TypeChecker* tc, Statement* statement)
 
 		if (assignment->op == OPERATOR_ASSIGN)
 		{
-			if (!isAssignable(tc, valueType, isLValue(assignment->value), expressionType, &assignment->value))
+			if (!isAssignable(tc, valueType, isLValue(tc->globalScope, assignment->value), expressionType, &assignment->value))
 				error(tc, (Node*)assignment->value, "Can't assign value of type '%.*s' to expression of type '%.*s'", valueType->name.length, valueType->name.ptr, expressionType->name.length, expressionType->name.ptr);
 		}
 		else if (assignment->op == OPERATOR_REF_ASSIGN)
 		{
-			if (compareTypes(valueType, expressionType->reference.elementType) && isLValue(assignment->value))
+			if (compareTypes(valueType, expressionType->reference.elementType) && isLValue(tc->globalScope, assignment->value))
 				insertImplicitCast(tc, &assignment->value, expressionType);
 			else
 				error(tc, (Node*)assignment->value, "Cannot change reference of type '%.*s' to value of type '%.*s'", expressionType->reference.elementType->name.length, expressionType->reference.elementType->name.ptr, valueType->name.length, valueType->name.ptr);
@@ -2760,7 +2823,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 	AST* ast = &file->ast;
 
-	pushScope(tc, file->ast.globalScope);
+	pushScope(tc, file->ast.fileScope);
 
 	// Primitive global initializers
 	for (int i = 0; i < ast->numGlobalVariables; i++)
@@ -2777,11 +2840,11 @@ void symbolResolution(TypeChecker* tc, File* file)
 				{
 					resolveExpression(tc, value, globalVariable->variableType->inferredType);
 
-					if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+					if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(tc->globalScope, value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
 					{
 						error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
 					}
-					else if (value->inferredType != getErrorType(tc->types) && !isConstant(value))
+					else if (value->inferredType != getErrorType(tc->types) && !isConstant(tc->globalScope, value))
 					{
 						error(tc, (Node*)value, "Global variable initializer must be a constant value");
 					}
@@ -2985,7 +3048,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 
 			if (returnType)
 			{
-				if (!isAssignable(tc, valueType, isLValue(function->value), returnType, &function->value))
+				if (!isAssignable(tc, valueType, isLValue(tc->globalScope, function->value), returnType, &function->value))
 				{
 					error(tc, (Node*)function->value, "Can't return value of type '%.*s' from function with return type '%.*s'", valueType->name.length, valueType->name.ptr, returnType->name.length, returnType->name.ptr);
 				}
@@ -3013,7 +3076,7 @@ void symbolResolution(TypeChecker* tc, File* file)
 		if (function->storage & (STORAGE_NOMANGLE | STORAGE_DLLEXPORT | STORAGE_DLLIMPORT | STORAGE_EXTERN))
 			function->mangledName = copy(function->name);
 		else
-			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, &file->arena);
+			function->mangledName = mangleFunctionName(tc->types, function->name, function->functionType, file, &file->arena);
 
 		if (compareString(function->name, "main"))
 		{
@@ -3045,7 +3108,7 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 {
 	tc->file = file;
 
-	pushScope(tc, file->ast.globalScope);
+	pushScope(tc, file->ast.fileScope);
 
 	AST* ast = &file->ast;
 
@@ -3061,11 +3124,11 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 			{
 				resolveExpression(tc, value, globalVariable->variableType->inferredType);
 
-				if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
+				if (value->inferredType != getErrorType(tc->types) && !isAssignable(tc, value->inferredType, isLValue(tc->globalScope, value), globalVariable->variableType->inferredType, &globalVariable->declarators[j].value))
 				{
 					error(tc, (Node*)value, "Can't assign value of type '%.*s' to global variable '%.*s' of type '%.*s'", value->inferredType->name.length, value->inferredType->name.ptr, name.length, name.ptr, globalVariable->variableType->inferredType->name.length, globalVariable->variableType->inferredType->name.ptr);
 				}
-				else if (value->inferredType != getErrorType(tc->types) && !isConstant(value))
+				else if (value->inferredType != getErrorType(tc->types) && !isConstant(tc->globalScope, value))
 				{
 					error(tc, (Node*)value, "Global variable initializer must be a constant value");
 				}
@@ -3083,7 +3146,9 @@ void typeCheckFunctions(TypeChecker* tc, File* file)
 			{
 				Function* overload = existingSymbol->functionSet.overloads[j].declaration;
 				if (overload == function)
-					break;
+					continue;
+				if (existingSymbol->functionSet.overloads[j].file != file->handle)
+					continue;
 				else if (compareTypes(function->functionType, overload->functionType))
 				{
 					SourceLocation overloadLocation;
