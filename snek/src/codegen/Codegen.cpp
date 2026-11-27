@@ -467,7 +467,9 @@ static void declareAnonymousStructType(Codegen* codegen, Type* type)
 	int lastIndentation = codegen->indentation;
 	codegen->indentation = 0;
 
-	emitString(buffer, "typedef struct{\n");
+	emitString(buffer, "struct ");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, "{\n");
 
 	codegen->indentation++;
 	for (int i = 0; i < type->struct_.numFields; i++)
@@ -487,37 +489,47 @@ static void declareAnonymousStructType(Codegen* codegen, Type* type)
 	codegen->indentation--;
 
 	emitIndentation(codegen, buffer);
-	emitString(buffer, "} ");
-	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n");
+	emitString(buffer, "};\n");
 
 	codegen->indentation = lastIndentation;
 }
 
-static void declareNamedStructStub(Codegen* codegen, Struct* struct_)
+static void declareNamedStructStub(Codegen* codegen, Type* structType)
 {
-	if (codegen->declaredTypeStubs.contains(struct_->structType))
+	if (codegen->declaredTypeStubs.contains(structType))
 		return;
 
-	codegen->declaredTypeStubs.add(struct_->structType);
+	codegen->declaredTypeStubs.add(structType);
 
 	CodeBuffer* buffer = &codegen->typesBuffer;
 
 	emitString(buffer, "struct ");
-	emitString(buffer, struct_->name);
+	emitString(buffer, structType->mangledName);
 	emitString(buffer, ";\n");
 }
 
-static void declareNamedStruct(Codegen* codegen, Struct* struct_)
+static bool structIsVirtual(Type* structType)
 {
-	if (codegen->declaredTypes.contains(struct_->structType))
+	if (structType->struct_.numVirtuals > 0)
+		return true;
+	if (structType->struct_.parentType)
+	{
+		SnekAssert(structType->struct_.parentType->typeKind == TYPE_STRUCT);
+		return structIsVirtual(structType->struct_.parentType);
+	}
+	return false;
+}
+
+static void declareNamedStruct(Codegen* codegen, Type* structType)
+{
+	if (codegen->declaredTypes.contains(structType))
 		return;
 
-	codegen->declaredTypes.add(struct_->structType);
+	codegen->declaredTypes.add(structType);
 
-	for (int i = 0; i < struct_->numFields; i++)
+	for (int i = 0; i < structType->struct_.numFields; i++)
 	{
-		declareType(codegen, struct_->fields[i]->variableType->inferredType);
+		declareType(codegen, structType->struct_.fieldTypes[i]);
 	}
 
 	CodeBuffer* buffer = &codegen->typesBuffer;
@@ -526,29 +538,52 @@ static void declareNamedStruct(Codegen* codegen, Struct* struct_)
 	codegen->indentation = 0;
 
 	emitString(buffer, "struct ");
-	emitString(buffer, struct_->name);
+	emitString(buffer, structType->mangledName);
 	emitString(buffer, "{\n");
 
 	codegen->indentation++;
-	for (int i = 0; i < struct_->numFields; i++)
+
+	if (structIsVirtual(structType))
 	{
-		Field* field = struct_->fields[i];
-		for (int j = 0; j < field->numDeclarators; j++)
+		emitIndentation(codegen, buffer);
+		emitString(buffer, "unsigned int __type;\n");
+	}
+
+	if (structType->struct_.parentType)
+	{
+		Type* parentType = structType->struct_.parentType;
+
+		declareType(codegen, parentType);
+
+		for (int i = 0; i < parentType->struct_.numFields; i++)
 		{
-			if (!field->declarators[j].hasOffset)
+			if (parentType->struct_.fieldOffsets[i] == -1)
 			{
 				emitIndentation(codegen, buffer);
-				emitType(codegen, field->variableType->inferredType, buffer);
+				emitType(codegen, parentType->struct_.fieldTypes[i], buffer);
 				emitChar(buffer, ' ');
-				emitString(buffer, field->declarators[j].name);
+				emitString(buffer, parentType->struct_.fieldNames[i]);
 				emitString(buffer, ";\n");
 			}
 		}
 	}
-	if (struct_->hasBody && struct_->numFields == 0)
+
+	for (int i = 0; i < structType->struct_.numFields; i++)
+	{
+		if (structType->struct_.fieldOffsets[i] == -1)
+		{
+			emitIndentation(codegen, buffer);
+			emitType(codegen, structType->struct_.fieldTypes[i], buffer);
+			emitChar(buffer, ' ');
+			emitString(buffer, structType->struct_.fieldNames[i]);
+			emitString(buffer, ";\n");
+		}
+	}
+
+	if (structType->struct_.numFields == 0)
 	{
 		emitIndentation(codegen, buffer);
-		emitString(buffer, "int placeholder;\n");
+		emitString(buffer, "unsigned char __placeholder;\n");
 	}
 	codegen->indentation--;
 
@@ -575,7 +610,9 @@ static void declareAnonymousUnionType(Codegen* codegen, Type* type)
 	int lastIndentation = codegen->indentation;
 	codegen->indentation = 0;
 
-	emitString(buffer, "typedef union{\n");
+	emitString(buffer, "union ");
+	emitString(buffer, type->mangledName);
+	emitString(buffer, "{\n");
 
 	codegen->indentation++;
 	for (int i = 0; i < type->union_.numFields; i++)
@@ -595,37 +632,35 @@ static void declareAnonymousUnionType(Codegen* codegen, Type* type)
 	codegen->indentation--;
 
 	emitIndentation(codegen, buffer);
-	emitString(buffer, "} ");
-	emitString(buffer, type->mangledName);
-	emitString(buffer, ";\n");
+	emitString(buffer, "};\n");
 
 	codegen->indentation = lastIndentation;
 }
 
-static void declareNamedUnionStub(Codegen* codegen, Union* union_)
+static void declareNamedUnionStub(Codegen* codegen, Type* unionType)
 {
-	if (codegen->declaredTypeStubs.contains(union_->unionType))
+	if (codegen->declaredTypeStubs.contains(unionType))
 		return;
 
-	codegen->declaredTypes.add(union_->unionType);
+	codegen->declaredTypes.add(unionType);
 
 	CodeBuffer* buffer = &codegen->typesBuffer;
 
 	emitString(buffer, "union ");
-	emitString(buffer, union_->name);
+	emitString(buffer, unionType->mangledName);
 	emitString(buffer, ";\n");
 }
 
-static void declareNamedUnion(Codegen* codegen, Union* union_)
+static void declareNamedUnion(Codegen* codegen, Type* unionType)
 {
-	if (codegen->declaredTypes.contains(union_->unionType))
+	if (codegen->declaredTypes.contains(unionType))
 		return;
 
-	codegen->declaredTypes.add(union_->unionType);
+	codegen->declaredTypes.add(unionType);
 
-	for (int i = 0; i < union_->numFields; i++)
+	for (int i = 0; i < unionType->union_.numFields; i++)
 	{
-		declareType(codegen, union_->fields[i]->variableType->inferredType);
+		declareType(codegen, unionType->union_.fieldTypes[i]);
 	}
 
 	CodeBuffer* buffer = &codegen->typesBuffer;
@@ -634,21 +669,17 @@ static void declareNamedUnion(Codegen* codegen, Union* union_)
 	codegen->indentation = 0;
 
 	emitString(buffer, "union ");
-	emitString(buffer, union_->name);
+	emitString(buffer, unionType->mangledName);
 	emitString(buffer, "{\n");
 
 	codegen->indentation++;
-	for (int i = 0; i < union_->numFields; i++)
+	for (int i = 0; i < unionType->union_.numFields; i++)
 	{
-		Field* field = union_->fields[i];
-		for (int j = 0; j < field->numDeclarators; j++)
-		{
-			emitIndentation(codegen, buffer);
-			emitType(codegen, field->variableType->inferredType, buffer);
-			emitChar(buffer, ' ');
-			emitString(buffer, field->declarators[j].name);
-			emitString(buffer, ";\n");
-		}
+		emitIndentation(codegen, buffer);
+		emitType(codegen, unionType->union_.fieldTypes[i], buffer);
+		emitChar(buffer, ' ');
+		emitString(buffer, unionType->union_.fieldNames[i]);
+		emitString(buffer, ";\n");
 	}
 	codegen->indentation--;
 
@@ -803,15 +834,15 @@ static void declareTypeStub(Codegen* codegen, Type* type)
 	{
 		//codegen->declaredTypeStubs.add(type);
 
-		if (type->struct_.name.length)
-			declareNamedStructStub(codegen, type->struct_.declaration);
+		//if (type->struct_.name.length)
+		declareNamedStructStub(codegen, type);
 	}
 	else if (type->typeKind == TYPE_UNION)
 	{
 		//codegen->declaredTypeStubs.add(type);
 
-		if (type->union_.name.length)
-			declareNamedUnionStub(codegen, type->union_.declaration);
+		//if (type->union_.name.length)
+		declareNamedUnionStub(codegen, type);
 	}
 	else if (type->typeKind == TYPE_ENUM)
 	{
@@ -831,15 +862,15 @@ static void declareType(Codegen* codegen, Type* type)
 	{
 		if (!type->struct_.name.length)
 			declareAnonymousStructType(codegen, type);
-		else if (type->struct_.declaration)
-			declareNamedStruct(codegen, type->struct_.declaration);
+		else
+			declareNamedStruct(codegen, type);
 	}
 	else if (type->typeKind == TYPE_UNION)
 	{
 		if (!type->union_.name.length)
 			declareAnonymousUnionType(codegen, type);
-		else if (type->union_.declaration)
-			declareNamedUnion(codegen, type->union_.declaration);
+		else
+			declareNamedUnion(codegen, type);
 	}
 	else if (type->typeKind == TYPE_ENUM)
 	{
@@ -892,29 +923,35 @@ static void emitType(Codegen* codegen, Type* type, CodeBuffer* buffer)
 {
 	if (type->typeKind == TYPE_STRUCT)
 	{
+		/*
 		if (type->struct_.name.length)
 		{
 			emitString(buffer, "struct ");
 			emitString(buffer, type->struct_.name);
 		}
 		else
+		*/
 		{
-			SnekAssert(codegen->declaredTypes.contains(type));
+			SnekAssert(codegen->declaredTypes.contains(type) || codegen->declaredTypeStubs.contains(type));
 
+			emitString(buffer, "struct ");
 			emitString(buffer, type->mangledName);
 		}
 	}
 	else if (type->typeKind == TYPE_UNION)
 	{
+		/*
 		if (type->union_.name.length)
 		{
 			emitString(buffer, "union ");
 			emitString(buffer, type->union_.name);
 		}
 		else
+		*/
 		{
-			SnekAssert(codegen->declaredTypes.contains(type));
+			SnekAssert(codegen->declaredTypes.contains(type) || codegen->declaredTypeStubs.contains(type));
 
+			emitString(buffer, "union ");
 			emitString(buffer, type->mangledName);
 		}
 	}
@@ -1086,6 +1123,183 @@ static void emitOperator(CodeBuffer* buffer, OperatorType op)
 }
 
 static void emitExpressionConstant(Codegen* codegen, Expression* expression, CodeBuffer* buffer);
+
+static Value emitCall(Codegen* codegen, Value operand, Type* functionType, int numArgs, Value* args, bool memberFunction, Value memberFunctionInstance, CodeBuffer* buffer)
+{
+	Value variadicArgs = {};
+	if (functionType->function.variadic)
+	{
+		int numVariadicArgs = numArgs - functionType->function.numParams + 1;
+
+		SnekAssert(functionType->function.paramTypes[functionType->function.numParams - 1]->typeKind == TYPE_ARRAY);
+		Type* variadicType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
+
+		if (numVariadicArgs == 1
+			&& args[functionType->function.numParams - 1].type->typeKind == TYPE_ARRAY
+			&& compareTypes(args[functionType->function.numParams - 1].type->array.elementType, variadicType))
+		{
+			variadicArgs = args[functionType->function.numParams - 1];
+		}
+		else
+		{
+			Value argsData = createLocalValue(codegen, nullptr);
+
+			newLine(codegen, buffer);
+			//emitString(buffer, "const "); statically sized array is already constant by default
+			emitType(codegen, variadicType, buffer);
+			emitChar(buffer, ' ');
+			emitValue(buffer, argsData);
+			emitChar(buffer, '[');
+			emitInteger(buffer, numVariadicArgs);
+			emitString(buffer, "]={");
+
+			for (int i = 0; i < numVariadicArgs; i++)
+			{
+				Value variadicArg = args[functionType->function.numParams - 1 + i];
+				emitValue(buffer, variadicArg);
+				if (i < numVariadicArgs - 1)
+					emitChar(buffer, ',');
+			}
+
+			emitString(buffer, "};\n");
+
+			variadicArgs = declareLocalValue(codegen, getArrayType(codegen->types, variadicType, 0, codegen->currentFile), buffer);
+			emitChar(buffer, '{');
+			emitString(buffer, argsData.name);
+			emitChar(buffer, ',');
+			emitInteger(buffer, numVariadicArgs);
+			emitString(buffer, "};\n");
+		}
+	}
+
+	Value result = {};
+	if (functionType->function.returnType)
+		result = declareLocalValue(codegen, functionType->function.returnType, buffer);
+	else
+		newLine(codegen, buffer);
+
+	emitValue(buffer, operand);
+	emitChar(buffer, '(');
+
+	if (memberFunction)
+	{
+		emitValue(buffer, memberFunctionInstance);
+		if (numArgs > 0 || functionType->function.variadic)
+			emitChar(buffer, ',');
+	}
+
+	int argOffset = memberFunction ? 1 : 0;
+	for (int i = 0; i < numArgs; i++)
+	{
+		if (functionType->function.variadic && i + argOffset == functionType->function.numParams - 1)
+		{
+			break;
+		}
+		else
+		{
+			emitValue(buffer, args[i]);
+		}
+
+		if (i + argOffset < functionType->function.numParams - 1)
+			emitChar(buffer, ',');
+	}
+	if (functionType->function.variadic) {
+		emitValue(buffer, variadicArgs);
+	}
+
+	emitString(buffer, ");\n");
+
+	return result;
+}
+
+static bool structHasVirtual(Struct* struct_, Symbol* symbol)
+{
+	for (int i = 0; i < struct_->numVirtuals; i++)
+	{
+		if (struct_->virtuals[i]->symbol == symbol)
+			return true;
+	}
+	return false;
+}
+
+static void virtualCall(Codegen* codegen, Struct* struct_, Symbol* overloads, int numArgs, Value* args, Type* returnType, Value memberFunctionInstance, Value returnValue, CodeBuffer* buffer)
+{
+	for (int i = 0; i < struct_->numChildTypes; i++)
+	{
+		virtualCall(codegen, struct_->childTypes[i], overloads, numArgs, args, returnType, memberFunctionInstance, returnValue, buffer);
+	}
+
+	for (int i = 0; i < overloads->functionSet.count; i++)
+	{
+		FunctionOverload* overload = &overloads->functionSet.overloads[i];
+		Type* overloadType = overload->declaration->functionType;
+		if (overloadType->function.numParams == numArgs + 1 || overloadType->function.variadic && overloadType->function.numParams <= numArgs + 1 - 1)
+		{
+			Type* firstParamType = overloadType->function.paramTypes[0];
+			if (compareTypes(firstParamType, struct_->structType)
+				|| firstParamType->typeKind == TYPE_POINTER && compareTypes(firstParamType->pointer.elementType, struct_->structType))
+			{
+				bool argTypesMatch = true;
+				if (!compareTypes(returnType, overloadType->function.returnType))
+					argTypesMatch = false;
+				for (int j = 0; j < numArgs; j++)
+				{
+					int paramIdx = j + 1;
+					if (paramIdx < overloadType->function.numParams)
+					{
+						Type* argType = args[j].type;
+						Type* paramType = overloadType->function.paramTypes[paramIdx];
+						if (!compareTypes(argType, paramType))
+						{
+							argTypesMatch = false;
+							break;
+						}
+					}
+				}
+
+				if (argTypesMatch)
+				{
+					emitIndentation(codegen, buffer);
+					emitString(buffer, "case ");
+					uint32_t typeId = hash(struct_->structType->mangledName);
+					emitInteger(buffer, typeId);
+					emitString(buffer, ":\n");
+					codegen->indentation++;
+
+					Value operand = {};
+					operand.type = overloadType;
+					operand.isIdentifier = true;
+					operand.identifier = overload->declaration->mangledName;
+
+					Value instance = memberFunctionInstance;
+					if (!compareTypes(firstParamType, memberFunctionInstance.type))
+					{
+						instance = declareLocalValue(codegen, firstParamType, buffer);
+						emitString(buffer, "(");
+						emitType(codegen, firstParamType, buffer);
+						emitString(buffer, ")");
+						emitValue(buffer, memberFunctionInstance);
+						emitString(buffer, ";\n");
+					}
+
+					Value result = emitCall(codegen, operand, overloadType, numArgs, args, true, instance, buffer);
+					if (returnType)
+					{
+						emitIndentation(codegen, buffer);
+						emitValue(buffer, returnValue);
+						emitString(buffer, "=");
+						emitValue(buffer, result);
+					}
+
+					emitIndentation(codegen, buffer);
+					emitString(buffer, "break;\n");
+					codegen->indentation--;
+					// if matching, insert case
+				}
+			}
+		}
+	}
+}
 
 static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer* buffer)
 {
@@ -1650,88 +1864,45 @@ static Value emitExpression(Codegen* codegen, Expression* expression, CodeBuffer
 		functionType = unwrapType(functionType);
 		SnekAssert(functionType->typeKind == TYPE_FUNCTION);
 
-		Value variadicArgs = {};
-		if (functionType->function.variadic)
+		Value result = {};
+		bool isVirtualCall = false;
+		if (memberFunction && (memberFunctionInstance.type->typeKind == TYPE_STRUCT || memberFunctionInstance.type->typeKind == TYPE_POINTER && memberFunctionInstance.type->pointer.elementType->typeKind == TYPE_STRUCT))
 		{
-			int numVariadicArgs = functionCall->numArgs - functionType->function.numParams + 1;
-
-			SnekAssert(functionType->function.paramTypes[functionType->function.numParams - 1]->typeKind == TYPE_ARRAY);
-			Type* variadicType = functionType->function.paramTypes[functionType->function.numParams - 1]->array.elementType;
-
-			if (numVariadicArgs == 1
-				&& args[functionType->function.numParams - 1].type->typeKind == TYPE_ARRAY
-				&& compareTypes(args[functionType->function.numParams - 1].type->array.elementType, variadicType))
+			Struct* struct_ = memberFunctionInstance.type->typeKind == TYPE_POINTER ? memberFunctionInstance.type->pointer.elementType->struct_.declaration : memberFunctionInstance.type->struct_.declaration;
+			Symbol* functionSymbol = functionCall->expression->type == NODE_IDENTIFIER ? getIdentifierSymbol(codegen->globalScope, (Identifier*)functionCall->expression) :
+				functionCall->expression->type == NODE_MEMBER_ACCESS ? getMemberAccessSymbol(codegen->globalScope, (MemberAccess*)functionCall->expression) : nullptr;
+			if (functionSymbol && structHasVirtual(struct_, functionSymbol))
 			{
-				variadicArgs = args[functionType->function.numParams - 1];
-			}
-			else
-			{
-				Value argsData = createLocalValue(codegen, nullptr);
+				// virtual call
 
-				newLine(codegen, buffer);
-				//emitString(buffer, "const "); statically sized array is already constant by default
-				emitType(codegen, variadicType, buffer);
-				emitChar(buffer, ' ');
-				emitValue(buffer, argsData);
-				emitChar(buffer, '[');
-				emitInteger(buffer, numVariadicArgs);
-				emitString(buffer, "]={");
-
-				for (int i = 0; i < numVariadicArgs; i++)
+				if (functionType->function.returnType)
 				{
-					Value variadicArg = args[functionType->function.numParams - 1 + i];
-					emitValue(buffer, variadicArg);
-					if (i < numVariadicArgs - 1)
-						emitChar(buffer, ',');
+					result = declareLocalValue(codegen, functionType->function.returnType, buffer);
+					emitString(buffer, "{0};\n");
 				}
 
-				emitString(buffer, "};\n");
+				emitIndentation(codegen, buffer);
+				emitString(buffer, "switch(");
+				emitValue(buffer, memberFunctionInstance);
+				if (memberFunctionInstance.type->typeKind == TYPE_POINTER)
+					emitString(buffer, "->");
+				else
+					emitChar(buffer, '.');
+				emitString(buffer, "__type){\n");
 
-				variadicArgs = declareLocalValue(codegen, getArrayType(codegen->types, variadicType, 0, codegen->currentFile), buffer);
-				emitChar(buffer, '{');
-				emitString(buffer, argsData.name);
-				emitChar(buffer, ',');
-				emitInteger(buffer, numVariadicArgs);
-				emitString(buffer, "};\n");
+				virtualCall(codegen, struct_, functionSymbol, functionCall->numArgs, args, functionType->function.returnType, memberFunctionInstance, result, buffer);
+
+				emitIndentation(codegen, buffer);
+				emitString(buffer, "}\n");
+
+				isVirtualCall = true;
 			}
 		}
 
-		Value result = {};
-		if (!isVoidType(functionCall->inferredType))
-			result = declareLocalValue(codegen, functionCall->inferredType, buffer);
-		else
-			newLine(codegen, buffer);
-
-		emitValue(buffer, operand);
-		emitChar(buffer, '(');
-
-		if (memberFunction)
+		if (!isVirtualCall)
 		{
-			emitValue(buffer, memberFunctionInstance);
-			if (functionCall->numArgs > 0 || functionType->function.variadic)
-				emitChar(buffer, ',');
+			result = emitCall(codegen, operand, functionType, functionCall->numArgs, args, memberFunction, memberFunctionInstance, buffer);
 		}
-
-		int argOffset = memberFunction ? 1 : 0;
-		for (int i = 0; i < functionCall->numArgs; i++)
-		{
-			if (functionType->function.variadic && i + argOffset == functionType->function.numParams - 1)
-			{
-				break;
-			}
-			else
-			{
-				emitValue(buffer, args[i]);
-			}
-
-			if (i + argOffset < functionType->function.numParams - 1)
-				emitChar(buffer, ',');
-		}
-		if (functionType->function.variadic) {
-			emitValue(buffer, variadicArgs);
-		}
-
-		emitString(buffer, ");\n");
 
 		codegen->scratch.release(mark);
 
@@ -3121,6 +3292,16 @@ static void emitStatement(Codegen* codegen, Statement* statement, CodeBuffer* bu
 			else
 			{
 				emitString(buffer, "={0};\n");
+
+				if (variable->variableType->inferredType->typeKind == TYPE_STRUCT && structIsVirtual(variable->variableType->inferredType))
+				{
+					emitIndentation(codegen, buffer);
+					emitString(buffer, declarator->name);
+					emitString(buffer, ".__type=");
+					uint32_t typeId = hash(variable->variableType->inferredType->mangledName);
+					emitInteger(buffer, typeId);
+					emitString(buffer, ";\n");
+				}
 			}
 		}
 	}
@@ -3426,11 +3607,12 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
-			declareNamedStructStub(codegen, &declaration->struct_);
+			if (!declaration->struct_.isGeneric)
+				declareNamedStructStub(codegen, declaration->struct_.structType);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
-			declareNamedUnionStub(codegen, &declaration->union_);
+			declareNamedUnionStub(codegen, declaration->union_.unionType);
 		}
 	}
 
@@ -3443,11 +3625,12 @@ bool emitFile(Codegen* codegen, File* f, const char* localPath, const char* out,
 		Node* declaration = ast->declarations[i];
 		if (declaration->type == NODE_STRUCT)
 		{
-			declareNamedStruct(codegen, &declaration->struct_);
+			if (!declaration->struct_.isGeneric)
+				declareNamedStruct(codegen, declaration->struct_.structType);
 		}
 		else if (declaration->type == NODE_UNION)
 		{
-			declareNamedUnion(codegen, &declaration->union_);
+			declareNamedUnion(codegen, declaration->union_.unionType);
 		}
 		else if (declaration->type == NODE_ENUM)
 		{

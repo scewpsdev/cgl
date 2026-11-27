@@ -72,6 +72,8 @@ enum NodeType : uint8_t
 	NODE_FIELD,
 	NODE_PARAMETER,
 	NODE_ENUM_VALUE,
+	NODE_VIRTUAL,
+	NODE_GENERIC_TYPE_ARGUMENT,
 
 	NODE_STRUCT,
 	NODE_UNION,
@@ -145,6 +147,10 @@ struct ErrorType : TypeNode
 struct NamedType : TypeNode
 {
 	StringView name;
+
+	bool isGeneric;
+	TypeNode** genericArgs;
+	int numGenericArgs;
 
 	Symbol* symbol;
 	SymbolHandle symbolHandle;
@@ -494,14 +500,38 @@ struct ExpressionStatement : Statement
 };
 
 
+struct Virtual : NodeBase
+{
+	StringView name;
+	Symbol* symbol;
+};
+
+struct GenericTypeArgument : NodeBase
+{
+	StringView name;
+};
+
 struct Struct : NodeBase
 {
 	StringView name;
 	uint32_t storage;
 
+	bool isGeneric;
+	GenericTypeArgument** genericArgs;
+	int numGenericArgs;
+
+	TypeNode* parentType;
+
 	bool hasBody;
 	Field** fields;
 	int numFields;
+
+	Virtual** virtuals;
+	int numVirtuals;
+
+	Struct** childTypes;
+	int numChildTypes;
+	int maxChildTypes;
 
 	Type* structType;
 	Symbol* symbol;
@@ -649,6 +679,8 @@ struct Node
 		Field field;
 		Parameter parameter;
 		EnumValue enumValue;
+		Virtual virtual_;
+		GenericTypeArgument genericArg;
 
 		// declarations
 
@@ -685,6 +717,7 @@ struct Symbol
 
 	Node* declaration;
 	FunctionSet functionSet;
+	Type* genericArgValue;
 };
 
 struct SymbolTable

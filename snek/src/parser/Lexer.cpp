@@ -523,6 +523,7 @@ TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'e':
 			if (str[1] == 'x' && str[2] == 't' && str[3] == 'e' && str[4] == 'r' && str[5] == 'n' && str[6] == 'c') return TOKEN_EXTERN;
+			if (str[1] == 'x' && str[2] == 't' && str[3] == 'e' && str[4] == 'n' && str[5] == 'd' && str[6] == 's') return TOKEN_EXTENDS;
 			break;
 		case 'f':
 			if (str[1] == 'l' && str[2] == 'o' && str[3] == 'a' && str[4] == 't' && str[5] == '3' && str[6] == '2') return TOKEN_FLOAT32;
@@ -530,6 +531,9 @@ TokenType getKeywordType(const char* str, int len)
 			break;
 		case 'p':
 			if (str[1] == 'a' && str[2] == 'c' && str[3] == 'k' && str[4] == 'a' && str[5] == 'g' && str[6] == 'e') return TOKEN_MODULE;
+			break;
+		case 'v':
+			if (str[1] == 'i' && str[2] == 'r' && str[3] == 't' && str[4] == 'u' && str[5] == 'a' && str[6] == 'l') return TOKEN_VIRTUAL;
 			break;
 		}
 		break;

@@ -489,8 +489,35 @@ static TypeNode* parseBasicType(Parser* parser, bool identifierAfter)
 
 		NamedType* type = parser->arena->alloc<NamedType>();
 		initType((TypeNode*)type, NODE_NAMED_TYPE, TYPE_NULL, start);
-		type->end = end;
 		type->name = getTokenString(token, parser->file);
+
+		if (nextIs(parser, '<'))
+		{
+			nextToken(parser); // <
+
+			type->isGeneric = true;
+
+			int mark = parser->scratch->mark();
+
+			bool next = !nextIs(parser, '>');
+			while (hasNext(parser) && next)
+			{
+				TypeNode* arg = parseType(parser, false);
+				parser->scratch->add(arg);
+
+				next = nextIs(parser, ',');
+				if (next) nextToken(parser); // ,
+			}
+			
+			expectToken(parser, '>');
+
+			type->genericArgs = copyFromScratchBuffer<TypeNode*>(parser, mark, &type->numGenericArgs);
+
+			parser->scratch->release(mark);
+		}
+
+		type->end = end;
+
 		return type;
 	}
 	else if (token.type == TOKEN_REF)
@@ -2153,6 +2180,53 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 
 	struct_->name = getTokenString(identifier, parser->file);
 
+	if (nextIs(parser, '<'))
+	{
+		nextToken(parser); // <
+
+		struct_->isGeneric = true;
+
+		int mark = parser->scratch->mark();
+
+		bool next = !nextIs(parser, '>');
+		while (hasNext(parser) && next)
+		{
+			Token identifier;
+			if (nextIs(parser, TOKEN_IDENTIFIER, &identifier))
+			{
+				nextToken(parser);
+
+				GenericTypeArgument* genericArg = parser->arena->alloc<GenericTypeArgument>();
+				initNode((Node*)genericArg, NODE_GENERIC_TYPE_ARGUMENT, parser->cursor);
+
+				genericArg->name = getTokenString(identifier, parser->file);
+				parser->scratch->add(genericArg);
+
+				genericArg->end = parser->cursor;
+
+				next = nextIs(parser, ',');
+				if (next) nextToken(parser);
+			}
+			else
+			{
+				StringView tokenStr = getTokenString(identifier, parser->file);
+				error(parser, getSourceLocation(parser), "Identifier expected, got '%.*s'", tokenStr.length, tokenStr.ptr);
+			}
+		}
+
+		expectToken(parser, '>');
+
+		struct_->genericArgs = copyFromScratchBuffer<GenericTypeArgument*>(parser, mark, &struct_->numGenericArgs);
+
+		parser->scratch->release(mark);
+	}
+
+	if (nextIs(parser, TOKEN_EXTENDS))
+	{
+		nextToken(parser);
+		struct_->parentType = parseType(parser, false);
+	}
+
 	if (nextIs(parser, ';'))
 	{
 		nextToken(parser);
@@ -2161,11 +2235,29 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 	{
 		struct_->hasBody = true;
 
+		Virtual* virtuals[64];
+		int numVirtuals = 0;
+
 		int mark = parser->scratch->mark();
 
 		while (hasNext(parser) && !nextIs(parser, '}'))
 		{
-			if (Field* field = parseField(parser))
+			if (nextIs(parser, TOKEN_VIRTUAL))
+			{
+				int virtualStart = parser->cursor;
+				nextToken(parser);
+				Token name;
+				if (expectToken(parser, TOKEN_IDENTIFIER, &name))
+				{
+					Virtual* virtual_ = parser->arena->alloc<Virtual>();
+					initNode((Node*)virtual_, NODE_VIRTUAL, virtualStart);
+					virtual_->name = getTokenString(name, parser->file);
+					virtual_->end = parser->cursor;
+
+					virtuals[numVirtuals++] = virtual_;
+				}
+			}
+			else if (Field* field = parseField(parser))
 				parser->scratch->add((Node*)field);
 			else
 				skipPastToken(parser, ';');
@@ -2174,6 +2266,13 @@ Struct* parseStruct(Parser* parser, uint32_t storage, int start)
 		struct_->fields = copyFromScratchBuffer<Field*>(parser, mark, &struct_->numFields);
 
 		parser->scratch->release(mark);
+
+		if (numVirtuals)
+		{
+			struct_->virtuals = parser->arena->alloc<Virtual*>(numVirtuals);
+			struct_->numVirtuals = numVirtuals;
+			memcpy(struct_->virtuals, virtuals, numVirtuals * sizeof(Virtual*));
+		}
 
 		nextToken(parser);
 	}

@@ -411,7 +411,8 @@ void symbolCollection(TypeChecker* tc, File* file)
 
 			if (struct_->name.length)
 			{
-				struct_->structType = createNamedStructType(file, struct_->name, struct_);
+				if (!struct_->isGeneric)
+					struct_->structType = createNamedStructType(file, struct_->name, struct_, false, nullptr, 0);
 				struct_->symbol = insertSymbol(&tc->currentScope->symbols, struct_->name, SYMBOL_TYPE, declaration, file->handle);
 			}
 
@@ -526,6 +527,26 @@ void symbolCollection(TypeChecker* tc, File* file)
 	popScope(tc);
 }
 
+static void resolveStructType(TypeChecker* tc, Type* structType, Struct* struct_);
+
+static Type* instantiateGenericType(TypeChecker* tc, Struct* struct_, Type** genericArgs, int numGenericArgs)
+{
+	Scope* genericScope = pushScope(tc);
+
+	for (int i = 0; i < numGenericArgs; i++)
+	{
+		Symbol* symbol = insertSymbol(&genericScope->symbols, struct_->genericArgs[i]->name, SYMBOL_TYPE, (Node*)struct_->genericArgs[i], tc->file->handle);
+		symbol->genericArgValue = genericArgs[i];
+	}
+
+	Type* structType = createNamedStructType(tc->file, struct_->name, struct_, true, genericArgs, numGenericArgs);
+	resolveStructType(tc, structType, struct_);
+
+	popScope(tc);
+
+	return structType;
+}
+
 static Type* resolveType(TypeChecker* tc, TypeNode* type)
 {
 	if (type->type == NODE_ERROR_TYPE)
@@ -554,7 +575,37 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			if (node->type == NODE_STRUCT)
 			{
 				Struct* struct_ = &node->struct_;
-				return type->inferredType = struct_->structType;
+				if (struct_->isGeneric)
+				{
+					if (!namedType->isGeneric)
+					{
+						error(tc, (Node*)namedType, "Can't use type '%.*s' without generic type arguments", namedType->name.length, namedType->name.ptr);
+						return type->inferredType = getErrorType(tc->types);
+					}
+
+					if (struct_->numGenericArgs != namedType->numGenericArgs)
+					{
+						error(tc, (Node*)namedType, "Incorrect number of generic type arguments (%d) for type '%.*s', should be %d", namedType->numGenericArgs, namedType->name.length, namedType->name.ptr, struct_->numGenericArgs);
+						return type->inferredType = getErrorType(tc->types);
+					}
+
+					int mark = tc->scratch->mark();
+					for (int i = 0; i < namedType->numGenericArgs; i++)
+					{
+						Type* genericArg = resolveType(tc, namedType->genericArgs[i]);
+						tc->scratch->add(genericArg);
+					}
+
+					Type** genericArgs = tc->scratch->getData<Type*>(mark);
+
+					tc->scratch->release(mark);
+
+					return type->inferredType = instantiateGenericType(tc, struct_, genericArgs, namedType->numGenericArgs);
+				}
+				else
+				{
+					return type->inferredType = struct_->structType;
+				}
 			}
 			else if (node->type == NODE_UNION)
 			{
@@ -570,6 +621,11 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 			{
 				Typedef* typedef_ = &node->typedef_;
 				return type->inferredType = typedef_->aliasType;
+			}
+			else if (node->type == NODE_GENERIC_TYPE_ARGUMENT)
+			{
+				GenericTypeArgument* genericArg = &node->genericArg;
+				return type->inferredType = symbol->genericArgValue;
 			}
 			else
 			{
@@ -2859,6 +2915,133 @@ static Type* resolveParameter(TypeChecker* tc, Parameter* parameter)
 	return paramType;
 }
 
+static void resolveStructType(TypeChecker* tc, Type* structType, Struct* struct_)
+{
+	int numFields = 0;
+	int numOffsetFields = 0;
+
+	int mark = tc->scratch->mark();
+
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		resolveField(tc, struct_->fields[j]);
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (!struct_->fields[j]->declarators[k].hasOffset)
+			{
+				tc->scratch->add(struct_->fields[j]->variableType->inferredType);
+				numFields++;
+			}
+		}
+	}
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (struct_->fields[j]->declarators[k].hasOffset)
+			{
+				tc->scratch->add(struct_->fields[j]->variableType->inferredType);
+				numOffsetFields++;
+			}
+		}
+	}
+
+	int mark2 = tc->scratch->mark();
+
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (!struct_->fields[j]->declarators[k].hasOffset)
+			{
+				if (struct_->fields[j]->declarators[k].name.length)
+					tc->scratch->add(struct_->fields[j]->declarators[k].name);
+				else
+					tc->scratch->add(StringView{});
+			}
+		}
+	}
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (struct_->fields[j]->declarators[k].hasOffset)
+			{
+				if (struct_->fields[j]->declarators[k].name.length)
+					tc->scratch->add(struct_->fields[j]->declarators[k].name);
+				else
+					tc->scratch->add(StringView{});
+			}
+		}
+	}
+
+	int mark3 = tc->scratch->mark();
+
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (!struct_->fields[j]->declarators[k].hasOffset)
+				tc->scratch->add(-1);
+		}
+	}
+	for (int j = 0; j < struct_->numFields; j++)
+	{
+		for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
+		{
+			if (struct_->fields[j]->declarators[k].hasOffset)
+				tc->scratch->add(struct_->fields[j]->declarators[k].offset);
+		}
+	}
+
+	Type** fieldTypes = tc->scratch->getData<Type*>(mark);
+	StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
+	int* fieldOffsets = tc->scratch->getData<int>(mark3);
+
+	Type* parentType = nullptr;
+	if (struct_->parentType)
+	{
+		parentType = resolveType(tc, struct_->parentType);
+
+		if (parentType->typeKind == TYPE_STRUCT)
+		{
+			Struct* parentStruct = parentType->struct_.declaration;
+			if (parentStruct->numChildTypes + 1 > parentStruct->maxChildTypes)
+			{
+				parentStruct->maxChildTypes = parentStruct->maxChildTypes == 0 ? 8 : parentStruct->maxChildTypes * 2;
+				Struct** newChildTypes = tc->arena->alloc<Struct*>(parentStruct->maxChildTypes);
+				memcpy(newChildTypes, parentStruct->childTypes, parentStruct->numChildTypes * sizeof(Struct*));
+				parentStruct->childTypes = newChildTypes;
+			}
+			parentStruct->childTypes[parentStruct->numChildTypes++] = struct_;
+		}
+		else
+		{
+			error(tc, (Node*)struct_->parentType, "Cannot extend non-struct type '%.*s'", parentType->name.length, parentType->name.ptr);
+		}
+	}
+
+	for (int i = 0; i < struct_->numVirtuals; i++)
+	{
+		Virtual* virtual_ = struct_->virtuals[i];
+		if (Symbol* symbol = resolveSymbol(tc, virtual_->name, SYMBOL_FUNCTION_SET))
+		{
+			virtual_->symbol = symbol;
+		}
+		else
+		{
+			error(tc, (Node*)struct_, "Could not resolve virtual '%.*s.%.*s'", struct_->name.length, struct_->name.ptr, virtual_->name.length, virtual_->name.ptr);
+		}
+	}
+
+	if (structType)
+	{
+		resolveNamedStructType(structType, numFields, numOffsetFields, fieldTypes, fieldNames, fieldOffsets, parentType, struct_->numVirtuals, tc->file);
+	}
+
+	tc->scratch->release(mark);
+}
+
 void symbolResolution(TypeChecker* tc, File* file)
 {
 	tc->file = file;
@@ -2903,93 +3086,10 @@ void symbolResolution(TypeChecker* tc, File* file)
 	{
 		Struct* struct_ = ast->structs[i];
 
-		int numFields = 0;
-		int numOffsetFields = 0;
+		if (struct_->isGeneric)
+			continue;
 
-		int mark = tc->scratch->mark();
-
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			resolveField(tc, struct_->fields[j]);
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (!struct_->fields[j]->declarators[k].hasOffset)
-				{
-					tc->scratch->add(struct_->fields[j]->variableType->inferredType);
-					numFields++;
-				}
-			}
-		}
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (struct_->fields[j]->declarators[k].hasOffset)
-				{
-					tc->scratch->add(struct_->fields[j]->variableType->inferredType);
-					numOffsetFields++;
-				}
-			}
-		}
-
-		int mark2 = tc->scratch->mark();
-
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (!struct_->fields[j]->declarators[k].hasOffset)
-				{
-					if (struct_->fields[j]->declarators[k].name.length)
-						tc->scratch->add(struct_->fields[j]->declarators[k].name);
-					else
-						tc->scratch->add(StringView{});
-				}
-			}
-		}
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (struct_->fields[j]->declarators[k].hasOffset)
-				{
-					if (struct_->fields[j]->declarators[k].name.length)
-						tc->scratch->add(struct_->fields[j]->declarators[k].name);
-					else
-						tc->scratch->add(StringView{});
-				}
-			}
-		}
-
-		int mark3 = tc->scratch->mark();
-
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (!struct_->fields[j]->declarators[k].hasOffset)
-					tc->scratch->add(-1);
-			}
-		}
-		for (int j = 0; j < struct_->numFields; j++)
-		{
-			for (int k = 0; k < struct_->fields[j]->numDeclarators; k++)
-			{
-				if (struct_->fields[j]->declarators[k].hasOffset)
-					tc->scratch->add(struct_->fields[j]->declarators[k].offset);
-			}
-		}
-
-		Type** fieldTypes = tc->scratch->getData<Type*>(mark);
-		StringView* fieldNames = tc->scratch->getData<StringView>(mark2);
-		int* fieldOffsets = tc->scratch->getData<int>(mark3);
-
-		if (struct_->structType)
-		{
-			resolveNamedStructType(struct_->structType, numFields, numOffsetFields, fieldTypes, fieldNames, fieldOffsets, file);
-		}
-
-		tc->scratch->release(mark);
+		resolveStructType(tc, struct_->structType, struct_);
 	}
 
 	for (int i = 0; i < ast->numUnions; i++)

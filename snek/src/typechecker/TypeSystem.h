@@ -27,6 +27,8 @@ struct Type
 			Type** fieldTypes;
 			StringView* fieldNames;
 			int* fieldOffsets;
+			Type* parentType;
+			int numVirtuals;
 			Struct* declaration;
 		} struct_;
 
@@ -132,8 +134,8 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type** paramTypes, bool variadic, File* file);
 Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* file);
 
-Type* createNamedStructType(File* file, StringView name, Struct* declaration);
-void resolveNamedStructType(Type* type, int numFields, int numOffsetFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, File* file);
+Type* createNamedStructType(File* file, StringView name, Struct* declaration, bool isGenericInstance, Type** genericArgs, int numGenericArgs);
+void resolveNamedStructType(Type* type, int numFields, int numOffsetFields, Type** fieldTypes, StringView* fieldNames, int* fieldOffsets, Type* parentType, int numVirtuals, File* file);
 
 Type* createNamedUnionType(File* file, StringView name, Union* declaration);
 void resolveNamedUnionType(Type* type, int numFields, Type** fieldTypes, StringView* fieldNames, File* file);
