@@ -121,6 +121,12 @@ uint64_t hashType(Type* type)
 			h = (h ^ hash(type->struct_.name)) * 1099511628211ULL;
 		for (int i = 0; i < type->struct_.numFields; i++)
 			h = (h ^ type->struct_.fieldTypes[i]->hash) * 1099511628211ULL;
+		if (type->struct_.isGenericInstance)
+		{
+			h = (h ^ 12345) * 1099511628211ULL;
+			for (int i = 0; i < type->struct_.numGenericArgs; i++)
+				h = (h ^ type->struct_.genericArgs[i]->hash) * 1099511628211ULL;
+		}
 		break;
 	case TYPE_UNION:
 		if (type->union_.name.length)
@@ -477,9 +483,9 @@ static bool isPrimitiveDerivative(Type* type)
 	}
 }
 
-static void mangleType(char* buffer, Type* type, bool isGenericInstance, Type** genericArgs, int numGenericArgs);
+static void mangleType(char* buffer, Type* type);
 
-static void mangleStructType(char* buffer, Type* type, bool isGenericInstance, Type** genericArgs, int numGenericArgs)
+static void mangleStructType(char* buffer, Type* type)
 {
 	strcat(buffer, "S");
 	if (type->struct_.name.length)
@@ -489,21 +495,21 @@ static void mangleStructType(char* buffer, Type* type, bool isGenericInstance, T
 		sprintf(buffer + strlen(buffer), "%d", type->struct_.numFields);
 		for (int i = 0; i < type->struct_.numFields; i++)
 		{
-			mangleType(buffer, type->struct_.fieldTypes[i], isGenericInstance, genericArgs, numGenericArgs);
+			mangleType(buffer, type->struct_.fieldTypes[i]);
 		}
 	}
-	if (isGenericInstance)
+	if (type->struct_.isGenericInstance)
 	{
 		strcat(buffer, "_gen");
-		sprintf(buffer + strlen(buffer), "%d", numGenericArgs);
-		for (int i = 0; i < numGenericArgs; i++)
+		sprintf(buffer + strlen(buffer), "%d", type->struct_.numGenericArgs);
+		for (int i = 0; i < type->struct_.numGenericArgs; i++)
 		{
-			mangleType(buffer, genericArgs[i], isGenericInstance, genericArgs, numGenericArgs);
+			mangleType(buffer, type->struct_.genericArgs[i]);
 		}
 	}
 }
 
-static void mangleType(char* buffer, Type* type, bool isGenericInstance, Type** genericArgs, int numGenericArgs)
+static void mangleType(char* buffer, Type* type)
 {
 	switch (type->typeKind)
 	{
@@ -550,7 +556,7 @@ static void mangleType(char* buffer, Type* type, bool isGenericInstance, Type** 
 		strcat(buffer, "st");
 		break;
 	case TYPE_STRUCT:
-		mangleStructType(buffer, type, isGenericInstance, genericArgs, numGenericArgs);
+		mangleStructType(buffer, type);
 		break;
 	case TYPE_UNION:
 		strcat(buffer, "U");
@@ -561,7 +567,7 @@ static void mangleType(char* buffer, Type* type, bool isGenericInstance, Type** 
 			sprintf(buffer + strlen(buffer), "%d", type->union_.numFields);
 			for (int i = 0; i < type->union_.numFields; i++)
 			{
-				mangleType(buffer, type->union_.fieldTypes[i], isGenericInstance, genericArgs, numGenericArgs);
+				mangleType(buffer, type->union_.fieldTypes[i]);
 			}
 		}
 		break;
@@ -577,31 +583,31 @@ static void mangleType(char* buffer, Type* type, bool isGenericInstance, Type** 
 		break;
 	case TYPE_POINTER:
 		strcat(buffer, "p");
-		mangleType(buffer, type->pointer.elementType, isGenericInstance, genericArgs, numGenericArgs);
+		mangleType(buffer, type->pointer.elementType);
 		break;
 	case TYPE_OPTIONAL:
 		strcat(buffer, "o");
-		mangleType(buffer, type->optional.elementType, isGenericInstance, genericArgs, numGenericArgs);
+		mangleType(buffer, type->optional.elementType);
 		break;
 	case TYPE_REFERENCE:
 		strcat(buffer, "R");
-		mangleType(buffer, type->reference.elementType, isGenericInstance, genericArgs, numGenericArgs);
+		mangleType(buffer, type->reference.elementType);
 		break;
 	case TYPE_FUNCTION:
 		strcat(buffer, "F");
 		sprintf(buffer + strlen(buffer), "%d", type->function.numParams);
 		for (int i = 0; i < type->function.numParams; i++)
-			mangleType(buffer, type->function.paramTypes[i], isGenericInstance, genericArgs, numGenericArgs);
+			mangleType(buffer, type->function.paramTypes[i]);
 		if (type->function.returnType)
 		{
 			strcat(buffer, "_");
-			mangleType(buffer, type->function.returnType, isGenericInstance, genericArgs, numGenericArgs);
+			mangleType(buffer, type->function.returnType);
 		}
 		break;
 	case TYPE_ARRAY:
 		strcat(buffer, "A");
 		sprintf(buffer + strlen(buffer), "%llu", type->array.size);
-		mangleType(buffer, type->array.elementType, isGenericInstance, genericArgs, numGenericArgs);
+		mangleType(buffer, type->array.elementType);
 		break;
 	case TYPE_TYPE:
 		strcat(buffer, "T");
@@ -636,7 +642,7 @@ Type* getPointerType(TypeSystem* types, Type* elementType, File* file)
 		type->name = createTypeString(arena, "%.*s*", elementType->name.length, elementType->name.ptr);
 
 		char buffer[256] = "";
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -665,7 +671,7 @@ Type* getOptionalType(TypeSystem* types, Type* elementType, File* file)
 		type->name = createTypeString(arena, "%.*s?", elementType->name.length, elementType->name.ptr);
 
 		char buffer[256] = "";
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -694,7 +700,7 @@ Type* getReferenceType(TypeSystem* types, Type* elementType, File* file)
 		type->name = createTypeString(arena, "ref %.*s", elementType->name.length, elementType->name.ptr);
 
 		char buffer[256] = "";
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -729,7 +735,7 @@ Type* getAnonymousStructType(TypeSystem* types, int numElements, Type** fieldTyp
 		type->name = createTypeString(arena, "<struct>");
 
 		char buffer[256] = "";
-		mangleStructType(buffer, type, false, nullptr, 0);
+		mangleStructType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -764,7 +770,7 @@ Type* getAnonymousUnionType(TypeSystem* types, int numElements, Type** fieldType
 		type->name = createTypeString(arena, "<union>");
 
 		char buffer[256] = "";
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -815,7 +821,7 @@ Type* getFunctionType(TypeSystem* types, Type* returnType, int numParams, Type**
 		type->name = createTypeString(arena, "%s", buffer);
 
 		buffer[0] = 0;
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -848,7 +854,7 @@ Type* getArrayType(TypeSystem* types, Type* elementType, uint64_t size, File* fi
 			type->name = createTypeString(arena, "%.*s[]", elementType->name.length, elementType->name.ptr);
 
 		char buffer[256] = "";
-		mangleType(buffer, type, false, nullptr, 0);
+		mangleType(buffer, type);
 		type->mangledName = copy(CreateString(buffer), arena);
 	}
 
@@ -862,6 +868,9 @@ Type* createNamedStructType(File* file, StringView name, Struct* declaration, bo
 	Type key = {};
 	key.typeKind = TYPE_STRUCT;
 	key.struct_.name = name;
+	key.struct_.isGenericInstance = isGenericInstance;
+	key.struct_.genericArgs = genericArgs;
+	key.struct_.numGenericArgs = numGenericArgs;
 
 	TypeTable* typeTable = &file->typeTable;
 	Arena* arena = &file->arena;
@@ -876,7 +885,7 @@ Type* createNamedStructType(File* file, StringView name, Struct* declaration, bo
 	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
 
 	char buffer[256] = "";
-	mangleStructType(buffer, type, isGenericInstance, genericArgs, numGenericArgs);
+	mangleStructType(buffer, type);
 
 	type->mangledName = copy(CreateString(buffer), arena);
 	SnekAssert(type->mangledName.length > 0 && type->mangledName.ptr[0]);
@@ -914,7 +923,7 @@ Type* createNamedUnionType(File* file, StringView name, Union* declaration)
 	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
 
 	char buffer[256] = "";
-	mangleType(buffer, type, false, nullptr, 0);
+	mangleType(buffer, type);
 	type->mangledName = copy(CreateString(buffer), arena);
 
 	return type;
@@ -947,7 +956,7 @@ Type* createEnumType(File* file, StringView name, Type* valueType, Enum* declara
 	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
 
 	char buffer[256] = "";
-	mangleType(buffer, type, false, nullptr, 0);
+	mangleType(buffer, type);
 	type->mangledName = copy(CreateString(buffer), arena);
 
 	return type;
@@ -977,7 +986,7 @@ Type* createAliasType(File* file, StringView name, Typedef* declaration)
 	type->name = createTypeString(arena, "%.*s", name.length, name.ptr);
 
 	char buffer[256] = "";
-	mangleType(buffer, type, false, nullptr, 0);
+	mangleType(buffer, type);
 	type->mangledName = copy(CreateString(buffer), arena);
 
 	return type;

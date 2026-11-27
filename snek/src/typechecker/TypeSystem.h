@@ -29,6 +29,9 @@ struct Type
 			int* fieldOffsets;
 			Type* parentType;
 			int numVirtuals;
+			bool isGenericInstance;
+			Type** genericArgs;
+			int numGenericArgs;
 			Struct* declaration;
 		} struct_;
 

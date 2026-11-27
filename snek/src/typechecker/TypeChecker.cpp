@@ -107,6 +107,23 @@ static void error(TypeChecker* tc, StringView str, const char* fmt, ...)
 	logMessage(tc->diagnostics, msg, start.line, start.col, end.line, end.col, DIAGNOSTICS_ERROR);
 }
 
+template<typename T>
+static T* copyFromScratchBuffer(TypeChecker* tc, int mark, int* outCount)
+{
+	T* nodes = nullptr;
+
+	int count = tc->scratch->count<T>(mark);
+	if (count > 0)
+	{
+		nodes = tc->arena->alloc<T>(count);
+		memcpy(nodes, tc->scratch->memory + mark, count * sizeof(T));
+	}
+
+	*outCount = count;
+
+	return nodes;
+}
+
 static int charToDigit(char c)
 {
 	if (c >= '0' && c <= '9') return c - '0';
@@ -596,11 +613,14 @@ static Type* resolveType(TypeChecker* tc, TypeNode* type)
 						tc->scratch->add(genericArg);
 					}
 
-					Type** genericArgs = tc->scratch->getData<Type*>(mark);
+					int numGenericArgs;
+					Type** genericArgs = copyFromScratchBuffer<Type*>(tc, mark, &numGenericArgs);
+
+					Type* genericInstance = instantiateGenericType(tc, struct_, genericArgs, numGenericArgs);
 
 					tc->scratch->release(mark);
 
-					return type->inferredType = instantiateGenericType(tc, struct_, genericArgs, namedType->numGenericArgs);
+					return type->inferredType = genericInstance;
 				}
 				else
 				{
